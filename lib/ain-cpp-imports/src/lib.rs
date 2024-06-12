@@ -29,6 +29,21 @@ mod ffi {
         pub entry_time: i64,
     }
 
+    pub enum SystemTxType {
+        EVMTx,
+        TransferDomainIn,
+        TransferDomainOut,
+        DST20BridgeIn,
+        DST20BridgeOut,
+        DeployContract,
+        UpdateContractName,
+    }
+
+    pub struct SystemTxData {
+        pub tx_type: SystemTxType,
+        pub token: DST20Token,
+    }
+
     pub struct TokenAmount {
         pub id: u32,
         pub amount: u64,
@@ -57,6 +72,9 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getEthMaxResponseByteSize() -> u32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getEthTracingMaxMemoryUsageBytes() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getSuggestedPriorityFeePercentile() -> i64 {
@@ -132,6 +150,9 @@ mod ffi {
     pub fn isEthDebugTraceRPCEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEVMSystemTxsFromBlock(_block_hash: [u8; 32]) -> Vec<SystemTxData> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getDF23Height() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -145,6 +166,8 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
+pub use ffi::SystemTxData;
+pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;
 
 /// Returns the chain ID of the current network.
@@ -203,6 +226,12 @@ pub fn print_port_usage(port_type: u8, port_number: u16) {
 /// Gets the maximum response size in bytes for Ethereum RPC calls.
 pub fn get_max_response_byte_size() -> u32 {
     ffi::getEthMaxResponseByteSize()
+}
+
+/// Gets the maxmimum raw memory usage that a raw tracing request is allowed to use.
+/// Bound the size of memory, stack and storage data.
+pub fn get_tracing_raw_max_memory_usage_bytes() -> u32 {
+    ffi::getEthTracingMaxMemoryUsageBytes()
 }
 
 /// Gets the suggested priority fee percentile for suggested gas price Ethereum RPC calls.
@@ -327,6 +356,10 @@ pub fn is_eth_debug_rpc_enabled() -> bool {
 /// Whether debug_traceTransaction RPC is enabled
 pub fn is_eth_debug_trace_rpc_enabled() -> bool {
     ffi::isEthDebugTraceRPCEnabled()
+}
+
+pub fn get_evm_system_txs_from_block(block_hash: [u8; 32]) -> Vec<ffi::SystemTxData> {
+    ffi::getEVMSystemTxsFromBlock(block_hash)
 }
 
 /// Gets the DF23 height

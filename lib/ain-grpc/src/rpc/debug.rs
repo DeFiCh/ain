@@ -5,6 +5,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     storage::traits::{ReceiptStorage, TransactionStorage},
+    trace::types::single::TransactionTrace,
     transaction::SignedTx,
 };
 use ethereum_types::{H256, U256};
@@ -14,7 +15,7 @@ use log::debug;
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
-    transaction::{TraceLogs, TraceTransactionResult},
+    trace::{handle_trace_params, TraceParams},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -28,7 +29,11 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
+    fn trace_transaction(
+        &self,
+        tx_hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<TransactionTrace>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -61,39 +66,47 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+    /// Replays a transaction in the Runtime at a given block height.
+    /// In order to succesfully reproduce the result of the original transaction we need a correct
+    /// state to replay over.
+    fn trace_transaction(
+        &self,
+        tx_hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<TransactionTrace> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
-        debug!(target: "rpc", "Tracing transaction {tx_hash}");
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
+        // Get signed tx
         let receipt = self
             .handler
             .storage
             .get_receipt(&tx_hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::ReceiptNotFound(tx_hash))?;
-
         let tx = self
             .handler
             .storage
             .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
             .map_err(RPCError::EvmError)?
             .ok_or(RPCError::TxNotFound(tx_hash))?;
-
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
-        let (logs, succeeded, return_data, gas_used) = self
-            .handler
-            .core
-            .call_with_tracer(&signed_tx, receipt.block_number)
-            .map_err(RPCError::EvmError)?;
-        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
-        Ok(TraceTransactionResult {
-            gas: U256::from(gas_used),
-            failed: !succeeded,
-            return_value: hex::encode(return_data).to_string(),
-            struct_logs: trace_logs,
-        })
+        Ok(self
+            .handler
+            .tracer
+            .trace_transaction(
+                &signed_tx,
+                receipt.block_number,
+                params,
+                raw_max_memory_usage,
+            )
+            .map_err(RPCError::EvmError)?)
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
