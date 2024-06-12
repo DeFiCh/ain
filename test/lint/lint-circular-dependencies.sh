@@ -86,7 +86,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/validation -> dfi/mn_rpc"
     "dfi/validation -> validation -> dfi/validation"
     "dfi/validation -> ffi/ffiexports -> dfi/validation"
-    "node/transaction -> validation -> rpc/resultcache -> rpc/util -> node/transaction"
     "miner -> wallet/wallet -> policy/fees -> miner"
     "net_processing -> validation -> net_processing"
     "policy/fees -> txmempool -> policy/fees"
