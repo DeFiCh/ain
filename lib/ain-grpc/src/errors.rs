@@ -23,6 +23,7 @@ pub enum RPCError {
     RevertError(String, String),
     StateRootNotFound,
     TraceNotEnabled,
+    TracingParamError([u8; 16]),
     TxExecutionFailed,
     TxNotFound(H256),
     ValueOverflow,
@@ -68,6 +69,10 @@ impl From<RPCError> for Error {
             }
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
             RPCError::TraceNotEnabled => to_custom_err("debug_trace* RPCs have not been enabled"),
+            RPCError::TracingParamError(hash) => Error::Custom(format!(
+                "javascript based tracing is not available (hash :{:?})",
+                hash
+            )),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::TxNotFound(hash) => Error::Custom(format!(
                 "could not find transaction for transaction hash {:#?}",

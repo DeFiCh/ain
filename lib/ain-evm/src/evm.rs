@@ -9,7 +9,8 @@ use ain_cpp_imports::{get_df23_height, Attributes};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
-use log::{debug, trace};
+use log::{debug, info, trace};
+use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -25,7 +26,7 @@ use crate::{
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
-    executor::{AinExecutor, ExecuteTx},
+    executor::AinExecutor,
     filters::FilterService,
     log::LogService,
     receipt::ReceiptService,
@@ -34,8 +35,9 @@ use crate::{
         Storage,
     },
     subscription::{Notification, SubscriptionService},
-    transaction::{cache::TransactionCache, SignedTx},
-    trie::GENESIS_STATE_ROOT,
+    trace::service::TracerService,
+    transaction::{cache::TransactionCache, system::ExecuteTx, SignedTx},
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
 
@@ -46,6 +48,7 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub subscriptions: SubscriptionService,
+    pub tracer: TracerService,
     pub storage: Arc<Storage>,
     pub tx_cache: Arc<TransactionCache>,
 }
@@ -72,6 +75,13 @@ pub struct BlockContext {
     pub attrs: Attributes,
 }
 
+fn init_vsdb(path: PathBuf) {
+    info!(target: "vsdb", "Initializating VSDB");
+    let vsdb_dir_path = path.join(".vsdb");
+    vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
+    info!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
+}
+
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -94,6 +104,7 @@ impl EVMServices {
         if !path.exists() {
             std::fs::create_dir(&path)?;
         }
+        init_vsdb(path.clone());
 
         if let Some(state_input_path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
@@ -102,33 +113,46 @@ impl EVMServices {
                 )
                 .into());
             }
+
+            // Init storage
+            let trie_store = Arc::new(TrieDBStore::new());
             let storage = Arc::new(Storage::new(&path)?);
             let tx_cache = Arc::new(TransactionCache::new());
+
             Ok(Self {
                 core: EVMCoreService::new_from_json(
+                    Arc::clone(&trie_store),
                     Arc::clone(&storage),
                     Arc::clone(&tx_cache),
                     PathBuf::from(state_input_path),
-                    path,
                 )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 subscriptions: SubscriptionService::new(),
+                tracer: TracerService::new(Arc::clone(&trie_store), Arc::clone(&storage)),
                 storage,
                 tx_cache,
             })
         } else {
+            // Init storage
+            let trie_store = Arc::new(TrieDBStore::restore());
             let storage = Arc::new(Storage::restore(&path)?);
             let tx_cache = Arc::new(TransactionCache::new());
+
             Ok(Self {
-                core: EVMCoreService::restore(Arc::clone(&storage), Arc::clone(&tx_cache), path),
+                core: EVMCoreService::restore(
+                    Arc::clone(&trie_store),
+                    Arc::clone(&storage),
+                    Arc::clone(&tx_cache),
+                ),
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 subscriptions: SubscriptionService::new(),
+                tracer: TracerService::new(Arc::clone(&trie_store), Arc::clone(&storage)),
                 storage,
                 tx_cache,
             })
@@ -161,7 +185,7 @@ impl EVMServices {
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> = Vec::with_capacity(txs_len);
         let mut total_gas_fees = U256::zero();
 
-        debug!("[construct_block] vicinity: {:?}", template.vicinity);
+        trace!("[construct_block] vicinity: {:?}", template.vicinity);
 
         let mut executor = AinExecutor::new(&mut template.backend);
         for template_tx in template.transactions.clone() {
@@ -179,11 +203,11 @@ impl EVMServices {
         let total_priority_fees = total_gas_fees
             .checked_sub(total_burnt_fees)
             .ok_or_else(|| format_err!("total_priority_fees underflow"))?;
-        debug!(
+        trace!(
             "[construct_block] Total burnt fees : {:#?}",
             total_burnt_fees
         );
-        debug!(
+        trace!(
             "[construct_block] Total priority fees : {:#?}",
             total_priority_fees
         );
@@ -274,7 +298,7 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
-        match executor.execute_tx(tx, base_fee, &template.ctx) {
+        match executor.execute_tx(tx, base_fee, Some(&template.ctx)) {
             Ok(apply_tx) => {
                 EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
                 template.backend.increase_tx_count();
@@ -311,7 +335,7 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut template.backend);
         let base_fee = template.vicinity.block_base_fee_per_gas;
-        debug!(
+        trace!(
             "[update_state_in_block_template] Block base fee: {}",
             base_fee
         );
@@ -433,7 +457,7 @@ impl EVMServices {
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(template.ctx.mnview_ptr)?;
             for exec_tx in migration_txs.clone() {
-                let apply_result = executor.execute_tx(exec_tx, base_fee, &template.ctx)?;
+                let apply_result = executor.execute_tx(exec_tx, base_fee, Some(&template.ctx))?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,

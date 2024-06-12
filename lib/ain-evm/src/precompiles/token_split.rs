@@ -9,7 +9,7 @@ use evm::{
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput},
     ExitError, ExitSucceed,
 };
-use log::debug;
+use log::trace;
 
 use super::DVMStatePrecompile;
 use crate::{
@@ -27,7 +27,6 @@ impl TokenSplit {
 
 impl DVMStatePrecompile for TokenSplit {
     fn execute(handle: &mut impl PrecompileHandle, mnview_ptr: usize) -> PrecompileResult {
-        debug!("[TokenSplit]");
         handle.record_cost(TokenSplit::GAS_COST)?;
 
         let input = handle.input();
@@ -41,7 +40,7 @@ impl DVMStatePrecompile for TokenSplit {
             exit_status: ExitError::Other(e.to_string().into()),
         })?;
 
-        debug!("[TokenSplit] sender {sender:x}, original_contract {original_contract:x}, input_amount : {input_amount:x}");
+        trace!("[TokenSplit] sender {sender:x}, original_contract {original_contract:x}, input_amount : {input_amount:x}");
 
         let Ok(amount) = WeiAmount(input_amount).to_satoshi() else {
             return Err(PrecompileFailure::Error {
@@ -64,7 +63,6 @@ impl DVMStatePrecompile for TokenSplit {
             id: old_token_id,
             amount: amount.low_u64(),
         };
-        debug!("[TokenSplit] old_amount : {:?}", old_amount);
 
         let mut new_amount = TokenAmount { id: 0, amount: 0 };
         let res = split_tokens_from_evm(mnview_ptr, old_amount, &mut new_amount);
