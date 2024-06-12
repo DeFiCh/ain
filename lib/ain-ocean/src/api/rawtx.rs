@@ -28,18 +28,16 @@ use crate::{
 async fn send_rawtx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
-) -> Result<Response<String>> {
-    let max_fee = default_max_fee_rate();
-    if raw_tx_dto.max_fee_rate.is_some() {
-        let fees = raw_tx_dto
-            .max_fee_rate
-            .and_then(Decimal::from_u64)
-            .map(|d| d.to_u64())
-            .flatten();
+) -> Result<String> {
+    let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
+    if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
+        let sat_per_bitcoin = Decimal::new(100_000_000, 0);
+        let fee_in_satoshis = fee_rate * sat_per_bitcoin;
+        max_fee = fee_in_satoshis.round().to_u64();
     }
     let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
     match ctx.client.send_raw_transaction(trx, max_fee).await {
-        Ok(tx_hash) => Ok(Response::new(tx_hash.to_string())),
+        Ok(tx_hash) => Ok(tx_hash.to_string()),
         Err(e) => {
             eprintln!("Failed to send raw transaction: {:?}", e);
             Err(Error::RpcError(e))
@@ -52,15 +50,12 @@ async fn test_rawtx(
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<Response<Vec<MempoolAcceptResult>>> {
     let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
-    let max_fee = default_max_fee_rate();
-    if raw_tx_dto.max_fee_rate.is_some() {
-        let fees = raw_tx_dto
-            .max_fee_rate
-            .and_then(Decimal::from_u64)
-            .map(|d| d.to_u64())
-            .flatten();
+    let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
+    if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
+        let sat_per_bitcoin = Decimal::new(100_000_000, 0);
+        let fee_in_satoshis = fee_rate * sat_per_bitcoin;
+        max_fee = fee_in_satoshis.round().to_u64();
     }
-
     match ctx.client.test_mempool_accept(&[trx], max_fee).await {
         Ok(mempool_tx) => {
             let results = mempool_tx
@@ -84,13 +79,11 @@ async fn test_rawtx(
 
 #[ocean_endpoint]
 async fn get_raw_tx(
-    Path(txid): Path<String>,
+    Path((txid, verbose)): Path<(String, bool)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<RawTransaction>> {
-    format!("Details of raw transaction with txid {}", txid);
     let tx_hash = Txid::from_str(&txid)?;
-    let tx_result = ctx.client.get_transaction(&tx_hash, Some(true)).await?;
-    println!("the txid : {:?}", tx_result);
+    let tx_result = ctx.client.get_transaction(&tx_hash, Some(verbose)).await?;
     let details: Vec<TransctionDetails> = tx_result
         .details
         .into_iter()

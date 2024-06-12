@@ -8,14 +8,12 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct RawTxDto {
     pub hex: String,
-    #[serde(default = "default_max_fee_rate")]
-    pub max_fee_rate: Option<u64>,
+    pub max_fee_rate: Option<Decimal>,
 }
 
-pub fn default_max_fee_rate() -> Option<u64> {
-    let default_max_fee_rate = Decimal::from_str("0.1").expect("Invalid decimal");
-    let default_fee = default_max_fee_rate.to_u64();
-    default_fee
+pub fn default_max_fee_rate() -> Option<Amount> {
+    let default_max_fee_rate = Amount::from_btc(0.1).unwrap_or_default();
+    Some(default_max_fee_rate)
 }
 
 #[derive(Serialize, Deserialize, Debug)]
