@@ -329,8 +329,8 @@ private:
         NetPermissionFlags m_permissions;
     };
 
-    bool BindListenPort(const CService& bindAddr, std::string& strError, NetPermissionFlags permissions);
-    bool Bind(const CService& addr, unsigned int flags, NetPermissionFlags permissions);
+    bool BindListenPort(const CService& bindAddr, std::string& strError, NetPermissionFlags permissions, std::optional<uint16_t> &actualBoundPort);
+    bool Bind(const CService& addr, unsigned int flags, NetPermissionFlags permissions, std::optional<uint16_t> &actualBoundPort);
     bool InitBinds(const std::vector<CService>& binds, const std::vector<NetWhitebindPermissions>& whiteBinds);
     void ThreadOpenAddedConnections();
     void AddOneShot(const std::string& strDest);

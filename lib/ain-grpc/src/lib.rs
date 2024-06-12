@@ -73,7 +73,8 @@ pub fn init_services() {
 }
 
 pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
-    info!("Starting JSON RPC server at {}", addr);
+    info!("Init rs rpc services");
+
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
@@ -102,6 +103,11 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
             .custom_tokio_runtime(handle)
             .build(addr),
     )?;
+
+    let local_addr = server.local_addr()?;
+    info!("Starting JSON Eth RPC server at {}", local_addr);
+    ain_cpp_imports::print_port_usage(2, local_addr.port());
+
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
     methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
@@ -123,7 +129,8 @@ pub fn init_network_grpc_service(_addr: String) -> Result<()> {
 }
 
 pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
-    info!("Starting WebSockets server at {}", addr);
+    info!("Init rs ws services");
+
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
@@ -138,6 +145,11 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
             .set_id_provider(MetachainSubIdProvider)
             .build(addr),
     )?;
+
+    let local_addr = server.local_addr()?;
+    info!("Starting ws server at {}", local_addr);
+    ain_cpp_imports::print_port_usage(3, local_addr.port());
+
     let mut methods: Methods = Methods::new();
     methods.merge(
         MetachainPubSubModule::new(Arc::clone(&runtime.evm), runtime.tokio_runtime.clone())
