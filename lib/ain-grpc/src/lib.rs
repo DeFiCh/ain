@@ -72,6 +72,8 @@ pub fn init_services() {
 }
 
 pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
+    info!("Init rs rpc services");
+
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
@@ -126,6 +128,8 @@ pub fn init_network_grpc_service(_addr: String) -> Result<()> {
 }
 
 pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
+    info!("Init rs ws services");
+
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
@@ -142,7 +146,7 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
     )?;
 
     let local_addr = server.local_addr()?;
-    info!("Starting WebSockets server at {}", local_addr);
+    info!("Starting ws server at {}", local_addr);
     ain_cpp_imports::print_port_usage(3, local_addr.port());
 
     let mut methods: Methods = Methods::new();

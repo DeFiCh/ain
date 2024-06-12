@@ -956,7 +956,7 @@ uint16_t GetAndPrintActualPort(const SOCKET hSocket, const bool printPort, AutoP
         if (printPort) {
             PrintPortUsage(type, actualPort);
         }
-        LogPrintf("%s port bound to %s:%d\n", typeStr, address, actualPort);
+        LogPrintf("Socket: %s port bound to %s:%d\n", typeStr, address, actualPort);
     } else {
         LogPrintf("Error getting %s socket.\n", typeStr);
     }
