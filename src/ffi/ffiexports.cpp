@@ -310,7 +310,7 @@ uint32_t getEthMaxConnections() {
 }
 
 void printEVMPortUsage(const uint8_t portType, const uint16_t portNumber) {
-    return PrintPortUsage(static_cast<AutoPort>(portType), portNumber);
+    return SetPortToLockFile(static_cast<AutoPort>(portType), portNumber);
 }
 
 uint32_t getEthMaxResponseByteSize() {

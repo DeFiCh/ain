@@ -217,7 +217,7 @@ static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& cate
 }
 
 uint16_t GetPortFromLockFile(const AutoPort type);
-void PrintPortUsage(const AutoPort portType, const uint16_t portNumber);
+void SetPortToLockFile(const AutoPort portType, const uint16_t portNumber);
 void RemovePortUsage();
 
 #endif // DEFI_LOGGING_H

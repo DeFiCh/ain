@@ -364,7 +364,7 @@ uint16_t GetPortFromLockFile(const AutoPort type)
     return 0;
 }
 
-void PrintPortUsage(const AutoPort portType, const uint16_t portNumber)
+void SetPortToLockFile(const AutoPort portType, const uint16_t portNumber)
 {
     // Skip if ports are not set to auto.
     if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort != "auto") {

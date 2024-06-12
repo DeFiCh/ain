@@ -954,7 +954,7 @@ uint16_t GetAndPrintActualPort(const SOCKET hSocket, const bool printPort, AutoP
     const auto actualPort = GetActualPort(hSocket);
     if (actualPort) {
         if (printPort) {
-            PrintPortUsage(type, actualPort);
+            SetPortToLockFile(type, actualPort);
         }
         LogPrintf("Socket: %s port bound to %s:%d\n", typeStr, address, actualPort);
     } else {
