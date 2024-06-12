@@ -29,6 +29,7 @@ async fn send_rawtx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<String> {
+    validate(raw_tx_dto.hex.clone()).await;
     let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
     if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
         let sat_per_bitcoin = Decimal::new(100_000_000, 0);
