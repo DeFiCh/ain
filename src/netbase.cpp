@@ -931,3 +931,34 @@ void InterruptSocks5(bool interrupt)
 {
     interruptSocks5Recv = interrupt;
 }
+
+static uint16_t GetActualPort(const SOCKET hSocket)
+{
+    uint16_t actualPort{};
+    struct sockaddr_storage ss;
+    socklen_t boundLen = sizeof(ss);
+    if (getsockname(hSocket, reinterpret_cast<struct sockaddr*>(&ss), &boundLen) == 0) {
+        if (ss.ss_family == AF_INET) {
+            const auto sin = reinterpret_cast<sockaddr_in*>(&ss);
+            actualPort = ntohs(sin->sin_port);
+        } else if (ss.ss_family == AF_INET6) {
+            const auto sin6 = reinterpret_cast<sockaddr_in6*>(&ss);
+            actualPort = ntohs(sin6->sin6_port);
+        }
+    }
+    return actualPort;
+}
+
+uint16_t GetAndPrintActualPort(const SOCKET hSocket, const bool printPort, AutoPort type, const std::string &address) {
+    std::string typeStr = type == AutoPort::RPC ? "RPC" : "P2P";
+    const auto actualPort = GetActualPort(hSocket);
+    if (actualPort) {
+        if (printPort) {
+            SetPortToLockFile(type, actualPort);
+        }
+        LogPrintf("Socket: %s port bound to %s:%d\n", typeStr, address, actualPort);
+    } else {
+        LogPrintf("Error getting %s socket.\n", typeStr);
+    }
+    return actualPort;
+}

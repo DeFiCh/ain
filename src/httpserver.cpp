@@ -303,6 +303,10 @@ static bool HTTPBindAddresses(struct evhttp* http)
     int http_port = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
     std::vector<std::pair<std::string, uint16_t> > endpoints;
 
+    if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
+        http_port = 0;
+    }
+
     // Determine what addresses to bind to
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-rpcbind"))) { // Default to loopback if not allowing external IPs
         endpoints.push_back(std::make_pair("::1", http_port));
@@ -322,18 +326,27 @@ static bool HTTPBindAddresses(struct evhttp* http)
         }
     }
 
+    int autoHTTPPort{};
+
     // Bind addresses
-    for (std::vector<std::pair<std::string, uint16_t> >::iterator i = endpoints.begin(); i != endpoints.end(); ++i) {
-        LogPrint(BCLog::HTTP, "Binding RPC on address %s port %i\n", i->first, i->second);
-        evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, i->first.empty() ? nullptr : i->first.c_str(), i->second);
+    for (auto &[address, port] : endpoints) {
+        if (!http_port && autoHTTPPort) {
+            port = autoHTTPPort;
+        }
+        evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, address.empty() ? nullptr : address.c_str(), port);
         if (bind_handle) {
             CNetAddr addr;
-            if (i->first.empty() || (LookupHost(i->first.c_str(), addr, false) && addr.IsBindAny())) {
+            if (address.empty() || (LookupHost(address.c_str(), addr, false) && addr.IsBindAny())) {
                 LogPrintf("WARNING: the RPC server is not safe to expose to untrusted networks such as the public internet\n");
             }
+
+            // Retrieve the actual bound address and port
+            auto fd = evhttp_bound_socket_get_fd(bind_handle);
+            autoHTTPPort = GetAndPrintActualPort(fd, autoHTTPPort == 0, AutoPort::RPC, address);
+
             boundSockets.push_back(bind_handle);
         } else {
-            LogPrintf("Binding RPC on address %s port %i failed.\n", i->first, i->second);
+            LogPrintf("Binding RPC on address %s port %i failed.\n", address, port);
         }
     }
     return !boundSockets.empty();
