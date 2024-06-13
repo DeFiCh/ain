@@ -159,6 +159,7 @@ DEFI_CORE_H = \
   logging.h \
   ffi/ffiexports.h \
   ffi/ffihelpers.h \
+  ffi/ffiocean.h \
   dfi/accounts.h \
   dfi/accountshistory.h \
   dfi/anchors.h \
@@ -410,6 +411,7 @@ libdefi_server_a_SOURCES = \
   init.cpp \
   dbwrapper.cpp \
   ffi/ffiexports.cpp \
+  ffi/ffiocean.cpp \
   dfi/accounts.cpp \
   dfi/accountshistory.cpp \
   dfi/anchors.cpp \

@@ -15,28 +15,30 @@ use defichain_rpc::{
 };
 use futures::future::try_join_all;
 use path::{
-    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths, get_token_identifier,
-    sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+    get_all_swap_paths, get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse,
     SwapPathsResponse,
 };
 use petgraph::graphmap::UnGraphMap;
 use price::DexPriceResponse;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
+use serde_with::skip_serializing_none;
+use service::{
+    check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
+    get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
+};
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached},
-    common::{format_number, parse_dat_symbol},
+    common::parse_dat_symbol,
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error},
+    error::{ApiError, Error, NotFoundKind},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps, SecondaryIndex},
     storage::SortOrder,
@@ -63,15 +65,7 @@ struct DexPrices {
     denomination: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PoolSwapFromToResponse {
-    address: String,
-    amount: String,
-    // symbol: String,
-    // display_symbol: String,
-}
-
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwapVerboseResponse {
@@ -83,35 +77,30 @@ pub struct PoolSwapVerboseResponse {
     from_amount: String,
     from_token_id: u64,
     block: BlockContext,
-    from: PoolSwapFromToResponse,
-    to: PoolSwapFromToResponse,
-    // type: todo()!
+    from: Option<PoolSwapFromToData>,
+    to: Option<PoolSwapFromToData>,
+    r#type: Option<SwapType>,
 }
 
-impl From<PoolSwap> for PoolSwapVerboseResponse {
-    fn from(v: PoolSwap) -> Self {
+impl PoolSwapVerboseResponse {
+    fn map(
+        v: PoolSwap,
+        from: Option<PoolSwapFromToData>,
+        to: Option<PoolSwapFromToData>,
+        swap_type: Option<SwapType>,
+    ) -> Self {
         Self {
             id: v.id,
             sort: v.sort,
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
-            from_amount: v.from_amount.to_string(),
+            from_amount: Decimal::new(v.from_amount, 8).to_string(),
             from_token_id: v.from_token_id,
-            from: PoolSwapFromToResponse {
-                address: v.from.to_hex_string(),
-                amount: v.from_amount.to_string(),
-                // symbol: todo!(),
-                // display_symbol: todo!(),
-            },
-            to: PoolSwapFromToResponse {
-                address: v.to.to_hex_string(),
-                amount: v.to_amount.to_string(),
-                // symbol: todo!(),
-                // display_symbol: todo!(),
-            },
+            from,
+            to,
             block: v.block,
-            // type: todo!(),
+            r#type: swap_type,
         }
     }
 }
@@ -137,7 +126,7 @@ impl From<PoolSwap> for PoolSwapResponse {
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
-            from_amount: v.from_amount.to_string(),
+            from_amount: Decimal::new(v.from_amount, 8).to_string(),
             from_token_id: v.from_token_id,
             block: v.block,
         }
@@ -190,12 +179,6 @@ pub struct PoolPairAprResponse {
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct PoolPairVolumeResponse {
-    d30: f64,
-    h24: f64,
-}
-
-#[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolPairResponse {
     id: String,
@@ -214,8 +197,8 @@ pub struct PoolPairResponse {
     reward_loan_pct: String,
     custom_rewards: Option<Vec<String>>,
     creation: PoolPairCreationResponse,
-    apr: Option<PoolPairAprResponse>,
-    volume: Option<PoolPairVolumeResponse>,
+    apr: PoolPairAprResponse,
+    volume: PoolPairVolumeResponse,
 }
 
 impl PoolPairResponse {
@@ -225,6 +208,8 @@ impl PoolPairResponse {
         a_token_name: String,
         b_token_name: String,
         total_liquidity_usd: Decimal,
+        apr: PoolPairAprResponse,
+        volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts)
@@ -245,7 +230,7 @@ impl PoolPairResponse {
                 name: a_token_name,
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
-                fee: p.dex_fee_in_pct_token_a.map(|_| PoolPairFeeResponse {
+                fee: p.dex_fee_pct_token_a.map(|_| PoolPairFeeResponse {
                     pct: p.dex_fee_pct_token_a.map(|fee| fee.to_string()),
                     in_pct: p.dex_fee_in_pct_token_a.map(|fee| fee.to_string()),
                     out_pct: p.dex_fee_out_pct_token_a.map(|fee| fee.to_string()),
@@ -258,7 +243,7 @@ impl PoolPairResponse {
                 name: b_token_name,
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
-                fee: p.dex_fee_in_pct_token_b.map(|_| PoolPairFeeResponse {
+                fee: p.dex_fee_pct_token_b.map(|_| PoolPairFeeResponse {
                     pct: p.dex_fee_pct_token_b.map(|fee| fee.to_string()),
                     in_pct: p.dex_fee_in_pct_token_b.map(|fee| fee.to_string()),
                     out_pct: p.dex_fee_out_pct_token_b.map(|fee| fee.to_string()),
@@ -282,8 +267,8 @@ impl PoolPairResponse {
                 tx: p.creation_tx,
                 height: p.creation_height,
             },
-            apr: None,    // todo: await this.poolPairService.getAPR(id, info)
-            volume: None, // todo: await this.poolPairService.getUSDVolume(id)
+            apr,
+            volume,
         })
     }
 }
@@ -328,13 +313,16 @@ async fn list_pool_pairs(
                 .ok_or(format_err!("None is not valid"))?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
-            let _apr = get_apr(&ctx, &id, &p).await?;
+            let apr = get_apr(&ctx, &id, &p).await?;
+            let volume = get_usd_volume(&ctx, &id).await?;
             let res = PoolPairResponse::from_with_id(
                 id,
                 p,
                 a_token_name,
                 b_token_name,
                 total_liquidity_usd,
+                apr,
+                volume,
             )?;
             Ok::<PoolPairResponse, Error>(res)
         })
@@ -354,7 +342,8 @@ async fn get_pool_pair(
 ) -> Result<Response<Option<PoolPairResponse>>> {
     if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
         let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
-        let _apr = get_apr(&ctx, &id, &pool).await?;
+        let apr = get_apr(&ctx, &id, &pool).await?;
+        let volume = get_usd_volume(&ctx, &id).await?;
         let (
             _,
             TokenInfo {
@@ -377,11 +366,13 @@ async fn get_pool_pair(
             a_token_name,
             b_token_name,
             total_liquidity_usd,
+            apr,
+            volume,
         )?;
         return Ok(Response::new(Some(res)));
     };
 
-    Ok(Response::new(None))
+    Err(Error::NotFound(NotFoundKind::PoolPair))
 }
 
 #[ocean_endpoint]
@@ -453,9 +444,9 @@ async fn list_pool_swaps_verbose(
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));
 
-    let size = if query.size > 200 { 200 } else { query.size };
+    let size = if query.size > 20 { 20 } else { query.size };
 
-    let swaps = ctx
+    let fut = ctx
         .services
         .pool
         .by_id
@@ -465,11 +456,19 @@ async fn list_pool_swaps_verbose(
             Ok((k, _)) => k.0 == id,
             _ => true,
         })
-        .map(|item| {
+        .map(|item| async {
             let (_, swap) = item?;
-            Ok(PoolSwapVerboseResponse::from(swap))
+            let from = find_swap_from(&ctx, swap.clone()).await?;
+            let to = find_swap_to(&ctx, swap.clone()).await?;
+
+            let swap_type = check_swap_type(&ctx, swap.clone()).await?;
+
+            let res = PoolSwapVerboseResponse::map(swap, from, to, swap_type);
+            Ok::<PoolSwapVerboseResponse, Error>(res)
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
+
+    let swaps = try_join_all(fut).await?;
 
     Ok(ApiPagedResponse::of(swaps, query.size, |swap| {
         swap.sort.to_string()
@@ -614,50 +613,8 @@ async fn get_best_path(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<BestSwapPathResponse>> {
-    let SwapPathsResponse {
-        from_token,
-        to_token,
-        paths,
-    } = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
-
-    let mut best_path = Vec::<SwapPathPoolPair>::new();
-    let mut best_return = dec!(0);
-    let mut best_return_less_dex_fees = dec!(0);
-
-    for path in paths {
-        let path_len = path.len();
-        let EstimatedLessDexFeeInfo {
-            estimated_return,
-            estimated_return_less_dex_fees,
-        } = compute_return_less_dex_fees_in_destination_token(&path, &from_token_id).await?;
-
-        if path_len == 1 {
-            return Ok(Response::new(BestSwapPathResponse {
-                from_token,
-                to_token,
-                best_path: path,
-                estimated_return: format_number(estimated_return),
-                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
-            }));
-        };
-
-        if estimated_return > best_return {
-            best_return = estimated_return;
-        }
-
-        if estimated_return_less_dex_fees > best_return_less_dex_fees {
-            best_return_less_dex_fees = estimated_return_less_dex_fees;
-            best_path = path;
-        };
-    }
-
-    Ok(Response::new(BestSwapPathResponse {
-        from_token,
-        to_token,
-        best_path,
-        estimated_return: format_number(best_return),
-        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
-    }))
+    let res = path::get_best_path(&ctx, &from_token_id, &to_token_id).await?;
+    Ok(Response::new(res))
 }
 
 #[ocean_endpoint]

@@ -1,5 +1,5 @@
 use ain_macros::ffi_fallible;
-use ain_ocean::{PoolCreationHeight, Result};
+use ain_ocean::Result;
 use defichain_rpc::json::blockchain::{Block, Transaction};
 
 use crate::{
@@ -8,16 +8,9 @@ use crate::{
 };
 
 #[ffi_fallible]
-pub fn ocean_index_block(block_str: String, pools: Vec<ffi::PoolCreationHeight>) -> Result<()> {
+pub fn ocean_index_block(block_str: String) -> Result<()> {
     let block: Block<Transaction> = serde_json::from_str(&block_str)?;
-    let pools = pools
-        .into_iter()
-        .map(|p| PoolCreationHeight {
-            id: p.id,
-            creation_height: p.creation_height,
-        })
-        .collect::<Vec<_>>();
-    ain_ocean::index_block(&ain_ocean::SERVICES, block, pools)
+    ain_ocean::index_block(&ain_ocean::SERVICES, block)
 }
 
 #[ffi_fallible]

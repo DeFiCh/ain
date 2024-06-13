@@ -1,20 +1,56 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
-use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
+use bitcoin::Txid;
+use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
+        common::{from_script, parse_display_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{Error, NotFoundKind},
-    model::PoolSwapAggregatedAggregated,
+    indexer::PoolSwapAggregatedInterval,
+    model::{BlockContext, PoolSwapAggregatedAggregated},
+    repository::{RepositoryOps, SecondaryIndex},
+    storage::SortOrder,
     Result,
 };
+use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SwapType {
+    BUY,
+    SELL,
+}
+
+#[derive(Serialize, Debug, Clone, Default)]
+pub struct PoolPairVolumeResponse {
+    pub d30: Decimal,
+    pub h24: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromToData {
+    pub address: String,
+    pub amount: String,
+    pub symbol: String,
+    pub display_symbol: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromTo {
+    pub from: Option<PoolSwapFromToData>,
+    pub to: Option<PoolSwapFromToData>,
+}
 
 async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
@@ -158,7 +194,7 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
 
 fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Decimal> {
     let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
-        let parts = account.split('-').collect::<Vec<&str>>();
+        let parts = account.split('@').collect::<Vec<&str>>();
         let [amount, token] = parts
             .as_slice()
             .try_into()
@@ -306,18 +342,85 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
         .ok_or_else(|| Error::OverflowError)
 }
 
-// TODO(): poolswap aggregate required
-async fn get_usd_volume(id: &String) -> Result<Decimal> {
-    println!("id: {:?}", id);
-    Ok(dec!(0))
+async fn gather_amount(
+    ctx: &Arc<AppContext>,
+    pool_id: u32,
+    interval: u32,
+    count: usize,
+) -> Result<Decimal> {
+    let repository = &ctx.services.pool_swap_aggregated;
+
+    let swaps = repository
+        .by_key
+        .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
+        .take(count)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+            _ => true,
+        })
+        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut aggregated = HashMap::<String, Decimal>::new();
+
+    for swap in swaps {
+        let token_ids = swap.aggregated.amounts.keys();
+        for token_id in token_ids {
+            let from_amount = swap
+                .aggregated
+                .amounts
+                .get(token_id)
+                .map(|amt| Decimal::from_str(amt))
+                .transpose()?
+                .unwrap_or(dec!(0));
+
+            let amount = if let Some(amount) = aggregated.get(token_id) {
+                amount
+                    .checked_add(from_amount)
+                    .ok_or(Error::OverflowError)?
+            } else {
+                from_amount
+            };
+
+            aggregated.insert(token_id.to_string(), amount);
+        }
+    }
+
+    let mut volume = dec!(0);
+
+    for token_id in aggregated.keys() {
+        let token_price = get_token_usd_value(ctx, token_id).await?;
+        let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
+        volume = volume
+            .checked_add(
+                token_price
+                    .checked_mul(amount)
+                    .ok_or(Error::OverflowError)?,
+            )
+            .ok_or(Error::OverflowError)?;
+    }
+
+    Ok(volume)
+}
+
+pub async fn get_usd_volume(ctx: &Arc<AppContext>, id: &str) -> Result<PoolPairVolumeResponse> {
+    let pool_id = id.parse::<u32>()?;
+    Ok(PoolPairVolumeResponse {
+        h24: gather_amount(ctx, pool_id, PoolSwapAggregatedInterval::OneHour as u32, 24).await?,
+        d30: gather_amount(ctx, pool_id, PoolSwapAggregatedInterval::OneDay as u32, 30).await?,
+    })
 }
 
 /// Estimate yearly commission rate by taking 24 hour commission x 365 days
-async fn get_yearly_commission_estimate(id: &String, p: &PoolPairInfo) -> Result<Decimal> {
-    let volume = get_usd_volume(id).await?;
+async fn get_yearly_commission_estimate(
+    ctx: &Arc<AppContext>,
+    id: &str,
+    p: &PoolPairInfo,
+) -> Result<Decimal> {
+    let volume = get_usd_volume(ctx, id).await?;
     let commission = Decimal::from_f64(p.commission).unwrap_or_default();
     commission
-        .checked_mul(volume)
+        .checked_mul(volume.h24)
         .ok_or_else(|| Error::OverflowError)?
         .checked_mul(dec!(365))
         .ok_or_else(|| Error::OverflowError)
@@ -327,19 +430,11 @@ pub async fn get_apr(
     ctx: &Arc<AppContext>,
     id: &String,
     p: &PoolPairInfo,
-) -> Result<Option<PoolPairAprResponse>> {
+) -> Result<PoolPairAprResponse> {
     let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?;
     let pct_usd = get_yearly_reward_pct_usd(ctx, p).await?;
     let loan_usd = get_yearly_reward_loan_usd(ctx, id).await?;
     let total_liquidity_usd = get_total_liquidity_usd(ctx, p).await?;
-
-    if custom_usd.is_zero()
-        || pct_usd.is_zero()
-        || loan_usd.is_zero()
-        || total_liquidity_usd.is_zero()
-    {
-        return Ok(None);
-    };
 
     let yearly_usd = custom_usd
         .checked_add(pct_usd)
@@ -347,12 +442,16 @@ pub async fn get_apr(
         .checked_add(loan_usd)
         .ok_or_else(|| Error::OverflowError)?;
 
+    if yearly_usd.is_zero() {
+        return Ok(PoolPairAprResponse::default());
+    };
+
     // 1 == 100%, 0.1 = 10%
     let reward = yearly_usd
         .checked_div(total_liquidity_usd)
         .ok_or_else(|| Error::UnderflowError)?;
 
-    let yearly_commission = get_yearly_commission_estimate(id, p).await?;
+    let yearly_commission = get_yearly_commission_estimate(ctx, id, p).await?;
     let commission = yearly_commission
         .checked_div(total_liquidity_usd)
         .ok_or_else(|| Error::UnderflowError)?;
@@ -361,11 +460,11 @@ pub async fn get_apr(
         .checked_add(commission)
         .ok_or_else(|| Error::OverflowError)?;
 
-    Ok(Some(PoolPairAprResponse {
+    Ok(PoolPairAprResponse {
         reward,
         commission,
         total,
-    }))
+    })
 }
 
 async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option<PoolPairInfo>> {
@@ -447,4 +546,217 @@ pub async fn get_aggregated_in_usd(
     }
 
     Ok(value)
+}
+
+fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
+    let vout = ctx
+        .services
+        .transaction
+        .vout_by_id
+        .list(Some((txid, 0)), SortOrder::Ascending)?
+        .take(1)
+        .take_while(|item| match item {
+            Ok((_, vout)) => vout.txid == txid,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if vout.is_empty() {
+        return Ok(None);
+    }
+
+    let bytes = &vout[0].script.hex;
+    if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
+        let offset = 1 + match bytes[1] {
+            0x4c => 2,
+            0x4d => 3,
+            0x4e => 4,
+            _ => 1,
+        };
+
+        let raw_tx = &bytes[offset..];
+        let dftx = match deserialize::<Stack>(raw_tx) {
+            Ok(stack) => stack.dftx,
+            Err(e) => return Err(e.into()),
+        };
+        return Ok(Some(dftx));
+    };
+
+    Ok(None)
+}
+
+fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<CompositeSwap>> {
+    let dftx = call_dftx(ctx, txid)?;
+    if dftx.is_none() {
+        return Ok(None);
+    }
+    let dftx = dftx.unwrap();
+
+    let composite_swap_dftx = match dftx {
+        DfTx::CompositeSwap(data) => Some(data),
+        _ => None,
+    };
+    // let pool_swap_dftx = match dftx {
+    //     DfTx::PoolSwap(data) => Some(data),
+    //     DfTx::CompositeSwap(data) => Some(data.pool_swap),
+    //     _ => None,
+    // };;
+
+    Ok(composite_swap_dftx)
+}
+
+pub async fn find_swap_from(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<PoolSwapFromToData>> {
+    let crate::model::PoolSwap {
+        from,
+        from_amount,
+        from_token_id,
+        ..
+    } = swap;
+    let from_address = from_script(from, ctx.network.into())?;
+
+    let from_token = get_token_cached(ctx, &from_token_id.to_string()).await?;
+    if from_token.is_none() {
+        return Ok(None);
+    }
+    let (_, from_token) = from_token.unwrap();
+
+    Ok(Some(PoolSwapFromToData {
+        address: from_address,
+        amount: Decimal::new(from_amount, 8).to_string(),
+        display_symbol: parse_display_symbol(&from_token),
+        symbol: from_token.symbol,
+    }))
+}
+
+pub async fn find_swap_to(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<PoolSwapFromToData>> {
+    let crate::model::PoolSwap {
+        to,
+        to_token_id,
+        block,
+        txno,
+        ..
+    } = swap;
+    let BlockContext { height, .. } = block;
+    let txno = txno.try_into()?;
+
+    let to_address = from_script(to, ctx.network.into())?;
+
+    let to_token = get_token_cached(ctx, &to_token_id.to_string()).await?;
+    if to_token.is_none() {
+        return Ok(None);
+    }
+    let (_, to_token) = to_token.unwrap();
+
+    let display_symbol = parse_display_symbol(&to_token);
+
+    // NOTE(canonbrother): fallback to API layer to calculate `to_amount`
+    // context: to_amount has been calculated while indexing with ocean archive
+    // `to_amount` None indicates the node is not running with ocean archive
+    // get the `to_amount` via `getaccounthistory`
+    // if to_amount.is_some() {
+    //     let amount = to_amount.unwrap().abs();
+    //     return Ok(Some(PoolSwapFromToData {
+    //         address: to_address,
+    //         amount: Decimal::new(amount, 8).to_string(),
+    //         symbol: to_token.symbol,
+    //         display_symbol,
+    //     }));
+    // }
+
+    let history = ctx
+        .client
+        .get_account_history(&to_address.to_string(), height, txno)
+        .await?;
+
+    for account in history.amounts {
+        let parts = account.split('@').collect::<Vec<&str>>();
+        let [value, symbol] = parts
+            .as_slice()
+            .try_into()
+            .context("Invalid amount structure")?;
+
+        let value = Decimal::from_str(value)?;
+
+        if value.is_sign_positive() {
+            return Ok(Some(PoolSwapFromToData {
+                address: history.owner,
+                amount: format!("{:.8}", value.abs()),
+                symbol: symbol.to_string(),
+                display_symbol,
+            }));
+        }
+    }
+
+    Ok(None)
+}
+
+async fn get_pool_swap_type(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<SwapType>> {
+    let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
+    if pool_pair.is_none() {
+        return Ok(None);
+    }
+    let (_, pool_pair_info) = pool_pair.unwrap();
+    let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
+    let swap_type = if id_token_a == swap.from_token_id {
+        SwapType::SELL
+    } else {
+        SwapType::BUY
+    };
+    Ok(Some(swap_type))
+}
+
+pub async fn check_swap_type(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<SwapType>> {
+    let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
+    if dftx.is_none() {
+        return get_pool_swap_type(ctx, swap).await;
+    }
+    let dftx = dftx.unwrap();
+
+    if dftx.pools.iter().count() <= 1 {
+        return get_pool_swap_type(ctx, swap).await;
+    }
+
+    let mut prev = swap.from_token_id.to_string();
+    for pool in dftx.pools.iter() {
+        let pool_id = pool.id.0.to_string();
+        let pool_pair = get_pool_pair_cached(ctx, pool_id.clone()).await?;
+        if pool_pair.is_none() {
+            break;
+        }
+        let (_, pool_pair_info) = pool_pair.unwrap();
+
+        // if this is current pool pair, if previous token is primary token, indicator = sell
+        if pool_id == swap.pool_id.to_string() {
+            let swap_type = if pool_pair_info.id_token_a == prev {
+                SwapType::SELL
+            } else {
+                SwapType::BUY
+            };
+            return Ok(Some(swap_type));
+        }
+        // set previous token as pair swapped out token
+        prev = if prev == pool_pair_info.id_token_a {
+            pool_pair_info.id_token_b
+        } else {
+            pool_pair_info.id_token_a
+        }
+    }
+
+    Ok(None)
 }

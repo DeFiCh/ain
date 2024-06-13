@@ -1,4 +1,5 @@
 use std::fmt;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Network {
     Mainnet,
@@ -18,6 +19,19 @@ impl Network {
             Network::Regtest => "regtest",
             Network::Devnet => "devnet",
             Network::Changi => "changi",
+        }
+    }
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<bitcoin::Network> for Network {
+    fn into(self) -> bitcoin::Network {
+        match self {
+            Network::Mainnet => bitcoin::Network::Mainnet,
+            Network::Testnet => bitcoin::Network::Testnet,
+            Network::Devnet => bitcoin::Network::Devnet,
+            Network::Regtest => bitcoin::Network::Regtest,
+            _ => bitcoin::Network::Regtest,
         }
     }
 }

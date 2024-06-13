@@ -9,6 +9,7 @@ use axum::{
 };
 use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -23,6 +24,8 @@ pub enum NotFoundKind {
     Oracle,
     #[error("token")]
     Token,
+    #[error("poolpair")]
+    PoolPair,
 }
 
 #[derive(Error, Debug)]
@@ -61,6 +64,10 @@ pub enum Error {
     SecondaryIndex,
     #[error("Token {0:?} is invalid as it is not tradeable")]
     UntradeableTokenError(String),
+    #[error("Ocean: BitcoinAddressError: {0:?}")]
+    BitcoinAddressError(#[from] bitcoin::address::Error),
+    #[error("Ocean: TryFromIntError: {0:?}")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -117,8 +124,10 @@ impl ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status;
-        let reason = Json(self);
-        (status, reason).into_response()
+        let body = Json(json!({
+            "error": self.error
+        }));
+        (status, body).into_response()
     }
 }
 

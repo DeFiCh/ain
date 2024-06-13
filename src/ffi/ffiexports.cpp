@@ -1,4 +1,5 @@
 #include <clientversion.h>
+#include <dfi/customtx.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/validation.h>
@@ -325,9 +326,17 @@ uint32_t getEthMaxConnections() {
     return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
 }
 
+void printEVMPortUsage(const uint8_t portType, const uint16_t portNumber) {
+    return SetPortToLockFile(static_cast<AutoPort>(portType), portNumber);
+}
+
 uint32_t getEthMaxResponseByteSize() {
     const auto max_response_size_mb = gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB);
     return max_response_size_mb * 1024 * 1024;
+}
+
+uint32_t getEthTracingMaxMemoryUsageBytes() {
+    return gArgs.GetArg("-ethtracingmaxmemoryusage", DEFAULT_TRACING_RAW_MAX_MEMORY_USAGE_BYTES);
 }
 
 int64_t getSuggestedPriorityFeePercentile() {
@@ -406,13 +415,138 @@ bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
 }
 
-bool isOceanEnabled() {
-    return gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED);
+rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash) {
+    LOCK(cs_main);
+
+    rust::vec<SystemTxData> out;
+    auto blockHash =
+        pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256::FromByteArray(evmBlockHash).GetHex());
+    if (!blockHash.val.has_value()) {
+        return out;
+    }
+    auto hash = uint256S(*blockHash);
+    const auto consensus = Params().GetConsensus();
+    const CBlockIndex *pblockindex = LookupBlockIndex(hash);
+    if (!pblockindex) {
+        return out;
+    }
+    CBlock block;
+    if (IsBlockPruned(pblockindex)) {
+        return out;
+    }
+    if (!ReadBlockFromDisk(block, pblockindex, consensus)) {
+        // Block not found on disk. This could be because we have the block
+        // header in our index but don't have the block (for example if a
+        // non-whitelisted node sends us an unrequested long chain of valid
+        // blocks, we add the headers to our index, but don't accept the
+        // block).
+        return out;
+    }
+    for (const auto &tx : block.vtx) {
+        std::vector<unsigned char> metadata;
+        auto txType = GuessCustomTxType(*tx, metadata, true);
+        if (txType == CustomTxType::EvmTx) {
+            out.push_back(SystemTxData{
+                SystemTxType::EVMTx, {0, {}, {}}
+            });
+        } else if (txType == CustomTxType::TransferDomain) {
+            auto txMessage = customTypeToMessage(CustomTxType::TransferDomain);
+            auto res = CustomMetadataParse(block.deprecatedHeight, consensus, metadata, txMessage);
+            if (!res) {
+                return out;
+            }
+            const auto obj = std::get<CTransferDomainMessage>(txMessage);
+            for (const auto &[src, dst] : obj.transfers) {
+                auto tokenId = src.amount.nTokenId;
+                if (tokenId != DCT_ID{0}) {
+                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
+                        dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                        out.push_back(SystemTxData{
+                            SystemTxType::DST20BridgeIn, {tokenId.v, {}, {}}
+                        });
+                    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                               dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                        out.push_back(SystemTxData{
+                            SystemTxType::DST20BridgeOut, {tokenId.v, {}, {}}
+                        });
+                    }
+                } else {
+                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
+                        dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                        out.push_back(SystemTxData{
+                            SystemTxType::TransferDomainIn, {0, {}, {}}
+                        });
+                    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                               dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                        out.push_back(SystemTxData{
+                            SystemTxType::TransferDomainOut, {0, {}, {}}
+                        });
+                    }
+                }
+            }
+        } else if (txType == CustomTxType::CreateToken) {
+            auto creationTx = tx->GetHash();
+            auto res = pcustomcsview->GetTokenByCreationTx(creationTx);
+            if (!res) {
+                return out;
+            }
+            auto id = res->first;
+            auto token = res->second;
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
+            if (!result.ok) {
+                return out;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
+            if (!result.ok) {
+                return out;
+            }
+            out.push_back(SystemTxData{
+                SystemTxType::DeployContract, {id.v, token_name, token_symbol}
+            });
+        } else if (txType == CustomTxType::UpdateTokenAny) {
+            auto txMessage = customTypeToMessage(CustomTxType::UpdateTokenAny);
+            auto res = CustomMetadataParse(block.deprecatedHeight, consensus, metadata, txMessage);
+            if (!res) {
+                return out;
+            }
+            const auto obj = std::get<CUpdateTokenMessage>(txMessage);
+            auto pair = pcustomcsview->GetTokenByCreationTx(obj.tokenTx);
+            if (!pair) {
+                return out;
+            }
+            auto id = pair->first;
+            auto token = pair->second;
+            if (!token.IsDAT()) {
+                return out;
+            }
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(obj.token.name));
+            if (!result.ok) {
+                return out;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(obj.token.symbol));
+            if (!result.ok) {
+                return out;
+            }
+            out.push_back(SystemTxData{
+                SystemTxType::UpdateContractName, {id.v, token_name, token_symbol}
+            });
+        }
+    }
+    return out;
 }
+
 uint64_t getDF23Height() {
     return Params().GetConsensus().DF23Height;
 }
 
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
+}
+
+bool isSkippedTx(std::array<uint8_t, 32> txHash) {
+    uint256 hash{};
+    std::copy(txHash.begin(), txHash.end(), hash.begin());
+    return IsSkippedTx(hash);
 }
