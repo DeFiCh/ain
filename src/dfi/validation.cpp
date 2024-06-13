@@ -1661,12 +1661,14 @@ static Res PoolSplits(CCustomCSView &view,
                       const std::map<uint32_t, DCT_ID> &tokenMap,
                       const CBlockIndex *pindex,
                       const std::vector<std::pair<DCT_ID, uint256>> &poolCreationTxs,
-                      const T multiplier) {
+                      const T multiplier,
+                      const std::string oldPoolSuffix= "/v") {
     //TODO: print whole map
-    LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
+    LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d, pools: %d)\n",
               tokenMap.begin()->first,
               tokenMap.begin()->second.v,
-              pindex->nHeight);
+              pindex->nHeight,
+              poolCreationTxs.size());
 
     try {
         assert(poolCreationTxs.size());
@@ -1692,14 +1694,14 @@ static Res PoolSplits(CCustomCSView &view,
                     (tokenB->destructionHeight != -1 && tokenB->destructionTx != uint256{})) {
                     const auto poolToken = view.GetToken(poolId);
                     assert(poolToken);
-                    if (poolToken->symbol.find(oldPoolToken->symbol + "/v") != std::string::npos) {
+                    if (poolToken->symbol.find(oldPoolToken->symbol + oldPoolSuffix) != std::string::npos) {
                         ++suffixCount;
                     }
                 }
                 return true;
             });
 
-            oldPoolToken->symbol += "/v" + std::to_string(suffixCount);
+            oldPoolToken->symbol += oldPoolSuffix + std::to_string(suffixCount);
             oldPoolToken->flags |= static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
@@ -2430,12 +2432,17 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         std::map<uint32_t,DCT_ID> tokenMap;
         tokenMap[oldTokenId.v]= newTokenId;
 
-        if (!creationTxs.count(oldTokenId.v) || 
-        !PoolSplits(
-                view, totalBalanceMap, attributes, tokenMap, pindex, creationTxs.at(oldTokenId.v).second, multiplier)) {
-            LogPrintf("Pool splits failed %s\n", res.msg);
-            continue;
+        if (creationTxs.count(oldTokenId.v) && creationTxs.at(oldTokenId.v).second.size() > 0) {
+            res= PoolSplits(
+                view, totalBalanceMap, attributes, tokenMap, pindex, creationTxs.at(oldTokenId.v).second, multiplier);
+            if (!res) {
+                LogPrintf("Pool splits failed \n");
+                LogPrintf("Pool splits failed %s\n", res.msg);
+                continue;
+            }
         }
+
+        LogPrintf("converting balances\n");
         auto totalBalance= totalBalanceMap[oldTokenId.v];
 
         std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
@@ -2624,8 +2631,8 @@ void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLo
         tokenCallback(id,token);
         cache.ForEachPoolPair([&, id = id.v](DCT_ID const &poolId, const CPoolPair &pool) {
             if(addedPools.count(poolId.v) > 0) return true;
-            addedPools.emplace(poolId.v);
             if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                addedPools.emplace(poolId.v);
                 const auto tokenA = cache.GetToken(pool.idTokenA);
                 const auto tokenB = cache.GetToken(pool.idTokenB);
                 assert(tokenA);
@@ -2660,18 +2667,15 @@ static void ProcessTokenLock(const CBlock &block,
     // create DB entries for locked tokens and lock ratio 
     // create new tokens for all active loan tokens
 
-    OracleSplits64 splits;
-    CreationTxs creationTxs;
-    //block hash as creation tx, no other tx there
-    std::vector<std::pair<DCT_ID, uint256>> emptyPoolPairs;
-
     //get creation txs
     bool opcodes{false};
     std::vector<unsigned char> metadata;
     uint32_t type;
     uint32_t metaId;
-    int32_t metaMultiplier;
+    int64_t metaMultiplier;
     std::map<uint32_t,uint256> creationTxPerId;
+
+
     for (const auto &tx : block.vtx) {
         if (ParseScriptByMarker(tx->vout[0].scriptPubKey, DfTokenSplitMarker, metadata, opcodes)) {
             try {
@@ -2680,6 +2684,7 @@ static void ProcessTokenLock(const CBlock &block,
                 ss >> metaId;
                 ss >> metaMultiplier;
 
+                LogPrintf("Got creation Tx %d %d %d\n",type, metaId, metaMultiplier);
                 if (COIN == metaMultiplier) {
                     creationTxPerId[metaId] = tx->GetHash();
                 }
@@ -2690,13 +2695,22 @@ static void ProcessTokenLock(const CBlock &block,
         }
     }
 
+    LogPrintf("Got %d creation Txs\n", creationTxPerId.size());
     auto attributes = cache.GetAttributes();
     // get tokens with matched with creationTx
     // get list of pools, matched with creationTx
 
+    OracleSplits64 splits;
+    CreationTxs creationTxs;
+    std::vector<std::pair<DCT_ID, uint256>> emptyPoolPairs;
+
     std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
     ForEachLockTokenAndPool(
         [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+            if (!creationTxPerId.count(id.v)) {
+                LogPrintf("missing creationTx for Token %d\n", id.v);
+                return true;
+            }
             splits.emplace(id.v, COIN);
             creationTxs.emplace(id.v, std::make_pair(creationTxPerId[id.v], emptyPoolPairs));
 
@@ -2706,6 +2720,10 @@ static void ProcessTokenLock(const CBlock &block,
             return true;
         },
         [&](const DCT_ID &id, const CPoolPair &token) {
+            if(!creationTxPerId.count(id.v)) {
+                LogPrintf("missing creationTx for Pool %d\n", id.v);
+                return true;
+            }
             creationTxPerPoolId.emplace_back(std::make_pair(id,creationTxPerId[id.v]));
             return true;
         },
@@ -2713,10 +2731,25 @@ static void ProcessTokenLock(const CBlock &block,
 
     cache.SetVariable(*attributes);
 
-    LogPrintf("got lock %d splits\n", splits.size());
+    LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
 
+    
     // Execute Splits on tokens (without pools)
     ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx,"/lock");
+    LogPrintf("executed token 'splits' for locks\n");
+
+    auto dusdToken = cache.GetToken("DUSD");
+    if (!dusdToken) {
+        LogPrintf("Token lock failed. DUSD not found\n");
+        return;
+    }
+    dusdToken->second->symbol= "USDD";
+    UpdateTokenContext ctx{*(dusdToken->second), blockCtx, true, true, true, pindex->GetBlockHash()};
+    auto res = cache.UpdateToken(ctx);
+    if (!res) {
+        LogPrintf("Updating DUSD -> USDD failed %s\n", res.msg);
+        return;
+    }
 
     // get map oldTokenId->newTokenId
     std::map<uint32_t, DCT_ID> oldTokenToNewToken;
@@ -2729,15 +2762,18 @@ static void ProcessTokenLock(const CBlock &block,
         oldTokenToNewToken[id] = DCT_ID{desc.first};
         totalBalanceMap[id]= CAmount{0};
     }
+    LogPrintf("got descendants %d \n",oldTokenToNewToken.size());
+
     // update new DUSD to USDD
 
     // convert pools, based on tokenMap (needs change in existing code)
 
-    auto res = PoolSplits(cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, creationTxPerPoolId, COIN);
+    res = PoolSplits(cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, creationTxPerPoolId, COIN,"/lock");
     if (!res) {
         LogPrintf("Pool splits failed %s\n", res.msg);
         //TODO: handle error
     }
+    LogPrintf("poolsplit done\n");
 
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
     // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools

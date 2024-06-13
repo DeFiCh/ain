@@ -71,22 +71,37 @@ class RestartdTokensTest(DefiTestFramework):
         print(self.nodes[0].listloantokens())
         #'''
 
+        assert_equal(
+            [
+                {id: [token["symbol"], token["isLoanToken"], token["mintable"]]}
+                for (id, token) in self.nodes[0].listtokens().items()
+            ],
+            [
+                {"0": ["DFI", False, False]},
+                {"1": ["SPY/lock1", False, False]},
+                {"2": ["DUSD/lock1", False, False]},
+                {"3": ["SPY-DUSD/lock1", False, False]},
+                {"4": ["DUSD-DFI/lock1", False, False]},
+                {"5": ["SPY", True, True]},
+                {"6": ["USDD", True, True]},
+                {"7": ["SPY-USDD", False, False]},
+                {"8": ["USDD-DFI", False, False]},
+            ],
+        )
 
-        assert_equal([{id:[token['symbol'],token['isLoanToken'],token['mintable']]} for (id,token) in self.nodes[0].listtokens().items()], 
-                     [{'0': ['DFI', False, False]}, 
-                      {'1': ['SPY', False, False]}, 
-                      {'2': ['DUSD', False, False]},
-                      {'3': ['SPY-DUSD', False, False]}, 
-                      {'4': ['DUSD-DFI', False, False]}, 
-                      {'5': ['SPY', True, True]}, 
-                      {'6': ['USDD', True, True]},
-                      {'7': ['SPY-USDD', False, False]}, 
-                      {'8': ['USDD-DFI', False, False]}])
-        
-        assert_equal([{id:pool['symbol']} for (id,pool) in self.nodes[0].listpoolpairs().items()],
-                     [{'3': 'SPY-DUSD'}, {'4': 'DUSD-DFI'},
-                      {'7': 'SPY-USDD'}, {'8': 'USDD-DFI'}])
-        
+        assert_equal(
+            [
+                {id: pool["symbol"]}
+                for (id, pool) in self.nodes[0].listpoolpairs().items()
+            ],
+            [
+                {"3": "SPY-DUSD/lock1"},
+                {"4": "DUSD-DFI/lock1"},
+                {"7": "SPY-USDD"},
+                {"8": "USDD-DFI"},
+            ],
+        )
+
         # TODO: currently best guess numbers, need to check with final results
         assert_equal(
             self.nodes[0].getvault(self.loop_vault_id),
@@ -138,7 +153,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             self.nodes[0].getaccount(self.address),
             [
-                "399.00000000@DFI", # add comission from payback swap, added DFI from pool
+                "399.00000000@DFI",  # add comission from payback swap, added DFI from pool
                 "10.00000000@USDD",
                 "1.999999000@SPY-USDD",
                 "7.07106681@USDD-DFI",
@@ -230,15 +245,26 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(pool["reserveA"], Decimal("2"))
         assert_equal(pool["reserveB"], Decimal("200"))
 
-        assert_equal([{id:pool['symbol']} for (id,pool) in self.nodes[0].listpoolpairs().items()],
-                     [{'3': 'SPY-DUSD'}, {'4': 'DUSD-DFI'}])
-        assert_equal([{id:[token['symbol'],token['isLoanToken'],token['mintable']]} for (id,token) in self.nodes[0].listtokens().items()], 
-                     [{'0': ['DFI', False, False]}, 
-                      {'1': ['SPY', True, True]}, 
-                      {'2': ['DUSD', True, True]},
-                      {'3': ['SPY-DUSD', False, False]}, 
-                      {'4': ['DUSD-DFI', False, False]}])
-
+        assert_equal(
+            [
+                {id: pool["symbol"]}
+                for (id, pool) in self.nodes[0].listpoolpairs().items()
+            ],
+            [{"3": "SPY-DUSD"}, {"4": "DUSD-DFI"}],
+        )
+        assert_equal(
+            [
+                {id: [token["symbol"], token["isLoanToken"], token["mintable"]]}
+                for (id, token) in self.nodes[0].listtokens().items()
+            ],
+            [
+                {"0": ["DFI", False, False]},
+                {"1": ["SPY", True, True]},
+                {"2": ["DUSD", True, True]},
+                {"3": ["SPY-DUSD", False, False]},
+                {"4": ["DUSD-DFI", False, False]},
+            ],
+        )
 
     ######## SETUP ##########
 
