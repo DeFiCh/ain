@@ -48,7 +48,7 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 }
 
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = services
+    let mut pool_pairs = services
         .poolpair
         .by_height
         .list(None, SortOrder::Ascending)?
@@ -62,6 +62,8 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
             })
         })
         .collect::<Result<Vec<_>>>()?;
+
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
