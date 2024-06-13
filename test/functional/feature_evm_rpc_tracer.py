@@ -157,6 +157,27 @@ class EvmTracerTest(DefiTestFramework):
         with open(contract_creation_tx_f, "r", encoding="utf8") as f:
             self.contract_creation_tx_data = json.load(f)
 
+    def test_tracer_on_trace_call(self):
+        self.rollback_to(self.start_height)
+
+        # Test tracer with eth call for transfer tx
+        call = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x5209",
+            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+        }
+        assert_equal(
+            self.nodes[0].debug_traceCall(call, "latest"),
+            {
+                "gas": "0x5208",
+                "failed": False,
+                "returnValue": "",
+                "structLogs": [],
+            },
+        )
+
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
 
@@ -674,6 +695,8 @@ class EvmTracerTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
+
+        self.test_tracer_on_trace_call()
 
         self.test_tracer_on_transfer_tx()
 
