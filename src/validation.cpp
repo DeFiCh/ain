@@ -3715,8 +3715,7 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams &chainPar
                   FormatISO8601DateTime(pindexNew->GetBlockTime()),
                   (unsigned long)pindexNew->nChainTx,
                   log(pindexNew->nChainWork.getdouble()) / log(2.0),
-                  GuessVerificationProgress(chainParams.TxData(), pindexNew)
-                );
+                  GuessVerificationProgress(chainParams.TxData(), pindexNew));
         if (!warningMessages.empty()) {
             LogPrintf(" warning='%s'", warningMessages); /* Continued */
         }
