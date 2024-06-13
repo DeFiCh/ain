@@ -3708,14 +3708,14 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams &chainPar
     auto currentTime = GetSystemTimeInSeconds();
     if (!warningMessages.empty() || !::ChainstateActive().IsInitialBlockDownload() || lastTipTime < currentTime - 20) {
         lastTipTime = currentTime;
-        LogPrintf("%s: height=%d hash=%s p=%f d=%.8g tx=%lu date='%s'",
+        LogPrintf("%s: height=%d hash=%s date='%s' tx=%lu log2_work=%#.8g progress=%f",
                   __func__, /* Continued */
                   pindexNew->nHeight,
                   pindexNew->GetBlockHash().ToString(),
-                  GuessVerificationProgress(chainParams.TxData(), pindexNew),
-                  log(pindexNew->nChainWork.getdouble()) / log(2.0),
+                  FormatISO8601DateTime(pindexNew->GetBlockTime()),
                   (unsigned long)pindexNew->nChainTx,
-                  FormatISO8601DateTime(pindexNew->GetBlockTime()));
+                  log(pindexNew->nChainWork.getdouble()) / log(2.0),
+                  GuessVerificationProgress(chainParams.TxData(), pindexNew));
         if (!warningMessages.empty()) {
             LogPrintf(" warning='%s'", warningMessages); /* Continued */
         }
