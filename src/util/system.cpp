@@ -7,7 +7,6 @@
 
 #include <chainparamsbase.h>
 #include <fs.h>
-#include <util/getuniquepath.h>
 #include <util/strencodings.h>
 #include <util/translation.h>
 
@@ -89,30 +88,35 @@ static std::map<std::string, std::unique_ptr<fsbridge::FileLock>> dir_locks;
 /** Mutex to protect dir_locks. */
 static std::mutex cs_dir_locks;
 
-bool LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only)
+namespace util {
+LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only)
 {
     std::lock_guard<std::mutex> ulock(cs_dir_locks);
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
     if (dir_locks.count(fs::PathToString(pathLockFile))) {
-        return true;
+        return LockResult::Success;
     }
 
     // Create empty lock file if it doesn't exist.
-    FILE* file = fsbridge::fopen(pathLockFile, "a");
-    if (file) fclose(file);
+    if (auto created{fsbridge::fopen(pathLockFile, "a")}) {
+        std::fclose(created);
+    } else {
+        return LockResult::ErrorWrite;
+    }
     auto lock = std::make_unique<fsbridge::FileLock>(pathLockFile);
     if (!lock->TryLock()) {
-        return error("Error while attempting to lock directory %s: %s", fs::PathToString(directory), lock->GetReason());
+        error("Error while attempting to lock directory %s: %s", fs::PathToString(directory), lock->GetReason());
+        return LockResult::ErrorLock;
     }
     if (!probe_only) {
         // Lock successful and we're not just probing, put it into the map
         dir_locks.emplace(fs::PathToString(pathLockFile), std::move(lock));
     }
-    return true;
+    return LockResult::Success;
 }
-
+} // namespace util
 void UnlockDirectory(const fs::path& directory, const std::string& lockfile_name)
 {
     std::lock_guard<std::mutex> lock(cs_dir_locks);
@@ -123,19 +127,6 @@ void ReleaseDirectoryLocks()
 {
     std::lock_guard<std::mutex> ulock(cs_dir_locks);
     dir_locks.clear();
-}
-
-bool DirIsWritable(const fs::path& directory)
-{
-    fs::path tmpFile = GetUniquePath(directory);
-
-    FILE* file = fsbridge::fopen(tmpFile, "a");
-    if (!file) return false;
-
-    fclose(file);
-    remove(tmpFile);
-
-    return true;
 }
 
 bool CheckDiskSpace(const fs::path& dir, uint64_t additional_bytes)
@@ -322,22 +313,16 @@ NODISCARD static bool InterpretOption(std::string key, std::string val, unsigned
     return true;
 }
 
-namespace {
-    fs::path StripRedundantLastElementsOfPath(const fs::path& path)
-    {
-        auto result = path;
-        while (result.filename().empty() || fs::PathToString(result.filename()) == ".") {
-            result = result.parent_path();
-        }
-
-        assert(fs::equivalent(result, path));
-        return result;
-    }
-} // namespace
-
 ArgsManager::ArgsManager()
 {
     // nothing to do
+}
+
+fs::path ArgsManager::GetPathArg(std::string pathlike_arg) const
+{
+    auto result = fs::PathFromString(GetArg(pathlike_arg, "")).lexically_normal();
+    // Remove trailing slash, if present.
+    return result.has_filename() ? result : result.parent_path();
 }
 
 const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
@@ -785,9 +770,9 @@ const fs::path &GetDataDir(bool fNetSpecific)
     // this function
     if (!path.empty()) return path;
 
-    std::string datadir = gArgs.GetArg("-datadir", "");
+    const fs::path datadir{gArgs.GetPathArg("-datadir")};
     if (!datadir.empty()) {
-        path = fs::absolute(StripRedundantLastElementsOfPath(fs::PathFromString(datadir)));
+        path = fs::absolute(datadir);
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -803,14 +788,13 @@ const fs::path &GetDataDir(bool fNetSpecific)
         fs::create_directories(path / "wallets");
     }
 
-    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
 bool CheckDataDirOption()
 {
-    std::string datadir = gArgs.GetArg("-datadir", "");
-    return datadir.empty() || fs::is_directory(fs::absolute(fs::PathFromString(datadir)));
+    const fs::path datadir{gArgs.GetPathArg("-datadir")};
+    return datadir.empty() || fs::is_directory(fs::absolute(datadir));
 }
 
 void ClearDatadirCache()

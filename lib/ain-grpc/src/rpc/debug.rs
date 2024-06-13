@@ -8,7 +8,7 @@ use ain_evm::{
     trace::types::single::TransactionTrace,
     transaction::SignedTx,
 };
-use ethereum::BlockAny;
+
 use ethereum_types::{H160, H256, U256};
 use jsonrpsee::{
     core::{JsonValue, RpcResult},
@@ -23,6 +23,8 @@ use crate::{
     errors::{to_custom_err, RPCError},
     trace::{handle_trace_params, TraceParams},
 };
+
+use super::common::get_block;
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
@@ -91,34 +93,6 @@ impl MetachainDebugRPCModule {
             return Err(RPCError::TraceNotEnabled.into());
         }
         Ok(())
-    }
-
-    fn get_block(&self, block_number: Option<BlockNumber>) -> RpcResult<BlockAny> {
-        match block_number.unwrap_or(BlockNumber::Latest) {
-            BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
-            BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
-            BlockNumber::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
-            BlockNumber::Safe | BlockNumber::Finalized => {
-                self.handler.storage.get_latest_block().and_then(|block| {
-                    block.map_or(Ok(None), |block| {
-                        let finality_count =
-                            ain_cpp_imports::get_attribute_values(None).finality_count;
-
-                        block
-                            .header
-                            .number
-                            .checked_sub(U256::from(finality_count))
-                            .map_or(Ok(None), |safe_block_number| {
-                                self.handler.storage.get_block_by_number(&safe_block_number)
-                            })
-                    })
-                })
-            }
-            // BlockNumber::Pending => todo!(),
-            _ => self.handler.storage.get_latest_block(),
-        }
-        .map_err(RPCError::EvmError)?
-        .ok_or(RPCError::BlockNotFound.into())
     }
 }
 
@@ -191,7 +165,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
-        let block = self.get_block(Some(block_number))?;
+        let block = get_block(&self.handler.storage, Some(block_number))?;
         let block_base_fee = block.header.base_fee;
         let gas_price = call.get_effective_gas_price()?.unwrap_or(block_base_fee);
 
@@ -230,7 +204,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
         // Get block
-        let trace_block = self.get_block(Some(block_number))?;
+        let trace_block = get_block(&self.handler.storage, Some(block_number))?;
         let res = self
             .handler
             .tracer

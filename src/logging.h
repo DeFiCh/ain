@@ -27,6 +27,13 @@ extern const char * const DEFAULT_DEBUGLOGFILE;
 
 extern bool fLogIPs;
 
+enum AutoPort : uint8_t {
+    RPC,
+    P2P,
+    ETHRPC,
+    WEBSOCKET,
+};
+
 struct CLogCategoryActive
 {
     std::string category;
@@ -208,5 +215,9 @@ static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& cate
         }
     }
 }
+
+uint16_t GetPortFromLockFile(const AutoPort type);
+void SetPortToLockFile(const AutoPort portType, const uint16_t portNumber);
+void RemovePortUsage();
 
 #endif // DEFI_LOGGING_H

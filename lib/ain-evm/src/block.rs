@@ -8,7 +8,7 @@ use anyhow::format_err;
 use ethereum::BlockAny;
 use ethereum_types::U256;
 use keccak_hash::H256;
-use log::{debug, trace};
+use log::trace;
 use parking_lot::Mutex;
 
 use crate::{
@@ -62,7 +62,6 @@ impl BlockService {
             .unwrap_or_default();
 
         block_handler.starting_block_number = block_number;
-        debug!("Current block number is {:x?}", block_number);
 
         Ok(block_handler)
     }

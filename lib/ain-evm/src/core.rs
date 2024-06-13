@@ -12,7 +12,7 @@ use ain_contracts::{
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
-use log::{debug, trace};
+use log::{info, trace};
 use parking_lot::Mutex;
 
 use crate::{
@@ -80,7 +80,7 @@ impl EVMCoreService {
         tx_cache: Arc<TransactionCache>,
         genesis_path: PathBuf,
     ) -> Result<Self> {
-        debug!("Loading genesis state from {}", genesis_path.display());
+        info!("Loading genesis state from {}", genesis_path.display());
 
         let handler = Self {
             trie_store: Arc::clone(&trie_store),
@@ -157,7 +157,7 @@ impl EVMCoreService {
         tx: &str,
         template: &BlockTemplate,
     ) -> Result<ValidateTxInfo> {
-        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
+        trace!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
             signed_tx,
@@ -169,9 +169,9 @@ impl EVMCoreService {
                 .tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
+            trace!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
-            debug!(
+            trace!(
                 "[validate_raw_tx] signed_tx.sender : {:#?}",
                 signed_tx.sender
             );
@@ -179,7 +179,7 @@ impl EVMCoreService {
             // Validate tx gas price with initial block base fee
             let tx_gas_price = signed_tx.gas_price();
             if tx_gas_price < INITIAL_BASE_FEE {
-                debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
+                trace!("[validate_raw_tx] tx gas price is lower than initial block base fee");
                 return Err(
                     format_err!("tx gas price is lower than initial block base fee").into(),
                 );
@@ -187,7 +187,7 @@ impl EVMCoreService {
 
             // Validate tx gas price and tx value within money range
             if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
-                debug!("[validate_raw_tx] value more than money range");
+                trace!("[validate_raw_tx] value more than money range");
                 return Err(format_err!("value more than money range").into());
             }
 
@@ -195,7 +195,7 @@ impl EVMCoreService {
             check_tx_intrinsic_gas(&signed_tx)?;
 
             let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
-            debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
+            trace!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
 
             self.tx_cache.set_stateless(
                 String::from(tx),
@@ -210,7 +210,7 @@ impl EVMCoreService {
         let gas_limit = signed_tx.gas_limit();
         let block_gas_limit = template.ctx.attrs.block_gas_limit;
         if gas_limit > U256::from(block_gas_limit) {
-            debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
+            trace!("[validate_raw_tx] gas limit higher than max_gas_per_block");
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
@@ -218,18 +218,18 @@ impl EVMCoreService {
         // Validate tx prepay fees with account balance
         let backend = &template.backend;
         let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+        trace!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < max_prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            trace!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         let nonce = backend.get_nonce(&signed_tx.sender);
-        debug!(
+        trace!(
             "[validate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
-        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
+        trace!("[validate_raw_tx] nonce : {:#?}", nonce);
         // Validate tx nonce with account nonce
         if nonce > signed_tx.nonce() {
             return Err(format_err!(
@@ -293,7 +293,7 @@ impl EVMCoreService {
         template: &BlockTemplate,
         context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
-        debug!(
+        trace!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
         );
@@ -308,7 +308,7 @@ impl EVMCoreService {
                 .tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!(
+            trace!(
                 "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
                 signed_tx
             );
@@ -334,19 +334,19 @@ impl EVMCoreService {
 
             // Validate tx value equal to zero
             if signed_tx.value() != U256::zero() {
-                debug!("[validate_raw_transferdomain_tx] value not equal to zero");
+                trace!("[validate_raw_transferdomain_tx] value not equal to zero");
                 return Err(format_err!("value not equal to zero").into());
             }
 
             // Validate tx gas price equal to zero
             if signed_tx.gas_price() != U256::zero() {
-                debug!("[validate_raw_transferdomain_tx] gas price not equal to zero");
+                trace!("[validate_raw_transferdomain_tx] gas price not equal to zero");
                 return Err(format_err!("gas price not equal to zero").into());
             }
 
             // Validate tx gas limit equal to zero
             if signed_tx.gas_limit() != U256::zero() {
-                debug!("[validate_raw_transferdomain_tx] gas limit not equal to zero");
+                trace!("[validate_raw_transferdomain_tx] gas limit not equal to zero");
                 return Err(format_err!("gas limit not equal to zero").into());
             }
 
@@ -486,15 +486,15 @@ impl EVMCoreService {
         let backend = &template.backend;
 
         let nonce = backend.get_nonce(&signed_tx.sender);
-        debug!(
+        trace!(
             "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
         );
-        debug!(
+        trace!(
             "[validate_raw_transferdomain_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
-        debug!("[validate_raw_transferdomain_tx] nonce : {:#?}", nonce);
+        trace!("[validate_raw_transferdomain_tx] nonce : {:#?}", nonce);
 
         // Validate tx nonce
         if nonce > signed_tx.nonce() {
@@ -622,7 +622,7 @@ impl EVMCoreService {
             .get_account(address, state_root)?
             .map_or(U256::zero(), |account| account.balance);
 
-        debug!("Account {:x?} balance {:x?}", address, balance);
+        trace!("Account {:x?} balance {:x?}", address, balance);
         Ok(balance)
     }
 
@@ -689,9 +689,10 @@ impl EVMCoreService {
                 .map(|block| block.header)
                 .ok_or(format_err!("Block number {:x?} not found", block_number))?;
             let state_root = block_header.state_root;
-            debug!(
+            trace!(
                 "Calling EVM at block number : {:#x}, state_root : {:#x}",
-                block_number, state_root
+                block_number,
+                state_root
             );
 
             let mut vicinity = Vicinity::from(block_header);
@@ -701,7 +702,7 @@ impl EVMCoreService {
             if let Some(caller) = caller {
                 vicinity.origin = caller;
             }
-            debug!("Vicinity: {:?}", vicinity);
+            trace!("Vicinity: {:?}", vicinity);
             (state_root, vicinity)
         } else {
             // Handle edge case of no genesis block

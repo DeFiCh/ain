@@ -88,7 +88,7 @@ impl FilterCriteria {
             let to_block = if let Some(to) = self.to_block {
                 to
             } else {
-                // Default to latest block (inclusive of finality count) if input not specifed
+                // Default to latest block (inclusive of finality count) if input not specified
                 latest
             };
             if from_block > to_block {

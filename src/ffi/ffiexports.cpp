@@ -310,6 +310,10 @@ uint32_t getEthMaxConnections() {
     return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
 }
 
+void printEVMPortUsage(const uint8_t portType, const uint16_t portNumber) {
+    return SetPortToLockFile(static_cast<AutoPort>(portType), portNumber);
+}
+
 uint32_t getEthMaxResponseByteSize() {
     const auto max_response_size_mb = gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB);
     return max_response_size_mb * 1024 * 1024;
@@ -522,8 +526,5 @@ uint64_t getDF23Height() {
 }
 
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
-    if (!ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount)) {
-        return false;
-    }
-    return true;
+    return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

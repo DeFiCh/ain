@@ -336,6 +336,7 @@ void Shutdown(InitInterfaces& interfaces)
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
     globalVerifyHandle.reset();
     ECC_Stop();
+    RemovePortUsage();
     LogPrintf("%s: done\n", __func__);
 }
 
@@ -490,6 +491,7 @@ void SetupServerArgs()
     gArgs.AddArg("-peerbloomfilters", strprintf("Support filtering of blocks and transaction with bloom filters (default: %u)", DEFAULT_PEERBLOOMFILTERS), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-permitbaremultisig", strprintf("Relay non-P2SH multisig (default: %u)", DEFAULT_PERMIT_BAREMULTISIG), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-port=<port>", strprintf("Listen for connections on <port> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultChainParams->GetDefaultPort(), testnetChainParams->GetDefaultPort(), changiChainParams->GetDefaultPort(), devnetChainParams->GetDefaultPort(), regtestChainParams->GetDefaultPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-ports=auto", "Automaticlly set P2P, RPC, WebSocket and Eth RPC ports. Overrides defaults and other manually set values.", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxy=<ip:port>", "Connect through SOCKS5 proxy, set -noproxy to disable (default: disabled)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxyrandomize", strprintf("Randomize credentials for every proxy connection. This enables Tor stream isolation (default: %u)", DEFAULT_PROXYRANDOMIZE), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-seednode=<ip>", "Connect to a node to retrieve peer addresses, and disconnect. This option can be specified multiple times to connect to multiple nodes.", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -661,8 +663,6 @@ void SetupServerArgs()
     gArgs.AddArg("-dftxworkers=<n>", strprintf("No. of parallel workers associated with the DfTx related work pool. Stock splits, parallel processing of the chain where appropriate, etc use this worker pool (default: %d)", DEFAULT_DFTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxaddrratepersecond=<n>", strprintf("Sets MAX_ADDR_RATE_PER_SECOND limit for ADDR messages(default: %f)", MAX_ADDR_RATE_PER_SECOND), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-grpcbind=<addr>[:port]", "Bind to given address to listen for gRPC connections. Do not expose the gRPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -grpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-grpcport=<port>", strprintf("Listen for GRPC connections on <port>. If -1 flag specified, gRPC server initialization will be disabled. (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for ETH-JSON-RPC connections. Do not expose the ETH-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>. If -1 flag specified, ETH RPC server initialization will be disabled. (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-wsbind=<addr>[:port]", "Bind to given address to listen for ETH-WebSockets connections. Do not expose the Eth-WebSockets server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -wsport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
@@ -1039,6 +1039,8 @@ void InitLogging()
     version_string += " (release build)";
 #endif
     LogPrintf(PACKAGE_NAME " version %s\n", version_string);
+    // Remove ports.lock on startup in case of an unclean shutdown.
+    RemovePortUsage();
 }
 
 namespace { // Variables internal to initialization process only
@@ -1367,13 +1369,14 @@ static bool LockDataDirectory(bool probeOnly)
 {
     // Make sure only a single DeFi Blockchain process is using the data directory.
     fs::path datadir = GetDataDir();
-    if (!DirIsWritable(datadir)) {
+    switch (util::LockDirectory(datadir, ".lock", probeOnly)) {
+    case util::LockResult::ErrorWrite:
         return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, fs::PathToString(datadir)));
-    }
-    if (!LockDirectory(datadir, ".lock", probeOnly)) {
+    case util::LockResult::ErrorLock:
         return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running.").translated, fs::PathToString(datadir), PACKAGE_NAME));
-    }
-    return true;
+    case util::LockResult::Success: return true;
+    } // no default case, so the compiler can warn about missing cases
+    assert(false);
 }
 
 bool AppInitSanityChecks()
@@ -1595,14 +1598,22 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 }
 
-void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& gEndpoints, std::vector<std::string>& wsEndpoints) {
+static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& wsEndpoints) {
     std::string default_address = "127.0.0.1";
+
+    bool setAutoPort{};
+    if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
+        setAutoPort = true;
+    }
     
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {
             LogPrintf("ETH RPC server disabled.\n");
     } else {
+        if (setAutoPort) {
+            eth_rpc_port = 0;
+        }
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
             auto endpoint = default_address + ":" + std::to_string(eth_rpc_port);
             ethEndpoints.push_back(endpoint);
@@ -1623,36 +1634,14 @@ void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::stri
         }
     }
 
-    // Determine which addresses to bind to gRPC server
-    int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
-    if (grpc_port == -1) {
-            LogPrintf("gRPC server disabled.\n");
-    } else {
-        if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
-            auto endpoint = default_address + ":" + std::to_string(grpc_port);
-            gEndpoints.push_back(endpoint);
-            if (gArgs.IsArgSet("-rpcallowip")) {
-                LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
-            }
-            if (gArgs.IsArgSet("-grpcbind")) {
-                LogPrintf("WARNING: option -grpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
-            }
-        } else if (gArgs.IsArgSet("-grpcbind")) { // Specific bind address
-            for (const std::string& strGRPCBind : gArgs.GetArgs("-grpcbind")) {
-                int port = grpc_port;
-                std::string host;
-                SplitHostPort(strGRPCBind, port, host);
-                auto endpoint = host + ":" + std::to_string(port);
-                gEndpoints.push_back(endpoint);
-            }
-        }
-    }
-
     // Determine which addresses to bind to websocket server
     int ws_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
     if (ws_port == -1) {
             LogPrintf("Websocket server disabled.\n");
     } else {
+        if (setAutoPort) {
+            ws_port = 0;
+        }
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wsbind"))) { // Default to loopback if not allowing external IPs
             auto endpoint = default_address + ":" + std::to_string(ws_port);
             wsEndpoints.push_back(endpoint);
@@ -1747,7 +1736,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     LogPrintf("Using at most %i automatic connections (%i file descriptors available)\n", nMaxConnections, nFD);
 
     // Warn about relative -datadir path.
-    if (gArgs.IsArgSet("-datadir") && !fs::PathFromString(gArgs.GetArg("-datadir", "")).is_absolute()) {
+    if (gArgs.IsArgSet("-datadir") && !gArgs.GetPathArg("-datadir").is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
                   "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
@@ -2354,8 +2343,8 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Start the ETH RPC, gRPC and websocket servers
     // We start the evm RPC servers as late as possible.
     {
-        std::vector<std::string> eth_endpoints, g_endpoints, ws_endpoints;
-        SetupRPCPorts(eth_endpoints, g_endpoints, ws_endpoints);
+        std::vector<std::string> eth_endpoints, ws_endpoints;
+        SetupRPCPorts(eth_endpoints, ws_endpoints);
         CrossBoundaryResult result;
 
         // Bind ETH RPC addresses
@@ -2369,21 +2358,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, addr))
             if (!res) {
                 LogPrintf("Binding ETH RPC server on endpoint %s failed.\n", *it);
-                return false;
-            }
-        }
-
-        // Bind gRPC addresses
-        for (auto it = g_endpoints.begin(); it != g_endpoints.end(); ++it) {
-            LogPrint(BCLog::HTTP, "Binding gRPC server on endpoint %s\n", *it);
-            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
-            if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid gRPC address, not UTF-8 valid\n");
-                return false;
-            }
-            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, addr))
-            if (!res) {
-                LogPrintf("Binding gRPC server on endpoint %s failed.\n", *it);
                 return false;
             }
         }
