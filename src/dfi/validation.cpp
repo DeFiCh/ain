@@ -1994,6 +1994,23 @@ static Res VaultSplits(CCustomCSView &view,
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 
+    std::vector<std::pair<CVaultId, CAmount>> collTokenAmounts;
+    view.ForEachVaultCollateral([&](const CVaultId &vaultId, const CBalances &balances) {
+        for (const auto &[tokenId, amount] : balances.balances) {
+            if (tokenId == oldTokenId) {
+                collTokenAmounts.emplace_back(vaultId, amount);
+            }
+        }
+        return true;
+    });
+
+    for (auto &[vaultId, amount] : collTokenAmounts) {
+        const auto res = view.SubVaultCollateral(vaultId, {oldTokenId, amount});
+        if (!res) {
+            return res;
+        }
+    }
+
     std::vector<std::pair<CVaultId, CAmount>> loanTokenAmounts;
     view.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
@@ -2050,6 +2067,35 @@ static Res VaultSplits(CCustomCSView &view,
         return res;
     }
     view.SetVariable(attributes);
+
+    for (const auto &[vaultId, amount] : collTokenAmounts) {
+        auto newAmount = CalculateNewAmount(multiplier, amount);
+
+        auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
+        auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
+
+        LogPrint(BCLog::TOKENSPLIT,
+                 "TokenSplit: V Collateral (%s: %s => %s)\n",
+                 vaultId.ToString(),
+                 oldTokenAmount.ToString(),
+                 newTokenAmount.ToString());
+
+        if (auto res = view.AddVaultCollateral(vaultId, newTokenAmount); !res) {
+            return res;
+        }
+
+        if (const auto vault = view.GetVault(vaultId)) {
+            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue subValue{
+                uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
+            view.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
+
+            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryValue addValue{
+                uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
+            view.GetHistoryWriters().WriteVaultHistory(addKey, addValue);
+        }
+    }
 
     for (const auto &[vaultId, amount] : loanTokenAmounts) {
         auto newAmount = CalculateNewAmount(multiplier, amount);
