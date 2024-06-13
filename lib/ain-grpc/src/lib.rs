@@ -18,6 +18,7 @@ mod trace;
 mod transaction;
 mod transaction_request;
 mod utils;
+use defichain_rpc::{Auth, Client};
 
 #[cfg(test)]
 mod tests;
@@ -29,6 +30,7 @@ use std::{
 };
 
 use ain_evm::services::{IS_SERVICES_INIT_CALL, SERVICES};
+use ain_ocean::SERVICES as OCEAN_SERVICES;
 use anyhow::{format_err, Result};
 use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
@@ -116,6 +118,38 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
 
     runtime.json_rpc_handles.lock().push(server.start(methods)?);
     Ok(())
+}
+
+pub async fn init_ocean_server(addr: String) -> Result<()> {
+    let addr = addr.parse::<SocketAddr>()?;
+    let runtime = &SERVICES;
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+
+    let (user, pass) = ain_cpp_imports::get_rpc_auth().map_err(|e| format_err!("{e}"))?;
+    let client = Arc::new(
+        Client::new(
+            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+            Auth::UserPass(user, pass),
+        )
+        .await?,
+    );
+    let network = ain_cpp_imports::get_network();
+
+    let ocean_router = ain_ocean::ocean_router(&OCEAN_SERVICES, client, network).await?;
+
+    let server_handle = runtime.tokio_runtime.spawn(async move {
+        if let Err(e) = axum::serve(listener, ocean_router).await {
+            log::error!("Server encountered an error: {}", e);
+        }
+    });
+    *runtime.ocean_handle.lock() = Some(server_handle);
+    Ok(())
+}
+
+pub fn init_network_rest_ocean(addr: String) -> Result<()> {
+    info!("Starting REST Ocean server at {}", addr);
+    SERVICES.tokio_runtime.block_on(init_ocean_server(addr))
 }
 
 pub fn init_network_grpc_service(_addr: String) -> Result<()> {

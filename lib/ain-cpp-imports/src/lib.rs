@@ -53,6 +53,12 @@ mod ffi {
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getRPCPort() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getRPCAuth() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn isMining() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -163,6 +169,9 @@ mod ffi {
     ) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn isSkippedTx(_tx_hash: [u8; 32]) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -174,6 +183,24 @@ pub use ffi::TokenAmount;
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
     Ok(chain_id)
+}
+
+/// Returns the RPC port.
+pub fn get_rpc_port() -> i32 {
+    ffi::getRPCPort()
+}
+
+/// Returns the RPC authorization string.
+pub fn get_rpc_auth() -> Result<(String, String), Box<dyn Error>> {
+    match ffi::getRPCAuth()
+        .splitn(2, ':')
+        .map(String::from)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [user, pass] => Ok((user.clone(), pass.clone())),
+        _ => Err("Error getting user and password".into()),
+    }
 }
 
 /// Retrieves the client version string.
@@ -374,6 +401,10 @@ pub fn split_tokens_from_evm(
     new_amount: &mut ffi::TokenAmount,
 ) -> bool {
     ffi::migrateTokensFromEVM(mnview_ptr, old_amount, new_amount)
+}
+
+pub fn is_skipped_tx(tx_hash: [u8; 32]) -> bool {
+    ffi::isSkippedTx(tx_hash)
 }
 
 #[cfg(test)]

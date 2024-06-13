@@ -47,7 +47,7 @@ pub struct PoolRemoveLiquidity {
 }
 
 #[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
-pub struct PoolCreatePair {
+pub struct CreatePoolPair {
     pub token_a: VarInt,
     pub token_b: VarInt,
     pub commission: i64,

@@ -32,6 +32,9 @@ static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
+static constexpr bool DEFAULT_OCEAN_ARCHIVE_ENABLED = false;
+static constexpr uint32_t DEFAULT_OCEAN_ARCHIVE_PORT = 3002;
+
 struct Attributes {
     uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
@@ -93,6 +96,8 @@ struct SystemTxData {
 };
 
 uint64_t getChainId();
+int getRPCPort();
+rust::string getRPCAuth();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
@@ -128,5 +133,6 @@ bool isEthDebugTraceRPCEnabled();
 rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash);
 uint64_t getDF23Height();
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
+bool isSkippedTx(std::array<uint8_t, 32> txHash);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

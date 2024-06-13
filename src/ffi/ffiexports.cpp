@@ -27,6 +27,22 @@ uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
 }
 
+int getRPCPort() {
+    return gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+}
+
+rust::string getRPCAuth() {
+    // Get credentials
+    std::string strRPCUserColonPass;
+    if (gArgs.GetArg("-rpcpassword", "") == "") {
+        // Try fall back to cookie-based authentication if no password is provided
+        GetAuthCookie(&strRPCUserColonPass);
+    } else {
+        strRPCUserColonPass = gArgs.GetArg("-rpcuser", "") + ":" + gArgs.GetArg("-rpcpassword", "");
+    }
+    return strRPCUserColonPass;
+}
+
 bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
@@ -527,4 +543,10 @@ uint64_t getDF23Height() {
 
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
+}
+
+bool isSkippedTx(std::array<uint8_t, 32> txHash) {
+    uint256 hash{};
+    std::copy(txHash.begin(), txHash.end(), hash.begin());
+    return IsSkippedTx(hash);
 }

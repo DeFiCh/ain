@@ -56,6 +56,8 @@ pub mod ffi {
         type TokenAmount;
 
         fn getChainId() -> u64;
+        fn getRPCPort() -> i32;
+        fn getRPCAuth() -> String;
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> String;
         fn getAccounts() -> Vec<String>;
@@ -95,5 +97,6 @@ pub mod ffi {
             old_amount: TokenAmount,
             new_amount: &mut TokenAmount,
         ) -> bool;
+        fn isSkippedTx(tx_hash: [u8; 32]) -> bool;
     }
 }
