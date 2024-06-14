@@ -9,7 +9,7 @@ use ethereum::{Account, Header, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
-use log::trace;
+use log::{debug, trace};
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
 use vsdb_trie_db::{MptOnce, MptRo};
@@ -62,6 +62,7 @@ struct OverlayData {
     account: Account,
     code: Option<Vec<u8>>,
     storage: HashMap<H256, H256>,
+    reset_storage: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -69,6 +70,7 @@ pub struct Overlay {
     state: HashMap<H160, OverlayData>,
     changeset: Vec<HashMap<H160, OverlayData>>,
     deletes: HashSet<H160>,
+    creates: HashSet<H160>,
 }
 
 impl Overlay {
@@ -77,6 +79,7 @@ impl Overlay {
             state: HashMap::new(),
             changeset: Vec::new(),
             deletes: HashSet::new(),
+            creates: HashSet::new(),
         }
     }
 
@@ -100,12 +103,17 @@ impl Overlay {
             account,
             code: code.or(self.get_code(&address)),
             storage,
+            reset_storage,
         };
         self.state.insert(address, data.clone());
     }
 
     fn mark_delete(&mut self, address: H160) {
         self.deletes.insert(address);
+    }
+
+    fn mark_create(&mut self, address: H160) {
+        self.creates.insert(address);
     }
 
     // Keeps track of the number of TXs in the changeset.
@@ -181,10 +189,7 @@ impl EVMBackend {
         });
 
         if reset_storage || is_empty_account(&account) {
-            self.trie_store
-                .trie_db
-                .trie_create(address.as_bytes(), None, true)
-                .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?;
+            self.overlay.mark_create(address);
             account.storage_root = GENESIS_STATE_ROOT;
         }
 
@@ -232,9 +237,19 @@ impl EVMBackend {
                 ref mut account,
                 code,
                 storage,
+                reset_storage,
             },
         ) in self.overlay.state.drain()
         {
+            if self.overlay.creates.contains(&address) {
+                trace!("Creating trie for {address:x}");
+                self.trie_store
+                    .trie_db
+                    .trie_create(address.as_bytes(), None, true)
+                    .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?;
+                account.storage_root = GENESIS_STATE_ROOT;
+            }
+
             if self.overlay.deletes.contains(&address) {
                 self.state
                     .remove(address.as_bytes())

@@ -324,8 +324,20 @@ class EvmTracerTest(DefiTestFramework):
                 "collateralAddress": self.address,
             }
         )
+
         self.nodes[0].generate(1)
+
+        # This is failing as of commit ffe007f86826cad654cec8ddfeb6e9436206ed08
+        # Tracing of new contract creation on EVM will overwrite the contract
+        # state trie and lead to an invalid state root
+        # Fixed by adding new contract state trie creation to overlay
+        self.nodes[0].debug_traceBlockByNumber("latest")
+        self.nodes[0].eth_getStorageAt(
+            "0xff00000000000000000000000000000000000001", "0x0"
+        )
+
         self.nodes[0].minttokens("100@BTC")
+
         self.nodes[0].generate(1)
         self.nodes[0].transferdomain(
             [
