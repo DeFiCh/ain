@@ -34,7 +34,6 @@ pub mod storage;
 use crate::storage::ocean_store::OceanStore;
 
 pub type Result<T> = std::result::Result<T, Error>;
-pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 lazy_static::lazy_static! {
     // Global services exposed by the library

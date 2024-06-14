@@ -9,6 +9,7 @@ use axum::{
 use bitcoin::Txid;
 use defichain_rpc::{json::Bip125Replaceable, RpcApi};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal_macros::dec;
 
 use super::{response::Response, AppContext};
 use crate::{
@@ -25,16 +26,23 @@ async fn send_rawtx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<String> {
-    println!("{:?}", raw_tx_dto.hex.clone());
     validate(raw_tx_dto.hex.clone())?;
-    let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
-    if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
-        let sat_per_bitcoin = Decimal::new(100_000_000, 0);
-        let fee_in_satoshis = fee_rate * sat_per_bitcoin;
-        max_fee = fee_in_satoshis.round().to_u64();
-    }
-    let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
-    match ctx.client.send_raw_transaction(trx, max_fee).await {
+    let max_fee = match raw_tx_dto.max_fee_rate {
+        Some(fee_rate) => {
+            let sat_per_bitcoin = dec!(100_000_000);
+            let fee_in_satoshis = fee_rate.checked_mul(sat_per_bitcoin);
+            match fee_in_satoshis {
+                Some(value) => Some(value.to_u64().unwrap_or_default()),
+                None => Some(default_max_fee_rate().to_sat()),
+            }
+        }
+        None => Some(default_max_fee_rate().to_sat()),
+    };
+    match ctx
+        .client
+        .send_raw_transaction(raw_tx_dto.hex, max_fee)
+        .await
+    {
         Ok(tx_hash) => Ok(tx_hash.to_string()),
         Err(e) => {
             eprintln!("Failed to send raw transaction: {:?}", e);
@@ -48,12 +56,17 @@ async fn test_rawtx(
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<Response<Vec<MempoolAcceptResult>>> {
     let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
-    let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
-    if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
-        let sat_per_bitcoin = Decimal::new(100_000_000, 0);
-        let fee_in_satoshis = fee_rate * sat_per_bitcoin;
-        max_fee = fee_in_satoshis.round().to_u64();
-    }
+    let max_fee = match raw_tx_dto.max_fee_rate {
+        Some(fee_rate) => {
+            let sat_per_bitcoin = dec!(100_000_000);
+            let fee_in_satoshis = fee_rate.checked_mul(sat_per_bitcoin);
+            match fee_in_satoshis {
+                Some(value) => Some(value.to_u64().unwrap_or_default()),
+                None => Some(default_max_fee_rate().to_sat()),
+            }
+        }
+        None => Some(default_max_fee_rate().to_sat()),
+    };
     match ctx.client.test_mempool_accept(&[trx], max_fee).await {
         Ok(mempool_tx) => {
             let results = mempool_tx
@@ -129,7 +142,6 @@ async fn get_raw_tx(
 }
 
 fn validate(hex: String) -> Result<()> {
-    println!("{:?}", hex);
     if !hex.starts_with("040000000001") {
         return Err(Error::ValidationError(
             "Transaction does not start with the expected prefix.".to_string(),

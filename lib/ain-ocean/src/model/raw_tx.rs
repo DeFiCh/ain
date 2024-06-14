@@ -9,9 +9,8 @@ pub struct RawTxDto {
     pub max_fee_rate: Option<Decimal>,
 }
 
-pub fn default_max_fee_rate() -> Option<Amount> {
-    let default_max_fee_rate = Amount::from_btc(0.1).unwrap_or_default();
-    Some(default_max_fee_rate)
+pub fn default_max_fee_rate() -> Amount {
+    Amount::from_btc(0.1).unwrap_or_default()
 }
 
 #[derive(Serialize, Deserialize, Debug)]
