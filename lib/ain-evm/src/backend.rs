@@ -9,7 +9,7 @@ use ethereum::{Account, Header, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
-use log::{debug, trace};
+use log::trace;
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
 use vsdb_trie_db::{MptOnce, MptRo};
@@ -62,7 +62,6 @@ struct OverlayData {
     account: Account,
     code: Option<Vec<u8>>,
     storage: HashMap<H256, H256>,
-    reset_storage: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -103,7 +102,6 @@ impl Overlay {
             account,
             code: code.or(self.get_code(&address)),
             storage,
-            reset_storage,
         };
         self.state.insert(address, data.clone());
     }
@@ -237,7 +235,6 @@ impl EVMBackend {
                 ref mut account,
                 code,
                 storage,
-                reset_storage,
             },
         ) in self.overlay.state.drain()
         {
