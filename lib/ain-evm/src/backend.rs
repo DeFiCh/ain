@@ -188,7 +188,6 @@ impl EVMBackend {
 
         if reset_storage || is_empty_account(&account) {
             self.overlay.mark_create(address);
-            account.storage_root = GENESIS_STATE_ROOT;
         }
 
         if let Some(code) = &code {
