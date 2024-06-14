@@ -2084,6 +2084,7 @@ static Res VaultSplits(CCustomCSView &view,
             return res;
         }
 
+        //FIXME: make this clear to be a collateral change
         if (const auto vault = view.GetVault(vaultId)) {
             VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
             VaultHistoryValue subValue{
@@ -2730,7 +2731,6 @@ static void ProcessTokenLock(const CBlock &block,
                 ss >> metaId;
                 ss >> metaMultiplier;
 
-                LogPrintf("Got creation Tx %d %d %d\n",type, metaId, metaMultiplier);
                 if (COIN == metaMultiplier) {
                     creationTxPerId[metaId] = tx->GetHash();
                 }
@@ -2741,7 +2741,6 @@ static void ProcessTokenLock(const CBlock &block,
         }
     }
 
-    LogPrintf("Got %d creation Txs\n", creationTxPerId.size());
     auto attributes = cache.GetAttributes();
     // get tokens with matched with creationTx
     // get list of pools, matched with creationTx
@@ -2784,6 +2783,7 @@ static void ProcessTokenLock(const CBlock &block,
     ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx,"/lock");
     LogPrintf("executed token 'splits' for locks\n");
 
+    //rename DUSD -> USDD (before updating pools to get correct pool token names)
     auto dusdToken = cache.GetToken("DUSD");
     if (!dusdToken) {
         LogPrintf("Token lock failed. DUSD not found\n");
@@ -2796,6 +2796,8 @@ static void ProcessTokenLock(const CBlock &block,
         LogPrintf("Updating DUSD -> USDD failed %s\n", res.msg);
         return;
     }
+
+    //TODO: should we rename the oracle? DUSD/USD -> USDD/USD
 
     // get map oldTokenId->newTokenId
     std::map<uint32_t, DCT_ID> oldTokenToNewToken;
@@ -2814,7 +2816,7 @@ static void ProcessTokenLock(const CBlock &block,
 
     // convert pools, based on tokenMap (needs change in existing code)
 
-    res = PoolSplits(cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, creationTxPerPoolId, COIN,"/lock");
+    res = PoolSplits(cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, creationTxPerPoolId, COIN, "/lock");
     if (!res) {
         LogPrintf("Pool splits failed %s\n", res.msg);
         //TODO: handle error

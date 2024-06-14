@@ -89,6 +89,7 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
+        #TODO: add reserve check
         assert_equal(
             [
                 {id: pool["symbol"]}
