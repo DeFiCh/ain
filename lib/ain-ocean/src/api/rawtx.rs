@@ -7,8 +7,11 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use bitcoin::{consensus::encode::deserialize, Transaction, Txid};
-use defichain_rpc::{json::Bip125Replaceable, RpcApi};
+use bitcoin::{consensus::encode::deserialize, Txid};
+use defichain_rpc::{
+    json::{blockchain::Transaction, Bip125Replaceable},
+    RpcApi,
+};
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive},
     Decimal,
@@ -29,7 +32,8 @@ async fn send_rawtx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<String> {
-    validate(raw_tx_dto.hex.clone()).await;
+    println!("{:?}", raw_tx_dto.hex.clone());
+    validate(raw_tx_dto.hex.clone())?;
     let mut max_fee = Some(default_max_fee_rate().unwrap().to_sat());
     if let Some(fee_rate) = raw_tx_dto.max_fee_rate {
         let sat_per_bitcoin = Decimal::new(100_000_000, 0);
@@ -131,15 +135,14 @@ async fn get_raw_tx(
     Ok(Response::new(raw_tx))
 }
 
-async fn validate(hex: String) {
+fn validate(hex: String) -> Result<()> {
+    println!("{:?}", hex);
     if !hex.starts_with("040000000001") {
-        return;
+        return Err(Error::ValidationError(
+            "Transaction does not start with the expected prefix.".to_string(),
+        ));
     }
-    let buffer = hex::decode(hex).expect("Decoding failed");
-    let transaction: Transaction = deserialize(&buffer).expect("Failed to deserialize transaction");
-    if transaction.output.len() != 2 {
-        return;
-    }
+    Ok(())
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

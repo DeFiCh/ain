@@ -1,5 +1,6 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 use anyhow::{format_err, Context};
 use bitcoin::Txid;
 use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
@@ -21,7 +22,6 @@ use crate::{
     storage::SortOrder,
     Result,
 };
-use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize, Debug, Clone)]

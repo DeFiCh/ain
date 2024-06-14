@@ -70,6 +70,8 @@ pub enum Error {
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+    #[error("Validation error: {0}")]
+    ValidationError(String),
 }
 
 #[derive(Serialize)]
