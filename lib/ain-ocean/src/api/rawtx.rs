@@ -3,28 +3,21 @@ use std::{str::FromStr, sync::Arc};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Json, Path},
-    http::StatusCode,
     routing::{get, post},
     Extension, Router,
 };
-use bitcoin::{consensus::encode::deserialize, Txid};
-use defichain_rpc::{
-    json::{blockchain::Transaction, Bip125Replaceable},
-    RpcApi,
-};
-use rust_decimal::{
-    prelude::{FromPrimitive, ToPrimitive},
-    Decimal,
-};
+use bitcoin::Txid;
+use defichain_rpc::{json::Bip125Replaceable, RpcApi};
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 
-use super::{fee, response::Response, AppContext};
+use super::{response::Response, AppContext};
 use crate::{
     error::ApiError,
     model::{
         default_max_fee_rate, MempoolAcceptResult, RawTransaction, RawTxDto, TransctionDetails,
         WalletTxInfo,
     },
-    ApiResult, Error, Result,
+    Error, Result,
 };
 
 #[ocean_endpoint]
@@ -93,7 +86,7 @@ async fn get_raw_tx(
         .details
         .into_iter()
         .map(|detail| TransctionDetails {
-            address: detail.address.map(|addr| addr),
+            address: detail.address,
             category: detail.category.to_owned(),
             amount: detail.amount.to_sat(),
             label: detail.label,
@@ -129,7 +122,7 @@ async fn get_raw_tx(
         },
         amount: tx_result.amount.to_sat(),
         fee: tx_result.fee.map(|amount| amount.to_sat()),
-        details: details,
+        details,
         hex: tx_result.hex,
     };
     Ok(Response::new(raw_tx))

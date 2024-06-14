@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
 use bitcoin::{address::NetworkUnchecked, Address, Amount, BlockHash, Txid};
 use defichain_rpc::json::GetTransactionResultDetailCategory;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
