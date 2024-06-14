@@ -51,7 +51,7 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
     let pool_pairs = services
         .poolpair
         .by_height
-        .list(None, SortOrder::Ascending)?
+        .list(None, SortOrder::Descending)?
         .map(|el| {
             let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
             Ok(PoolCreationHeight {

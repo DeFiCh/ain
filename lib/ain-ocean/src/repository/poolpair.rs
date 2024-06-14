@@ -9,7 +9,7 @@ use crate::{
     Result,
 };
 
-type PoolPairByHeightKey = (u32, usize);
+type PoolPairByHeightKey = (u32, usize); // block_height, tx_idx
 type PoolPairValue = (u32, u32, u32); // pool_id, id_token_a, id_token_b
 
 #[derive(Repository)]
