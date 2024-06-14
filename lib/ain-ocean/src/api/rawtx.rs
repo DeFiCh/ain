@@ -7,17 +7,15 @@ use axum::{
     Extension, Router,
 };
 use bitcoin::Txid;
-use defichain_rpc::{json::Bip125Replaceable, RpcApi};
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use defichain_rpc::RpcApi;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use serde::Deserialize;
 
-use super::{response::Response, AppContext};
+use super::{query::Query, response::Response, AppContext};
 use crate::{
     error::ApiError,
-    model::{
-        default_max_fee_rate, MempoolAcceptResult, RawTransaction, RawTxDto, TransctionDetails,
-        WalletTxInfo,
-    },
+    model::{default_max_fee_rate, MempoolAcceptResult, RawTransactionResult, RawTxDto},
     Error, Result,
 };
 
@@ -88,57 +86,40 @@ async fn test_rawtx(
     }
 }
 
+#[derive(Deserialize, Default)]
+struct QueryParams {
+    verbose: bool,
+}
 #[ocean_endpoint]
 async fn get_raw_tx(
-    Path((txid, verbose)): Path<(String, bool)>,
+    Path(txid): Path<String>,
+    Query(QueryParams { verbose }): Query<QueryParams>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<RawTransaction>> {
+) -> Result<(String, Option<RawTransactionResult>)> {
     let tx_hash = Txid::from_str(&txid)?;
-    let tx_result = ctx.client.get_transaction(&tx_hash, Some(verbose)).await?;
-    let details: Vec<TransctionDetails> = tx_result
-        .details
-        .into_iter()
-        .map(|detail| TransctionDetails {
-            address: detail.address,
-            category: detail.category.to_owned(),
-            amount: detail.amount.to_sat(),
-            label: detail.label,
-            vout: detail.vout,
-            fee: detail.fee.map(|f| f.to_sat()),
-            abandoned: detail.abandoned,
-            hex: hex::encode(&tx_result.hex),
-            blockhash: tx_result.info.blockhash,
-            confirmations: tx_result.info.confirmations,
-            time: tx_result.info.time,
-            blocktime: tx_result.info.blocktime,
-        })
-        .collect();
-
-    let bip_125 = match tx_result.info.bip125_replaceable {
-        Bip125Replaceable::Yes => Some("Yes".to_string()),
-        Bip125Replaceable::No => Some("No".to_string()),
-        Bip125Replaceable::Unknown => Some("Unknown".to_string()),
-    };
-
-    let raw_tx = RawTransaction {
-        info: WalletTxInfo {
-            confirmations: tx_result.info.confirmations,
-            blockhash: tx_result.info.blockhash,
-            blockindex: tx_result.info.blockindex,
-            blocktime: tx_result.info.blocktime,
-            blockheight: tx_result.info.blockheight,
-            txid: tx_result.info.txid,
-            time: tx_result.info.time,
-            timereceived: tx_result.info.timereceived,
-            bip125_replaceable: bip_125,
-            wallet_conflicts: tx_result.info.wallet_conflicts,
-        },
-        amount: tx_result.amount.to_sat(),
-        fee: tx_result.fee.map(|amount| amount.to_sat()),
-        details,
-        hex: tx_result.hex,
-    };
-    Ok(Response::new(raw_tx))
+    if !verbose {
+        let tx_hex = ctx.client.get_raw_transaction_hex(&tx_hash, None).await?;
+        Ok((txid, None))
+    } else {
+        let tx_info = ctx.client.get_raw_transaction_info(&tx_hash, None).await?;
+        let result = RawTransactionResult {
+            in_active_chain: tx_info.in_active_chain,
+            hex: tx_info.hex,
+            txid: tx_info.txid,
+            hash: tx_info.hash,
+            size: tx_info.size,
+            vsize: tx_info.vsize,
+            version: tx_info.version,
+            locktime: tx_info.locktime,
+            vin: tx_info.vin,
+            vout: tx_info.vout,
+            blockhash: tx_info.blockhash,
+            confirmations: tx_info.confirmations,
+            time: tx_info.time,
+            blocktime: tx_info.blocktime,
+        };
+        Ok((txid, Some(result))) // Correctly wrap in a tuple and Some
+    }
 }
 
 fn validate(hex: String) -> Result<()> {

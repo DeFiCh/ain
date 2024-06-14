@@ -5,7 +5,7 @@ pub mod network;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
-use error::{ApiError, Error};
+use error::Error;
 pub use indexer::{
     index_block, invalidate_block, oracle::invalidate_oracle_interval,
     transaction::index_transaction, tx_result, PoolCreationHeight,

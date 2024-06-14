@@ -1,5 +1,5 @@
-use bitcoin::{address::NetworkUnchecked, Address, Amount, BlockHash, Txid};
-use defichain_rpc::json::GetTransactionResultDetailCategory;
+use bitcoin::{Amount, Txid};
+use defichain_rpc::json::{GetRawTransactionResultVin, GetRawTransactionResultVout};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -13,43 +13,23 @@ pub fn default_max_fee_rate() -> Amount {
     Amount::from_btc(0.1).unwrap_or_default()
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TransctionDetails {
-    pub address: Option<Address<NetworkUnchecked>>,
-    pub category: GetTransactionResultDetailCategory,
-    pub amount: i64,
-    pub label: Option<String>,
-    pub vout: u32,
-    pub fee: Option<i64>,
-    pub abandoned: Option<bool>,
-    pub hex: String,
-    pub blockhash: Option<BlockHash>,
-    pub confirmations: i32,
-    pub time: u64,
-    pub blocktime: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct WalletTxInfo {
-    pub confirmations: i32,
-    pub blockhash: Option<BlockHash>,
-    pub blockindex: Option<usize>,
-    pub blocktime: Option<u64>,
-    pub blockheight: Option<u32>,
-    pub txid: Txid,
-    pub time: u64,
-    pub timereceived: u64,
-    pub bip125_replaceable: Option<String>,
-    pub wallet_conflicts: Vec<bitcoin::Txid>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct RawTransaction {
-    pub info: WalletTxInfo,
-    pub amount: i64,
-    pub fee: Option<i64>,
-    pub details: Vec<TransctionDetails>,
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawTransactionResult {
+    pub in_active_chain: Option<bool>,
     pub hex: Vec<u8>,
+    pub txid: bitcoin::Txid,
+    pub hash: bitcoin::Wtxid,
+    pub size: usize,
+    pub vsize: usize,
+    pub version: u32,
+    pub locktime: u32,
+    pub vin: Vec<GetRawTransactionResultVin>,
+    pub vout: Vec<GetRawTransactionResultVout>,
+    pub blockhash: Option<bitcoin::BlockHash>,
+    pub confirmations: Option<u32>,
+    pub time: Option<usize>,
+    pub blocktime: Option<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
