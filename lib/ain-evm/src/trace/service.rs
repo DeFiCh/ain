@@ -1,7 +1,7 @@
 use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
 use anyhow::format_err;
-use ethereum::BlockAny;
+use ethereum::{AccessList, BlockAny};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
@@ -11,7 +11,7 @@ use crate::{
     backend::{EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     core::EthCallArgs,
-    executor::{AccessListInfo, AinExecutor, ExecutorContext},
+    executor::{AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
     trace::{
         formatters::{
@@ -34,6 +34,10 @@ use crate::{
 const TRACER_TX_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
 const TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE: usize = 1_000;
 
+pub struct AccessListInfo {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
 pub struct TraceCache {
     tx_cache: LruCache<(H256, TracerInput), TransactionTrace>,
     block_cache: LruCache<(H256, TracerInput), Vec<(H256, TransactionTrace)>>,
@@ -216,13 +220,33 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
+        let ctx = ExecutorContext {
             caller,
             to,
             value,
             data,
             gas_limit,
             access_list,
+        };
+        let al = self.call_with_access_list_tracer(&mut backend, ctx);
+
+        // Re-execute call to get gas usage
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let gas_used = AinExecutor::new(&mut backend)
+            .call(ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list: al.clone(),
+            })
+            .used_gas;
+        Ok(AccessListInfo {
+            access_list: al,
+            gas_used: U256::from(gas_used),
         })
     }
 }
@@ -345,6 +369,20 @@ impl TracerService {
             }
         };
         Ok(res)
+    }
+
+    /// Wraps eth read-only call with access list tracer
+    fn call_with_access_list_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        ctx: ExecutorContext,
+    ) -> AccessList {
+        let f = move || AinExecutor::new(backend).call(ctx);
+        let listener = Rc::new(RefCell::new(listeners::AccessList::default()));
+        let tracer = EvmTracer::new(Rc::clone(&listener));
+        tracer.trace(f);
+        let res = listener.borrow_mut().finish_transaction();
+        res
     }
 
     fn get_backend_from_block(

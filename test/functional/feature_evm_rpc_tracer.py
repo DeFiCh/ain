@@ -37,7 +37,7 @@ class EvmTracerTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
-                "-df23height=105",
+                "-df23height=150",
                 "-subsidytest=1",
                 "-ethmaxresponsesize=100",
             ],
@@ -135,6 +135,7 @@ class EvmTracerTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
+        self.nodes[0].generate(50)
         self.start_height = self.nodes[0].getblockcount()
         self.load_test_data()
 
