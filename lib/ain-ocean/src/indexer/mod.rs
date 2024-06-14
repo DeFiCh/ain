@@ -144,38 +144,40 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         };
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
-        if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
-            let offset = 1 + match bytes[1] {
-                0x4c => 2,
-                0x4d => 3,
-                0x4e => 4,
-                _ => 1,
-            };
+        if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
+            continue;
+        }
 
-            let raw_tx = &bytes[offset..];
-            match deserialize::<Stack>(raw_tx) {
-                Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
-                    println!("Discarding invalid marker");
+        let offset = 1 + match bytes[1] {
+            0x4c => 2,
+            0x4d => 3,
+            0x4e => 4,
+            _ => 1,
+        };
+
+        let raw_tx = &bytes[offset..];
+        match deserialize::<Stack>(raw_tx) {
+            Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
+                println!("Discarding invalid marker");
+            }
+            Err(e) => return Err(e.into()),
+            Ok(Stack { dftx, .. }) => {
+                match dftx {
+                    DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
+                    DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
+                    DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
+                    DfTx::AppointOracle(data) => data.index(services, &ctx)?,
+                    DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
+                    DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
+                    DfTx::SetOracleData(data) => data.index(services, &ctx)?,
+                    DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                    DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
+                    DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                    DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
+                    // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+                    _ => (),
                 }
-                Err(e) => return Err(e.into()),
-                Ok(Stack { dftx, .. }) => {
-                    match dftx {
-                        DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
-                        DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
-                        DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
-                        DfTx::AppointOracle(data) => data.index(services, &ctx)?,
-                        DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
-                        DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
-                        DfTx::SetOracleData(data) => data.index(services, &ctx)?,
-                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
-                        DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
-                        DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
-                        DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
-                        // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
-                        _ => (),
-                    }
-                    log_elapsed(start, "Indexed dftx");
-                }
+                log_elapsed(start, "Indexed dftx");
             }
         }
 
