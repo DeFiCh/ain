@@ -429,7 +429,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
                     LogPrintf("add creation Tx %d %d\n", id, isToken);
                     CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
                     int64_t multiplier = COIN;
-                    metadata << 0 << id << multiplier;
+                    metadata << (isToken?0:1) << id << multiplier;
 
                     CMutableTransaction mTx(txVersion);
                     mTx.vin.resize(1);

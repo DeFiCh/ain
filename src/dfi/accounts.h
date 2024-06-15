@@ -168,26 +168,17 @@ struct CFuturesUserValue {
 };
 
 struct CTokenLockUserKey {
-    uint32_t height;
     CScript owner;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        if (ser_action.ForRead()) {
-            READWRITE(WrapBigEndian(height));
-            height = ~height;
-            READWRITE(owner);
-        } else {
-            uint32_t height_ = ~height;
-            READWRITE(WrapBigEndian(height_));
-            READWRITE(owner);
-        }
+        READWRITE(owner);
     }
 
     bool operator<(const CFuturesUserKey &o) const {
-        return std::tie(height, owner) < std::tie(o.height, o.owner);
+        return owner < o.owner;
     }
 };
 
@@ -224,11 +215,12 @@ public:
                                                             {},
                                                             std::numeric_limits<uint32_t>::max()});
 
+    CTokenLockUserValue GetTokenLockUserValue(const CTokenLockUserKey &key) const;
     Res StoreTokenLockUserValues(const CTokenLockUserKey &key, const CTokenLockUserValue &futures);
     Res EraseTokenLockUserValues(const CTokenLockUserKey &key);
     void ForEachTokenLockUserValues(
         std::function<bool(const CTokenLockUserKey &, const CTokenLockUserValue &)> callback,
-        const CTokenLockUserKey &start = {std::numeric_limits<uint32_t>::max(), {}});
+        const CTokenLockUserKey &start = {{}});
 
     // tags
     struct ByBalanceKey {
