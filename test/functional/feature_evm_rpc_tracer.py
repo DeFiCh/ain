@@ -327,7 +327,7 @@ class EvmTracerTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        # These seemingly read-only calls are failing up to commit ffe007f86826cad654cec8ddfeb6e9436206ed08.
+        # These seemingly benign read-only calls are failing up to commit ffe007f86826cad654cec8ddfeb6e9436206ed08.
         # Tracing of new contract creation on EVM was overwriting the contract
         # state trie and corrupted the underlying backend.
         # Fixed in https://github.com/DeFiCh/ain/pull/2941 by adding new contract state trie creation to overlay.
