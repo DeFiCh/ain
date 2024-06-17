@@ -1,22 +1,30 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use ain_evm::{
     core::EthCallArgs,
     evm::EVMServices,
     executor::TxResponse,
-    storage::traits::{ReceiptStorage, TransactionStorage},
+    storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
+    trace::types::single::TransactionTrace,
     transaction::SignedTx,
 };
-use ethereum_types::{H256, U256};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+
+use ethereum_types::{H160, H256, U256};
+use jsonrpsee::{
+    core::{JsonValue, RpcResult},
+    proc_macros::rpc,
+};
 use log::debug;
+use serde_json::json;
 
 use crate::{
-    call_request::CallRequest,
+    block::BlockNumber,
+    call_request::{override_to_overlay, CallRequest, CallStateOverride},
     errors::{to_custom_err, RPCError},
-    trace::TraceParams,
-    transaction::{TraceLogs, TraceTransactionResult},
+    trace::{handle_trace_params, TraceParams},
 };
+
+use super::common::get_block;
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
@@ -33,7 +41,30 @@ pub trait MetachainDebugRPC {
         &self,
         tx_hash: H256,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<TraceTransactionResult>;
+    ) -> RpcResult<TransactionTrace>;
+
+    #[method(name = "traceCall")]
+    fn trace_call(
+        &self,
+        call: CallRequest,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<TransactionTrace>;
+
+    #[method(name = "traceBlockByNumber")]
+    fn trace_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<JsonValue>>;
+
+    #[method(name = "traceBlockByHash")]
+    fn trace_block_by_hash(
+        &self,
+        hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<JsonValue>>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -66,43 +97,154 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
+    /// Replays a transaction in the Runtime at a given block height.
+    /// In order to succesfully reproduce the result of the original transaction we need a correct
+    /// state to replay over.
     fn trace_transaction(
         &self,
         tx_hash: H256,
-        _trace_params: Option<TraceParams>,
-    ) -> RpcResult<TraceTransactionResult> {
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<TransactionTrace> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
-        debug!(target: "rpc", "Tracing transaction {tx_hash}");
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
+        // Get signed tx
         let receipt = self
             .handler
             .storage
             .get_receipt(&tx_hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::ReceiptNotFound(tx_hash))?;
-
         let tx = self
             .handler
             .storage
             .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
             .map_err(RPCError::EvmError)?
             .ok_or(RPCError::TxNotFound(tx_hash))?;
-
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
-        let (logs, succeeded, return_data, gas_used) = self
+
+        Ok(self
             .handler
             .tracer
-            .call_with_tracer(&signed_tx, receipt.block_number)
-            .map_err(RPCError::EvmError)?;
-        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
+            .trace_transaction(
+                &signed_tx,
+                receipt.block_number,
+                params,
+                raw_max_memory_usage,
+            )
+            .map_err(RPCError::EvmError)?)
+    }
 
-        Ok(TraceTransactionResult {
-            gas: U256::from(gas_used),
-            failed: !succeeded,
-            return_value: hex::encode(return_data).to_string(),
-            struct_logs: trace_logs,
-        })
+    fn trace_call(
+        &self,
+        call: CallRequest,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<TransactionTrace> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        // Get call arguments
+        let caller = call.from.unwrap_or_default();
+        let byte_data = call.get_data()?;
+        let data = byte_data.0.as_slice();
+
+        // Get gas
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
+        let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
+            .map_err(to_custom_err)?;
+
+        let block = get_block(&self.handler.storage, Some(block_number))?;
+        let block_base_fee = block.header.base_fee;
+        let gas_price = call.get_effective_gas_price()?.unwrap_or(block_base_fee);
+
+        Ok(self
+            .handler
+            .tracer
+            .trace_call(
+                EthCallArgs {
+                    caller,
+                    to: call.to,
+                    value: call.value.unwrap_or_default(),
+                    data,
+                    gas_limit,
+                    gas_price,
+                    access_list: call.access_list.unwrap_or_default(),
+                    block_number: block.header.number,
+                },
+                state_overrides.map(override_to_overlay),
+                params,
+                raw_max_memory_usage,
+            )
+            .map_err(RPCError::EvmError)?)
+    }
+
+    fn trace_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<JsonValue>> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        // Get block
+        let trace_block = get_block(&self.handler.storage, Some(block_number))?;
+        let res = self
+            .handler
+            .tracer
+            .trace_block(trace_block, params, raw_max_memory_usage)
+            .map_err(RPCError::EvmError)?
+            .into_iter()
+            .map(|(tx_hash, trace)| json!({ "txHash": format!("{:?}", tx_hash), "result": trace }))
+            .collect();
+        Ok(res)
+    }
+
+    fn trace_block_by_hash(
+        &self,
+        hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<JsonValue>> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        // Get block
+        let trace_block = self
+            .handler
+            .storage
+            .get_block_by_hash(&hash)
+            .map_err(to_custom_err)?
+            .ok_or(RPCError::BlockNotFound)?;
+        let res = self
+            .handler
+            .tracer
+            .trace_block(trace_block, params, raw_max_memory_usage)
+            .map_err(RPCError::EvmError)?
+            .into_iter()
+            .map(|(tx_hash, trace)| json!({ "txHash": format!("{:?}", tx_hash), "result": trace }))
+            .collect();
+        Ok(res)
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {

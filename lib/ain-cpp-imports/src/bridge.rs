@@ -62,7 +62,9 @@ pub mod ffi {
         fn getDatadir() -> String;
         fn getNetwork() -> String;
         fn getEthMaxConnections() -> u32;
+        fn printEVMPortUsage(port_type: u8, port_number: u16);
         fn getEthMaxResponseByteSize() -> u32;
+        fn getEthTracingMaxMemoryUsageBytes() -> u32;
         fn getSuggestedPriorityFeePercentile() -> i64;
         fn getEstimateGasErrorRatio() -> u64;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;

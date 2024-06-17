@@ -69,6 +69,7 @@ pub struct Overlay {
     state: HashMap<H160, OverlayData>,
     changeset: Vec<HashMap<H160, OverlayData>>,
     deletes: HashSet<H160>,
+    creates: HashSet<H160>,
 }
 
 impl Overlay {
@@ -77,6 +78,7 @@ impl Overlay {
             state: HashMap::new(),
             changeset: Vec::new(),
             deletes: HashSet::new(),
+            creates: HashSet::new(),
         }
     }
 
@@ -106,6 +108,10 @@ impl Overlay {
 
     fn mark_delete(&mut self, address: H160) {
         self.deletes.insert(address);
+    }
+
+    fn mark_create(&mut self, address: H160) {
+        self.creates.insert(address);
     }
 
     // Keeps track of the number of TXs in the changeset.
@@ -181,11 +187,7 @@ impl EVMBackend {
         });
 
         if reset_storage || is_empty_account(&account) {
-            self.trie_store
-                .trie_db
-                .trie_create(address.as_bytes(), None, true)
-                .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?;
-            account.storage_root = GENESIS_STATE_ROOT;
+            self.overlay.mark_create(address);
         }
 
         if let Some(code) = &code {
@@ -235,6 +237,15 @@ impl EVMBackend {
             },
         ) in self.overlay.state.drain()
         {
+            if self.overlay.creates.contains(&address) {
+                trace!("Creating trie for {address:x}");
+                self.trie_store
+                    .trie_db
+                    .trie_create(address.as_bytes(), None, true)
+                    .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?;
+                account.storage_root = GENESIS_STATE_ROOT;
+            }
+
             if self.overlay.deletes.contains(&address) {
                 self.state
                     .remove(address.as_bytes())

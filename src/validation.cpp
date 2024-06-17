@@ -3706,18 +3706,14 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams &chainPar
     auto currentTime = GetSystemTimeInSeconds();
     if (!warningMessages.empty() || !::ChainstateActive().IsInitialBlockDownload() || lastTipTime < currentTime - 20) {
         lastTipTime = currentTime;
-        LogPrintf(
-            "%s: new best=%s height=%d version=0x%08x log2_work=%.8g tx=%lu date='%s' progress=%f cache=%.1fMiB(%utxo)",
-            __func__, /* Continued */
-            pindexNew->GetBlockHash().ToString(),
-            pindexNew->nHeight,
-            pindexNew->nVersion,
-            log(pindexNew->nChainWork.getdouble()) / log(2.0),
-            (unsigned long)pindexNew->nChainTx,
-            FormatISO8601DateTime(pindexNew->GetBlockTime()),
-            GuessVerificationProgress(chainParams.TxData(), pindexNew),
-            ::ChainstateActive().CoinsTip().DynamicMemoryUsage() * (1.0 / (1 << 20)),
-            ::ChainstateActive().CoinsTip().GetCacheSize());
+        LogPrintf("%s: height=%d hash=%s date='%s' tx=%lu log2_work=%#.8g progress=%f",
+                  __func__, /* Continued */
+                  pindexNew->nHeight,
+                  pindexNew->GetBlockHash().ToString(),
+                  FormatISO8601DateTime(pindexNew->GetBlockTime()),
+                  (unsigned long)pindexNew->nChainTx,
+                  log(pindexNew->nChainWork.getdouble()) / log(2.0),
+                  GuessVerificationProgress(chainParams.TxData(), pindexNew));
         if (!warningMessages.empty()) {
             LogPrintf(" warning='%s'", warningMessages); /* Continued */
         }

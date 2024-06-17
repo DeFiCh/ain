@@ -9,7 +9,7 @@ use ain_cpp_imports::{get_df23_height, Attributes};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
-use log::{info, trace};
+use log::{debug, info, trace};
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
@@ -272,7 +272,7 @@ impl EVMServices {
             return Err(format_err!("no constructed EVM block exist in template id").into());
         };
 
-        info!(
+        debug!(
             "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
             block.header.number, block.header.state_root
         );
