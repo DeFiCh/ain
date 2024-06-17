@@ -1392,8 +1392,6 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
         return false;
     };
 
-    LOCK(cs_main);
-    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<>> ret;
     const uint32_t height = view->GetLastHeight();
 
@@ -1698,8 +1696,6 @@ UniValue listburnhistory(const JSONRPCRequest &request) {
         return false;
     };
 
-    LOCK(cs_main);
-    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     std::map<uint32_t, UniValue, std::greater<>> ret;
     const uint32_t height = view->GetLastHeight();
 
@@ -1738,7 +1734,10 @@ UniValue listburnhistory(const JSONRPCRequest &request) {
         return count != 0;
     };
 
-    pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, {}, maxBlockHeight);
+    {
+        LOCK(cs_main);
+        pburnHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, {}, maxBlockHeight);
+    }
 
     UniValue slice(UniValue::VARR);
     for (auto it = ret.cbegin(); limit != 0 && it != ret.cend(); ++it) {
@@ -1893,8 +1892,6 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
         return false;
     };
 
-    LOCK(cs_main);
-    CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
     uint64_t count{};
 
     for (const auto &owner : accountSet) {
@@ -2549,6 +2546,8 @@ UniValue getburninfo(const JSONRPCRequest &request) {
 
     TaskGroup g;
     BufferPool<CGetBurnInfoResult> resultsPool{nWorkers};
+
+    LOCK(cs_main);  // Lock for pburnHistoryDB
 
     auto &pool = DfTxTaskPool->pool;
     auto processedHeight = initialResult.height;
