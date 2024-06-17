@@ -40,11 +40,8 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -218,11 +215,8 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -265,13 +259,14 @@ rust::string getClientVersion() {
 }
 
 std::array<int64_t, 2> getEthSyncStatus() {
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
-    auto currentHeight = ::ChainActive().Height() ? (int)::ChainActive().Height() : -1;
-    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
-                                         : (int)::ChainActive().Height();  // return current block count if no peers
+    const auto viewHeight = view->GetLastHeight();
+    auto currentHeight = viewHeight ? viewHeight : -1;
+    auto highestBlock =
+        pindexBestHeader ? pindexBestHeader->nHeight : viewHeight;  // return current block count if no peers
 
-    return std::array<int64_t, 2>{currentHeight, highestBlock};
+    return {currentHeight, highestBlock};
 }
 
 Attributes getAttributeValues(std::size_t mnview_ptr) {
