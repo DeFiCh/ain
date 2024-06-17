@@ -90,14 +90,38 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             [
-                {id: [pool["symbol"],pool["idTokenA"],pool["idTokenB"],pool["reserveA"],pool["reserveB"]]}
+                {
+                    id: [
+                        pool["symbol"],
+                        pool["idTokenA"],
+                        pool["idTokenB"],
+                        pool["reserveA"],
+                        pool["reserveB"],
+                    ]
+                }
                 for (id, pool) in self.nodes[0].listpoolpairs().items()
             ],
             [
-                {"3": ["SPY-DUSD/lock1","1","2",Decimal(0),Decimal(0)]},
-                {"4": ["DUSD-DFI/lock1","2","0",Decimal(0),Decimal(0)]},
-                {"7": ["SPY-USDD","5","6",Decimal("0.20000090"),Decimal("20.00009000")]},
-                {"8": ["USDD-DFI","6","0",Decimal("50.00006371"),Decimal("1.00000128")]},
+                {"3": ["SPY-DUSD/lock1", "1", "2", Decimal(0), Decimal(0)]},
+                {"4": ["DUSD-DFI/lock1", "2", "0", Decimal(0), Decimal(0)]},
+                {
+                    "7": [
+                        "SPY-USDD",
+                        "5",
+                        "6",
+                        Decimal("0.20000090"),
+                        Decimal("20.00009000"),
+                    ]
+                },
+                {
+                    "8": [
+                        "USDD-DFI",
+                        "6",
+                        "0",
+                        Decimal("50.00006371"),
+                        Decimal("1.00000128"),
+                    ]
+                },
             ],
         )
 
@@ -232,11 +256,21 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             [
-                {id: [pool["symbol"],pool["idTokenA"],pool["idTokenB"],pool["reserveA"],pool["reserveB"]]}
+                {
+                    id: [
+                        pool["symbol"],
+                        pool["idTokenA"],
+                        pool["idTokenB"],
+                        pool["reserveA"],
+                        pool["reserveB"],
+                    ]
+                }
                 for (id, pool) in self.nodes[0].listpoolpairs().items()
             ],
-            [{"3": ["SPY-DUSD","1","2",Decimal("2"),Decimal("200")]},
-             {"4": ["DUSD-DFI","2","0",Decimal("500"),Decimal("10")]}],
+            [
+                {"3": ["SPY-DUSD", "1", "2", Decimal("2"), Decimal("200")]},
+                {"4": ["DUSD-DFI", "2", "0", Decimal("500"), Decimal("10")]},
+            ],
         )
         assert_equal(
             [
