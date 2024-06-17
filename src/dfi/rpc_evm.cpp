@@ -85,11 +85,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     // TODO Get chain ID from Params when defined
     const uint64_t chainID{1};
@@ -219,25 +216,25 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
-    auto tryResolveMapBlockOrTxResult = [](ResVal<std::string> &res, const std::string &input) {
-        res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
+    auto tryResolveMapBlockOrTxResult = [&view](ResVal<std::string> &res, const std::string &input) {
+        res = view->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
         if (res) {
             return VMDomainRPCMapType::TxHashDVMToEVM;
         }
 
-        res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
+        res = view->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
         if (res) {
             return VMDomainRPCMapType::TxHashEVMToDVM;
         }
 
-        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
+        res = view->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
         if (res) {
             return VMDomainRPCMapType::BlockHashDVMToEVM;
         }
 
-        res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
+        res = view->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
         if (res) {
             return VMDomainRPCMapType::BlockHashEVMToDVM;
         }
@@ -259,7 +256,11 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         CrossBoundaryResult evmResult;
         evm_try_get_block_hash_by_number(evmResult, height);
-        CBlockIndex *dvmBlock = ::ChainActive()[static_cast<int>(height)];
+        CBlockIndex *dvmBlock;
+        {
+            LOCK(cs_main);
+            dvmBlock = ::ChainActive()[static_cast<int>(height)];
+        }
         if (evmResult.ok && dvmBlock != nullptr) {
             return VMDomainRPCMapType::Unknown;
         } else if (evmResult.ok) {
@@ -304,47 +305,56 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
     };
 
-    auto handleMapBlockNumberDVMToEVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
-        uint64_t height;
-        const int current_tip = ::ChainActive().Height();
-        bool success = ParseUInt64(input, &height);
-        if (!success || height < 0 || height > static_cast<uint64_t>(current_tip)) {
-            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-        }
-        CBlockIndex *pindex = ::ChainActive()[static_cast<int>(height)];
-        auto evmBlockHash =
-            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
-        if (!evmBlockHash.val.has_value()) {
-            throwInvalidParam(evmBlockHash.msg);
-        }
-        auto hash = uint256S(evmBlockHash);
-        CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, hash.GetByteArray());
-        crossBoundaryOkOrThrow(result);
-        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-    };
+    auto handleMapBlockNumberDVMToEVMRequest =
+        [&view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+            uint64_t height;
+            const int current_tip = ::ChainActive().Height();
+            bool success = ParseUInt64(input, &height);
+            if (!success || height < 0 || height > static_cast<uint64_t>(current_tip)) {
+                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+            }
+            CBlockIndex *pindex;
+            {
+                LOCK(cs_main);
+                pindex = ::ChainActive()[static_cast<int>(height)];
+            }
+            auto evmBlockHash = view->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
+            if (!evmBlockHash.val.has_value()) {
+                throwInvalidParam(evmBlockHash.msg);
+            }
+            auto hash = uint256S(evmBlockHash);
+            CrossBoundaryResult result;
+            uint64_t blockNumber = evm_try_get_block_number_by_hash(result, hash.GetByteArray());
+            crossBoundaryOkOrThrow(result);
+            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+        };
 
-    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
-        uint64_t height;
-        bool success = ParseUInt64(input, &height);
-        if (!success || height < 0) {
-            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-        }
-        CrossBoundaryResult result;
-        auto hash = evm_try_get_block_hash_by_number(result, height);
-        auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
-        crossBoundaryOkOrThrow(result);
-        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-        if (!dvmBlockHash.val.has_value()) {
-            throwInvalidParam(dvmBlockHash.msg);
-        }
-        CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-        if (!pindex) {
-            throwInvalidParam(DeFiErrors::InvalidBlockHashString(*dvmBlockHash.val).msg);
-        }
-        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
-        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-    };
+    auto handleMapBlockNumberEVMToDVMRequest =
+        [&view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+            uint64_t height;
+            bool success = ParseUInt64(input, &height);
+            if (!success || height < 0) {
+                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+            }
+            CrossBoundaryResult result;
+            auto hash = evm_try_get_block_hash_by_number(result, height);
+            auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
+            crossBoundaryOkOrThrow(result);
+            auto dvmBlockHash = view->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+            if (!dvmBlockHash.val.has_value()) {
+                throwInvalidParam(dvmBlockHash.msg);
+            }
+            int blockNumber{};
+            {
+                LOCK(cs_main);
+                CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                if (!pindex) {
+                    throwInvalidParam(DeFiErrors::InvalidBlockHashString(*dvmBlockHash.val).msg);
+                }
+                blockNumber = pindex->nHeight;
+            }
+            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+        };
 
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();
@@ -356,19 +366,19 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
+            res = view->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
+            res = view->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
+            res = view->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
+            res = view->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockNumberDVMToEVM: {
@@ -405,7 +415,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
     uint64_t count{};
     UniValue result{UniValue::VOBJ};
@@ -416,7 +426,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     // return false, once we hit the limit and stop the iter.
     switch (type) {
         case VMDomainIndexType::BlockHashDVMToEVM: {
-            pcustomcsview->ForEachVMDomainBlockEdges(
+            view->ForEachVMDomainBlockEdges(
                 [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
                         indexesJson.pushKV(index.second, blockHash);
@@ -428,7 +438,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
             break;
         }
         case VMDomainIndexType::BlockHashEVMToDVM: {
-            pcustomcsview->ForEachVMDomainBlockEdges(
+            view->ForEachVMDomainBlockEdges(
                 [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
                         indexesJson.pushKV(index.second, blockHash);
@@ -440,7 +450,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
             break;
         }
         case VMDomainIndexType::TxHashDVMToEVM: {
-            pcustomcsview->ForEachVMDomainTxEdges(
+            view->ForEachVMDomainTxEdges(
                 [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
                         indexesJson.pushKV(index.second, txHash);
@@ -452,7 +462,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
             break;
         }
         case VMDomainIndexType::TxHashEVMToDVM: {
-            pcustomcsview->ForEachVMDomainTxEdges(
+            view->ForEachVMDomainTxEdges(
                 [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
                         indexesJson.pushKV(index.second, txHash);

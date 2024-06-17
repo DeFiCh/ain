@@ -27,7 +27,9 @@ enum class EVMAttributesTypes : uint32_t {
     RbfIncrementMinPct = 4,
 };
 
-extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
+extern UniValue AmountsToJSON(const CCustomCSView &view,
+                              const TAmounts &diffs,
+                              AmountFormat format = AmountFormat::Symbol);
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
@@ -1685,11 +1687,15 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                 }
             } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
-                ret.pushKV(key, AmountsToJSON(balances->balances));
+                // Global pcustomcsview should not have been used in AmountsToJSON but this is only
+                // related to the economy keys and will never be exported as part of a Gov var TX.
+                ret.pushKV(key, AmountsToJSON(*pcustomcsview, balances->balances));
             } else if (const auto paybacks = std::get_if<CTokenPayback>(&attribute.second)) {
+                // Global pcustomcsview should not have been used in AmountsToJSON but this is only
+                // related to the economy keys and will never be exported as part of a Gov var TX.
                 UniValue result(UniValue::VOBJ);
-                result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
-                result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
+                result.pushKV("paybackfees", AmountsToJSON(*pcustomcsview, paybacks->tokensFee.balances));
+                result.pushKV("paybacktokens", AmountsToJSON(*pcustomcsview, paybacks->tokensPayback.balances));
                 ret.pushKV(key, result);
             } else if (const auto balances = std::get_if<CDexBalances>(&attribute.second)) {
                 for (const auto &pool : *balances) {
