@@ -3,11 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use cached::proc_macro::cached;
 use defichain_rpc::{
     json::{
-        poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult},
-        token::{TokenInfo, TokenPagination, TokenResult},
-    },
-    jsonrpc_async::error::{Error as JsonRpcError, RpcError},
-    Error, MasternodeRPC, PoolPairRPC, TokenRPC,
+        loan::LoanSchemeResult, poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult}, token::{TokenInfo, TokenPagination, TokenResult}
+    }, jsonrpc_async::error::{Error as JsonRpcError, RpcError}, Error, LoanRPC, MasternodeRPC, PoolPairRPC, TokenRPC
 };
 
 use super::AppContext;
@@ -128,4 +125,13 @@ pub async fn get_gov_cached(
 ) -> Result<HashMap<String, serde_json::Value>> {
     let gov = ctx.client.get_gov(id).await?;
     Ok(gov)
+}
+
+#[cached(result = true, key = "String", convert = r#"{ format!("getloanscheme{id}") }"#)]
+pub async fn get_loan_scheme_cached(
+    ctx: &Arc<AppContext>,
+    id: String,
+) -> Result<LoanSchemeResult> {
+    let loan_scheme = ctx.client.get_loan_scheme(id).await?;
+    Ok(loan_scheme)
 }
