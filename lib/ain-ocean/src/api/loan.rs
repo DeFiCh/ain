@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
-use bitcoin::Txid;
+use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
     defichain_rpc_json::{
         loan::{CollateralTokenDetail, LoanSchemeResult},
@@ -17,7 +17,7 @@ use serde::Serialize;
 
 use super::{
     cache::{get_token_cached, get_loan_scheme_cached},
-    common::{parse_display_symbol, Paginate},
+    common::{from_script, parse_display_symbol, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -315,11 +315,11 @@ pub struct HighestBidResponse {
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultLiquidationBatchResponse {
-    index: u64,
+    index: u32,
     collaterals: Vec<VaultTokenAmountResponse>,
     loan: Option<VaultTokenAmountResponse>,
     highest_bid: Option<HighestBidResponse>,
-    // froms: Option<Vec<String>>,
+    froms: Vec<String>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -363,7 +363,8 @@ async fn list_auction(
         },
     };
 
-    async fn map_liquidation_batches(ctx: &Arc<AppContext>, batches: Vec<VaultLiquidationBatch>) -> Result<Vec<VaultLiquidationBatchResponse>> {
+    async fn map_liquidation_batches(ctx: &Arc<AppContext>, vault_id: &str, batches: Vec<VaultLiquidationBatch>) -> Result<Vec<VaultLiquidationBatchResponse>> {
+        let repo = &ctx.services.auction;
         let mut vec = Vec::new();
         for batch in batches {
             let highest_bid = if let Some(bid) = batch.highest_bid {
@@ -376,11 +377,28 @@ async fn list_auction(
             } else {
                 None
             };
+            let id = (Txid::from_str(vault_id)?, batch.index, Txid::from_byte_array([0xffu8; 32]));
+            let bids = repo
+                .by_id
+                .list(Some(id), SortOrder::Descending)?
+                .take_while(|item| match item {
+                    Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
+                    _ => true,
+                })
+                .collect::<Vec<_>>();
+            let froms = bids
+                .into_iter()
+                .map(|bid| {
+                    let (_, v) = bid?;
+                    let from_addr = from_script(v.from, ctx.network.into())?;
+                    Ok::<String, Error>(from_addr)
+                })
+                .collect::<Result<Vec<_>>>()?;
             vec.push(VaultLiquidationBatchResponse {
                 index: batch.index,
                 collaterals: map_token_amounts(ctx, batch.collaterals).await?,
                 loan: map_token_amounts(ctx, vec![batch.loan]).await?.first().cloned(),
-                // froms: todo!(),
+                froms,
                 highest_bid,
             })
         }
@@ -443,6 +461,7 @@ async fn list_auction(
     for vault in liquidation_vaults {
         let loan_scheme = get_loan_scheme_cached(&ctx, vault.loan_scheme_id).await?;
         let res = VaultLiquidationResponse {
+            batches: map_liquidation_batches(&ctx, &vault.vault_id, vault.batches).await?,
             vault_id: vault.vault_id,
             loan_scheme,
             owner_address: vault.owner_address,
@@ -450,7 +469,6 @@ async fn list_auction(
             liquidation_height: vault.liquidation_height,
             liquidation_penalty: vault.liquidation_penalty,
             batch_count: vault.batch_count,
-            batches: map_liquidation_batches(&ctx, vault.batches).await?,
         };
         vaults.push(res)
     }
