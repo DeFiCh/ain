@@ -10,8 +10,8 @@ pub struct OraclePriceActive {
     pub id: OraclePriceActiveId,
     pub key: OraclePriceActiveKey,
     pub sort: String, //height
-    pub active: OraclePriceActiveActive,
-    pub next: OraclePriceActiveNext,
+    pub active: Option<OraclePriceActiveActive>,
+    pub next: Option<OraclePriceActiveNext>,
     pub is_live: bool,
     pub block: BlockContext,
 }
