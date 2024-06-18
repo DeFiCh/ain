@@ -3155,6 +3155,86 @@ UniValue getpendingfutureswaps(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
+UniValue listlockedtokens(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listlockedtokens",
+        "Get all locked loan tokens.\n",
+        {},
+        RPCResult{"\"json\"          (string) array containing json-objects having following fields:\n"
+                  "    owner :       \"address\"\n"
+                  "    values : [\"amount1@token1\",\"amount1@token1\"...]\n"},
+        RPCExamples{HelpExampleCli("listlockedtokens", "")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+    UniValue listLockedTokens{UniValue::VARR};
+
+    LOCK(cs_main);
+
+    pcustomcsview->ForEachTokenLockUserValues([&](const CTokenLockUserKey &key, const CTokenLockUserValue &lockValues) {
+        CTxDestination dest;
+        ExtractDestination(key.owner, dest);
+        if (!IsValidDestination(dest)) {
+            return true;
+        }
+
+        UniValue value{UniValue::VOBJ};
+        value.pushKV("owner", EncodeDestination(dest));
+        UniValue balances{UniValue::VARR};
+        for (const auto tokenAmount : lockValues.balances) {
+            const auto source = pcustomcsview->GetToken(tokenAmount.first);
+            if (!source) {
+                continue;
+            }
+            balances.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
+        }
+        value.pushKV("values",balances);
+
+        listLockedTokens.push_back(value);
+
+        return true;
+    });
+
+    return GetRPCResultCache().Set(request, listLockedTokens);
+}
+
+UniValue getlockedtokens(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getlockedtokens",
+        "Get specific locked tokens.\n",
+        {
+          {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all locked tokens"},
+          },
+        RPCResult{"[\"amount1@token1\",\"amount1@token1\"...]\n"},
+        RPCExamples{HelpExampleCli("getlockedtokens", "address")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    const auto owner = DecodeScript(request.params[0].get_str());
+
+    LOCK(cs_main);
+
+    CTokenLockUserKey key{owner};
+    const auto& value= pcustomcsview->GetTokenLockUserValue(key);
+
+    UniValue obj{UniValue::VARR};
+    for (const auto tokenAmount : value.balances) {
+        const auto source = pcustomcsview->GetToken(tokenAmount.first);
+        if (!source) {
+            continue;
+        }
+        obj.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
+    }
+    return GetRPCResultCache().Set(request, obj);
+}
+
 UniValue logaccountbalances(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logaccountbalances",
@@ -3310,8 +3390,8 @@ UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
 }
 
 static const CRPCCommand commands[] = {
-  //  category       name                     actor (function)        params
-  //  -------------  ------------------------ ----------------------  ----------
+    //  category       name                     actor (function)        params
+    //  -------------  ------------------------ ----------------------  ----------
     {"accounts", "listaccounts",           &listaccounts,           {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts", "getaccount",             &getaccount,             {"owner", "pagination", "indexed_amounts"}                  },
     {"accounts",
@@ -3337,6 +3417,8 @@ static const CRPCCommand commands[] = {
     {"accounts", "listpendingdusdswaps",   &listpendingdusdswaps,   {}                                                          },
     {"accounts", "getpendingdusdswaps",    &getpendingdusdswaps,    {"address"}                                                 },
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
+    {"accounts", "listlockedtokens",       &listlockedtokens,       {}                                                          },
+    {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

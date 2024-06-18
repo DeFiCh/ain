@@ -1656,7 +1656,7 @@ static Res UpdateLiquiditySplits(CCustomCSView &view,
 
 template <typename T>
 static Res PoolSplits(CCustomCSView &view,
-                      std::map < uint32_t,CAmount> &totalBalancePerOldToken,
+                      std::map < uint32_t,CAmount> &totalBalancePerNewToken,
                       ATTRIBUTES &attributes,
                       const std::map<uint32_t, DCT_ID> &tokenMap,
                       const CBlockIndex *pindex,
@@ -1826,13 +1826,13 @@ static Res PoolSplits(CCustomCSView &view,
                 CAmount amountA{0}, amountB{0};
                 if (tokenMap.count(oldPoolPair->idTokenA.v)) {
                     amountA = CalculateNewAmount(multiplier, resAmountA);
-                    totalBalancePerOldToken[oldPoolPair->idTokenA.v] += amountA;
+                    totalBalancePerNewToken[newPoolPair.idTokenA.v] += amountA;
                 } else {
                     amountA = resAmountA;
                 }
                 if (tokenMap.count(oldPoolPair->idTokenB.v)) {
                     amountB = CalculateNewAmount(multiplier, resAmountB);
-                    totalBalancePerOldToken[oldPoolPair->idTokenB.v] += amountB;
+                    totalBalancePerNewToken[newPoolPair.idTokenB.v] += amountB;
                 } else {
                     amountB = resAmountB;
                 }
@@ -2474,7 +2474,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                           ParamIDs::Auction);
 
         std::map<uint32_t,CAmount> totalBalanceMap;
-        totalBalanceMap[oldTokenId.v] = CAmount{0};
+        totalBalanceMap[newTokenId.v] = CAmount{0};
 
         std::map<uint32_t,DCT_ID> tokenMap;
         tokenMap[oldTokenId.v]= newTokenId;
@@ -2490,7 +2490,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         }
 
         LogPrintf("converting balances\n");
-        auto totalBalance= totalBalanceMap[oldTokenId.v];
+        auto totalBalance= totalBalanceMap[newTokenId.v];
 
         std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
 
@@ -2773,6 +2773,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
         LogPrintf("Token lock failed. DUSD not found\n");
         return;
     }
+    // update new DUSD to USDD
     dusdToken->second->symbol = "USDD";
     UpdateTokenContext ctx{*(dusdToken->second), blockCtx, true, true, true, pindex->GetBlockHash()};
     auto res = cache.UpdateToken(ctx);
@@ -2794,9 +2795,6 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
         oldTokenToNewToken[id] = DCT_ID{desc.first};
         totalBalanceMap[id] = CAmount{0};
     }
-    LogPrintf("got descendants %d \n", oldTokenToNewToken.size());
-
-    // update new DUSD to USDD
 
     // convert pools, based on tokenMap (needs change in existing code)
 
@@ -2805,6 +2803,14 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     if (!res) {
         LogPrintf("Pool splits failed %s\n", res.msg);
         // TODO: handle error
+    }
+    //add balances to minted amount (pools where ignored in split)
+    for (const auto &[id, amount] : totalBalanceMap) {
+        res = cache.AddMintedTokens(DCT_ID{id}, amount);
+        if (!res) {
+            LogPrintf("TokenLock failed on AddMintedTokens: %s\n", res.msg);
+            //TODO: error handling
+        }
     }
     LogPrintf("poolsplit done\n");
 }

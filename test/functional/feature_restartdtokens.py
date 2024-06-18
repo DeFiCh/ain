@@ -68,23 +68,25 @@ class RestartdTokensTest(DefiTestFramework):
         print(self.nodes[0].getblockcount())
         print(self.nodes[0].getaccount(self.address))
         print("---")
+        print(self.nodes[0].getloantoken("USDD"))
+        print("---")
         #'''
 
         assert_equal(
             [
-                {id: [token["symbol"], token["isLoanToken"], token["mintable"]]}
+                {id: [token["symbol"], token["isLoanToken"], token["mintable"],token["minted"]]}
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False]},
-                {"1": ["SPY/lock1", False, False]},
-                {"2": ["DUSD/lock1", False, False]},
-                {"3": ["SPY-DUSD/lock1", False, False]},
-                {"4": ["DUSD-DFI/lock1", False, False]},
-                {"5": ["SPY", True, True]},
-                {"6": ["USDD", True, True]},
-                {"7": ["SPY-USDD", False, False]},
-                {"8": ["USDD-DFI", False, False]},
+                {"0": ["DFI", False, False, Decimal('0')]},
+                {"1": ["SPY/lock1", False, False, Decimal('0')]},
+                {"2": ["DUSD/lock1", False, False, Decimal('0')]},
+                {"3": ["SPY-DUSD/lock1", False, False, Decimal('0')]},
+                {"4": ["DUSD-DFI/lock1", False, False, Decimal('0')]},
+                {"5": ["SPY", True, True, Decimal('3.5')]},
+                {"6": ["USDD", True, True, Decimal('800.0')]},
+                {"7": ["SPY-USDD", False, False, Decimal('0')]},
+                {"8": ["USDD-DFI", False, False, Decimal('0')]},
             ],
         )
 
@@ -124,6 +126,13 @@ class RestartdTokensTest(DefiTestFramework):
                 },
             ],
         )
+
+        assert_equal(self.nodes[0].listlockedtokens(),
+                      [{'owner': self.address, 'values': ['3.14999910@SPY', '864.08435313@USDD']}])
+
+        assert_equal(self.nodes[0].getlockedtokens(self.address), ['3.14999910@SPY', '864.08435313@USDD'])
+
+        # TODO: check address with no locked tokens
 
         # TODO: currently best guess numbers, need to check with final results
         assert_equal(
@@ -274,15 +283,15 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             [
-                {id: [token["symbol"], token["isLoanToken"], token["mintable"]]}
+                {id: [token["symbol"], token["isLoanToken"], token["mintable"],token["minted"]]}
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False]},
-                {"1": ["SPY", True, True]},
-                {"2": ["DUSD", True, True]},
-                {"3": ["SPY-DUSD", False, False]},
-                {"4": ["DUSD-DFI", False, False]},
+                {"0": ["DFI", False, False, Decimal('0')]},
+                {"1": ["SPY", True, True, Decimal('4')]},
+                {"2": ["DUSD", True, True, Decimal('1100')]},
+                {"3": ["SPY-DUSD", False, False, Decimal('0')]},
+                {"4": ["DUSD-DFI", False, False, Decimal('0')]},
             ],
         )
 
