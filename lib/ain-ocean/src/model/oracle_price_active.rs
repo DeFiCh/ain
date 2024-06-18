@@ -4,7 +4,7 @@ use super::BlockContext;
 
 pub type OraclePriceActiveId = (String, String, u32); //token-currency-height
 pub type OraclePriceActiveKey = (String, String); //token-currency
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActive {
     pub id: OraclePriceActiveId,
