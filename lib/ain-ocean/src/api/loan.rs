@@ -10,7 +10,7 @@ use defichain_rpc::{
         token::TokenInfo,
         vault::VaultLiquidationBatch,
     },
-    json::vault::{AuctionPagination, AuctionPaginationStart},
+    json::vault::{AuctionPagination, AuctionPaginationStart, VaultState},
     LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
@@ -300,7 +300,8 @@ pub struct VaultLiquidationResponse {
     pub vault_id: String,
     pub loan_scheme: LoanSchemeResult,
     pub owner_address: String,
-    pub state: String, // VaultState::InLiquidation
+    #[serde(default = "VaultState::in_liquidation")]
+    pub state: VaultState,
     pub liquidation_height: u64,
     pub liquidation_penalty: f64,
     pub batch_count: usize,
