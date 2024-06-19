@@ -72,6 +72,8 @@ pub enum Error {
     Other(#[from] anyhow::Error),
     #[error("Validation error: {0}")]
     ValidationError(String),
+    #[error("Validation error: {0}")]
+    BadRequest(String),
 }
 
 #[derive(Serialize)]
