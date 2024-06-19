@@ -9,14 +9,16 @@ use defichain_rpc::{
         loan::{CollateralTokenDetail, LoanSchemeResult},
         token::TokenInfo,
         vault::VaultLiquidationBatch,
-    }, json::vault::{AuctionPagination, AuctionPaginationStart}, LoanRPC, VaultRPC
+    },
+    json::vault::{AuctionPagination, AuctionPaginationStart},
+    LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
 use log::debug;
 use serde::Serialize;
 
 use super::{
-    cache::{get_token_cached, get_loan_scheme_cached},
+    cache::{get_loan_scheme_cached, get_token_cached},
     common::{from_script, parse_display_symbol, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
@@ -334,22 +336,17 @@ pub struct VaultTokenAmountResponse {
     pub active_price: Option<OraclePriceActive>,
 }
 
-
 #[ocean_endpoint]
 async fn list_auction(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<VaultLiquidationResponse>> {
-
-    let start = query
-        .next
-        .as_ref()
-        .map(|next| {
+    let start = query.next.as_ref().map(|next| {
         let vault_id = &next[0..64];
         let height = &next[64..];
         AuctionPaginationStart {
-           vault_id: vault_id.to_string(),
-           height: height.parse::<u64>().unwrap_or_default(),
+            vault_id: vault_id.to_string(),
+            height: height.parse::<u64>().unwrap_or_default(),
         }
     });
 
@@ -363,7 +360,11 @@ async fn list_auction(
         },
     };
 
-    async fn map_liquidation_batches(ctx: &Arc<AppContext>, vault_id: &str, batches: Vec<VaultLiquidationBatch>) -> Result<Vec<VaultLiquidationBatchResponse>> {
+    async fn map_liquidation_batches(
+        ctx: &Arc<AppContext>,
+        vault_id: &str,
+        batches: Vec<VaultLiquidationBatch>,
+    ) -> Result<Vec<VaultLiquidationBatchResponse>> {
         let repo = &ctx.services.auction;
         let mut vec = Vec::new();
         for batch in batches {
@@ -377,12 +378,18 @@ async fn list_auction(
             } else {
                 None
             };
-            let id = (Txid::from_str(vault_id)?, batch.index, Txid::from_byte_array([0xffu8; 32]));
+            let id = (
+                Txid::from_str(vault_id)?,
+                batch.index,
+                Txid::from_byte_array([0xffu8; 32]),
+            );
             let bids = repo
                 .by_id
                 .list(Some(id), SortOrder::Descending)?
                 .take_while(|item| match item {
-                    Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
+                    Ok(((vid, bindex, _), _)) => {
+                        vid.to_string() == vault_id && bindex == &batch.index
+                    }
                     _ => true,
                 })
                 .collect::<Vec<_>>();
@@ -397,7 +404,10 @@ async fn list_auction(
             vec.push(VaultLiquidationBatchResponse {
                 index: batch.index,
                 collaterals: map_token_amounts(ctx, batch.collaterals).await?,
-                loan: map_token_amounts(ctx, vec![batch.loan]).await?.first().cloned(),
+                loan: map_token_amounts(ctx, vec![batch.loan])
+                    .await?
+                    .first()
+                    .cloned(),
                 froms,
                 highest_bid,
             })
@@ -405,9 +415,12 @@ async fn list_auction(
         Ok(vec)
     }
 
-    async fn map_token_amounts(ctx: &Arc<AppContext>, amounts: Vec<String>) ->  Result<Vec<VaultTokenAmountResponse>> {
+    async fn map_token_amounts(
+        ctx: &Arc<AppContext>,
+        amounts: Vec<String>,
+    ) -> Result<Vec<VaultTokenAmountResponse>> {
         if amounts.is_empty() {
-            return Ok(Vec::new())
+            return Ok(Vec::new());
         }
         let amount_token_symbols = amounts
             .into_iter()
@@ -425,11 +438,14 @@ async fn list_auction(
             let token = get_token_cached(ctx, &token_symbol).await?;
             if token.is_none() {
                 log::error!("Token {token_symbol} not found");
-                continue
+                continue;
             }
             let repo = &ctx.services.oracle_price_active;
             let (id, token_info) = token.unwrap();
-            let keys = repo.by_key.list(None, SortOrder::Descending)?.collect::<Vec<_>>();
+            let keys = repo
+                .by_key
+                .list(None, SortOrder::Descending)?
+                .collect::<Vec<_>>();
             log::debug!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
             let active_price = repo
                 .by_key

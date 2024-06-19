@@ -3,8 +3,12 @@ use std::{collections::HashMap, sync::Arc};
 use cached::proc_macro::cached;
 use defichain_rpc::{
     json::{
-        loan::LoanSchemeResult, poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult}, token::{TokenInfo, TokenPagination, TokenResult}
-    }, jsonrpc_async::error::{Error as JsonRpcError, RpcError}, Error, LoanRPC, MasternodeRPC, PoolPairRPC, TokenRPC
+        loan::LoanSchemeResult,
+        poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult},
+        token::{TokenInfo, TokenPagination, TokenResult},
+    },
+    jsonrpc_async::error::{Error as JsonRpcError, RpcError},
+    Error, LoanRPC, MasternodeRPC, PoolPairRPC, TokenRPC,
 };
 
 use super::AppContext;
@@ -127,11 +131,12 @@ pub async fn get_gov_cached(
     Ok(gov)
 }
 
-#[cached(result = true, key = "String", convert = r#"{ format!("getloanscheme{id}") }"#)]
-pub async fn get_loan_scheme_cached(
-    ctx: &Arc<AppContext>,
-    id: String,
-) -> Result<LoanSchemeResult> {
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("getloanscheme{id}") }"#
+)]
+pub async fn get_loan_scheme_cached(ctx: &Arc<AppContext>, id: String) -> Result<LoanSchemeResult> {
     let loan_scheme = ctx.client.get_loan_scheme(id).await?;
     Ok(loan_scheme)
 }

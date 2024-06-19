@@ -34,10 +34,13 @@ impl Index for SetLoanToken {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        log::debug!("set_loan_token indexing aggregated_price: {:?}", aggregated_prices);
+        log::debug!(
+            "set_loan_token indexing aggregated_price: {:?}",
+            aggregated_prices
+        );
 
         if aggregated_prices.is_empty() {
-           return Ok(())
+            return Ok(());
         }
         let aggregated_price = aggregated_prices.first().unwrap();
 
@@ -98,7 +101,7 @@ impl Index for SetLoanToken {
                 oracles: OraclePriceActiveNextOracles {
                     active: aggregated_price.aggregated.oracles.active,
                     total: aggregated_price.aggregated.oracles.total,
-                }
+                },
             })
         } else {
             None
@@ -124,7 +127,10 @@ impl Index for SetLoanToken {
             .by_key
             .put(&oracle_price_active.key, &oracle_price_active.id)?;
 
-        log::debug!("set_loan_token indexing oracle_price_active: {:?}", oracle_price_active);
+        log::debug!(
+            "set_loan_token indexing oracle_price_active: {:?}",
+            oracle_price_active
+        );
 
         Ok(())
     }
@@ -146,30 +152,28 @@ impl Index for SetLoanToken {
 
 fn is_aggregate_valid(aggregate: &OraclePriceAggregated, context: &Context) -> bool {
     if (aggregate.block.time - context.block.time).abs() >= 3600 {
-        return false
+        return false;
     }
 
-    if aggregate.aggregated.oracles.active < 2 { // minimum live oracles
-        return false
+    if aggregate.aggregated.oracles.active < 2 {
+        // minimum live oracles
+        return false;
     }
 
     if aggregate.aggregated.weightage <= 0 {
-        return false
+        return false;
     }
 
     true
 }
 
-fn is_live(
-    active: Option<OraclePriceActiveActive>,
-    next: Option<OraclePriceActiveNext>,
-) -> bool {
+fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActiveNext>) -> bool {
     if active.is_none() {
-        return false
+        return false;
     }
 
     if next.is_none() {
-        return false
+        return false;
     }
 
     let active = active.unwrap();
@@ -186,11 +190,11 @@ fn is_live(
     };
 
     if active_price <= Decimal::zero() {
-        return false
+        return false;
     }
 
     if next_price <= Decimal::zero() {
-        return false
+        return false;
     }
 
     let diff = (next_price - active_price).abs();
