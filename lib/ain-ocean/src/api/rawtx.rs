@@ -3,7 +3,7 @@ use std::{result::Result as StdResult, str::FromStr, sync::Arc};
 use ain_dftx::{deserialize, DfTx};
 use ain_macros::ocean_endpoint;
 use axum::{
-    extract::{Json, Path},
+    extract::{path::ErrorKind, Json, Path},
     routing::{get, post},
     Extension, Router,
 };
@@ -15,14 +15,14 @@ use serde::{Deserialize, Serialize, Serializer};
 
 use super::{query::Query, response::Response, AppContext};
 use crate::{
-    error::ApiError,
+    error::{ApiError, NotFoundKind},
     model::{default_max_fee_rate, MempoolAcceptResult, RawTransactionResult, RawTxDto},
     Error, Result,
 };
 
 enum TransactionResponse {
     HexString(String),
-    TransactionDetails(Box<RawTransactionResult>),
+    TransactionDetails(RawTransactionResult),
 }
 
 #[derive(Deserialize, Default)]
@@ -96,7 +96,11 @@ async fn test_rawtx(
         }
         Err(e) => {
             eprintln!("Failed to send raw transaction: {:?}", e);
-            Err(Error::RpcError(e))
+            if e.to_string().contains("TX decode failed") {
+                Err(Error::BadRequest("Transaction decode failed".to_string()))
+            } else {
+                Err(Error::RpcError(e))
+            }
         }
     }
 }
@@ -121,10 +125,23 @@ async fn get_raw_tx(
 ) -> Result<TransactionResponse> {
     let tx_hash = Txid::from_str(&txid)?;
     if !verbose {
-        let tx_hex = ctx.client.get_raw_transaction_hex(&tx_hash, None).await?;
+        let tx_hex = ctx.client.get_raw_transaction_hex(&tx_hash, None).await.map_err(|e| {
+            if e.to_string().contains("No such mempool or blockchain transaction. Use gettransaction for wallet transactions.") {
+                Error::NotFound(NotFoundKind::RawTx)
+            } else {
+                Error::RpcError(e)
+            }
+        })?;
         Ok(TransactionResponse::HexString(tx_hex))
     } else {
-        let tx_info = ctx.client.get_raw_transaction_info(&tx_hash, None).await?;
+        let tx_info = ctx
+            .client
+            .get_raw_transaction_info(&tx_hash, None)
+            .await
+            .map_err(|e| {
+                eprintln!("Failed to get raw transaction hex: {:?}", e);
+                Error::RpcError(e)
+            })?;
         let result = RawTransactionResult {
             in_active_chain: tx_info.in_active_chain,
             hex: tx_info.hex,
@@ -141,15 +158,13 @@ async fn get_raw_tx(
             time: tx_info.time,
             blocktime: tx_info.blocktime,
         };
-        Ok(TransactionResponse::TransactionDetails(Box::new(result)))
+        Ok(TransactionResponse::TransactionDetails(result))
     }
 }
 
 async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
     if !hex.starts_with("040000000001") {
-        return Err(Error::ValidationError(
-            "Transaction does not start with the expected prefix.".to_string(),
-        ));
+        return Err(Error::BadRequest("Transaction decode failed".to_string()));
     }
     let data = hex::decode(hex)?;
     println!("decode_hex {:?}", data);

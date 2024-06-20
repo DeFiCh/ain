@@ -26,6 +26,8 @@ pub enum NotFoundKind {
     Token,
     #[error("poolpair")]
     PoolPair,
+    #[error("rawtx")]
+    RawTx,
 }
 
 #[derive(Error, Debug)]
@@ -72,7 +74,7 @@ pub enum Error {
     Other(#[from] anyhow::Error),
     #[error("Validation error: {0}")]
     ValidationError(String),
-    #[error("Validation error: {0}")]
+    #[error("{0}")]
     BadRequest(String),
 }
 
@@ -150,6 +152,7 @@ impl Error {
                 )
             }
             Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{self}")),
+            Error::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)
@@ -165,11 +168,5 @@ impl From<Box<dyn std::error::Error>> for Error {
 impl From<&str> for Error {
     fn from(s: &str) -> Self {
         Error::Other(format_err!("{s}"))
-    }
-}
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        let error_message = format!("Internal server error: {}", self);
-        (StatusCode::INTERNAL_SERVER_ERROR, error_message).into_response()
     }
 }
