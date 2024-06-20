@@ -1,6 +1,8 @@
+use std::fmt;
+
 use ain_macros::ConsensusEncoding;
 use bitcoin::{io, ScriptBuf};
-use std::fmt;
+
 use super::{
     balance::{ScriptBalances, TokenBalanceUInt32, TokenBalanceVarInt},
     common::{CompactVec, Maybe},
