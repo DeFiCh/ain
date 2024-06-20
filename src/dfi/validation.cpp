@@ -2615,6 +2615,208 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
     }
 }
 
+// extracted logic for DUSD only from loans.cpp
+static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
+                                            BlockContext &blockCtx,
+                                            const CScript &from,
+                                            const CVaultId &vaultId,
+                                            const CAmount &wantedPaybackAmount,
+                                            const DCT_ID &paybackId,
+                                            const DCT_ID &loanTokenId) {
+    const auto height = blockCtx.GetHeight();
+    const auto &consensus = blockCtx.GetConsensus();
+    auto attributes = mnview.GetAttributes();
+
+    if (!IsVaultPriceValid(mnview, vaultId, height)) {
+        return DeFiErrors::LoanAssetPriceInvalid();
+    }
+
+    const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
+    if (!loanToken) {
+        return DeFiErrors::LoanTokenIdInvalid(loanTokenId);
+    }
+    auto paybackToken = mnview.GetToken(paybackId);
+    if (!paybackToken) {
+        return DeFiErrors::TokenIdInvalid(paybackId);
+    }
+
+    const auto vault = mnview.GetVault(vaultId);
+    if (!vault) {
+        return DeFiErrors::VaultInvalid(vaultId);
+    }
+
+    // get price of loanToken
+    CAmount loanUsdPrice{0};
+    auto paybackAmountInLoanToken = wantedPaybackAmount;
+    if (loanTokenId != paybackId) {
+        // TODO: also allow other collateral to be swapped to DUSD first
+        if (paybackToken->symbol != "DUSD") {
+            // if not the same token, it must be DUSD
+            return DeFiErrors::LoanTokenIdInvalid(paybackId);
+        }
+
+        const auto collaterals = mnview.GetVaultCollaterals(vaultId);
+        if (!collaterals) {
+            return DeFiErrors::LoanInvalidVault(vaultId);
+        }
+        if (!collaterals->balances.count(paybackId)) {
+            return DeFiErrors::LoanInvalidTokenForSymbol(paybackToken->symbol);
+        }
+
+        const auto &currentCollAmount = collaterals->balances.at(paybackId);
+        if (currentCollAmount < wantedPaybackAmount) {
+            return DeFiErrors::LoanPaymentAmountInvalid(wantedPaybackAmount, paybackId.v);
+        }
+
+        // Get dToken price in USD
+        const CTokenCurrencyPair dTokenUsdPair{loanToken->symbol, "USD"};
+        bool useNextPrice{false}, requireLivePrice{true};
+        const auto resVal = mnview.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
+        if (!resVal) {
+            return std::move(resVal);
+        }
+
+        loanUsdPrice = *resVal.val;
+        paybackAmountInLoanToken = DivideAmounts(wantedPaybackAmount, loanUsdPrice);
+    }
+    // get needed DUSD to payback
+    // if not enough: pay only interest, then part of loan
+
+    // get loan and interest to pay back
+    const auto loanAmounts = mnview.GetLoanTokens(vaultId);
+    if (!loanAmounts) {
+        return DeFiErrors::LoanInvalidVault(vaultId);
+    }
+
+    if (!loanAmounts->balances.count(loanTokenId)) {
+        return DeFiErrors::LoanInvalidTokenForSymbol(loanToken->symbol);
+    }
+
+    const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
+
+    const auto rate = mnview.GetInterestRate(vaultId, loanTokenId, height);
+    if (!rate) {
+        return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
+    }
+
+    auto subInterest = TotalInterest(*rate, height);
+
+    if (subInterest < 0) {
+        TrackNegativeInterest(
+            mnview, {loanTokenId, currentLoanAmount > std::abs(subInterest) ? std::abs(subInterest) : subInterest});
+    }
+
+    // In the case of negative subInterest the amount ends up being added to paybackAmount
+    auto subLoan = paybackAmountInLoanToken - subInterest;
+
+    if (paybackAmountInLoanToken < subInterest) {
+        subInterest = paybackAmountInLoanToken;
+        subLoan = 0;
+    } else if (currentLoanAmount - subLoan < 0) {
+        subLoan = currentLoanAmount;
+    }
+
+    if (loanToken->symbol == "DUSD") {
+        TrackDUSDSub(mnview, {loanTokenId, subLoan});
+    }
+
+    Res res = mnview.SubLoanToken(vaultId, CTokenAmount{loanTokenId, subLoan});
+    if (!res) {
+        return res;
+    }
+
+    // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
+    // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
+    // then IPB will be updated and ITH will be wiped.
+    res = mnview.DecreaseInterest(height,
+                                  vaultId,
+                                  vault->schemeId,
+                                  loanTokenId,
+                                  subLoan,
+                                  subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
+                                      ? std::numeric_limits<CAmount>::max()
+                                      : subInterest);
+    if (!res) {
+        return res;
+    }
+
+    mnview.CalculateOwnerRewards(from, height);
+
+    if (paybackId == loanTokenId) {
+        res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
+        if (!res) {
+            return res;
+        }
+
+        // If interest was negative remove it from sub amount
+        if (subInterest < 0) {
+            subLoan += subInterest;
+        }
+
+        // Do not sub balance if negative interest fully negates the current loan amount
+        if (!(subInterest < 0 && std::abs(subInterest) >= currentLoanAmount)) {
+            // If negative interest plus payback amount overpays then reduce payback amount by the
+            // difference
+            if (subInterest < 0 && paybackAmountInLoanToken - subInterest > currentLoanAmount) {
+                subLoan = currentLoanAmount + subInterest;
+            }
+
+            // subtract loan amount first, interest is burning below
+            LogPrint(
+                BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
+            res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+            if (!res) {
+                return res;
+            }
+        }
+
+        // burn interest Token->USD->DFI->burnAddress
+        if (subInterest > 0) {
+            LogPrint(BCLog::LOAN,
+                     "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n",
+                     loanToken->symbol,
+                     subInterest,
+                     height);
+            res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, from, consensus.burnAddress, height, consensus);
+            if (!res) {
+                return res;
+            }
+        }
+    } else {
+        // means payback token == DUSD
+        // FIXME: change when also implement other collaterals
+        CAmount subInToken;
+        const auto subAmount = subLoan + subInterest;
+
+        // if payback overpay loan and interest amount
+        if (paybackAmountInLoanToken > subAmount) {
+            subInToken = MultiplyAmounts(subAmount, loanUsdPrice);
+            if (DivideAmounts(subInToken, loanUsdPrice) != subAmount) {
+                subInToken += 1;
+            }
+        } else {
+            subInToken = wantedPaybackAmount;
+        }
+
+        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+        auto balances = attributes->GetValue(liveKey, CTokenPayback{});
+
+        balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
+        attributes->SetValue(liveKey, balances);
+
+        CTokenAmount collAmount{paybackId, subInToken};
+        if (auto res = mnview.SubVaultCollateral(vaultId, collAmount); !res) {
+            LogPrintf("Error removing collateral %s\n",
+                      res);
+            return res;
+        }
+
+        return mnview.AddBalance(consensus.burnAddress, collAmount);
+    }
+    return Res::Ok();
+}
+
+
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
     if (!dUsdToken) {
@@ -2644,27 +2846,45 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
 
     // payback all loans: first balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
+
+    std::vector<std::tuple<CScript,CVaultId,CAmount,DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
             auto owner = cache.GetVault(vaultId)->ownerAddress;
             auto balance = cache.GetBalance(owner, tokenId);
             if (balance.nValue > 0) {
-                // TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here
+                directPaybacks.emplace_back(std::make_tuple(owner,vaultId, balance.nValue,tokenId));
             }
         }
         return true;
     });
+    for(const auto&[owner,vaultId,amount,tokenId] : directPaybacks) {
+        PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, tokenId);
+    }
 
     // any remaining loans? use collateral, first DUSD. TODO: can we optimize this?
+    std::vector<std::tuple<CScript, CVaultId, CAmount, DCT_ID>> dusdPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
             auto owner = cache.GetVault(vaultId)->ownerAddress;
 
-            auto balance = cache.GetVaultCollaterals(vaultId);
-            // TODO: take DUSD collateral and use for paybackWithDUSD
+            auto colls = cache.GetVaultCollaterals(vaultId);
+            LogPrintf("Found open loan %lld@%d, got %d coll to pay back, dusd: %d\n",
+                      amount, tokenId.v, colls->balances.size(), colls->balances.count(dUsdToken->first));
+            if (colls->balances.count(dUsdToken->first)) {
+                dusdPaybacks.emplace_back(std::make_tuple(owner,vaultId,colls->balances.at(dUsdToken->first),tokenId));
+            }
         }
         return true;
     });
+    for (const auto &[owner, vaultId, amount, tokenId] : dusdPaybacks) {
+        LogPrintf("paying back %lld@%d, with DUSD coll %lld\n",
+                  amount,
+                  tokenId.v,amount);
+        PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, dUsdToken->first, tokenId);
+    }
+
+    //TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the method first)
 }
 
 //creates the needed splits for token lock and the number of needed pools
@@ -2839,6 +3059,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                                              const CBlockIndex *pindex,
                                              CCustomCSView &cache,
                                              BlockContext &blockCtx) {
+    //TODO: make use of save calculations
     auto lockedAmount = [&](CAmount input) { return (input * 90) / 100; };
 
     std::unordered_set<uint32_t> tokensToBeLocked;
@@ -2856,8 +3077,13 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
 
     std::vector<std::pair<CScript, CTokenAmount>> poolBalanceToProcess;
     // from balances
+
+    const auto contractAddressValue = blockCtx.GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
     cache.ForEachBalance([&](const CScript &owner, const CTokenAmount &amount) {
-        // TODO: ignore burnadress and SmartContracts (FS and tokenlock itself)?
+        if (owner == blockCtx.GetConsensus().burnAddress || owner == contractAddressValue) {
+            return true;  // no lock from burn or lock address
+        }
+
         if (tokensToBeLocked.count(amount.nTokenId.v) && amount.nValue > 0) {
             const auto amountToLock = lockedAmount(amount.nValue);
             LogPrintf("locking from balance %d@%d, had %d\n", amountToLock, amount.nTokenId.v, amount.nValue);

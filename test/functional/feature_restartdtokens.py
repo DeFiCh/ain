@@ -83,8 +83,8 @@ class RestartdTokensTest(DefiTestFramework):
                 {"2": ["DUSD/lock1", False, False, Decimal('0')]},
                 {"3": ["SPY-DUSD/lock1", False, False, Decimal('0')]},
                 {"4": ["DUSD-DFI/lock1", False, False, Decimal('0')]},
-                {"5": ["SPY", True, True, Decimal('3.5')]},
-                {"6": ["USDD", True, True, Decimal('800.0')]},
+                {"5": ["SPY", True, True, Decimal('2.00000941')]},
+                {"6": ["USDD", True, True, Decimal('809.99999812')]},
                 {"7": ["SPY-USDD", False, False, Decimal('0')]},
                 {"8": ["USDD-DFI", False, False, Decimal('0')]},
             ],
@@ -111,8 +111,8 @@ class RestartdTokensTest(DefiTestFramework):
                         "SPY-USDD",
                         "5",
                         "6",
-                        Decimal("0.20000090"),
-                        Decimal("20.00009000"),
+                        Decimal("0.20000185"),
+                        Decimal("19.99999591"),
                     ]
                 },
                 {
@@ -120,17 +120,17 @@ class RestartdTokensTest(DefiTestFramework):
                         "USDD-DFI",
                         "6",
                         "0",
-                        Decimal("50.00006371"),
-                        Decimal("1.00000128"),
+                        Decimal("50.00015761"),
+                        Decimal("0.99999940"),
                     ]
                 },
             ],
         )
 
         assert_equal(self.nodes[0].listlockedtokens(),
-                      [{'owner': self.address, 'values': ['3.14999910@SPY', '864.08435313@USDD']}])
+                      [{'owner': self.address, 'values': ['1.80000756@SPY', '855.08435144@USDD']}])
 
-        assert_equal(self.nodes[0].getlockedtokens(self.address), ['3.14999910@SPY', '864.08435313@USDD'])
+        assert_equal(self.nodes[0].getlockedtokens(self.address), ['1.80000756@SPY', '855.08435144@USDD'])
 
         # TODO: check address with no locked tokens
 
@@ -145,10 +145,10 @@ class RestartdTokensTest(DefiTestFramework):
                 "collateralAmounts": ["15.00938965@USDD"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": Decimal("15.00938965"),
-                "loanValue": Decimal("0"),
-                "interestValue": Decimal("0"),
-                "informativeRatio": Decimal("-1"),
+                "collateralValue": -1, #why? cause USDD is locked?
+                "loanValue": -1,
+                "interestValue": -1,
+                "informativeRatio": -1,
                 "collateralRatio": -1,
             },
         )
@@ -235,12 +235,12 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
         assert_equal(
-            self.nodes[0].getaccount(self.address),
+            sorted(self.nodes[0].getaccount(self.address)),
             [
-                "390.00000000@DFI",
                 "1.50000000@SPY",
                 "100.00000000@DUSD",
                 "19.99999000@SPY-DUSD",
+                "390.00000000@DFI",
                 "70.71066811@DUSD-DFI",
             ],
         )

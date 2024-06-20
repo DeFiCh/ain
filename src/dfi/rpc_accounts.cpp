@@ -3160,8 +3160,8 @@ UniValue listlockedtokens(const JSONRPCRequest &request) {
         "listlockedtokens",
         "Get all locked loan tokens.\n",
         {},
-        RPCResult{"\"json\"          (string) array containing json-objects having following fields:\n"
-                  "    owner :       \"address\"\n"
+        RPCResult{"\"json\"      (string) array containing json-objects having following fields:\n"
+                  "    owner  :  \"address\"\n"
                   "    values : [\"amount1@token1\",\"amount1@token1\"...]\n"},
         RPCExamples{HelpExampleCli("listlockedtokens", "")},
     }
