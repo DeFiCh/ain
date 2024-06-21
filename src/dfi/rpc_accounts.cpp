@@ -783,9 +783,31 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
         }
     }
 
+    const UniValue &txInputs = request.params[2];
+    bool funded= false;
+    if (msg.to.size() == 1) {
+        CCoinControl coinControl;
+        //try to fill inputs from target address and use it as change
+        const auto &target = msg.to.begin()->first;
+        CTxDestination dest;
+        ExtractDestination(target, dest);
+        if (IsMineCached(*pwallet, target) == ISMINE_SPENDABLE) {
+            if (IsValidDestination(dest)) {
+                coinControl.destChange = dest;
+                coinControl.matchDestination = dest;
+                try {
+                    fund(rawTx, pwallet, {}, &coinControl, request.metadata.coinSelectOpts);
+                    funded= true;
+                } catch(const UniValue &e) {
+                    //likely not enough utxos, silent catch and try again outside
+                }
+            }
+        }
+    }
     // fund
-    fund(rawTx, pwallet, {}, nullptr, request.metadata.coinSelectOpts);
-
+    if(!funded) {
+        fund(rawTx, pwallet, {}, nullptr, request.metadata.coinSelectOpts);
+    }
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight);
 
