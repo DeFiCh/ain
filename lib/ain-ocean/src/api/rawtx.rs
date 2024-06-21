@@ -3,7 +3,7 @@ use std::{result::Result as StdResult, str::FromStr, sync::Arc};
 use ain_dftx::{deserialize, DfTx};
 use ain_macros::ocean_endpoint;
 use axum::{
-    extract::{path::ErrorKind, Json, Path},
+    extract::{Json, Path},
     routing::{get, post},
     Extension, Router,
 };
@@ -31,7 +31,7 @@ struct QueryParams {
 }
 
 #[ocean_endpoint]
-async fn send_rawtx(
+async fn send_raw_tx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<String> {
@@ -64,7 +64,7 @@ async fn send_rawtx(
     }
 }
 #[ocean_endpoint]
-async fn test_rawtx(
+async fn test_raw_tx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<Response<Vec<MempoolAcceptResult>>> {
@@ -164,7 +164,7 @@ async fn get_raw_tx(
 
 async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
     if !hex.starts_with("040000000001") {
-        return Err(Error::BadRequest("Transaction decode failed".to_string()));
+        return Ok(());
     }
     let data = hex::decode(hex)?;
     println!("decode_hex {:?}", data);
@@ -181,15 +181,13 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
         let raw_tx = &bytes[offset..];
         Some(deserialize::<DfTx>(raw_tx)?)
     } else {
-        None
+        return Ok(());
     };
 
     if let Some(tx) = tx {
         if let DfTx::CompositeSwap(composite_swap) = tx {
             if composite_swap.pools.as_ref().is_empty() {
-                return Err(Error::BadRequest(
-                    "Composite swap pool length is empty".to_string(),
-                ));
+                return Ok(());
             }
             let pool_id = composite_swap.pools.iter().last().unwrap();
             let tokio_id = composite_swap.pool_swap.to_token_id.0.to_string();
@@ -211,17 +209,15 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
             ))
         }
     } else {
-        Err(Error::BadRequest(
-            "No valid raw transaction found".to_string(),
-        ))
+        Ok(())
     }
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     println!("{:?}", ctx.network);
     Router::new()
-        .route("/send", post(send_rawtx))
-        .route("/test", post(test_rawtx))
+        .route("/send", post(send_raw_tx))
+        .route("/test", post(test_raw_tx))
         .route("/:txid", get(get_raw_tx))
         .layer(Extension(ctx))
 }
