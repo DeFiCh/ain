@@ -55,7 +55,7 @@ async fn send_raw_tx(
         Ok(tx_hash) => Ok(tx_hash.to_string()),
         Err(e) => {
             eprintln!("Failed to send raw transaction: {:?}", e);
-            if e.to_string().contains("Transaction decode failed") {
+            if e.to_string().contains("TX decode failed") {
                 Err(Error::BadRequest("Transaction decode failed".to_string()))
             } else {
                 Err(Error::RpcError(e))
