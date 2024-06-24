@@ -139,6 +139,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:
             return CCustomTxMessageNone{};
+        case CustomTxType::TokenLock:
+            return CCustomTxMessageNone{};
         case CustomTxType::Reject:
             return CCustomTxMessageNone{};
         case CustomTxType::CreateCfp:

@@ -120,19 +120,20 @@ class RestartdTokensTest(DefiTestFramework):
                         "USDD-DFI",
                         "6",
                         "0",
-                        Decimal("50.00015761"),
-                        Decimal("0.99999940"),
+                        Decimal("45.99637727"),
+                        Decimal("1.08695790"),
                     ]
                 },
             ],
         )
 
         assert_equal(self.nodes[0].listlockedtokens(),
-                      [{'owner': self.address, 'values': ['1.80000756@SPY', '855.08435144@USDD']}])
+                      [{'owner': self.address, 'values': ['1.80000756@SPY', '819.05037985@USDD']}])
 
-        assert_equal(self.nodes[0].getlockedtokens(self.address), ['1.80000756@SPY', '855.08435144@USDD'])
+        assert_equal(self.nodes[0].getlockedtokens(self.address), ['1.80000756@SPY', '819.05037985@USDD'])
 
         # TODO: check address with no locked tokens
+        # TODO: add address with vault and multiple loans and collaterals (also one without direct DUSD pool)
 
         # TODO: currently best guess numbers, need to check with final results
         assert_equal(
@@ -159,13 +160,13 @@ class RestartdTokensTest(DefiTestFramework):
                 "loanSchemeId": "LOAN0001",
                 "ownerAddress": self.address,
                 "state": "active",
-                "collateralAmounts": ["98.70000000@DFI"],
+                "collateralAmounts": ["99.12867349@DFI"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": Decimal("493.50000000"),
-                "loanValue": Decimal("0"),
-                "interestValue": Decimal("0"),
-                "informativeRatio": Decimal("-1"),
+                "collateralValue": Decimal('495.64336745'),
+                "loanValue": 0,
+                "interestValue": 0,
+                "informativeRatio": -1,
                 "collateralRatio": -1,
             },
         )
@@ -173,10 +174,10 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             self.nodes[0].getaccount(self.address),
             [
-                "399.00000000@DFI",  # add comission from payback swap, added DFI from pool
+                "399.78260718@DFI",  
                 "10.00000000@USDD",
-                "1.999999000@SPY-USDD",
-                "7.07106682@USDD-DFI",
+                "1.99999900@SPY-USDD",
+                "7.07078382@USDD-DFI",
             ],
         )
 

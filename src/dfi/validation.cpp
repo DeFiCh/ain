@@ -2620,7 +2620,7 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
                                             BlockContext &blockCtx,
                                             const CScript &from,
                                             const CVaultId &vaultId,
-                                            const CAmount &wantedPaybackAmount,
+                                            CAmount wantedPaybackAmount,
                                             const DCT_ID &paybackId,
                                             const DCT_ID &loanTokenId) {
     const auto height = blockCtx.GetHeight();
@@ -2665,7 +2665,7 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
 
         const auto &currentCollAmount = collaterals->balances.at(paybackId);
         if (currentCollAmount < wantedPaybackAmount) {
-            return DeFiErrors::LoanPaymentAmountInvalid(wantedPaybackAmount, paybackId.v);
+            wantedPaybackAmount= currentCollAmount;
         }
 
         // Get dToken price in USD
@@ -2816,6 +2816,128 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
     return Res::Ok();
 }
 
+namespace {
+    struct CollToLoan {
+        CVaultId vaultId;
+        std::vector<std::pair<CTokenAmount,CAmount>> loansWithUSDValue;
+        CAmount useableCollateralAmount;
+        CAmount totalUSDNeeded= 0;
+        CAmount usedCollateralAmount= 0;
+    };
+}
+
+static void paybackWithSwappedCollateral(const DCT_ID &collId,
+                                         const std::map<DCT_ID, CAmount> &usdPrices,
+                                         const CTokensView::TokenIDPair &dUsdToken,
+                                         CCustomCSView &cache,
+                                         BlockContext &blockCtx) {
+    std::vector<CollToLoan> collToLoans;
+    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        auto colls = cache.GetVaultCollaterals(vaultId);
+        if (colls->balances.count(collId)) {
+            auto owner = cache.GetVault(vaultId)->ownerAddress;
+            collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
+            collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
+            for (const auto &[tokenId, amount] : balances.balances) {
+                collToLoans.back().loansWithUSDValue.emplace_back(std::make_pair<CTokenAmount, CAmount>(
+                    {tokenId, amount}, MultiplyAmounts(amount, usdPrices.at(tokenId))));
+            }
+        }
+        return true;
+    });
+
+    arith_uint256 totalUSD = 0;
+    for (auto &data : collToLoans) {
+        data.totalUSDNeeded = 0;
+        for (const auto &loan : data.loansWithUSDValue) {
+            data.totalUSDNeeded += loan.second;
+        }
+        totalUSD += data.totalUSDNeeded;
+    }
+    LogPrintf("Swapping collateral %d, needing %d DUSD\n", collId.v, totalUSD.GetLow64());
+    // initial run estimate price based on max DUSD impact
+    // TODO: do we need to have tokenPair ordered correctly here?
+    const auto &poolView = cache.GetPoolPair(dUsdToken.first, collId);
+    const auto &pool = poolView->second;
+    const auto &commisionFac = (COIN - pool.commission);
+    // TODO: also consider fees
+    const auto reserveColl = arith_uint256(pool.idTokenB == collId ? pool.reserveB : pool.reserveA);
+    const auto reserveDUSD = arith_uint256(pool.idTokenB == collId ? pool.reserveA : pool.reserveB);
+
+    LogPrintf("Pool %d, commission %d , reserve %d - %d\n",
+              poolView->first.v,
+              commisionFac,
+              reserveColl.GetLow64(),
+              reserveDUSD.GetLow64());
+    auto input = ((reserveColl * reserveDUSD) / (reserveDUSD - totalUSD)) - reserveColl;
+    // this is the estimated price if all needed USD are swapped ->  max slipage
+    //= (input/(COIN-commission))/TotalUSD
+    auto estimatedCollPerDUSD = input * COIN / ((totalUSD * commisionFac) / COIN);
+    // now see how much collateral is acutally useable per vault
+    LogPrintf("first esimate (based on wanted DUSD output): %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+ 
+    auto nextEstimate = [&](const arith_uint256 &lastEstimateCollPerDUSD) {
+        arith_uint256 totalCollateralUsed = 0;
+        for (auto &data : collToLoans) {
+            const auto &neededColl = MultiplyAmounts(lastEstimateCollPerDUSD, data.totalUSDNeeded);
+            if (neededColl < data.useableCollateralAmount) {
+                data.usedCollateralAmount = neededColl.GetLow64();
+            } else {
+                data.usedCollateralAmount = data.useableCollateralAmount;
+            }
+            totalCollateralUsed += data.usedCollateralAmount;
+        }
+        LogPrintf("estimating for %d coll used\n",totalCollateralUsed.GetLow64());
+
+        auto output =
+            reserveDUSD - ((reserveColl * reserveDUSD) / (reserveColl + ((totalCollateralUsed * commisionFac) / COIN)));
+        return totalCollateralUsed * COIN / output;
+    };
+    estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
+    LogPrintf("second estimate (based on av. coll) collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+    estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
+    LogPrintf("final estimate collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+
+    // move to contract and swap there
+    const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
+    CPoolSwapMessage swapMessage;
+    swapMessage.from = contractAddressValue;
+    swapMessage.to = contractAddressValue;
+    swapMessage.idTokenFrom = collId;
+    swapMessage.idTokenTo = dUsdToken.first;
+    swapMessage.amountFrom = 0;
+    swapMessage.maxPrice = PoolPrice::getMaxValid();
+
+    CAmount totalCollToSwap = 0;
+    for (const auto &data : collToLoans) {
+        CTokenAmount moved = {collId, data.usedCollateralAmount};
+        cache.SubVaultCollateral(data.vaultId, moved);
+        cache.AddBalance(contractAddressValue, moved);
+        totalCollToSwap += data.usedCollateralAmount;
+    }
+    swapMessage.amountFrom = totalCollToSwap;
+
+    auto poolSwap = CPoolSwap(swapMessage, blockCtx.GetHeight());
+    poolSwap.ExecuteSwap(cache, {}, blockCtx.GetConsensus());
+    auto availableDUSD = cache.GetBalance(contractAddressValue, dUsdToken.first);
+
+    for (const auto &data : collToLoans) {
+        CTokenAmount dusdResult = {
+            dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
+        cache.AddVaultCollateral(data.vaultId, dusdResult);
+        cache.SubBalance(contractAddressValue, dusdResult);
+        for (const auto &loan : data.loansWithUSDValue) {
+            PaybackLoanWithTokenOrCollateral(
+                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, dUsdToken.first, loan.first.nTokenId);
+            dusdResult.nValue -= loan.second;
+        }
+        if (dusdResult.nValue > 0) {
+            //burn excess DUSD from swap
+            cache.SubVaultCollateral(data.vaultId, {dUsdToken.first,dusdResult.nValue});
+            cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, dusdResult.nValue});
+        }
+    }
+}
 
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
@@ -2844,13 +2966,13 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         return true;
     });
 
-    // payback all loans: first balance, then DUSD collateral (burn DUSD for loan at oracleprice),
+    // payback all loans: first owner balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
 
     std::vector<std::tuple<CScript,CVaultId,CAmount,DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        auto owner = cache.GetVault(vaultId)->ownerAddress;
         for (const auto &[tokenId, amount] : balances.balances) {
-            auto owner = cache.GetVault(vaultId)->ownerAddress;
             auto balance = cache.GetBalance(owner, tokenId);
             if (balance.nValue > 0) {
                 directPaybacks.emplace_back(std::make_tuple(owner,vaultId, balance.nValue,tokenId));
@@ -2862,29 +2984,96 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, tokenId);
     }
 
-    // any remaining loans? use collateral, first DUSD. TODO: can we optimize this?
+    // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
     std::vector<std::tuple<CScript, CVaultId, CAmount, DCT_ID>> dusdPaybacks;
+    std::set<DCT_ID> allUsedCollaterals;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
-        for (const auto &[tokenId, amount] : balances.balances) {
+        auto colls = cache.GetVaultCollaterals(vaultId);
+        for(const auto & [collId,collAmount] : colls->balances) {
+            allUsedCollaterals.insert(collId);
+        }
+        if (colls->balances.count(dUsdToken->first)) {
             auto owner = cache.GetVault(vaultId)->ownerAddress;
-
-            auto colls = cache.GetVaultCollaterals(vaultId);
-            LogPrintf("Found open loan %lld@%d, got %d coll to pay back, dusd: %d\n",
-                      amount, tokenId.v, colls->balances.size(), colls->balances.count(dUsdToken->first));
-            if (colls->balances.count(dUsdToken->first)) {
+            for (const auto &[tokenId, amount] : balances.balances) {
                 dusdPaybacks.emplace_back(std::make_tuple(owner,vaultId,colls->balances.at(dUsdToken->first),tokenId));
             }
         }
         return true;
     });
     for (const auto &[owner, vaultId, amount, tokenId] : dusdPaybacks) {
-        LogPrintf("paying back %lld@%d, with DUSD coll %lld\n",
-                  amount,
-                  tokenId.v,amount);
+        //for multiple loans, the method fails/reduces used amount if no more collateral left
         PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, dUsdToken->first, tokenId);
     }
 
-    //TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the method first)
+    // TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the
+    // method first)
+
+    //  get loans (token, id and usd value) and collateral per vault
+    //  get resulting DUSD for full swap
+    //  iterate 2 times to get a good estimation with slipage
+    //  swap and payback loans
+    //  -> repeat with next collateral
+    std::map<DCT_ID,CAmount> usdPrices;
+    std::vector<CPoolPair> gatewaypools;
+    // Get dToken price in USD
+    ForEachLockTokenAndPool(
+        [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+            const CTokenCurrencyPair dTokenUsdPair{token.symbol, "USD"};
+            bool useNextPrice{false}, requireLivePrice{true};
+            const auto resVal = cache.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
+            if (resVal) {
+                usdPrices.emplace(id, *resVal.val);
+            }
+
+            return true;
+        },
+        [&](const DCT_ID&, const CPoolPair & pool) { 
+            if(pool.idTokenA == dUsdToken->first && allUsedCollaterals.count(pool.idTokenB) > 0){
+                gatewaypools.emplace_back(pool);
+            }
+            if (pool.idTokenB == dUsdToken->first && allUsedCollaterals.count(pool.idTokenA) > 0) {
+                gatewaypools.emplace_back(pool);
+            }
+
+            return true; 
+        },cache);
+
+    std::sort(gatewaypools.begin(), gatewaypools.end(), [&](const CPoolPair &p1,const CPoolPair &p2) {
+        auto dusd1reserve = p1.idTokenA == dUsdToken->first ? p1.reserveA : p1.reserveB;
+        auto dusd2reserve = p2.idTokenA == dUsdToken->first ? p2.reserveA : p2.reserveB;
+        return dusd1reserve < dusd2reserve;
+    });
+    std::stringstream log;
+    for(const auto& pool : gatewaypools) {
+        log << pool.idTokenA.v << "-" << pool.idTokenB.v << " reserves: "<<pool.reserveA<<"-"<<pool.reserveB<< std::endl;
+    }
+    LogPrintf("Got gateway pools:\n %s", log.str());
+
+    for(const auto& pool: gatewaypools) {
+        auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
+        paybackWithSwappedCollateral(collId,usdPrices,*dUsdToken,cache,blockCtx);
+    }
+
+    //TODO: find paths for remaining collaterals
+    allUsedCollaterals.clear();
+    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        bool gotLoan= false;
+        for(const auto & loan : balances.balances) {
+            if(loan.second > 0) {
+                gotLoan= true;
+                break;
+            }
+        }
+        if(!gotLoan) {
+            return true;
+        }
+        auto colls = cache.GetVaultCollaterals(vaultId);
+        for (const auto &[collId, collAmount] : colls->balances) {
+            allUsedCollaterals.insert(collId);
+        }
+        return true;
+    });
+    //for each collateral: find path and use paybackWithSwappedCollateral with poolIds (need to adapt for composite swaps)
 }
 
 //creates the needed splits for token lock and the number of needed pools

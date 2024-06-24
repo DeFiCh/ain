@@ -111,6 +111,10 @@ inline ResVal<CAmount> SafeAdd(CAmount _a, CAmount _b) {
     return {(CAmount) sum, Res::Ok()};
 }
 
+inline CAmount MultiplyDivideAmounts(CAmount a, CAmount b, CAmount c) {
+    return (arith_uint256(a) * arith_uint256(b) / arith_uint256(c)).GetLow64();
+}
+
 inline CAmount MultiplyAmounts(CAmount a, CAmount b)
 {
     return (arith_uint256(a) * arith_uint256(b) / arith_uint256(COIN)).GetLow64();
