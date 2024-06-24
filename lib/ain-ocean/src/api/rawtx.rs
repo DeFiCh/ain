@@ -22,7 +22,7 @@ use crate::{
 
 enum TransactionResponse {
     HexString(String),
-    TransactionDetails(RawTransactionResult),
+    TransactionDetails(Box<RawTransactionResult>),
 }
 
 #[derive(Deserialize, Default)]
@@ -158,7 +158,7 @@ async fn get_raw_tx(
             time: tx_info.time,
             blocktime: tx_info.blocktime,
         };
-        Ok(TransactionResponse::TransactionDetails(result))
+        Ok(TransactionResponse::TransactionDetails(Box::new(result)))
     }
 }
 
