@@ -31,12 +31,13 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
-    for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
+    for vout in ctx.tx.vout.into_iter() {
         let tx_vout = TransactionVout {
+            id: format!("{}{:x}", txid, vout.n),
             txid,
-            n: vout_idx,
-            value: vout.value,
-            token_id: 0,
+            n: vout.n,
+            value: vout.value.to_string(),
+            token_id: Some(0),
             script: TransactionVoutScript {
                 hex: vout.script_pub_key.hex,
                 r#type: vout.script_pub_key.r#type,
@@ -45,7 +46,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         services
             .transaction
             .vout_by_id
-            .put(&(txid, vout_idx), &tx_vout)?;
+            .put(&(txid, vout.n), &tx_vout)?;
 
         total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
         vouts.push(tx_vout);

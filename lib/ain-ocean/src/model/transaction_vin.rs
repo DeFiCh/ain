@@ -30,7 +30,7 @@ impl TransactionVin {
             Vin::Standard(v) => {
                 let vout = vouts.get(v.vout as usize).map(|vout| TransactionVinVout {
                     txid: vout.txid,
-                    value: vout.value,
+                    value: vout.value.clone(),
                     n: vout.n,
                     token_id: vout.token_id,
                     script: vout.script.hex.to_owned(),
@@ -53,7 +53,7 @@ impl TransactionVin {
 pub struct TransactionVinVout {
     pub txid: Txid,
     pub n: usize,
-    pub value: f64,
-    pub token_id: u8,
+    pub value: String,
+    pub token_id: Option<u32>,
     pub script: Vec<u8>,
 }

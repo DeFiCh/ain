@@ -274,6 +274,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "serde_with",
+ "sha2 0.10.8",
  "tempdir",
  "tempfile",
  "thiserror",
@@ -1530,7 +1531,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git#9d0a769b11c24b855843ecb6dbe556a3b30dfcdf"
+source = "git+https://github.com/defich/rust-defichain-rpc.git?rev=332a5c6d0098a008c2354962bfa2d936a128e289#332a5c6d0098a008c2354962bfa2d936a128e289"
 dependencies = [
  "async-trait",
  "defichain-rpc-json",
@@ -1543,7 +1544,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git#9d0a769b11c24b855843ecb6dbe556a3b30dfcdf"
+source = "git+https://github.com/defich/rust-defichain-rpc.git?rev=332a5c6d0098a008c2354962bfa2d936a128e289#332a5c6d0098a008c2354962bfa2d936a128e289"
 dependencies = [
  "bitcoin",
  "serde",
