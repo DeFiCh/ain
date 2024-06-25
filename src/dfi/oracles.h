@@ -156,10 +156,10 @@ public:
     Res EraseIntervalBlock();
     uint32_t GetIntervalBlock() const;
 
-    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const = 0;
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) = 0;
     [[nodiscard]] virtual std::optional<CTokenImplementation> GetTokenGuessId(const std::string &str,
                                                                               DCT_ID &id) const = 0;
-    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const &id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenByID(DCT_ID const &id) = 0;
 
     struct ByName {
         static constexpr uint8_t prefix() { return 'O'; }

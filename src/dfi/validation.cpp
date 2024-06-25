@@ -999,21 +999,19 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         return;
     }
 
-    auto attributes = cache.GetAttributes();
-
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
-    if (!attributes->GetValue(activeKey, false)) {
+    if (!cache.GetValue(activeKey, false)) {
         return;
     }
 
     CDataStructureV0 samplingKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
-    const auto samplingPeriod = attributes->GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+    const auto samplingPeriod = cache.GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
     if ((pindex->nHeight - consensus.DF23Height) % samplingPeriod != 0) {
         return;
     }
 
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
-    const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
+    const auto blockPeriod = cache.GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
 
     const auto dusdToken = cache.GetToken("DUSD");
     if (!dusdToken) {
@@ -1105,13 +1103,13 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
     }
 }
 
-static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes) {
+static auto GetLoanTokensForFutures(CCustomCSView &cache) {
     LoanTokenCollection loanTokens;
 
     CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
     cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
         tokenKey.typeId = id.v;
-        const auto enabled = attributes.GetValue(tokenKey, true);
+        const auto enabled = cache.GetValue(tokenKey, true);
         if (!enabled) {
             return true;
         }
@@ -1122,14 +1120,14 @@ static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes)
     });
 
     if (loanTokens.empty()) {
-        attributes.ForEach(
+        cache.ForEachAttribute(
             [&](const CDataStructureV0 &attr, const CAttributeValue &) {
                 if (attr.type != AttributeTypes::Token) {
                     return false;
                 }
 
                 tokenKey.typeId = attr.typeId;
-                const auto enabled = attributes.GetValue(tokenKey, true);
+                const auto enabled = cache.GetValue(tokenKey, true);
                 if (!enabled) {
                     return true;
                 }
@@ -1154,24 +1152,21 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
         return;
     }
 
-    auto attributes = cache.GetAttributes();
-
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::RewardPct};
-    if (!attributes->GetValue(activeKey, false) || !attributes->CheckKey(blockKey) ||
-        !attributes->CheckKey(rewardKey)) {
+    if (!cache.GetValue(activeKey, false) || !cache.CheckKey(blockKey) || !cache.CheckKey(rewardKey)) {
         return;
     }
 
     CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::StartBlock};
-    const auto startBlock = attributes->GetValue(startKey, CAmount{});
+    const auto startBlock = cache.GetValue(startKey, CAmount{});
     if (pindex->nHeight < startBlock) {
         return;
     }
 
-    const auto loanTokens = GetLoanTokensForFutures(cache, *attributes);
-    const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+    const auto loanTokens = GetLoanTokensForFutures(cache);
+    const auto blockPeriod = cache.GetValue(blockKey, CAmount{});
     const auto futureSwapBlock = (pindex->nHeight - startBlock) % blockPeriod == 0;
 
     LiquidityForFuturesLimit(pindex, cache, consensus, loanTokens, futureSwapBlock);
@@ -1183,7 +1178,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     auto time = GetTimeMillis();
     LogPrintf("Future swap settlement in progress.. (height: %d)\n", pindex->nHeight);
 
-    const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
+    const auto rewardPct = cache.GetValue(rewardKey, CAmount{});
     const auto discount{COIN - rewardPct};
     const auto premium{COIN + rewardPct};
 
@@ -1205,8 +1200,8 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
     CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Minted};
 
-    auto burned = attributes->GetValue(burnKey, CBalances{});
-    auto minted = attributes->GetValue(mintedKey, CBalances{});
+    auto burned = cache.GetValue(burnKey, CBalances{});
+    auto minted = cache.GetValue(mintedKey, CBalances{});
 
     std::map<CFuturesUserKey, CFuturesUserValue> unpaidContracts;
     std::set<CFuturesUserKey> deletionPending;
@@ -1285,7 +1280,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Current};
 
-    auto balances = attributes->GetValue(liveKey, CBalances{});
+    auto balances = cache.GetValue(liveKey, CBalances{});
 
     auto failedContractsCounter = unpaidContracts.size();
 
@@ -1316,11 +1311,11 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
         cache.EraseFuturesUserValues(key);
     }
 
-    attributes->SetValue(burnKey, std::move(burned));
-    attributes->SetValue(mintedKey, std::move(minted));
+    cache.SetValue(burnKey, std::move(burned));
+    cache.SetValue(mintedKey, std::move(minted));
 
     if (!unpaidContracts.empty()) {
-        attributes->SetValue(liveKey, std::move(balances));
+        cache.SetValue(liveKey, std::move(balances));
     }
 
     LogPrintf(
@@ -1331,8 +1326,6 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
         failedContractsCounter,
         pindex->nHeight,
         GetTimeMillis() - time);
-
-    cache.SetVariable(*attributes);
 }
 
 static void ProcessGovEvents(const CBlockIndex *pindex,
@@ -1350,9 +1343,7 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
             CCustomCSView govCache(cache);
             // Add to existing ATTRIBUTES instead of overwriting.
             if (var->GetName() == "ATTRIBUTES") {
-                auto govVar = cache.GetAttributes();
-                govVar->time = pindex->GetBlockTime();
-                govVar->evmTemplate = evmTemplate;
+                govCache.SetAttributesMembers(pindex->GetBlockTime(), evmTemplate);
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -1360,7 +1351,7 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
                 auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
 
                 if (!memberRemoval.empty()) {
-                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+                    auto existingMembers = govCache.GetValue(key, std::set<CScript>{});
 
                     for (auto &member : memberRemoval) {
                         if (member.empty()) {
@@ -1384,18 +1375,20 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
                         }
                     }
 
-                    govVar->SetValue(key, existingMembers);
+                    govCache.SetValue(key, existingMembers);
 
                     // Remove this key and apply any other changes
                     newVar->EraseKey(key);
-                    if (govVar->Import(newVar->Export()) && govVar->Validate(govCache) &&
-                        govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                    if (govCache.ImportAttributes(newVar->Export()) && govCache.ValidateAttributes() &&
+                        govCache.ApplyAttributes(pindex->nHeight)) {
                         govCache.Flush();
+                        cache.ClearAttributes();
                     }
                 } else {
-                    if (govVar->Import(var->Export()) && govVar->Validate(govCache) &&
-                        govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                    if (govCache.ImportAttributes(var->Export()) && govCache.ValidateAttributes() &&
+                        govCache.ApplyAttributes(pindex->nHeight)) {
                         govCache.Flush();
+                        cache.ClearAttributes();
                     }
                 }
             } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
@@ -1409,20 +1402,15 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
 static bool ApplyGovVars(CCustomCSView &cache,
                          const CBlockIndex &pindex,
                          const std::map<std::string, std::string> &attrs) {
-    if (auto govVar = cache.GetVariable("ATTRIBUTES")) {
-        if (auto var = dynamic_cast<ATTRIBUTES *>(govVar.get())) {
-            var->time = pindex.nTime;
+    cache.SetAttributesMembers(pindex.nTime, {});
 
-            UniValue obj(UniValue::VOBJ);
-            for (const auto &[key, value] : attrs) {
-                obj.pushKV(key, value);
-            }
+    UniValue obj(UniValue::VOBJ);
+    for (const auto &[key, value] : attrs) {
+        obj.pushKV(key, value);
+    }
 
-            if (var->Import(obj) && var->Validate(cache) && var->Apply(cache, pindex.nHeight) &&
-                cache.SetVariable(*var)) {
-                return true;
-            }
-        }
+    if (cache.ImportAttributes(obj) && cache.ValidateAttributes() && cache.ApplyAttributes(pindex.nHeight)) {
+        return true;
     }
 
     return false;
@@ -1494,8 +1482,10 @@ static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache
         }
 
         CCustomCSView govCache(cache);
-        if (ApplyGovVars(govCache, *pindex, attrsFirst) && ApplyGovVars(govCache, *pindex, attrsSecond)) {
+        if ((!attrsFirst.empty() || !attrsSecond.empty()) && ApplyGovVars(govCache, *pindex, attrsFirst) &&
+            ApplyGovVars(govCache, *pindex, attrsSecond)) {
             govCache.Flush();
+            cache.ClearAttributes();
 
             // Erase old tokens afterwards to avoid invalid state during transition
             for (const auto &item : loanTokens) {
@@ -1622,7 +1612,6 @@ static Res UpdateLiquiditySplits(CCustomCSView &view,
 template <typename T>
 static Res PoolSplits(CCustomCSView &view,
                       CAmount &totalBalance,
-                      ATTRIBUTES &attributes,
                       const DCT_ID oldTokenId,
                       const DCT_ID newTokenId,
                       const CBlockIndex *pindex,
@@ -1898,17 +1887,29 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             std::vector<CDataStructureV0> eraseKeys;
-            for (const auto &[key, value] : attributes.GetAttributesMap()) {
-                if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
-                    v0Key->type == AttributeTypes::Poolpairs && v0Key->typeId == oldPoolId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, v0Key->key, v0Key->keyId};
-                    attributes.SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                }
-            }
+            std::map<CDataStructureV0, CAttributeValue> setKeys;
+            view.ForEachAttribute(
+                [&, poolId = oldPoolId](const CDataStructureV0 &key, const CAttributeValue &value) {
+                    if (key.type != AttributeTypes::Poolpairs) {
+                        return false;
+                    }
+
+                    if (key.typeId == poolId.v) {
+                        CDataStructureV0 newKey{AttributeTypes::Poolpairs, newPoolId.v, key.key, key.keyId};
+                        setKeys.emplace(newKey, value);
+                        eraseKeys.push_back(key);
+                    }
+
+                    return true;
+                },
+                CDataStructureV0{AttributeTypes::Poolpairs});
 
             for (const auto &key : eraseKeys) {
-                attributes.EraseKey(key);
+                view.EraseKey(key);
+            }
+
+            for (const auto &[key, value] : setKeys) {
+                view.SetValue(key, value);
             }
 
             res = UpdateLiquiditySplits<LP_SPLITS>(view, oldPoolId, newPoolId, pindex->nHeight);
@@ -1935,11 +1936,11 @@ static Res PoolSplits(CCustomCSView &view,
 
 template <typename T>
 static Res VaultSplits(CCustomCSView &view,
-                       ATTRIBUTES &attributes,
                        const DCT_ID oldTokenId,
                        const DCT_ID newTokenId,
                        const int height,
-                       const T multiplier) {
+                       const T multiplier,
+                       const std::vector<CDataStructureV0> &eraseKeys) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 
@@ -1992,13 +1993,18 @@ static Res VaultSplits(CCustomCSView &view,
         return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
     }
 
-    attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
-    attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
+    view.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
+    view.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
-    if (auto res = attributes.Apply(view, height); !res) {
+    // Erase Token keys just before applying attributes, but
+    // after SubLoanToken above which requires these entries.
+    for (const auto &key : eraseKeys) {
+        view.EraseKey(key);
+    }
+
+    if (auto res = view.ApplyAttributes(height); !res) {
         return res;
     }
-    view.SetVariable(attributes);
 
     for (const auto &[vaultId, amount] : loanTokenAmounts) {
         auto newAmount = CalculateNewAmount(multiplier, amount);
@@ -2164,15 +2170,14 @@ static Res VaultSplits(CCustomCSView &view,
 }
 
 template <typename T>
-static void MigrateV1Remnants(const CCustomCSView &cache,
-                              ATTRIBUTES &attributes,
+static void MigrateV1Remnants(CCustomCSView &cache,
                               const uint8_t key,
                               const DCT_ID oldId,
                               const DCT_ID newId,
                               const T multiplier,
                               const uint8_t typeID = ParamIDs::Economy) {
     CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
-    auto balances = attributes.GetValue(attrKey, CBalances{});
+    auto balances = cache.GetValue(attrKey, CBalances{});
     for (auto it = balances.balances.begin(); it != balances.balances.end(); ++it) {
         const auto &[tokenId, amount] = *it;
         if (tokenId != oldId) {
@@ -2182,14 +2187,14 @@ static void MigrateV1Remnants(const CCustomCSView &cache,
         balances.Add({newId, CalculateNewAmount(multiplier, amount)});
         break;
     }
-    attributes.SetValue(attrKey, balances);
+    cache.SetValue(attrKey, balances);
 }
 
-Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix) {
+Res GetTokenSuffix(CCustomCSView &view, const uint32_t id, std::string &newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
-    if (attributes.CheckKey(ascendantKey)) {
+    if (view.CheckKey(ascendantKey)) {
         const auto &[previousID, str] =
-            attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
+            view.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
         auto previousToken = view.GetToken(DCT_ID{previousID});
         if (!previousToken) {
             return Res::Err("Previous token %d not found\n", id);
@@ -2217,9 +2222,9 @@ Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, cons
 }
 
 template <typename T>
-static void UpdateOracleSplitKeys(const uint32_t id, ATTRIBUTES &attributes) {
+static void UpdateOracleSplitKeys(const uint32_t id, CCustomCSView &view) {
     std::map<CDataStructureV0, T> updateAttributesKeys;
-    attributes.ForEach(
+    view.ForEachAttribute(
         [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
             if (attr.type != AttributeTypes::Oracles) {
                 return false;
@@ -2250,9 +2255,9 @@ static void UpdateOracleSplitKeys(const uint32_t id, ATTRIBUTES &attributes) {
 
     for (const auto &[key, value] : updateAttributesKeys) {
         if (value.empty()) {
-            attributes.EraseKey(key);
+            view.EraseKey(key);
         } else {
-            attributes.SetValue(key, value);
+            view.SetValue(key, value);
         }
     }
 }
@@ -2262,7 +2267,6 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
                                const Consensus::Params &consensus,
-                               ATTRIBUTES &attributes,
                                const T &splits,
                                BlockContext &blockCtx) {
     for (const auto &[id, multiplier] : splits) {
@@ -2277,7 +2281,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         auto view{cache};
 
         // Refund affected future swaps
-        auto res = attributes.RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+        auto res = view.RefundFuturesContracts(std::numeric_limits<uint32_t>::max(), id);
         if (!res) {
             LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
             continue;
@@ -2292,7 +2296,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         }
 
         std::string newTokenSuffix = "/v";
-        res = GetTokenSuffix(cache, attributes, oldTokenId.v, newTokenSuffix);
+        res = GetTokenSuffix(view, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
@@ -2334,50 +2338,47 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
-        for (const auto &[key, value] : attributes.GetAttributesMap()) {
-            if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
-                if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
-                    attributes.SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                } else if (v0Key->typeId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                    attributes.SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
-                } else if (v0Key->keyId == oldTokenId.v) {
-                    CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
-                    attributes.SetValue(newKey, value);
-                    eraseKeys.push_back(*v0Key);
+        cache.ForEachAttribute(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
                 }
-            }
-        }
 
-        for (const auto &key : eraseKeys) {
-            attributes.EraseKey(key);
-        }
+                if (attr.typeId == oldTokenId.v && attr.keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, attr.key, newTokenId.v};
+                    view.SetValue(newKey, value);
+                    eraseKeys.push_back(attr);
+                } else if (attr.typeId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, attr.key, attr.keyId};
+                    view.SetValue(newKey, value);
+                    eraseKeys.push_back(attr);
+                } else if (attr.keyId == oldTokenId.v) {
+                    CDataStructureV0 newKey{AttributeTypes::Token, attr.typeId, attr.key, newTokenId.v};
+                    view.SetValue(newKey, value);
+                    eraseKeys.push_back(attr);
+                }
+
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
 
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes.SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
+        view.SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes.SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+        view.SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
-        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(view, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(view, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(view, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
         MigrateV1Remnants(
-            cache, attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
-        MigrateV1Remnants(cache,
-                          attributes,
-                          EconomyKeys::ConsolidatedInterest,
-                          oldTokenId,
-                          newTokenId,
-                          multiplier,
-                          ParamIDs::Auction);
+            view, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
+        MigrateV1Remnants(
+            view, EconomyKeys::ConsolidatedInterest, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
+        res = PoolSplits(view, totalBalance, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
             LogPrintf("Pool splits failed %s\n", res.msg);
             continue;
@@ -2450,16 +2451,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             continue;
         }
 
-        res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+        res = VaultSplits(view, oldTokenId, newTokenId, pindex->nHeight, multiplier, eraseKeys);
         if (!res) {
             LogPrintf("Token splits failed: %s\n", res.msg);
             continue;
         }
 
-        UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, attributes);
-        UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, attributes);
-
-        view.SetVariable(attributes);
+        UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, view);
+        UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, view);
 
         // Migrate stored unlock
         if (pindex->nHeight >= consensus.DF20GrandCentralHeight) {
@@ -2472,17 +2471,22 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                 updateStoredVar = false;
 
                 if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(var); attrVar) {
-                    const auto attrMap = attrVar->GetAttributesMap();
                     std::vector<CDataStructureV0> keysToUpdate;
-                    for (const auto &[key, value] : attrMap) {
-                        if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
-                            if (attrV0->type == AttributeTypes::Locks && attrV0->typeId == ParamIDs::TokenID &&
-                                attrV0->key == oldTokenId.v) {
-                                keysToUpdate.push_back(*attrV0);
+                    attrVar->ForEach(
+                        [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+                            if (attr.type != AttributeTypes::Locks) {
+                                return false;
+                            }
+
+                            if (attr.typeId == ParamIDs::TokenID && attr.key == oldTokenId.v) {
+                                keysToUpdate.push_back(attr);
                                 updateStoredVar = true;
                             }
-                        }
-                    }
+
+                            return true;
+                        },
+                        CDataStructureV0{AttributeTypes::Locks});
+
                     for (auto &key : keysToUpdate) {
                         const auto value = attrVar->GetValue(key, false);
                         attrVar->EraseKey(key);
@@ -2514,18 +2518,15 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
         return;
     }
-    const auto attributes = cache.GetAttributes();
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
 
-    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
-    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
+    if (const auto splits32 = cache.GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        cache.EraseKey(splitKey);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, splits32, blockCtx);
+    } else if (const auto splits64 = cache.GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        cache.EraseKey(splitKey);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, splits64, blockCtx);
     }
 }
 
@@ -2534,23 +2535,20 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
         return;
     }
 
-    auto attributes = cache.GetAttributes();
-
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::RewardPct};
-    if (!attributes->GetValue(activeKey, false) || !attributes->CheckKey(blockKey) ||
-        !attributes->CheckKey(rewardKey)) {
+    if (!cache.GetValue(activeKey, false) || !cache.CheckKey(blockKey) || !cache.CheckKey(rewardKey)) {
         return;
     }
 
     CDataStructureV0 startKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::StartBlock};
-    const auto startBlock = attributes->GetValue(startKey, CAmount{});
+    const auto startBlock = cache.GetValue(startKey, CAmount{});
     if (pindex->nHeight < startBlock) {
         return;
     }
 
-    const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
+    const auto blockPeriod = cache.GetValue(blockKey, CAmount{});
     if ((pindex->nHeight - startBlock) % blockPeriod != 0) {
         return;
     }
@@ -2558,14 +2556,14 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
     auto time = GetTimeMillis();
     LogPrintf("Future swap DUSD settlement in progress.. (height: %d)\n", pindex->nHeight);
 
-    const auto rewardPct = attributes->GetValue(rewardKey, CAmount{});
+    const auto rewardPct = cache.GetValue(rewardKey, CAmount{});
     const auto discount{COIN - rewardPct};
 
     const auto useNextPrice{false}, requireLivePrice{true};
     const auto discountPrice = cache.GetAmountInCurrency(discount, {"DFI", "USD"}, useNextPrice, requireLivePrice);
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FCurrent};
-    auto balances = attributes->GetValue(liveKey, CBalances{});
+    auto balances = cache.GetValue(liveKey, CBalances{});
 
     const auto contractAddressValue = GetFutureSwapContractAddress(SMART_CONTRACT_DFIP2206F);
     assert(contractAddressValue);
@@ -2609,10 +2607,8 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
         }
 
         if (!refunds.empty()) {
-            attributes->SetValue(liveKey, std::move(balances));
+            cache.SetValue(liveKey, std::move(balances));
         }
-
-        cache.SetVariable(*attributes);
 
         LogPrintf("Future swap DUSD refunded due to no live price: (%d refunds (height: %d, time: %dms)\n",
                   refunds.size(),
@@ -2625,8 +2621,8 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
     CDataStructureV0 burnKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
     CDataStructureV0 mintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FMinted};
 
-    auto burned = attributes->GetValue(burnKey, CBalances{});
-    auto minted = attributes->GetValue(mintedKey, CBalances{});
+    auto burned = cache.GetValue(burnKey, CBalances{});
+    auto minted = cache.GetValue(mintedKey, CBalances{});
 
     std::set<CFuturesUserKey> deletionPending;
 
@@ -2668,23 +2664,19 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
         cache.EraseFuturesDUSD(key);
     }
 
-    attributes->SetValue(burnKey, std::move(burned));
-    attributes->SetValue(mintedKey, std::move(minted));
+    cache.SetValue(burnKey, std::move(burned));
+    cache.SetValue(mintedKey, std::move(minted));
 
     LogPrintf("Future swap DUSD settlement completed: (%d swaps (height: %d, time: %dms)\n",
               swapCounter,
               pindex->nHeight,
               GetTimeMillis() - time);
-
-    cache.SetVariable(*attributes);
 }
 
 static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &cache) {
     if (!gArgs.GetBoolArg("-negativeinterest", DEFAULT_NEGATIVE_INTEREST)) {
         return;
     }
-
-    auto attributes = cache.GetAttributes();
 
     DCT_ID dusd{};
     const auto token = cache.GetTokenGuessId("DUSD", dusd);
@@ -2693,7 +2685,7 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     }
 
     CDataStructureV0 negativeInterestKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::NegativeInt};
-    auto negativeInterestBalances = attributes->GetValue(negativeInterestKey, CBalances{});
+    auto negativeInterestBalances = cache.GetValue(negativeInterestKey, CBalances{});
     negativeInterestKey.key = EconomyKeys::NegativeIntCurrent;
 
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
@@ -2715,8 +2707,7 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     });
 
     if (!negativeInterestBalances.balances.empty()) {
-        attributes->SetValue(negativeInterestKey, negativeInterestBalances);
-        cache.SetVariable(*attributes);
+        cache.SetValue(negativeInterestKey, negativeInterestBalances);
     }
 }
 
@@ -2727,10 +2718,8 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
-    auto attributes = cache.GetAttributes();
-
     auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
-    if (!attributes->GetValue(enabledKey, false)) {
+    if (!cache.GetValue(enabledKey, false)) {
         if (funds > 0) {
             cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
             cache.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, funds});
@@ -2787,7 +2776,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
             CDataStructureV0 feeRedistributionKey{
                 AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeRedistribution};
 
-            if (voters.size() > 0 && attributes->GetValue(feeRedistributionKey, false)) {
+            if (voters.size() > 0 && cache.GetValue(feeRedistributionKey, false)) {
                 // return half fee among voting masternodes, the rest is burned at creation
                 auto feeBack = prop.fee - prop.feeBurnAmount;
                 auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
@@ -2862,13 +2851,13 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
 
             CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
 
-            if (prop.type == CProposalType::CommunityFundProposal && attributes->GetValue(payoutKey, false)) {
+            if (prop.type == CProposalType::CommunityFundProposal && cache.GetValue(payoutKey, false)) {
                 auto res = cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, prop.nAmount);
                 if (res) {
                     cache.CalculateOwnerRewards(prop.address, pindex->nHeight);
                     cache.AddBalance(prop.address, {DCT_ID{0}, prop.nAmount});
                 } else {
-                    LogPrintf("Fails to subtract community developement funds: %s\n", res.msg);
+                    LogPrintf("Fails to subtract community development funds: %s\n", res.msg);
                 }
             }
 
@@ -2920,11 +2909,8 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
         return;
     }
 
-    auto attributes = cache.GetAttributes();
-
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-    attributes->SetValue(key, consensus.foundationMembers);
-    cache.SetVariable(*attributes);
+    cache.SetValue(key, consensus.foundationMembers);
 }
 
 static void ProcessNullPoolSwapRefund(const CBlockIndex *pindex,
@@ -3044,9 +3030,7 @@ static Res ProcessEVMQueue(const CBlock &block,
         return res;
     }
 
-    auto attributes = cache.GetAttributes();
-
-    auto stats = attributes->GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
+    auto stats = cache.GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
 
     auto feeBurnt = static_cast<CAmount>(blockResult.total_burnt_fees);
     auto feePriority = static_cast<CAmount>(blockResult.total_priority_fees);
@@ -3069,7 +3053,7 @@ static Res ProcessEVMQueue(const CBlock &block,
         stats.feePriorityMaxHash = block.GetHash();
     }
 
-    auto transferDomainStats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    auto transferDomainStats = cache.GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
     for (const auto &[id, amount] : transferDomainStats.dvmCurrent.balances) {
         if (id.v == 0) {
@@ -3085,8 +3069,7 @@ static Res ProcessEVMQueue(const CBlock &block,
         }
     }
 
-    attributes->SetValue(CEvmBlockStatsLive::Key, stats);
-    cache.SetVariable(*attributes);
+    cache.SetValue(CEvmBlockStatsLive::Key, stats);
 
     return Res::Ok();
 }
@@ -3095,6 +3078,12 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
                                  CCustomCSView &mnview,
                                  CCustomCSView &cache,
                                  const uint256 hash) {
+    // Update Gov var before creating undo to make sure changes are present
+    if (cache.SetAttributes()) {
+        // Clear attributes in parent so next use loads updated values
+        mnview.ClearAttributes();
+    }
+
     // construct undo
     auto &flushable = cache.GetStorage();
     auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -3239,8 +3228,7 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         }
     }
 
-    auto attributes = cache->GetAttributes();
-    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    auto stats = cache->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
     // Transfer out old token
     auto outAmount = CTokenAmount{{oldAmount.id}, static_cast<CAmount>(oldAmount.amount)};
@@ -3258,10 +3246,7 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
     stats.evmIn.Add(inAmount);
     stats.evmCurrent.Add(inAmount);
 
-    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
-    if (const auto res = cache->SetVariable(*attributes); !res) {
-        return res;
-    }
+    cache->SetValue(CTransferDomainStatsLive::Key, stats);
 
     return true;
 }

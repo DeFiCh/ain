@@ -325,11 +325,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         rawTx.vin = GetAuthInputsSmart(
             pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
     } else {  // post-bayfront auth
-        const auto attributes = pcustomcsview->GetAttributes();
         std::set<CScript> databaseMembers;
-        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                                 false)) {
-            databaseMembers = attributes->GetValue(
+        if (pcustomcsview->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                                    false)) {
+            databaseMembers = pcustomcsview->GetValue(
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
         }
         bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.find(owner) != databaseMembers.end()
@@ -395,10 +394,9 @@ UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplemen
         tokenObj.pushKV("finalized", token.IsFinalized());
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
-            auto attributes = view.GetAttributes();
             CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-            loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            loanToken = view.GetValue(mintingKey, false) && view.CheckKey(interestKey);
         }
         tokenObj.pushKV("isLoanToken", loanToken);
 

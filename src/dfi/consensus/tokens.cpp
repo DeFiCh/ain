@@ -167,11 +167,9 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     // check auth, depends from token's "origins"
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
-    const auto attributes = mnview.GetAttributes();
     std::set<CScript> databaseMembers;
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        databaseMembers = attributes->GetValue(
+    if (mnview.GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        databaseMembers = mnview.GetValue(
             CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
     }
     bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
@@ -218,8 +216,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
     const auto anybodyCanMint = IsRegtestNetwork() && !isRegTestSimulateMainnet;
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
-    const auto attributes = mnview.GetAttributes();
-    const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
+    const auto toAddressEnabled = mnview.GetValue(enabledKey, false);
 
     if (!toAddressEnabled && !obj.to.empty()) {
         return Res::Err("Mint tokens to address is not enabled");

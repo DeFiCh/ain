@@ -5,401 +5,22 @@
 #ifndef DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
 #define DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
 
-#include <amount.h>
-#include <dfi/balances.h>
-#include <dfi/evm.h>
+#include <dfi/govvariables/attributetypes.h>  /// DeFiErrors
 #include <dfi/gv.h>
-#include <dfi/oracles.h>
 
+class CBlockIndex;
 namespace Consensus {
     struct Params;
 }
-
-enum VersionTypes : uint8_t {
-    v0 = 0,
-};
-
-enum AttributeTypes : uint8_t {
-    Live = 'l',
-    Oracles = 'o',
-    Param = 'a',
-    Token = 't',
-    Poolpairs = 'p',
-    Locks = 'L',
-    Governance = 'g',
-    Transfer = 'b',
-    EVMType = 'e',
-    Vaults = 'v',
-    Rules = 'r',
-};
-
-enum ParamIDs : uint8_t {
-    DFIP2201 = 'a',
-    DFIP2203 = 'b',
-    TokenID = 'c',
-    Economy = 'e',
-    DFIP2206A = 'f',
-    DFIP2206F = 'g',
-    Feature = 'h',
-    Auction = 'i',
-    Foundation = 'j',
-    DFIP2211F = 'k',
-};
-
-enum OracleIDs : uint8_t {
-    Splits = 'a',
-};
-
-enum EVMIDs : uint8_t {
-    Block = 'a',
-};
-
-enum EVMKeys : uint8_t {
-    Finalized = 'a',
-    GasLimit = 'b',
-    GasTargetFactor = 'c',
-    RbfIncrementMinPct = 'd',
-};
-
-enum GovernanceIDs : uint8_t {
-    Global = 'a',
-    Proposals = 'b',
-};
-
-enum TransferIDs : uint8_t {
-    DVMToEVM = 'a',
-    EVMToDVM = 'b',
-};
-
-enum VaultIDs : uint8_t {
-    DUSDVault = 'a',
-    Parameters = 'b',
-};
-
-enum RulesIDs : uint8_t {
-    TXRules = 'a',
-};
-
-enum EconomyKeys : uint8_t {
-    PaybackDFITokens = 'a',
-    PaybackTokens = 'b',
-    DFIP2203Current = 'c',
-    DFIP2203Burned = 'd',
-    DFIP2203Minted = 'e',
-    DFIP2206FCurrent = 'f',
-    DFIP2206FBurned = 'g',
-    DFIP2206FMinted = 'h',
-    DexTokens = 'i',
-    NegativeInt = 'j',
-    NegativeIntCurrent = 'k',
-    BatchRoundingExcess = 'n',        // Extra added to loan amounts on auction creation due to round errors.
-    ConsolidatedInterest = 'o',       // Amount added to loan amounts after auction with no bids.
-    PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
-    Loans = 'q',
-    TransferDomainStatsLive = 'r',
-    EVMBlockStatsLive = 's',
-};
-
-enum DFIPKeys : uint8_t {
-    Active = 'a',
-    Premium = 'b',
-    MinSwap = 'c',
-    RewardPct = 'd',
-    BlockPeriod = 'e',
-    DUSDInterestBurn = 'g',
-    DUSDLoanBurn = 'h',
-    StartBlock = 'i',
-    GovUnset = 'j',
-    GovFoundation = 'k',
-    MNSetRewardAddress = 'l',
-    MNSetOperatorAddress = 'm',
-    MNSetOwnerAddress = 'n',
-    Members = 'p',
-    GovernanceEnabled = 'q',
-    CFPPayout = 'r',
-    EmissionUnusedFund = 's',
-    MintTokens = 't',
-    EVMEnabled = 'u',
-    ICXEnabled = 'v',
-    TransferDomain = 'w',
-    LiquidityCalcSamplingPeriod = 'x',
-    AverageLiquidityPercentage = 'y',
-};
-
-enum GovernanceKeys : uint8_t {
-    FeeRedistribution = 'a',
-    FeeBurnPct = 'b',
-    CFPFee = 'd',
-    CFPApprovalThreshold = 'e',
-    VOCFee = 'f',
-    VOCEmergencyFee = 'g',
-    VOCEmergencyPeriod = 'h',
-    VOCApprovalThreshold = 'i',
-    Quorum = 'j',
-    VotingPeriod = 'k',
-    VOCEmergencyQuorum = 'l',
-    CFPMaxCycles = 'm',
-};
-
-enum TokenKeys : uint8_t {
-    PaybackDFI = 'a',
-    PaybackDFIFeePCT = 'b',
-    LoanPayback = 'c',
-    LoanPaybackFeePCT = 'd',
-    DexInFeePct = 'e',
-    DexOutFeePct = 'f',
-    DFIP2203Enabled = 'g',
-    FixedIntervalPriceId = 'h',
-    LoanCollateralEnabled = 'i',
-    LoanCollateralFactor = 'j',
-    LoanMintingEnabled = 'k',
-    LoanMintingInterest = 'l',
-    Ascendant = 'm',
-    Descendant = 'n',
-    Epitaph = 'o',
-    LoanPaybackCollateral = 'p',
-};
-
-enum PoolKeys : uint8_t {
-    TokenAFeePCT = 'a',
-    TokenBFeePCT = 'b',
-    TokenAFeeDir = 'c',
-    TokenBFeeDir = 'd',
-};
-
-enum TransferKeys : uint8_t {
-    TransferEnabled = 'a',
-    SrcFormats = 'b',
-    DestFormats = 'c',
-    AuthFormats = 'd',
-    NativeEnabled = 'e',
-    DATEnabled = 'f',
-    Disallowed = 'g',
-};
-
-enum VaultKeys : uint8_t {
-    CreationFee = 'a',
-    DUSDVaultEnabled = 'w',
-};
-
-enum OracleKeys : uint8_t {
-    FractionalSplits = 0,
-};
-
-enum RulesKeys : uint8_t {
-    CoreOPReturn = 'a',
-    DVMOPReturn = 'b',
-    EVMOPReturn = 'c',
-};
-
-struct CDataStructureV0 {
-    uint8_t type;
-    uint32_t typeId;
-    uint32_t key;
-    uint32_t keyId;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(type);
-        READWRITE(typeId);
-        READWRITE(VARINT(key));
-        if (IsExtendedSize()) {
-            READWRITE(keyId);
-        } else {
-            keyId = 0;
-        }
-    }
-
-    bool IsExtendedSize() const {
-        return type == AttributeTypes::Token && (key == TokenKeys::LoanPayback || key == TokenKeys::LoanPaybackFeePCT);
-    }
-
-    bool operator<(const CDataStructureV0 &o) const {
-        return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
-    }
-};
-
-// for future use
-struct CDataStructureV1 {
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {}
-
-    bool operator<(const CDataStructureV1 &o) const { return false; }
-};
-
-struct CTokenPayback {
-    CBalances tokensFee;
-    CBalances tokensPayback;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(tokensFee);
-        READWRITE(tokensPayback);
-    }
-};
-
-struct CFeeDir {
-    uint8_t feeDir;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(feeDir);
-    }
-};
-
-ResVal<CScript> GetFutureSwapContractAddress(const std::string &contract);
-
-struct CDexTokenInfo {
-    struct CTokenInfo {
-        uint64_t swaps;
-        uint64_t feeburn;
-        uint64_t commissions;
-
-        ADD_SERIALIZE_METHODS;
-
-        template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream &s, Operation ser_action) {
-            READWRITE(swaps);
-            READWRITE(feeburn);
-            READWRITE(commissions);
-        }
-    };
-
-    CTokenInfo totalTokenA;
-    CTokenInfo totalTokenB;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(totalTokenA);
-        READWRITE(totalTokenB);
-    }
-};
-
-enum FeeDirValues : uint8_t { Both, In, Out };
-
-struct CTransferDomainStatsLive {
-    CStatsTokenBalances dvmEvmTotal;
-    CStatsTokenBalances evmDvmTotal;
-    CStatsTokenBalances dvmIn;
-    CStatsTokenBalances evmIn;
-    CStatsTokenBalances dvmOut;
-    CStatsTokenBalances evmOut;
-    CStatsTokenBalances dvmCurrent;
-    CStatsTokenBalances evmCurrent;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(dvmEvmTotal);
-        READWRITE(evmDvmTotal);
-        READWRITE(dvmIn);
-        READWRITE(evmIn);
-        READWRITE(dvmOut);
-        READWRITE(evmOut);
-        READWRITE(dvmCurrent);
-        READWRITE(evmCurrent);
-    }
-
-    static constexpr CDataStructureV0 Key = {AttributeTypes::Live,
-                                             ParamIDs::Economy,
-                                             EconomyKeys::TransferDomainStatsLive};
-};
-
-enum XVmAddressFormatTypes : uint8_t {
-    None,
-    Bech32,
-    Bech32ProxyErc55,
-    PkHash,
-    PkHashProxyErc55,
-    Erc55,
-};
-
-struct CEvmBlockStatsLive {
-    CAmount feeBurnt;
-    CAmount feeBurntMin = std::numeric_limits<CAmount>::max();
-    uint256 feeBurntMinHash;
-    CAmount feeBurntMax = std::numeric_limits<CAmount>::min();
-    uint256 feeBurntMaxHash;
-    CAmount feePriority;
-    CAmount feePriorityMin = std::numeric_limits<CAmount>::max();
-    uint256 feePriorityMinHash;
-    CAmount feePriorityMax = std::numeric_limits<CAmount>::min();
-    uint256 feePriorityMaxHash;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(feeBurnt);
-        READWRITE(feeBurntMin);
-        READWRITE(feeBurntMinHash);
-        READWRITE(feeBurntMax);
-        READWRITE(feeBurntMaxHash);
-        READWRITE(feePriority);
-        READWRITE(feePriorityMin);
-        READWRITE(feePriorityMinHash);
-        READWRITE(feePriorityMax);
-        READWRITE(feePriorityMaxHash);
-    }
-
-    static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMBlockStatsLive};
-};
-
-using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, int32_t>;
-using OracleSplits64 = std::map<uint32_t, CAmount>;
-using DescendantValue = std::pair<uint32_t, int32_t>;
-using AscendantValue = std::pair<uint32_t, std::string>;
-using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
-
-// Unused legacy types but can be changed and update for future use.
-// Required for sync to maintain consistent variant indexing.
-using LegacyEntry1 = std::map<std::string, std::string>;
-using LegacyEntry2 = std::map<std::string, uint64_t>;
-using LegacyEntry3 = std::map<std::string, int64_t>;
-
-using CAttributeValue = std::variant<bool,
-                                     CAmount,
-                                     CBalances,
-                                     CTokenPayback,
-                                     CTokenCurrencyPair,
-                                     OracleSplits,
-                                     DescendantValue,
-                                     AscendantValue,
-                                     CFeeDir,
-                                     CDexBalances,
-                                     std::set<CScript>,
-                                     std::set<std::string>,
-                                     LegacyEntry1,
-                                     LegacyEntry2,
-                                     LegacyEntry3,
-                                     int32_t,
-                                     uint32_t,
-                                     uint64_t,
-                                     XVmAddressFormatItems,
-                                     CTransferDomainStatsLive,
-                                     CEvmBlockStatsLive,
-                                     OracleSplits64>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
-bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
-bool IsEVMEnabled(const CCustomCSView &view);
+bool IsEVMEnabled(CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+ResVal<CScript> GetFutureSwapContractAddress(const std::string &contract);
 
 enum GovVarsFilter {
     All,
@@ -429,6 +50,7 @@ public:
     static constexpr const char *TypeName() { return "ATTRIBUTES"; }
     static GovVariable *Create() { return new ATTRIBUTES(); }
 
+private:
     template <typename T>
     static void GetIf(std::optional<T> &opt, const CAttributeValue &var) {
         if (auto value = std::get_if<T>(&var)) {
@@ -443,6 +65,10 @@ public:
         }
     }
 
+    uint32_t time{};
+    std::shared_ptr<CScopedTemplate> evmTemplate{};
+
+public:
     template <typename K, typename T>
     [[nodiscard]] T GetValue(const K &key, T value) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
@@ -490,8 +116,6 @@ public:
         }
     }
 
-    [[nodiscard]] const std::map<CAttributeType, CAttributeValue> &GetAttributesMap() const { return attributes; }
-
     ADD_OVERRIDE_VECTOR_SERIALIZE_METHODS
     ADD_OVERRIDE_SERIALIZE_METHODS(CDataStream)
 
@@ -499,9 +123,6 @@ public:
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(attributes);
     }
-
-    uint32_t time{0};
-    std::shared_ptr<CScopedTemplate> evmTemplate{};
 
     // For formatting in export
     static const std::map<uint8_t, std::string> &displayVersions();
@@ -517,14 +138,9 @@ public:
     static const std::map<uint8_t, std::string> &displayRulesIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>> &displayKeys();
 
-    Res RefundFuturesContracts(CCustomCSView &mnview,
-                               const uint32_t height,
-                               const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
-
-    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
-
 private:
     friend class CGovView;
+    friend class CCustomCSView;
     bool futureUpdated{};
     bool futureDUSDUpdated{};
     std::set<uint32_t> tokenSplits{};
@@ -551,6 +167,30 @@ private:
                         const std::optional<UniValue> &value,
                         std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
+    Res RefundFuturesContracts(CCustomCSView &mnview,
+                               const uint32_t height,
+                               const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+    void SetAttributesMembers(const int64_t setTime, const std::shared_ptr<CScopedTemplate> &setEvmTemplate);
+    [[nodiscard]] std::optional<CLoanView::CLoanSetLoanTokenImpl> GetLoanTokenByID(const CCustomCSView &view,
+                                                                                   const DCT_ID &id) const;
+    [[nodiscard]] bool IsChanged() const { return !changed.empty(); }
+    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
+
+    Res ValidateOracleSplits(const CCustomCSView &view, const OracleSplits &splitMap) const;
+    Res ValidateOracleSplits64(const CCustomCSView &view,
+                               const bool checkFractional,
+                               const OracleSplits64 &splitMap) const;
+
+    template <typename T>
+    Res SetOracleSplit(const CAttributeType &key, const T &splitValue) {
+        if (splitValue->size() != 1) {
+            return Res::Err("Invalid number of token splits, allowed only one per height!");
+        }
+        const auto &[id, multiplier] = *(splitValue->begin());
+        AddTokenSplit(id);
+        SetValue(key, *splitValue);
+        return Res::Ok();
+    }
 };
 
 #endif  // DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H

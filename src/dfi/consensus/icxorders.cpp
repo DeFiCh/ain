@@ -8,11 +8,10 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 
-bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+bool IsICXEnabled(const int height, CCustomCSView &view, const Consensus::Params &consensus) {
     if (height >= consensus.DF22MetachainHeight) {
         const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
-        auto attributes = view.GetAttributes();
-        return attributes->GetValue(enabledKey, false);
+        return view.GetValue(enabledKey, false);
     }
     // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
     else if (height < consensus.DF13FortCanningParkHeight || IsRegtestNetwork() ||

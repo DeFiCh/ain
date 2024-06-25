@@ -15,10 +15,9 @@ Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
     auto &height = blockCtx.GetHeight();
-    auto attributes = mnview.GetAttributes();
 
     const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
-    const auto vaultCreationFee = attributes->GetValue(creationFeeKey, consensus.vaultCreationFee);
+    const auto vaultCreationFee = mnview.GetValue(creationFeeKey, consensus.vaultCreationFee);
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
     }
@@ -235,8 +234,7 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
     // If collateral token exist make sure it is enabled.
     if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
         CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
-        const auto attributes = mnview.GetAttributes();
-        if (!attributes->GetValue(collateralKey, false)) {
+        if (!mnview.GetValue(collateralKey, false)) {
             return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
         }
     }

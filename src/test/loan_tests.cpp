@@ -5,7 +5,6 @@
 
 #include <test/setup_common.h>
 #include <boost/test/unit_test.hpp>
-#include <algorithm>
 
 inline uint256 NextTx()
 {

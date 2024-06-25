@@ -2477,11 +2477,9 @@ UniValue getburninfo(const JSONRPCRequest &request) {
     auto hash = ::ChainActive().Tip()->GetBlockHash();
     auto fortCanningHeight = Params().GetConsensus().DF11FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
-    auto view = *pcustomcsview;
-    const auto attributes = view.GetAttributes();
 
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
-    auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+    auto tokenBalances = pcustomcsview->GetValue(liveKey, CBalances{});
     for (const auto &balance : tokenBalances.balances) {
         if (balance.first == DCT_ID{0}) {
             dfiPaybackFee = balance.second;
@@ -2490,20 +2488,20 @@ UniValue getburninfo(const JSONRPCRequest &request) {
         }
     }
     liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
-    auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+    auto paybacks = pcustomcsview->GetValue(liveKey, CTokenPayback{});
     paybackfees = std::move(paybacks.tokensFee);
     paybacktokens = std::move(paybacks.tokensPayback);
 
     liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
-    dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+    dfi2203Tokens = pcustomcsview->GetValue(liveKey, CBalances{});
 
     liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
-    dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
+    dfiToDUSDTokens = pcustomcsview->GetValue(liveKey, CBalances{});
 
     for (const auto &kv : Params().GetConsensus().blockTokenRewards) {
         if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
             (height >= fortCanningHeight && kv.first == CommunityAccountType::Loan)) {
-            burnt += view.GetCommunityBalance(kv.first);
+            burnt += pcustomcsview->GetCommunityBalance(kv.first);
         }
     }
 

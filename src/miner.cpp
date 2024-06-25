@@ -118,7 +118,6 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     }
 
     auto &mnview = blockCtx.GetView();
-    const auto attributes = mnview.GetAttributes();
 
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
@@ -143,7 +142,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         }
 
         std::string newTokenSuffix = "/v";
-        auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
+        auto res = GetTokenSuffix(mnview, id, newTokenSuffix);
         if (!res) {
             continue;
         }
@@ -378,7 +377,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         timeOrdering = false;
     }
 
-    const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -408,9 +406,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
         CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-        if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        if (const auto splits32 = mnview.GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
             AddSplitDVMTxs(mnview, pblock, pblocktemplate, nHeight, splits32, txVersion, splitMap);
-        } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        } else if (const auto splits64 = mnview.GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
             AddSplitDVMTxs(mnview, pblock, pblocktemplate, nHeight, splits64, txVersion, splitMap);
         }
     }

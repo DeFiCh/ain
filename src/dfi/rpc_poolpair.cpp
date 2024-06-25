@@ -3,11 +3,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/validation.h>
 
-UniValue poolToJSON(const CCustomCSView &view,
-                    DCT_ID const &id,
-                    const CPoolPair &pool,
-                    const CToken &token,
-                    bool verbose) {
+UniValue poolToJSON(CCustomCSView &view, DCT_ID const &id, const CPoolPair &pool, const CToken &token, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
@@ -16,12 +12,10 @@ UniValue poolToJSON(const CCustomCSView &view,
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        const auto attributes = view.GetAttributes();
-
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
-        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto dirA = view.GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = view.GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
 
         if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
@@ -1434,10 +1428,8 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height();
 
-    const auto attributes = pcustomcsview->GetAttributes();
-
     CDataStructureV0 averageKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
-    const auto averageLiquidityPercentage = attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+    const auto averageLiquidityPercentage = pcustomcsview->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
 
     const auto dusdToken = pcustomcsview->GetToken("DUSD");
     if (!dusdToken) {

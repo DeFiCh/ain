@@ -23,9 +23,8 @@ Res CProposalsConsensus::IsOnChainGovernanceEnabled() const {
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto &mnview = blockCtx.GetView();
-    auto attributes = mnview.GetAttributes();
 
-    if (!attributes->GetValue(enabledKey, false)) {
+    if (!mnview.GetValue(enabledKey, false)) {
         return Res::Err("Cannot create tx, on-chain governance is not enabled");
     }
 
@@ -96,9 +95,8 @@ Res CProposalsConsensus::operator()(const CCreateProposalMessage &obj) const {
     const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
-    auto attributes = mnview.GetAttributes();
     CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
-    auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
+    auto maxCycles = mnview.GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
 
     if (obj.nCycles < 1 || obj.nCycles > maxCycles) {
         return Res::Err("proposal cycles can be between 1 and %d", maxCycles);
