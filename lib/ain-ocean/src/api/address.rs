@@ -1,20 +1,22 @@
 use std::sync::Arc;
 
-use ain_macros::ocean_endpoint;
-use axum::{routing::get, Extension, Router};
-use bitcoin::Network;
-use defichain_rpc::RpcApi;
-use serde::Deserialize;
 use super::{
     common::address_to_hid,
     path::Path,
     query::{PaginationQuery, Query},
-    response::{ApiPagedResponse, Response},
+    response::ApiPagedResponse,
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error}, hex_encoder, model::ScriptActivity, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Result
+    error::ApiError,
+    model::ScriptActivity,
+    repository::{RepositoryOps, SecondaryIndex},
+    storage::SortOrder,
+    Result,
 };
+use ain_macros::ocean_endpoint;
+use axum::{routing::get, Extension, Router};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct Address {
@@ -81,7 +83,10 @@ async fn list_transaction(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |item| {
-        format!("{:?}-{:?}-{:?}-{:?}", item.id.0, item.id.1, item.id.2, item.id.3)
+        format!(
+            "{:?}-{:?}-{:?}-{:?}",
+            item.id.0, item.id.1, item.id.2, item.id.3
+        )
     }))
 }
 
