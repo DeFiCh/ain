@@ -1,16 +1,17 @@
 use ain_db::{Column, ColumnName, TypedColumn};
+use crate::model;
 
 #[derive(Debug)]
 pub struct ScriptActivity;
 
 impl ColumnName for ScriptActivity {
-    const NAME: &'static str = "raw_block";
+    const NAME: &'static str = "script_activity";
 }
 
 impl Column for ScriptActivity {
-    type Index = String;
+    type Index = model::ScriptActivityId;
 }
 
 impl TypedColumn for ScriptActivity {
-    type Type = String;
+    type Type = model::ScriptActivity;
 }

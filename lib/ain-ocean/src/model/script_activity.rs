@@ -1,3 +1,4 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -13,36 +14,38 @@ pub enum ScriptActivityTypeHex {
     Vout,
 }
 
+pub type ScriptActivityId = (u32, ScriptActivityType, Txid, usize); // (block.height, type_hex, txid, index)
+
 #[derive(Debug, Serialize, Deserialize)]
 
 pub struct ScriptActivity {
-    pub id: String,
+    pub id: ScriptActivityId,
     pub hid: String,
     pub r#type: ScriptActivityType,
     pub type_hex: ScriptActivityTypeHex,
-    pub txid: String,
+    pub txid: Txid,
     pub block: BlockContext,
     pub script: ScriptActivityScript,
-    pub vin: ScriptActivityVin,
-    pub vout: ScriptActivityVout,
+    pub vin: Option<ScriptActivityVin>,
+    pub vout: Option<ScriptActivityVout>,
     pub value: String,
-    pub token_id: i32,
+    pub token_id: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptActivityScript {
     pub r#type: String,
-    pub hex: String,
+    pub hex: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptActivityVin {
-    pub txid: String,
-    pub n: i32,
+    pub txid: Txid,
+    pub n: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptActivityVout {
-    pub txid: String,
-    pub n: i32,
+    pub txid: Txid,
+    pub n: usize,
 }

@@ -38,7 +38,7 @@ pub use poolswap_aggregated::*;
 pub use price_ticker::*;
 pub use raw_tx::*;
 // pub use raw_block::*;
-// pub use script_activity::*;
+pub use script_activity::*;
 // pub use script_aggregation::*;
 // pub use script_unspent::*;
 pub use transaction::*;
