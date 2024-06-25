@@ -16,11 +16,21 @@ use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
 use log::debug;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 
 use crate::{
-    error::IndexAction, hex_encoder::as_sha256, index_transaction, model::{Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex, ScriptActivityVin, ScriptActivityVout, TransactionVout, TransactionVoutScript}, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Error, Result, Services
+    error::IndexAction,
+    hex_encoder::as_sha256,
+    index_transaction,
+    model::{
+        Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
+        ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex,
+        ScriptActivityVin, ScriptActivityVout, TransactionVout, TransactionVoutScript,
+    },
+    repository::{RepositoryOps, SecondaryIndex},
+    storage::SortOrder,
+    Error, Result, Services,
 };
 
 pub(crate) trait Index {
@@ -127,19 +137,20 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 
     for tx in block.tx.iter() {
         if check_if_evm_tx(tx) {
-            continue
+            continue;
         }
 
         for vin in tx.vin.iter() {
             let vin_standard = get_vin_standard(vin);
             if vin_standard.is_none() {
-               continue;
+                continue;
             }
             let vin = vin_standard.unwrap();
             let tx_vout = if tx.txid == vin.txid {
                 let vout = tx.vout.iter().find(|vout| vout.n == vin.vout);
                 if let Some(vout) = vout {
-                    let value = Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
+                    let value =
+                        Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
                     let tx_vout = TransactionVout {
                         id: format!("{}{:x}", tx.txid, vin.vout),
                         txid: tx.txid,
@@ -149,7 +160,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                         script: TransactionVoutScript {
                             r#type: vout.script_pub_key.r#type.clone(),
                             hex: vout.script_pub_key.hex.clone(),
-                        }
+                        },
                     };
                     Some(tx_vout)
                 } else {
@@ -162,12 +173,13 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             let vout = if let Some(tx_vout) = tx_vout {
                 tx_vout
             } else {
-                let tx_vout = services
-                    .transaction
-                    .vout_by_id
-                    .get(&(vin.txid, vin.vout))?;
+                let tx_vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
                 if tx_vout.is_none() {
-                    return Err(Error::NotFoundIndex(IndexAction::Index, "TransactionVout".to_string(), format!("{}-{}", vin.txid, vin.vout)))
+                    return Err(Error::NotFoundIndex(
+                        IndexAction::Index,
+                        "TransactionVout".to_string(),
+                        format!("{}-{}", vin.txid, vin.vout),
+                    ));
                 }
                 tx_vout.unwrap()
             };
@@ -183,7 +195,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                     hash: block.hash,
                     height: block.height,
                     time: block.time,
-                    median_time: block.mediantime
+                    median_time: block.mediantime,
                 },
                 script: ScriptActivityScript {
                     r#type: vout.script.r#type,
@@ -198,15 +210,12 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 token_id: vout.token_id,
             };
             let key = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
-            services
-                .script_activity
-                .by_id
-                .put(&key, &script_activity)?
+            services.script_activity.by_id.put(&key, &script_activity)?
         }
 
         for vout in tx.vout.iter() {
             if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-                continue
+                continue;
             }
             let key = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
             let script_activity = ScriptActivity {
@@ -219,7 +228,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                     hash: block.hash,
                     height: block.height,
                     time: block.time,
-                    median_time: block.mediantime
+                    median_time: block.mediantime,
                 },
                 script: ScriptActivityScript {
                     r#type: vout.script_pub_key.r#type.clone(),
@@ -234,10 +243,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 token_id: vout.token_id,
             };
             let key = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
-            services
-                .script_activity
-                .by_id
-                .put(&key,&script_activity)?
+            services.script_activity.by_id.put(&key, &script_activity)?
         }
     }
 
