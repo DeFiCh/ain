@@ -3,6 +3,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/threadpool.h>
+#include <policy/settings.h>
 
 extern UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplementation &token, bool verbose);
 extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
@@ -419,6 +420,9 @@ UniValue setloantoken(const JSONRPCRequest &request) {
         GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    CTxOut collateralOutput(1, *auths.cbegin());
+    collateralOutput.nValue = GetDustThreshold(collateralOutput, rawTx.nVersion, ::dustRelayFee);
+    rawTx.vout.push_back(collateralOutput);
 
     CCoinControl coinControl;
 
