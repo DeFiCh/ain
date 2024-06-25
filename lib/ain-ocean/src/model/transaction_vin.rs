@@ -28,7 +28,7 @@ impl TransactionVin {
                 tx_in_witness: None,
             },
             Vin::Standard(v) => {
-                let vout = vouts.get(v.vout as usize).map(|vout| TransactionVinVout {
+                let vout = vouts.get(v.vout).map(|vout| TransactionVinVout {
                     txid: vout.txid,
                     value: vout.value.clone(),
                     n: vout.n,

@@ -6,7 +6,7 @@ use rust_decimal::{
     Decimal,
 };
 
-use super::{Context, helper::check_if_evm_tx};
+use super::{helper::check_if_evm_tx, Context};
 use crate::{
     error::Error,
     indexer::Result,
@@ -86,4 +86,3 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
 
     Ok(())
 }
-
