@@ -23,8 +23,9 @@ use repository::{
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
-    PriceTickerRepository, ScriptActivityRepository, RawBlockRepository, TransactionByBlockHashRepository,
-    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    PriceTickerRepository, RawBlockRepository, ScriptActivityRepository,
+    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
 pub mod api;

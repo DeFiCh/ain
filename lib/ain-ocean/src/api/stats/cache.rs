@@ -1,8 +1,10 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use anyhow::format_err;
 use cached::proc_macro::cached;
 use defichain_rpc::{
-    defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client, LoanRPC, TokenRPC
+    defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client,
+    LoanRPC, TokenRPC,
 };
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
@@ -10,7 +12,6 @@ use rust_decimal::{
 };
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use anyhow::format_err;
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
@@ -137,12 +138,12 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
                 .map_err(|_| format_err!("Invalid account structure"))?;
 
             if token_id == "DFI" {
-                return Ok(Decimal::from_str(amount).unwrap_or_default())
+                return Ok(Decimal::from_str(amount).unwrap_or_default());
             }
         }
         dec!(0)
     } else {
-       dec!(0)
+        dec!(0)
     };
 
     Ok(utxo + account_balance + emission + fee)

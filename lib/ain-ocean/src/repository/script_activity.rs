@@ -5,7 +5,7 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::{ScriptActivityId, ScriptActivity},
+    model::{ScriptActivity, ScriptActivityId},
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
@@ -13,7 +13,6 @@ use crate::{
 #[derive(Repository)]
 #[repository(K = "ScriptActivityId", V = "ScriptActivity")]
 pub struct ScriptActivityRepository {
-  pub store: Arc<OceanStore>,
-  col: LedgerColumn<columns::ScriptActivity>,
+    pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::ScriptActivity>,
 }
-
