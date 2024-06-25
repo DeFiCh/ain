@@ -23,7 +23,7 @@ use repository::{
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
-    PriceTickerRepository, RawBlockRepository, ScriptActivityRepository,
+    PriceTickerRepository, RawBlockRepository, ScriptActivityRepository, ScriptActivityKeyRepository,
     TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
     TransactionVoutRepository, TxResultRepository,
 };
@@ -122,6 +122,7 @@ pub struct PriceTickerService {
 
 pub struct ScriptActivityService {
     by_id: ScriptActivityRepository,
+    by_key: ScriptActivityKeyRepository,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
@@ -222,6 +223,7 @@ impl Services {
             },
             script_activity: ScriptActivityService {
                 by_id: ScriptActivityRepository::new(Arc::clone(&store)),
+                by_key: ScriptActivityKeyRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }
