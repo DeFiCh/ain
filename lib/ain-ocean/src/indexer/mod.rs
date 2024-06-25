@@ -8,16 +8,19 @@ pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;
 
+pub mod helper;
+
 use std::{sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
+use helper::check_if_evm_tx;
 use log::debug;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 
 use crate::{
-    hex_encoder::as_sha256, index_transaction, model::{Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex, ScriptActivityVin, ScriptActivityVout, TransactionVout, TransactionVoutScript}, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Error, Result, Services
+    error::IndexAction, hex_encoder::as_sha256, index_transaction, model::{Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex, ScriptActivityVin, ScriptActivityVout, TransactionVout, TransactionVoutScript}, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Error, Result, Services
 };
 
 pub(crate) trait Index {
@@ -116,14 +119,17 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
 
 fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
-        return match vin {
+        match vin {
             Vin::Coinbase(_vin) => None,
             Vin::Standard(vin) => Some(vin.clone()),
         }
     }
 
     for tx in block.tx.iter() {
-        // skip if is_evm_tx
+        if check_if_evm_tx(tx) {
+            continue
+        }
+
         for vin in tx.vin.iter() {
             let vin_standard = get_vin_standard(vin);
             if vin_standard.is_none() {
@@ -132,7 +138,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             let vin = vin_standard.unwrap();
             let tx_vout = if tx.txid == vin.txid {
                 let vout = tx.vout.iter().find(|vout| vout.n == vin.vout);
-                let vout = if let Some(vout) = vout {
+                if let Some(vout) = vout {
                     let value = Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
                     let tx_vout = TransactionVout {
                         id: format!("{}{:x}", tx.txid, vin.vout),
@@ -148,21 +154,21 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                     Some(tx_vout)
                 } else {
                     None
-                };
-                vout
+                }
             } else {
                 None
             };
-            let vout = if tx_vout.is_none() {
+
+            let vout = if let Some(tx_vout) = tx_vout {
+                tx_vout
+            } else {
                 let tx_vout = services
                     .transaction
                     .vout_by_id
                     .get(&(vin.txid, vin.vout))?;
                 if tx_vout.is_none() {
-                    // throw index not found error
+                    return Err(Error::NotFoundIndex(IndexAction::Index, "TransactionVout".to_string(), format!("{}-{}", vin.txid, vin.vout)))
                 }
-                tx_vout.unwrap()
-            } else {
                 tx_vout.unwrap()
             };
 
@@ -195,7 +201,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             services
                 .script_activity
                 .by_id
-                .put(&key, &script_activity);
+                .put(&key, &script_activity)?
         }
 
         for vout in tx.vout.iter() {
@@ -231,7 +237,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             services
                 .script_activity
                 .by_id
-                .put(&key,&script_activity);
+                .put(&key,&script_activity)?
         }
     }
 
@@ -265,7 +271,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx_idx,
         };
 
-        index_script_activity(services, &block);
+        index_script_activity(services, &block)?;
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
