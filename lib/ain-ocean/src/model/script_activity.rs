@@ -2,7 +2,7 @@ use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub enum ScriptActivityType {
     Vin,
     Vout,

@@ -87,6 +87,8 @@ pub enum Error {
     BitcoinAddressError(#[from] bitcoin::address::Error),
     #[error("Ocean: TryFromIntError: {0:?}")]
     TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error("{0:}")]
+    AddressParseError(#[from] bitcoin::address::error::ParseError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
     #[error("Validation error: {0}")]
