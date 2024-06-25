@@ -74,19 +74,26 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             [
-                {id: [token["symbol"], token["isLoanToken"], token["mintable"],token["minted"]]}
+                {
+                    id: [
+                        token["symbol"],
+                        token["isLoanToken"],
+                        token["mintable"],
+                        token["minted"],
+                    ]
+                }
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False, Decimal('0')]},
-                {"1": ["SPY/lock1", False, False, Decimal('0')]},
-                {"2": ["DUSD/lock1", False, False, Decimal('0')]},
-                {"3": ["SPY-DUSD/lock1", False, False, Decimal('0')]},
-                {"4": ["DUSD-DFI/lock1", False, False, Decimal('0')]},
-                {"5": ["SPY", True, True, Decimal('2.00000941')]},
-                {"6": ["USDD", True, True, Decimal('809.99999812')]},
-                {"7": ["SPY-USDD", False, False, Decimal('0')]},
-                {"8": ["USDD-DFI", False, False, Decimal('0')]},
+                {"0": ["DFI", False, False, Decimal("0")]},
+                {"1": ["SPY/lock1", False, False, Decimal("0")]},
+                {"2": ["DUSD/lock1", False, False, Decimal("0")]},
+                {"3": ["SPY-DUSD/lock1", False, False, Decimal("0")]},
+                {"4": ["DUSD-DFI/lock1", False, False, Decimal("0")]},
+                {"5": ["SPY", True, True, Decimal("2.00000941")]},
+                {"6": ["USDD", True, True, Decimal("809.99999812")]},
+                {"7": ["SPY-USDD", False, False, Decimal("0")]},
+                {"8": ["USDD-DFI", False, False, Decimal("0")]},
             ],
         )
 
@@ -127,10 +134,20 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
-        assert_equal(self.nodes[0].listlockedtokens(),
-                      [{'owner': self.address, 'values': ['1.80000756@SPY', '819.05037985@USDD']}])
+        assert_equal(
+            self.nodes[0].listlockedtokens(),
+            [
+                {
+                    "owner": self.address,
+                    "values": ["1.80000756@SPY", "819.05037985@USDD"],
+                }
+            ],
+        )
 
-        assert_equal(self.nodes[0].getlockedtokens(self.address), ['1.80000756@SPY', '819.05037985@USDD'])
+        assert_equal(
+            self.nodes[0].getlockedtokens(self.address),
+            ["1.80000756@SPY", "819.05037985@USDD"],
+        )
 
         # TODO: check address with no locked tokens
         # TODO: add address with vault and multiple loans and collaterals (also one without direct DUSD pool)
@@ -146,7 +163,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "collateralAmounts": ["15.00938965@USDD"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": -1, #why? cause USDD is locked?
+                "collateralValue": -1,  # why? cause USDD is locked?
                 "loanValue": -1,
                 "interestValue": -1,
                 "informativeRatio": -1,
@@ -163,7 +180,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "collateralAmounts": ["99.12867349@DFI"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": Decimal('495.64336745'),
+                "collateralValue": Decimal("495.64336745"),
                 "loanValue": 0,
                 "interestValue": 0,
                 "informativeRatio": -1,
@@ -174,7 +191,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             self.nodes[0].getaccount(self.address),
             [
-                "399.78260718@DFI",  
+                "399.78260718@DFI",
                 "10.00000000@USDD",
                 "1.99999900@SPY-USDD",
                 "7.07078382@USDD-DFI",
@@ -185,6 +202,7 @@ class RestartdTokensTest(DefiTestFramework):
         # check release ratio of lock
         # check total locked funds (gov economy?)
         # check correct behaviour on TD of old SPY + DUSD
+        # check case with DFI collateral and DUSD loan
 
         # TODO: add second address with less SPY loan than balance
 
@@ -284,15 +302,22 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             [
-                {id: [token["symbol"], token["isLoanToken"], token["mintable"],token["minted"]]}
+                {
+                    id: [
+                        token["symbol"],
+                        token["isLoanToken"],
+                        token["mintable"],
+                        token["minted"],
+                    ]
+                }
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False, Decimal('0')]},
-                {"1": ["SPY", True, True, Decimal('4')]},
-                {"2": ["DUSD", True, True, Decimal('1100')]},
-                {"3": ["SPY-DUSD", False, False, Decimal('0')]},
-                {"4": ["DUSD-DFI", False, False, Decimal('0')]},
+                {"0": ["DFI", False, False, Decimal("0")]},
+                {"1": ["SPY", True, True, Decimal("4")]},
+                {"2": ["DUSD", True, True, Decimal("1100")]},
+                {"3": ["SPY-DUSD", False, False, Decimal("0")]},
+                {"4": ["DUSD-DFI", False, False, Decimal("0")]},
             ],
         )
 
