@@ -1,4 +1,5 @@
 pub mod error;
+pub mod hex_encoder;
 mod indexer;
 pub mod network;
 
@@ -22,7 +23,7 @@ use repository::{
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
-    PriceTickerRepository, RawBlockRepository, TransactionByBlockHashRepository,
+    PriceTickerRepository, ScriptActivityRepository, RawBlockRepository, TransactionByBlockHashRepository,
     TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
@@ -118,6 +119,10 @@ pub struct PriceTickerService {
     by_key: PriceTickerKeyRepository,
 }
 
+pub struct ScriptActivityService {
+    by_id: ScriptActivityRepository,
+}
+
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenIdentifier {
@@ -144,6 +149,7 @@ pub struct Services {
     pub oracle_token_currency: OracleTokenCurrencyService,
     pub oracle_history: OracleHistoryService,
     pub price_ticker: PriceTickerService,
+    pub script_activity: ScriptActivityService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
 }
 
@@ -212,6 +218,9 @@ impl Services {
             price_ticker: PriceTickerService {
                 by_id: PriceTickerRepository::new_id(Arc::clone(&store)),
                 by_key: PriceTickerKeyRepository::new_key(Arc::clone(&store)),
+            },
+            script_activity: ScriptActivityService {
+                by_id: ScriptActivityRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }
