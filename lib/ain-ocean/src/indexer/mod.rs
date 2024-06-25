@@ -184,10 +184,11 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 tx_vout.unwrap()
             };
 
-            let key = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
+            let id = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
+            let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
-                id: key,
-                hid: as_sha256(vout.script.hex.clone()),
+                id: id.clone(),
+                hid: hid.clone(),
                 r#type: ScriptActivityType::Vin,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
@@ -209,8 +210,8 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: vout.value,
                 token_id: vout.token_id,
             };
-            let key = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
-            services.script_activity.by_id.put(&key, &script_activity)?
+            services.script_activity.by_key.put(&hid, &id)?;
+            services.script_activity.by_id.put(&id, &script_activity)?
         }
 
         for vout in tx.vout.iter() {
