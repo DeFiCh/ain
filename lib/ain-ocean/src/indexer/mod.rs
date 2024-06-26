@@ -26,7 +26,8 @@ use crate::{
     model::{
         Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
         ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex,
-        ScriptActivityVin, ScriptActivityVout, ScriptUnspent, ScriptUnspentScript, ScriptUnspentVout, TransactionVout, TransactionVoutScript
+        ScriptActivityVin, ScriptActivityVout, ScriptUnspent, ScriptUnspentScript,
+        ScriptUnspentVout, TransactionVout, TransactionVoutScript,
     },
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
@@ -255,7 +256,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
         if check_if_evm_tx(tx) {
-            continue
+            continue;
         }
 
         for vin in tx.vin.iter() {
@@ -277,10 +278,10 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                 hid: hid.clone(),
                 sort: format!("{:x}{}{:x}", block.height, tx.txid, vout.n),
                 block: BlockContext {
-                   hash: block.hash,
-                   height: block.height,
-                   median_time: block.mediantime,
-                   time: block.time,
+                    hash: block.hash,
+                    height: block.height,
+                    median_time: block.mediantime,
+                    time: block.time,
                 },
                 script: ScriptUnspentScript {
                     r#type: vout.script_pub_key.r#type.clone(),
@@ -291,7 +292,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                     n: vout.n,
                     value: vout.value.to_string(),
                     token_id: vout.token_id,
-                }
+                },
             };
             services.script_unspent.by_key.put(&hid, &id)?;
             services.script_unspent.by_id.put(&id, &script_unspent)?

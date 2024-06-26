@@ -24,8 +24,9 @@ use repository::{
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
     PriceTickerRepository, RawBlockRepository, ScriptActivityKeyRepository,
-    ScriptActivityRepository, ScriptUnspentRepository, ScriptUnspentKeyRepository, TransactionByBlockHashRepository, TransactionRepository,
-    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    ScriptActivityRepository, ScriptUnspentKeyRepository, ScriptUnspentRepository,
+    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
 pub mod api;

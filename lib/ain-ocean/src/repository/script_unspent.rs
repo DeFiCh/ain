@@ -36,4 +36,3 @@ impl SecondaryIndex<String, ScriptUnspentId> for ScriptUnspentKeyRepository {
         Ok(res)
     }
 }
-

@@ -1,6 +1,6 @@
+use super::BlockContext;
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
-use super::BlockContext;
 
 pub type ScriptUnspentId = (Txid, usize); // txid + vout_index
 
