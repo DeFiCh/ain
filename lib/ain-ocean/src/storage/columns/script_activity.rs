@@ -30,4 +30,3 @@ impl Column for ScriptActivityKey {
 impl TypedColumn for ScriptActivityKey {
     type Type = model::ScriptActivityId;
 }
-
