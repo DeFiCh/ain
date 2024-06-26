@@ -26,7 +26,7 @@ use crate::{
     model::{
         Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
         ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex,
-        ScriptActivityVin, ScriptActivityVout, TransactionVout, TransactionVoutScript,
+        ScriptActivityVin, ScriptActivityVout, ScriptUnspent, ScriptUnspentScript, ScriptUnspentVout, TransactionVout, TransactionVoutScript
     },
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
@@ -127,14 +127,14 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
     Ok(())
 }
 
-fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
-        match vin {
-            Vin::Coinbase(_vin) => None,
-            Vin::Standard(vin) => Some(vin.clone()),
-        }
+fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
+    match vin {
+        Vin::Coinbase(_vin) => None,
+        Vin::Standard(vin) => Some(vin.clone()),
     }
+}
 
+fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
         if check_if_evm_tx(tx) {
             continue;
@@ -252,6 +252,53 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
     Ok(())
 }
 
+fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    for tx in block.tx.iter() {
+        if check_if_evm_tx(tx) {
+            continue
+        }
+
+        for vin in tx.vin.iter() {
+            let vin_standard = get_vin_standard(vin);
+            if vin_standard.is_none() {
+                continue;
+            }
+            let vin = vin_standard.unwrap();
+            let id = (vin.txid, vin.vout);
+            services.script_unspent.by_id.delete(&id)?
+        }
+
+        for vout in tx.vout.iter() {
+            let id = (tx.txid, vout.n);
+            let hid = as_sha256(vout.script_pub_key.hex.clone());
+            let script_unspent = ScriptUnspent {
+                id,
+                hid,
+                sort: format!("{:x}{}{:x}", block.height, tx.txid, vout.n),
+                block: BlockContext {
+                   hash: block.hash,
+                   height: block.height,
+                   median_time: block.mediantime,
+                   time: block.time,
+                },
+                script: ScriptUnspentScript {
+                    r#type: vout.script_pub_key.r#type.clone(),
+                    hex: vout.script_pub_key.hex.clone(),
+                },
+                vout: ScriptUnspentVout {
+                    txid: tx.txid,
+                    n: vout.n,
+                    value: vout.value.to_string(),
+                    token_id: vout.token_id,
+                }
+            };
+            services.script_unspent.by_id.put(&id, &script_unspent)?
+        }
+    }
+
+    Ok(())
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
@@ -280,6 +327,10 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         };
 
         index_script_activity(services, &block)?;
+
+        // index_script_aggregation
+
+        index_script_unspent(services, &block)?;
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {

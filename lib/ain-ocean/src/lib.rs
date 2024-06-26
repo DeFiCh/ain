@@ -24,7 +24,7 @@ use repository::{
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
     PriceTickerRepository, RawBlockRepository, ScriptActivityKeyRepository,
-    ScriptActivityRepository, TransactionByBlockHashRepository, TransactionRepository,
+    ScriptActivityRepository, ScriptUnspentRepository, TransactionByBlockHashRepository, TransactionRepository,
     TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
@@ -125,6 +125,10 @@ pub struct ScriptActivityService {
     by_key: ScriptActivityKeyRepository,
 }
 
+pub struct ScriptUnspentService {
+    by_id: ScriptUnspentRepository,
+}
+
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenIdentifier {
@@ -152,6 +156,7 @@ pub struct Services {
     pub oracle_history: OracleHistoryService,
     pub price_ticker: PriceTickerService,
     pub script_activity: ScriptActivityService,
+    pub script_unspent: ScriptUnspentService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
 }
 
@@ -224,6 +229,9 @@ impl Services {
             script_activity: ScriptActivityService {
                 by_id: ScriptActivityRepository::new(Arc::clone(&store)),
                 by_key: ScriptActivityKeyRepository::new(Arc::clone(&store)),
+            },
+            script_unspent: ScriptUnspentService {
+                by_id: ScriptUnspentRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }
