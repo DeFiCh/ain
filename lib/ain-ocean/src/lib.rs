@@ -24,7 +24,7 @@ use repository::{
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
     PriceTickerRepository, RawBlockRepository, ScriptActivityKeyRepository,
-    ScriptActivityRepository, ScriptUnspentRepository, TransactionByBlockHashRepository, TransactionRepository,
+    ScriptActivityRepository, ScriptUnspentRepository, ScriptUnspentKeyRepository, TransactionByBlockHashRepository, TransactionRepository,
     TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
@@ -127,6 +127,7 @@ pub struct ScriptActivityService {
 
 pub struct ScriptUnspentService {
     by_id: ScriptUnspentRepository,
+    by_key: ScriptUnspentKeyRepository,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
@@ -232,6 +233,7 @@ impl Services {
             },
             script_unspent: ScriptUnspentService {
                 by_id: ScriptUnspentRepository::new(Arc::clone(&store)),
+                by_key: ScriptUnspentKeyRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }

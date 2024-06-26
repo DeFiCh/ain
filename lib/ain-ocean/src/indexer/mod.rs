@@ -265,6 +265,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             }
             let vin = vin_standard.unwrap();
             let id = (vin.txid, vin.vout);
+            // Todo(): delete .by_key(hid)?
             services.script_unspent.by_id.delete(&id)?
         }
 
@@ -273,7 +274,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
                 id,
-                hid,
+                hid: hid.clone(),
                 sort: format!("{:x}{}{:x}", block.height, tx.txid, vout.n),
                 block: BlockContext {
                    hash: block.hash,
@@ -292,6 +293,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                     token_id: vout.token_id,
                 }
             };
+            services.script_unspent.by_key.put(&hid, &id)?;
             services.script_unspent.by_id.put(&id, &script_unspent)?
         }
     }

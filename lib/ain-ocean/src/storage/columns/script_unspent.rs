@@ -15,3 +15,18 @@ impl Column for ScriptUnspent {
 impl TypedColumn for ScriptUnspent {
     type Type = model::ScriptUnspent;
 }
+
+#[derive(Debug)]
+pub struct ScriptUnspentKey;
+
+impl ColumnName for ScriptUnspentKey {
+    const NAME: &'static str = "script_unspent_key";
+}
+
+impl Column for ScriptUnspentKey {
+    type Index = String;
+}
+
+impl TypedColumn for ScriptUnspentKey {
+    type Type = model::ScriptUnspentId;
+}

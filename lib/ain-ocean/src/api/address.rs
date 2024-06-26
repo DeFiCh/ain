@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     error::ApiError,
-    model::ScriptActivity,
+    model::{ScriptActivity, ScriptUnspent},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
@@ -90,9 +90,29 @@ async fn list_transaction(
     }))
 }
 
-// async fn list_transaction_unspent(Path(Address { address }): Path<Address>) -> String {
-//     format!("List unspent transactions for address {}", address)
-// }
+#[ocean_endpoint]
+async fn list_transaction_unspent(
+    Path(Address { address }): Path<Address>,
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<ScriptUnspent>> {
+    let hid = address_to_hid(&address, ctx.network.into())?;
+    let repo = &ctx.services.script_unspent;
+    let res = repo
+        .by_key
+        .list(query.next, SortOrder::Descending)?
+        .take(query.size)
+        .take_while(|item| match item {
+            Ok((k, _)) => k == &hid,
+            _ => true,
+        })
+        .map(|el| repo.by_key.retrieve_primary_value(el))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(ApiPagedResponse::of(res, query.size, |item| {
+        item.sort.clone()
+    }))
+}
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
@@ -103,6 +123,6 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         // .route("/tokens", get(list_token))
         // .route("/vaults", get(list_vault))
         .route("/:address/transactions", get(list_transaction))
-        // .route("/transactions/unspent", get(list_transaction_unspent)),
+        .route("/:address/transactions/unspent", get(list_transaction_unspent))
         .layer(Extension(ctx))
 }
