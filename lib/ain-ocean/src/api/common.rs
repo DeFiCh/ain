@@ -1,8 +1,8 @@
-use std::str::FromStr;
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::str::FromStr;
 
 use crate::hex_encoder::as_sha256;
 
