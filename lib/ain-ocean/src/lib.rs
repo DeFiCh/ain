@@ -24,7 +24,7 @@ use repository::{
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
     PriceTickerRepository, RawBlockRepository, ScriptActivityKeyRepository,
-    ScriptActivityRepository, ScriptUnspentKeyRepository, ScriptUnspentRepository,
+    ScriptActivityRepository, ScriptAggregationRepository, ScriptUnspentKeyRepository, ScriptUnspentRepository,
     TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
     TransactionVoutRepository, TxResultRepository,
 };
@@ -126,6 +126,10 @@ pub struct ScriptActivityService {
     by_key: ScriptActivityKeyRepository,
 }
 
+pub struct ScriptAggregationService {
+    by_id: ScriptAggregationRepository,
+}
+
 pub struct ScriptUnspentService {
     by_id: ScriptUnspentRepository,
     by_key: ScriptUnspentKeyRepository,
@@ -158,6 +162,7 @@ pub struct Services {
     pub oracle_history: OracleHistoryService,
     pub price_ticker: PriceTickerService,
     pub script_activity: ScriptActivityService,
+    pub script_aggregation: ScriptAggregationService,
     pub script_unspent: ScriptUnspentService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
 }
@@ -231,6 +236,9 @@ impl Services {
             script_activity: ScriptActivityService {
                 by_id: ScriptActivityRepository::new(Arc::clone(&store)),
                 by_key: ScriptActivityKeyRepository::new(Arc::clone(&store)),
+            },
+            script_aggregation: ScriptAggregationService {
+                by_id: ScriptAggregationRepository::new(Arc::clone(&store)),
             },
             script_unspent: ScriptUnspentService {
                 by_id: ScriptUnspentRepository::new(Arc::clone(&store)),
