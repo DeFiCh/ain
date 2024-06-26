@@ -102,7 +102,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         // .route("/aggregation", get(get_aggregation))
         // .route("/tokens", get(list_token))
         // .route("/vaults", get(list_vault))
-        .route("/transactions", get(list_transaction))
+        .route("/:address/transactions", get(list_transaction))
         // .route("/transactions/unspent", get(list_transaction_unspent)),
         .layer(Extension(ctx))
 }

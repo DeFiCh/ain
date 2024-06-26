@@ -218,10 +218,11 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             if vout.script_pub_key.hex.starts_with(&[0x6a]) {
                 continue;
             }
-            let key = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
+            let id = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
+            let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                id: key,
-                hid: as_sha256(vout.script_pub_key.hex.clone()),
+                id: id.clone(),
+                hid: hid.clone(),
                 r#type: ScriptActivityType::Vin,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
@@ -243,8 +244,8 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: vout.value.to_string(),
                 token_id: vout.token_id,
             };
-            let key = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
-            services.script_activity.by_id.put(&key, &script_activity)?
+            services.script_activity.by_key.put(&hid, &id)?;
+            services.script_activity.by_id.put(&id, &script_activity)?
         }
     }
 
