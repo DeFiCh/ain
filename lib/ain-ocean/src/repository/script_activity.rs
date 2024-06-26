@@ -25,14 +25,14 @@ pub struct ScriptActivityKeyRepository {
 }
 
 impl SecondaryIndex<String, ScriptActivityId> for ScriptActivityKeyRepository {
-  type Value = ScriptActivity;
+    type Value = ScriptActivity;
 
-  fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
-    let (_, id) = el?;
+    fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
+        let (_, id) = el?;
 
-    let col = self.store.column::<columns::ScriptActivity>();
-    let res = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+        let col = self.store.column::<columns::ScriptActivity>();
+        let res = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
 
-    Ok(res)
-  }
+        Ok(res)
+    }
 }
