@@ -47,8 +47,8 @@ async fn list_gov_proposals(
         r#type: query.r#type,
         cycle: query.cycle,
     };
-    let proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
-
+    let mut proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
+    proposals.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
     Ok(ApiPagedResponse::of(proposals, size, |proposal| {
         proposal.proposal_id.to_string()
     }))
