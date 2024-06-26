@@ -1,5 +1,5 @@
-use ain_db::{Column, ColumnName, TypedColumn};
 use crate::model;
+use ain_db::{Column, ColumnName, TypedColumn};
 
 #[derive(Debug)]
 pub struct ScriptAggregation;

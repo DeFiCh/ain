@@ -24,7 +24,11 @@ use crate::{
     hex_encoder::as_sha256,
     index_transaction,
     model::{
-        Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex, ScriptActivityVin, ScriptActivityVout, ScriptAggregation, ScriptAggregationAmount, ScriptAggregationScript, ScriptAggregationStatistic, ScriptUnspent, ScriptUnspentScript, ScriptUnspentVout, TransactionVout, TransactionVoutScript
+        Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
+        ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex,
+        ScriptActivityVin, ScriptActivityVout, ScriptAggregation, ScriptAggregationAmount,
+        ScriptAggregationScript, ScriptAggregationStatistic, ScriptUnspent, ScriptUnspentScript,
+        ScriptUnspentVout, TransactionVout, TransactionVoutScript,
     },
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
@@ -257,7 +261,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         record: &mut HashMap<String, ScriptAggregation>,
         block: &Block<Transaction>,
         hex: Vec<u8>,
-        script_type: String
+        script_type: String,
     ) -> ScriptAggregation {
         let hid = as_sha256(hex.clone());
         let aggregation = record.get(&hid).cloned();
@@ -287,7 +291,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                     tx_in: Decimal::new(0, 8),
                     tx_out: Decimal::new(0, 8),
                     unspent: Decimal::new(0, 8),
-                }
+                },
             };
             record.insert(hid, aggregation.clone());
             aggregation
@@ -344,7 +348,8 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             };
 
             // SPENT (REMOVE)
-            let mut aggregation = find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
+            let mut aggregation =
+                find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
             aggregation.statistic.tx_out_count += 1;
             aggregation.amount.tx_out = aggregation
                 .amount
@@ -359,7 +364,12 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             }
 
             // Unspent (ADD)
-            let mut aggregation = find_script_aggregation(&mut record, block, vout.script_pub_key.hex.clone(), vout.script_pub_key.r#type.clone());
+            let mut aggregation = find_script_aggregation(
+                &mut record,
+                block,
+                vout.script_pub_key.hex.clone(),
+                vout.script_pub_key.r#type.clone(),
+            );
             aggregation.statistic.tx_in_count += 1;
             aggregation.amount.tx_in = aggregation
                 .amount
@@ -372,7 +382,10 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             let repo = &services.script_aggregation;
             let latest = repo
                 .by_id
-                .list(Some((u32::MAX, aggregation.hid.clone())), SortOrder::Descending)?
+                .list(
+                    Some((u32::MAX, aggregation.hid.clone())),
+                    SortOrder::Descending,
+                )?
                 .take(1)
                 .take_while(|item| match item {
                     Ok(((_, hid), _)) => &aggregation.hid == hid,
@@ -388,14 +401,28 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
                 aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 
-                aggregation.amount.tx_in = aggregation.amount.tx_in.checked_add(latest.amount.tx_in).ok_or(Error::OverflowError)?;
-                aggregation.amount.tx_out = aggregation.amount.tx_out.checked_add(latest.amount.tx_out).ok_or(Error::OverflowError)?;
+                aggregation.amount.tx_in = aggregation
+                    .amount
+                    .tx_in
+                    .checked_add(latest.amount.tx_in)
+                    .ok_or(Error::OverflowError)?;
+                aggregation.amount.tx_out = aggregation
+                    .amount
+                    .tx_out
+                    .checked_add(latest.amount.tx_out)
+                    .ok_or(Error::OverflowError)?;
             }
 
-            aggregation.statistic.tx_count = aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
-            aggregation.amount.unspent = aggregation.amount.tx_in.checked_div(aggregation.amount.tx_out).ok_or(Error::UnderflowError)?;
+            aggregation.statistic.tx_count =
+                aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
+            aggregation.amount.unspent = aggregation
+                .amount
+                .tx_in
+                .checked_div(aggregation.amount.tx_out)
+                .ok_or(Error::UnderflowError)?;
 
-            repo.by_id.put(&(block.height, aggregation.hid.clone()), &aggregation)?;
+            repo.by_id
+                .put(&(block.height, aggregation.hid.clone()), &aggregation)?;
         }
     }
     Ok(())
