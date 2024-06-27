@@ -6,6 +6,9 @@
 #include <dfi/validation.h>
 #include <ffi/ffihelpers.h>
 #include <boost/asio.hpp>
+#include "dfi/poolpairs.h"
+
+static bool DEFAULT_DVM_OWNERSHIP_CHECK = true;
 
 std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
@@ -265,9 +268,12 @@ static UniValue DecodeRecipientsGetRecipients(const UniValue &values) {
     return recipients;
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values) {
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values, bool checkOwnership = true) {
     const auto recipients = DecodeRecipientsGetRecipients(values);
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
+    if (!checkOwnership) {
+        return accounts;
+    }
     for (const auto &account : accounts) {
         if (IsMineCached(*pwallet, account.first) != ISMINE_SPENDABLE &&
             account.second.balances.find(DCT_ID{0}) != account.second.balances.end()) {
@@ -750,7 +756,8 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
 
     // decode recipients
     CUtxosToAccountMessage msg{};
-    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj());
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj(), ownershipCheck);
 
     for (const auto &[to, amount] : msg.to) {
         RejectErc55Address(to);
@@ -915,7 +922,8 @@ UniValue accounttoaccount(const JSONRPCRequest &request) {
 
     // decode sender and recipients
     CAccountToAccountMessage msg{};
-    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
     if (SumAllTransfers(msg.to).balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
@@ -2045,7 +2053,8 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VSTR}, false);
 
     CAnyAccountsToAccountsMessage msg;
-    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj());
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
     const CBalances sumTransfersTo = SumAllTransfers(msg.to);
     if (sumTransfersTo.balances.empty()) {
