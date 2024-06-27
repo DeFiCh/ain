@@ -6,7 +6,6 @@
 #include <dfi/validation.h>
 #include <ffi/ffihelpers.h>
 #include <boost/asio.hpp>
-#include "dfi/poolpairs.h"
 
 static bool DEFAULT_DVM_OWNERSHIP_CHECK = true;
 
