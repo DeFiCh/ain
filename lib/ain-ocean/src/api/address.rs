@@ -76,9 +76,9 @@ impl From<ScriptAggregation> for ScriptAggregationResponse {
                 tx_out_count: v.statistic.tx_out_count,
             },
             amount: ScriptAggregationAmountResponse {
-                tx_in: v.amount.tx_in,
-                tx_out: v.amount.tx_out,
-                unspent: v.amount.unspent,
+                tx_in: format!("{:.8}",v.amount.tx_in),
+                tx_out: format!("{:.8}",v.amount.tx_out),
+                unspent: format!("{:.8}",v.amount.unspent),
             }
         }
     }
@@ -136,10 +136,10 @@ async fn get_balance(
     let hid = address_to_hid(&address, ctx.network.into())?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     if aggregation.is_none() {
-        return Ok(Response::new(Decimal::new(0, 8).to_string()))
+        return Ok(Response::new("0.00000000".to_string()))
     }
     let aggregation = aggregation.unwrap();
-    Ok(Response::new(format!("{:.8}", aggregation.amount.unspent)))
+    Ok(Response::new(aggregation.amount.unspent))
 }
 
 #[ocean_endpoint]

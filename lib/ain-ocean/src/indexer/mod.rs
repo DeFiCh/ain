@@ -326,9 +326,9 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                     tx_out_count: 0,
                 },
                 amount: ScriptAggregationAmount {
-                    tx_in: "0".to_string(),
-                    tx_out: "0".to_string(),
-                    unspent: "0".to_string(),
+                    tx_in: 0.0,
+                    tx_out: 0.0,
+                    unspent: 0.0,
                 },
             };
             record.insert(hid, aggregation.clone());
@@ -359,10 +359,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             let mut aggregation =
                 find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
             aggregation.statistic.tx_out_count += 1;
-            aggregation.amount.tx_out = Decimal::from_str(&aggregation.amount.tx_out)?
-                .checked_add(Decimal::from_str(&vout.value)?)
-                .ok_or(Error::OverflowError)?
-                .to_string();
+            aggregation.amount.tx_out += vout.value.parse::<f64>()?;
             record.insert(aggregation.hid.clone(), aggregation);
         }
 
@@ -379,10 +376,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 vout.script_pub_key.r#type.clone(),
             );
             aggregation.statistic.tx_in_count += 1;
-            aggregation.amount.tx_in = Decimal::from_str(&aggregation.amount.tx_in)?
-                .checked_add(Decimal::from_f64(vout.value).unwrap_or_default())
-                .ok_or(Error::OverflowError)?
-                .to_string();
+            aggregation.amount.tx_in += vout.value;
             record.insert(aggregation.hid.clone(), aggregation);
         }
     }
@@ -410,22 +404,13 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
             aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 
-            aggregation.amount.tx_in = Decimal::from_str(&aggregation.amount.tx_in)?
-                .checked_add(Decimal::from_str(&latest.amount.tx_in)?)
-                .ok_or(Error::OverflowError)?
-                .to_string();
-            aggregation.amount.tx_out = Decimal::from_str(&aggregation.amount.tx_out)?
-                .checked_add(Decimal::from_str(&latest.amount.tx_out)?)
-                .ok_or(Error::OverflowError)?
-                .to_string();
+            aggregation.amount.tx_in += latest.amount.tx_in;
+            aggregation.amount.tx_out += latest.amount.tx_out;
         }
 
         aggregation.statistic.tx_count =
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
-        aggregation.amount.unspent = Decimal::from_str(&aggregation.amount.tx_in)?
-            .checked_sub(Decimal::from_str(&aggregation.amount.tx_out)?)
-            .unwrap_or_default()
-            .to_string();
+        aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
         record.insert(aggregation.hid.clone(), aggregation.clone());
 
         repo.by_id

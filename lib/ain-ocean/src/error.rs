@@ -1,4 +1,4 @@
-use std::{fmt, num::ParseIntError};
+use std::{fmt, num::{ParseIntError, ParseFloatError}};
 
 use ain_db::DBError;
 use anyhow::format_err;
@@ -51,6 +51,8 @@ pub enum Error {
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]
     ParseIntError(#[from] ParseIntError),
+    #[error("Ocean: ParseFloatError error: {0:?}")]
+    ParseFloatError(#[from] ParseFloatError),
     #[error("Ocean: DBError error: {0:?}")]
     DBError(#[from] DBError),
     #[error("Ocean: IO error: {0:?}")]
