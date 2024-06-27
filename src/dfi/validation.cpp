@@ -2614,13 +2614,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
 }
 
 // extracted logic for DUSD only from loans.cpp
-static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
-                                            BlockContext &blockCtx,
-                                            const CScript &from,
-                                            const CVaultId &vaultId,
-                                            CAmount wantedPaybackAmount,
-                                            const DCT_ID &paybackId,
-                                            const DCT_ID &loanTokenId) {
+static Res PaybackLoanWithTokenOrDUSDCollateral(
+    CCustomCSView &mnview,
+    BlockContext &blockCtx,
+    const CScript &from,
+    const CVaultId &vaultId,
+    CAmount wantedPaybackAmount,  // in loanToken, or DUSD if useDUSDCollateral
+    const DCT_ID &loanTokenId,
+    bool useDUSDCollateral) {
     const auto height = blockCtx.GetHeight();
     const auto &consensus = blockCtx.GetConsensus();
     auto attributes = mnview.GetAttributes();
@@ -2633,9 +2634,9 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
     if (!loanToken) {
         return DeFiErrors::LoanTokenIdInvalid(loanTokenId);
     }
-    auto paybackToken = mnview.GetToken(paybackId);
-    if (!paybackToken) {
-        return DeFiErrors::TokenIdInvalid(paybackId);
+    auto dusdToken = mnview.GetToken("DUSD");
+    if (!dusdToken) {
+        return DeFiErrors::TokenInvalidForName("DUSD");
     }
 
     const auto vault = mnview.GetVault(vaultId);
@@ -2646,22 +2647,16 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
     // get price of loanToken
     CAmount loanUsdPrice{0};
     auto paybackAmountInLoanToken = wantedPaybackAmount;
-    if (loanTokenId != paybackId) {
-        // TODO: also allow other collateral to be swapped to DUSD first
-        if (paybackToken->symbol != "DUSD") {
-            // if not the same token, it must be DUSD
-            return DeFiErrors::LoanTokenIdInvalid(paybackId);
-        }
-
+    if (useDUSDCollateral && dusdToken->first != loanTokenId) {
         const auto collaterals = mnview.GetVaultCollaterals(vaultId);
         if (!collaterals) {
             return DeFiErrors::LoanInvalidVault(vaultId);
         }
-        if (!collaterals->balances.count(paybackId)) {
-            return DeFiErrors::LoanInvalidTokenForSymbol(paybackToken->symbol);
+        if (!collaterals->balances.count(dusdToken->first)) {
+            return DeFiErrors::LoanInvalidTokenForSymbol("DUSD");
         }
 
-        const auto &currentCollAmount = collaterals->balances.at(paybackId);
+        const auto &currentCollAmount = collaterals->balances.at(dusdToken->first);
         if (currentCollAmount < wantedPaybackAmount) {
             wantedPaybackAmount = currentCollAmount;
         }
@@ -2740,7 +2735,7 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
 
     mnview.CalculateOwnerRewards(from, height);
 
-    if (paybackId == loanTokenId) {
+    if (!useDUSDCollateral || loanTokenId == dusdToken->first) {
         res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
         if (!res) {
             return res;
@@ -2760,29 +2755,44 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
             }
 
             // subtract loan amount first, interest is burning below
-            LogPrint(
-                BCLog::LOAN, "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n", subLoan, height);
-            res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+            if (!useDUSDCollateral) {
+                LogPrint(BCLog::LOAN,
+                         "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n",
+                         subLoan,
+                         height);
+                res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+            } else {
+                res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
+            }
             if (!res) {
                 return res;
             }
         }
-
-        // burn interest Token->USD->DFI->burnAddress
         if (subInterest > 0) {
-            LogPrint(BCLog::LOAN,
-                     "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n",
-                     loanToken->symbol,
-                     subInterest,
-                     height);
-            res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, from, consensus.burnAddress, height, consensus);
-            if (!res) {
-                return res;
+            if (!useDUSDCollateral) {
+                // burn interest Token->USD->DFI->burnAddress
+                LogPrint(BCLog::LOAN,
+                         "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n",
+                         loanToken->symbol,
+                         subInterest,
+                         height);
+                res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, from, consensus.burnAddress, height, consensus);
+                if (!res) {
+                    return res;
+                }
+            } else {
+                // direct burn
+                CTokenAmount dUSD{dusdToken->first, subInterest};
+
+                if (auto res = mnview.SubVaultCollateral(vaultId, dUSD); !res) {
+                    return res;
+                }
+                if (auto res = mnview.AddBalance(consensus.burnAddress, dUSD); !res) {
+                    return res;
+                }
             }
         }
     } else {
-        // means payback token == DUSD
-        // FIXME: change when also implement other collaterals
         CAmount subInToken;
         const auto subAmount = subLoan + subInterest;
 
@@ -2802,7 +2812,7 @@ static Res PaybackLoanWithTokenOrCollateral(CCustomCSView &mnview,
         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
         attributes->SetValue(liveKey, balances);
 
-        CTokenAmount collAmount{paybackId, subInToken};
+        CTokenAmount collAmount{dusdToken->first, subInToken};
         if (auto res = mnview.SubVaultCollateral(vaultId, collAmount); !res) {
             LogPrintf("Error removing collateral %s\n", res);
             return res;
@@ -2925,8 +2935,8 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
         for (const auto &loan : data.loansWithUSDValue) {
-            PaybackLoanWithTokenOrCollateral(
-                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, dUsdToken.first, loan.first.nTokenId);
+            PaybackLoanWithTokenOrDUSDCollateral(
+                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, loan.first.nTokenId,true);
             dusdResult.nValue -= loan.second;
         }
         if (dusdResult.nValue > 0) {
@@ -2979,7 +2989,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         return true;
     });
     for (const auto &[owner, vaultId, amount, tokenId] : directPaybacks) {
-        PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, tokenId);
+        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, false);
     }
 
     // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
@@ -3001,7 +3011,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     });
     for (const auto &[owner, vaultId, amount, tokenId] : dusdPaybacks) {
         // for multiple loans, the method fails/reduces used amount if no more collateral left
-        PaybackLoanWithTokenOrCollateral(cache, blockCtx, owner, vaultId, amount, dUsdToken->first, tokenId);
+        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId,true);
     }
 
     // TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the
