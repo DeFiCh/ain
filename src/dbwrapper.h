@@ -362,7 +362,7 @@ public:
         return new CDBIterator(*this, pdb->NewIterator(readOptions));
     }
 
-    [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
+    [[nodiscard]] const leveldb::Snapshot* CreateLevelDBSnapshot() const {
         return pdb->GetSnapshot();
     }
 

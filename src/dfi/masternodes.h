@@ -551,7 +551,7 @@ public:
     explicit CCustomCSView(CStorageKV &st);
 
     // Snapshot constructor
-    explicit CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, const MapKV &changed);
+    explicit CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, MapKV &changed);
 
     // Cache-upon-a-cache constructors
     CCustomCSView(CCustomCSView &other);

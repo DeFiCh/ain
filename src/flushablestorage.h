@@ -203,8 +203,8 @@ public:
         return db->IsEmpty();
     }
 
-    [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
-        return db->GetLevelDBSnapshot();
+    [[nodiscard]] const leveldb::Snapshot* CreateLevelDBSnapshot() const {
+        return db->CreateLevelDBSnapshot();
     }
 
     [[nodiscard]] std::shared_ptr<CDBWrapper>& GetDB() {
@@ -376,8 +376,8 @@ public:
         return storageLevelDB;
     }
 
-    std::pair<MapKV, const leveldb::Snapshot*> GetSnapshotData() {
-        return {changed, GetStorageLevelDB()->GetLevelDBSnapshot()};
+    std::pair<MapKV, const leveldb::Snapshot*> CreateSnapshotData() {
+        return {changed, GetStorageLevelDB()->CreateLevelDBSnapshot()};
     }
 
 private:

@@ -782,7 +782,7 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
     CheckPrefixes();
 }
 
-CCustomCSView::CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, const MapKV &changed)
+CCustomCSView::CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, MapKV &changed)
     : CStorageView(new CFlushableStorageKV(st, changed)) {
     CheckPrefixes();
 }

@@ -538,6 +538,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-ethstartstate", strprintf("Initialise Ethereum state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-enablesnapshots", strprintf("Whether to enable snapshot on each block (default: %u)", DEFAULT_SNAPSHOT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -2258,7 +2259,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     // Set snapshot now chain has loaded
-    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview->GetStorage().GetStorageLevelDB());
+    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB);
 
 
     if (ShutdownRequested()) {

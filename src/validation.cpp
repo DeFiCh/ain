@@ -3808,11 +3808,10 @@ bool CChainState::DisconnectTip(CValidationState &state,
     // DisconnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
     if (psnapshotManager) {
-        if (BlockchainNearTip(pindexDelete->pprev->GetBlockTime())) {
-            psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
-        } else {
-            psnapshotManager->EraseCurrentSnapshot();
-        }
+        psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
+                                            paccountHistoryDB.get(),
+                                            pindexDelete->pprev,
+                                            BlockchainNearTip(pindexDelete->pprev->GetBlockTime()));
     }
 
     // Let wallets know transactions went from 1-confirmed to
@@ -4013,8 +4012,11 @@ bool CChainState::ConnectTip(CValidationState &state,
 
     // ConnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
-    if (psnapshotManager && BlockchainNearTip(pindexNew->GetBlockTime())) {
-        psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexNew);
+    if (psnapshotManager) {
+        psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
+                                            paccountHistoryDB.get(),
+                                            pindexNew,
+                                            BlockchainNearTip(pindexNew->GetBlockTime()));
     }
 
     int64_t nTime6 = GetTimeMicros();
