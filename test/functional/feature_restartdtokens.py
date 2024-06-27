@@ -70,6 +70,18 @@ class RestartdTokensTest(DefiTestFramework):
         print("---")
         print(self.nodes[0].getloantoken("USDD"))
         print("---")
+
+        print()
+        print(self.nodes[0].getvault(self.loop_vault_id))
+        print()
+        print(self.nodes[0].getvault(self.vault_id1))
+        print()
+        print(self.nodes[0].getvault(self.vault_id2))
+        print()
+        print(self.nodes[0].getvault(self.vault_id2_1))
+        print()
+        print(self.nodes[0].getvault(self.vault_id3))
+        print()
         #'''
 
         assert_equal(
@@ -85,15 +97,7 @@ class RestartdTokensTest(DefiTestFramework):
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False, Decimal("0")]},
-                {"1": ["SPY/lock1", False, False, Decimal("0")]},
-                {"2": ["DUSD/lock1", False, False, Decimal("0")]},
-                {"3": ["SPY-DUSD/lock1", False, False, Decimal("0")]},
-                {"4": ["DUSD-DFI/lock1", False, False, Decimal("0")]},
-                {"5": ["SPY", True, True, Decimal("2.00000941")]},
-                {"6": ["USDD", True, True, Decimal("809.99999812")]},
-                {"7": ["SPY-USDD", False, False, Decimal("0")]},
-                {"8": ["USDD-DFI", False, False, Decimal("0")]},
+                {'0': ['DFI', False, False, Decimal('0E-8')]}, {'1': ['BTC', False, True, Decimal('2.00000000')]}, {'2': ['USDT', False, True, Decimal('1000.00000000')]}, {'3': ['SPY/lock1', False, False, Decimal('0E-8')]}, {'4': ['DUSD/lock1', False, False, Decimal('0E-8')]}, {'5': ['SPY-DUSD/lock1', False, False, Decimal('0E-8')]}, {'6': ['DUSD-DFI/lock1', False, False, Decimal('0E-8')]}, {'7': ['BTC-DFI', False, False, Decimal('0E-8')]}, {'8': ['USDT-DFI', False, False, Decimal('0E-8')]}, {'9': ['USDT-DUSD/lock1', False, False, Decimal('0E-8')]}, {'10': ['SPY', True, True, Decimal('7.50000091')]}, {'11': ['USDD', True, True, Decimal('4803.87432603')]}, {'12': ['SPY-USDD', False, False, Decimal('0E-8')]}, {'13': ['USDD-DFI', False, False, Decimal('0E-8')]}, {'14': ['USDT-USDD', False, False, Decimal('0E-8')]}
             ],
         )
 
@@ -111,24 +115,36 @@ class RestartdTokensTest(DefiTestFramework):
                 for (id, pool) in self.nodes[0].listpoolpairs().items()
             ],
             [
-                {"3": ["SPY-DUSD/lock1", "1", "2", Decimal(0), Decimal(0)]},
-                {"4": ["DUSD-DFI/lock1", "2", "0", Decimal(0), Decimal(0)]},
+                {"5": ["SPY-DUSD/lock1", "3", "4", 0, 0]},
+                {"6": ["DUSD-DFI/lock1", "4", "0", 0, 0]},
+                {"7": ["BTC-DFI", "1", "0", 1, 10000]},
+                {"8": ["USDT-DFI", "2", "0", 50, 10]},
+                {"9": ["USDT-DUSD/lock1", "2", "4", Decimal("0E-8"), Decimal("0E-8")]},
                 {
-                    "7": [
+                    "12": [
                         "SPY-USDD",
-                        "5",
-                        "6",
-                        Decimal("0.20000185"),
-                        Decimal("19.99999591"),
+                        "10",
+                        "11",
+                        Decimal("0.20000117"),
+                        Decimal("20.00006397"),
                     ]
                 },
                 {
-                    "8": [
+                    "13": [
                         "USDD-DFI",
-                        "6",
+                        "11",
                         "0",
-                        Decimal("45.99637727"),
-                        Decimal("1.08695790"),
+                        Decimal("276.47228143"),
+                        Decimal("58.59079946"),
+                    ]
+                },
+                {
+                    "14": [
+                        "USDT-USDD",
+                        "2",
+                        "11",
+                        Decimal("91.99600874"),
+                        Decimal("97.82823880"),
                     ]
                 },
             ],
@@ -223,44 +239,131 @@ class RestartdTokensTest(DefiTestFramework):
             {
                 "vaultId": self.loop_vault_id,
                 "loanSchemeId": "LOAN0001",
-                "ownerAddress": self.address,
+                "ownerAddress": self.address1,
                 "state": "active",
                 "collateralAmounts": ["250.00000000@DUSD"],
-                "loanAmounts": ["99.99924278@DUSD"],
-                "interestAmounts": ["-0.00075722@DUSD"],
+                "loanAmounts": ["99.99848555@DUSD"],
+                "interestAmounts": ["-0.00151445@DUSD"],
                 "collateralValue": Decimal("250.00000000"),
-                "loanValue": Decimal("99.99924278"),
-                "interestValue": Decimal("-0.00075722"),
-                "informativeRatio": Decimal("250.00189306"),
+                "loanValue": Decimal("99.99848555"),
+                "interestValue": Decimal("-0.00151445"),
+                "informativeRatio": Decimal("250.00378618"),
                 "collateralRatio": 250,
             },
         )
+
         assert_equal(
-            self.nodes[0].getvault(self.vault_id),
+            self.nodes[0].getvault(self.vault_id1),
             {
-                "vaultId": self.vault_id,
+                "vaultId": self.vault_id1,
                 "loanSchemeId": "LOAN0001",
-                "ownerAddress": self.address,
+                "ownerAddress": self.address1,
                 "state": "active",
-                "collateralAmounts": ["100.00000000@DFI", "10.00000000@DUSD"],
-                "loanAmounts": ["2.00000006@SPY"],
-                "interestAmounts": ["0.00000006@SPY"],
-                "collateralValue": Decimal("510.00000000"),
-                "loanValue": Decimal("200.00000600"),
-                "interestValue": Decimal("0.00000600"),
-                "informativeRatio": Decimal("254.99999235"),
-                "collateralRatio": 255,
+                "collateralAmounts": [
+                    "30.00000000@DFI",
+                    "0.01000000@BTC",
+                    "20.00000000@USDT",
+                    "1.00000000@DUSD",
+                ],
+                "loanAmounts": ["1.00000007@SPY", "99.99867485@DUSD"],
+                "interestAmounts": ["0.00000007@SPY", "-0.00132515@DUSD"],
+                "collateralValue": Decimal("671.00000000"),
+                "loanValue": Decimal("199.99868185"),
+                "interestValue": Decimal("-0.00131815"),
+                "informativeRatio": Decimal("335.50221121"),
+                "collateralRatio": 336,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id2),
+            {
+                "vaultId": self.vault_id2,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address2,
+                "state": "active",
+                "collateralAmounts": [
+                    "16.00000000@DFI",
+                    "0.01000000@BTC",
+                    "10.00000000@DUSD",
+                ],
+                "loanAmounts": ["1.00000004@SPY", "0.99999243@DUSD"],
+                "interestAmounts": ["0.00000004@SPY", "-0.00000757@DUSD"],
+                "collateralValue": Decimal("590.00000000"),
+                "loanValue": Decimal("100.99999643"),
+                "interestValue": Decimal("-0.00000357"),
+                "informativeRatio": Decimal("584.15843648"),
+                "collateralRatio": 584,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id2_1),
+            {
+                "vaultId": self.vault_id2_1,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address2,
+                "state": "active",
+                "collateralAmounts": ["40.00000000@DUSD"],
+                "loanAmounts": ["0.10000001@SPY", "9.99992428@DUSD"],
+                "interestAmounts": ["0.00000001@SPY", "-0.00007572@DUSD"],
+                "collateralValue": Decimal("40.00000000"),
+                "loanValue": Decimal("19.99992528"),
+                "interestValue": Decimal("-0.00007472"),
+                "informativeRatio": Decimal("200.00074720"),
+                "collateralRatio": 200,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id3),
+            {
+                "vaultId": self.vault_id3,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address3,
+                "state": "active",
+                "collateralAmounts": ["80.00000000@DFI", "0.01000000@BTC"],
+                "loanAmounts": ["2.00000002@SPY", "199.99962139@DUSD"],
+                "interestAmounts": ["0.00000002@SPY", "-0.00037861@DUSD"],
+                "collateralValue": Decimal("900.00000000"),
+                "loanValue": Decimal("399.99962339"),
+                "interestValue": Decimal("-0.00037661"),
+                "informativeRatio": Decimal("225.00021184"),
+                "collateralRatio": 225,
             },
         )
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
-                "1.50000000@SPY",
-                "100.00000000@DUSD",
-                "19.99999000@SPY-DUSD",
-                "390.00000000@DFI",
-                "70.71066811@DUSD-DFI",
+                "0.97000000@BTC",
+                "1272.79219613@DUSD-DFI",
+                "22.36066977@USDT-DFI",
+                "30.00000000@USDT",
+                "39324.00000000@DFI",
+                "4.50000000@SPY",
+                "570.00000000@DUSD",
+                "9.99999000@SPY-DUSD",
+                "948.68328805@USDT-DUSD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            [
+                "0.10000000@SPY",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            [],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            [
+                "10.00000000@SPY-DUSD",
+                "3.00000000@SPY",
+                "300.00000000@DUSD",
             ],
         )
 
@@ -274,14 +377,6 @@ class RestartdTokensTest(DefiTestFramework):
             Decimal(40),
         )
 
-        pool = self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
-        assert_equal(pool["reserveA"], Decimal("500"))
-        assert_equal(pool["reserveB"], Decimal("10"))
-
-        pool = self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
-        assert_equal(pool["reserveA"], Decimal("2"))
-        assert_equal(pool["reserveB"], Decimal("200"))
-
         assert_equal(
             [
                 {
@@ -291,13 +386,19 @@ class RestartdTokensTest(DefiTestFramework):
                         pool["idTokenB"],
                         pool["reserveA"],
                         pool["reserveB"],
+                        pool["reserveB/reserveA"],
                     ]
                 }
                 for (id, pool) in self.nodes[0].listpoolpairs().items()
             ],
             [
-                {"3": ["SPY-DUSD", "1", "2", Decimal("2"), Decimal("200")]},
-                {"4": ["DUSD-DFI", "2", "0", Decimal("500"), Decimal("10")]},
+                {"5": ["SPY-DUSD", "3", "4", 2, 200, 100]},
+                {"6": ["DUSD-DFI", "4", "0", 3000, 540, Decimal("0.18")]},
+                {"7": ["BTC-DFI", "1", "0", 1, 10000, 10000]},
+                # 5$ per DFI
+                {"8": ["USDT-DFI", "2", "0", 50, 10, Decimal("0.20000000")]},
+                # 1.1 DUSD per USDT = 0.9 USDT per DUSD
+                {"9": ["USDT-DUSD", "2", "4", 900, 1000, Decimal("1.11111111")]},
             ],
         )
         assert_equal(
@@ -313,11 +414,16 @@ class RestartdTokensTest(DefiTestFramework):
                 for (id, token) in self.nodes[0].listtokens().items()
             ],
             [
-                {"0": ["DFI", False, False, Decimal("0")]},
-                {"1": ["SPY", True, True, Decimal("4")]},
-                {"2": ["DUSD", True, True, Decimal("1100")]},
-                {"3": ["SPY-DUSD", False, False, Decimal("0")]},
-                {"4": ["DUSD-DFI", False, False, Decimal("0")]},
+                {"0": ["DFI", False, False, Decimal("0E-8")]},
+                {"1": ["BTC", False, True, Decimal("2.00000000")]},
+                {"2": ["USDT", False, True, Decimal("1000.00000000")]},
+                {"3": ["SPY", True, True, Decimal("10.10000000")]},
+                {"4": ["DUSD", True, True, Decimal("5411.00000000")]},
+                {"5": ["SPY-DUSD", False, False, Decimal("0E-8")]},
+                {"6": ["DUSD-DFI", False, False, Decimal("0E-8")]},
+                {"7": ["BTC-DFI", False, False, Decimal("0E-8")]},
+                {"8": ["USDT-DFI", False, False, Decimal("0E-8")]},
+                {"9": ["USDT-DUSD", False, False, Decimal("0E-8")]},
             ],
         )
 
@@ -327,6 +433,9 @@ class RestartdTokensTest(DefiTestFramework):
 
         # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.address1 = self.nodes[0].getnewaddress("", "bech32")
+        self.address2 = self.nodes[0].getnewaddress()
+        self.address3 = self.nodes[0].getnewaddress()
 
         # Generate chain
         self.nodes[0].generate(105)
@@ -340,20 +449,22 @@ class RestartdTokensTest(DefiTestFramework):
         # Setup Gov vars
         self.setup_govvars()
 
-        # Move to df23 height (for dst v2)
-        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
+        # Move to df23 height (for dst v2) and further blocks for more DFI)
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+
+        self.distribute_balances()
 
         # Setup variables
         self.setup_variables()
 
         self.prepare_evm_funds()
 
+        self.setup_test_pools()
+
         # to have reference height for interest in vaults
-        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(900 - self.nodes[0].getblockcount())
 
         self.setup_test_vaults()
-
-        self.setup_test_pools()
 
     def prepare_evm_funds(self):
         self.nodes[0].transferdomain(
@@ -396,11 +507,11 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
         self.contract_address_spyv1 = self.nodes[0].w3.to_checksum_address(
-            f"0xff00000000000000000000000000000000000001"
+            f"0xff00000000000000000000000000000000000003"
         )
 
         self.contract_address_dusdv1 = self.nodes[0].w3.to_checksum_address(
-            f"0xff00000000000000000000000000000000000002"
+            f"0xff00000000000000000000000000000000000004"
         )
 
         # DST20 ABI
@@ -437,6 +548,8 @@ class RestartdTokensTest(DefiTestFramework):
             {"currency": "USD", "token": "DFI"},
             {"currency": "USD", "token": "SPY"},
             {"currency": "USD", "token": "DUSD"},
+            {"currency": "USD", "token": "USDT"},
+            {"currency": "USD", "token": "BTC"},
         ]
 
         # Appoint oracle
@@ -449,11 +562,33 @@ class RestartdTokensTest(DefiTestFramework):
             {"currency": "USD", "tokenAmount": "5@DFI"},  # $5 per DFI
             {"currency": "USD", "tokenAmount": "100@SPY"},  # $100 per SPY
             {"currency": "USD", "tokenAmount": "1@DUSD"},
+            {"currency": "USD", "tokenAmount": "1@USDT"},
+            {"currency": "USD", "tokenAmount": "50000@BTC"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
     def setup_tokens(self):
+
+        # DATs
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
 
         # Set loan tokens
         self.nodes[0].setloantoken(
@@ -489,6 +624,13 @@ class RestartdTokensTest(DefiTestFramework):
                 "fixedIntervalPriceId": "DFI/USD",
             }
         )
+        self.nodes[0].setcollateraltoken(
+            {"token": "BTC", "factor": 1, "fixedIntervalPriceId": "BTC/USD"}
+        )
+        self.nodes[0].setcollateraltoken(
+            {"token": "USDT", "factor": 1, "fixedIntervalPriceId": "USDT/USD"}
+        )
+
         self.nodes[0].generate(1)
         self.nodes[0].setcollateraltoken(
             {
@@ -499,12 +641,21 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+    def distribute_balances(self):
         # Mint tokens
-        self.nodes[0].minttokens(["2@SPY", "1000@DUSD"])
+        self.nodes[0].minttokens(["6@SPY", "5000@DUSD", "1000@USDT", "2@BTC"])
         self.nodes[0].generate(1)
 
         # Create account DFI
-        self.nodes[0].utxostoaccount({self.address: "500@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "50000@DFI"})
+        self.nodes[0].sendutxosfrom(self.address, self.address1, 1)
+        self.nodes[0].sendutxosfrom(self.address, self.address2, 1)
+        self.nodes[0].sendutxosfrom(self.address, self.address3, 1)
+
+        self.nodes[0].accounttoaccount(
+            self.address,
+            {self.address1: ["0.1@SPY"], self.address3: ["3@SPY", "300@DUSD"]},
+        )
         self.nodes[0].generate(1)
 
     def setup_govvars(self):
@@ -548,6 +699,36 @@ class RestartdTokensTest(DefiTestFramework):
                 "symbol": "DUSD-DFI",
             }
         )
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": "BTC",
+                "tokenB": "DFI",
+                "commission": 0.002,
+                "status": True,
+                "ownerAddress": self.address,
+                "symbol": "BTC-DFI",
+            }
+        )
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": "USDT",
+                "tokenB": "DFI",
+                "commission": 0.002,
+                "status": True,
+                "ownerAddress": self.address,
+                "symbol": "USDT-DFI",
+            }
+        )
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": "USDT",
+                "tokenB": "DUSD",
+                "commission": 0.002,
+                "status": True,
+                "ownerAddress": self.address,
+                "symbol": "USDT-DUSD",
+            }
+        )
         self.nodes[0].generate(1)
 
         self.spyPoolId = list(self.nodes[0].gettoken("SPY-DUSD").keys())[0]
@@ -555,12 +736,30 @@ class RestartdTokensTest(DefiTestFramework):
 
         # Fund pools
         self.nodes[0].addpoolliquidity(
-            {self.address: ["500@DUSD", "10@DFI"]},  # $5 per DFI -> $0.1 per DUSD
+            {self.address: ["3000@DUSD", "540@DFI"]},  # $5 per DFI -> $0.9 per DUSD
             self.address,
         )
         self.nodes[0].addpoolliquidity(
-            {self.address: ["2@SPY", "200@DUSD"]},
+            {self.address: ["50@USDT", "10@DFI"]},
             self.address,
+        )
+        self.nodes[0].addpoolliquidity(
+            {self.address: ["1@BTC", "10000@DFI"]},
+            self.address,
+        )
+        self.nodes[0].addpoolliquidity(
+            {self.address: ["900@USDT", "1000@DUSD"]},
+            self.address,
+        )
+        self.nodes[0].addpoolliquidity(
+            {self.address: ["1@SPY", "100@DUSD"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].addpoolliquidity(
+            {self.address: ["1@SPY", "100@DUSD"]},
+            self.address3,
         )
         self.nodes[0].generate(1)
 
@@ -569,22 +768,84 @@ class RestartdTokensTest(DefiTestFramework):
         self.nodes[0].createloanscheme(150, 0.05, "LOAN0001")
         self.nodes[0].generate(1)
 
-        self.vault_id = self.nodes[0].createvault(self.address, "")
-        self.loop_vault_id = self.nodes[0].createvault(self.address, "")
+        # loans go to main address, defined balances for adresses where set in creation of tokens
+
+        # address1
+        self.vault_id1 = self.nodes[0].createvault(self.address1, "")
+        self.loop_vault_id = self.nodes[0].createvault(self.address1, "")
         self.nodes[0].generate(1)
 
-        self.nodes[0].deposittovault(self.vault_id, self.address, f"100@DFI")
-        self.nodes[0].deposittovault(self.vault_id, self.address, f"10@DUSD")
+        self.nodes[0].deposittovault(self.vault_id1, self.address, f"30@DFI")
+        self.nodes[0].deposittovault(self.vault_id1, self.address, f"1@DUSD")
+        self.nodes[0].deposittovault(self.vault_id1, self.address, f"0.01@BTC")
+        self.nodes[0].deposittovault(self.vault_id1, self.address, f"20@USDT")
+
         self.nodes[0].deposittovault(self.loop_vault_id, self.address, f"150@DUSD")
         self.nodes[0].generate(1)
 
         # create loop
-        self.nodes[0].takeloan({"vaultId": self.loop_vault_id, "amounts": "100@DUSD"})
+        self.nodes[0].takeloan(
+            {"vaultId": self.loop_vault_id, "to": self.address, "amounts": "100@DUSD"}
+        )
         self.nodes[0].deposittovault(self.loop_vault_id, self.address, f"100@DUSD")
         self.nodes[0].generate(1)
 
         # add normal loan
-        self.nodes[0].takeloan({"vaultId": self.vault_id, "amounts": "2@SPY"})
+        self.nodes[0].takeloan(
+            {
+                "vaultId": self.vault_id1,
+                "to": self.address,
+                "amounts": ["100@DUSD", "1@SPY"],
+            }
+        )
+        self.nodes[0].generate(1)
+
+        ## address2
+
+        self.vault_id2 = self.nodes[0].createvault(self.address2, "")
+        self.vault_id2_1 = self.nodes[0].createvault(self.address2, "")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vault_id2, self.address, f"16@DFI")
+        self.nodes[0].deposittovault(self.vault_id2, self.address, f"10@DUSD")
+        self.nodes[0].deposittovault(self.vault_id2, self.address, f"0.01@BTC")
+
+        self.nodes[0].deposittovault(self.vault_id2_1, self.address, f"40@DUSD")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan(
+            {
+                "vaultId": self.vault_id2,
+                "to": self.address,
+                "amounts": ["1@DUSD", "1@SPY"],
+            }
+        )
+
+        self.nodes[0].takeloan(
+            {
+                "vaultId": self.vault_id2_1,
+                "to": self.address,
+                "amounts": ["10@DUSD", "0.1@SPY"],
+            }
+        )
+        self.nodes[0].generate(1)
+
+        ## address3
+
+        self.vault_id3 = self.nodes[0].createvault(self.address3, "")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vault_id3, self.address, f"80@DFI")
+        self.nodes[0].deposittovault(self.vault_id3, self.address, f"0.01@BTC")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan(
+            {
+                "vaultId": self.vault_id3,
+                "to": self.address,
+                "amounts": ["200@DUSD", "2@SPY"],
+            }
+        )
         self.nodes[0].generate(1)
 
 
