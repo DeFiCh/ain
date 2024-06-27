@@ -17,7 +17,7 @@ class TokenAmount:
 
 
     def _validate(self, number_with_symbol: str) -> bool:
-        pattern = r'^\d{1,8}\.\d{8}@\w+$'
+        pattern = r'^\d{1,32}\.\d{8}@\w+$'
         return bool(re.match(pattern, number_with_symbol))
 
     def __str__(self):
