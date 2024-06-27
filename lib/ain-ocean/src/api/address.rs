@@ -9,14 +9,15 @@ use super::{
 };
 use crate::{
     error::ApiError,
-    model::{ScriptActivity, ScriptAggregation, ScriptUnspent},
+    model::{BlockContext, ScriptActivity, ScriptAggregation, ScriptUnspent},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
 };
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use serde::Deserialize;
+use bitcoin::hex::DisplayHex;
+use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize)]
 struct Address {
@@ -47,7 +48,65 @@ struct Address {
 //     format!("List account history for address {}", address)
 // }
 
-fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<ScriptAggregation>> {
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationResponse {
+    pub id: String,
+    pub hid: String,
+    pub block: BlockContext,
+    pub script: ScriptAggregationScriptResponse,
+    pub statistic: ScriptAggregationStatisticResponse,
+    pub amount: ScriptAggregationAmountResponse,
+}
+
+impl From<ScriptAggregation> for ScriptAggregationResponse {
+    fn from(v: ScriptAggregation) -> Self {
+        Self {
+            id: format!("{}{}", hex::encode(v.id.1.to_be_bytes()), v.id.0),
+            hid: v.hid,
+            block: v.block,
+            script: ScriptAggregationScriptResponse {
+                r#type: v.script.r#type,
+                hex: v.script.hex.as_hex().to_string(),
+            },
+            statistic: ScriptAggregationStatisticResponse {
+                tx_count: v.statistic.tx_count,
+                tx_in_count: v.statistic.tx_in_count,
+                tx_out_count: v.statistic.tx_out_count,
+            },
+            amount: ScriptAggregationAmountResponse {
+                tx_in: v.amount.tx_in,
+                tx_out: v.amount.tx_out,
+                unspent: v.amount.unspent,
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationScriptResponse {
+    pub r#type: String,
+    pub hex: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationStatisticResponse {
+    pub tx_count: i32,
+    pub tx_in_count: i32,
+    pub tx_out_count: i32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationAmountResponse {
+    pub tx_in: String,
+    pub tx_out: String,
+    pub unspent: String,
+}
+
+fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<ScriptAggregationResponse>> {
     let latest = ctx
         .services
         .script_aggregation
@@ -60,12 +119,12 @@ fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<S
         })
         .map(|item| {
             let (_, v) = item?;
-            Ok(v)
+            let res = v.into();
+            Ok(res)
         })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(latest.first().cloned())
-
 }
 
 #[ocean_endpoint]
@@ -86,7 +145,7 @@ async fn get_balance(
 async fn get_aggregation(
     Path(Address { address }): Path<Address>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Option<ScriptAggregation>>> {
+) -> Result<Response<Option<ScriptAggregationResponse>>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     Ok(Response::new(aggregation))
