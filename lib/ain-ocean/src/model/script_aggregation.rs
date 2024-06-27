@@ -1,9 +1,8 @@
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type ScriptAggregationId = (u32, String); // (block.height, hid)
+pub type ScriptAggregationId = (String, u32); // (hid, block.height)
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptAggregation {

@@ -52,10 +52,10 @@ fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<S
         .services
         .script_aggregation
         .by_id
-        .list(Some((u32::MAX, hid.clone())), SortOrder::Descending)?
+        .list(Some((hid.clone(), u32::MAX)), SortOrder::Descending)?
         .take(1)
         .take_while(|item| match item {
-            Ok(((_, v), _)) => v == &hid,
+            Ok(((v, _), _)) => v == &hid,
             _ => true,
         })
         .map(|item| {

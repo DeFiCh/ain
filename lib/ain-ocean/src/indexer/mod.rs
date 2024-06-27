@@ -136,6 +136,44 @@ fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
     }
 }
 
+fn find_tx_vout(services: &Arc<Services>, block: &Block<Transaction>, vin: &VinStandard) -> Result<Option<TransactionVout>> {
+    let tx = block
+        .tx
+        .clone()
+        .into_iter()
+        .find(|tx| tx.txid == vin.txid);
+
+    let tx_vout = if let Some(tx) = tx {
+        let vout = tx
+            .vout
+            .into_iter()
+            .find(|vout| vout.n == vin.vout);
+
+        if let Some(vout) = vout {
+            let value =
+                Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
+            let tx_vout = TransactionVout {
+                id: format!("{}{:x}", tx.txid, vin.vout),
+                txid: tx.txid,
+                n: vout.n,
+                value: format!("{:.8}", value),
+                token_id: vout.token_id,
+                script: TransactionVoutScript {
+                    r#type: vout.script_pub_key.r#type.clone(),
+                    hex: vout.script_pub_key.hex.clone(),
+                },
+            };
+            Some(tx_vout)
+        } else {
+            services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?
+        }
+    } else {
+        None
+    };
+
+    Ok(tx_vout)
+}
+
 fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
         if check_if_evm_tx(tx) {
@@ -270,7 +308,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             aggregation
         } else {
             let aggregation = ScriptAggregation {
-                id: (block.height, hid.clone()),
+                id: (hid.clone(), block.height),
                 hid: hid.clone(),
                 block: BlockContext {
                     hash: block.hash,
@@ -309,43 +347,13 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 continue;
             }
             let vin = vin_standard.unwrap();
-            let tx_vout = if tx.txid == vin.txid {
-                let vout = tx.vout.iter().find(|vout| vout.n == vin.vout);
-                if let Some(vout) = vout {
-                    let value =
-                        Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
-                    let tx_vout = TransactionVout {
-                        id: format!("{}{:x}", tx.txid, vin.vout),
-                        txid: tx.txid,
-                        n: vout.n,
-                        value: format!("{:.8}", value),
-                        token_id: vout.token_id,
-                        script: TransactionVoutScript {
-                            r#type: vout.script_pub_key.r#type.clone(),
-                            hex: vout.script_pub_key.hex.clone(),
-                        },
-                    };
-                    Some(tx_vout)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
 
-            let vout = if let Some(tx_vout) = tx_vout {
-                tx_vout
-            } else {
-                let tx_vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
-                if tx_vout.is_none() {
-                    return Err(Error::NotFoundIndex(
-                        IndexAction::Index,
-                        "TransactionVout".to_string(),
-                        format!("{}-{}", vin.txid, vin.vout),
-                    ));
-                }
-                tx_vout.unwrap()
-            };
+            let vout = find_tx_vout(services, block, &vin)?;
+            if vout.is_none() {
+                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
+                continue;
+            }
+            let vout = vout.unwrap();
 
             // SPENT (REMOVE)
             let mut aggregation =
@@ -355,6 +363,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 .checked_add(Decimal::from_str(&vout.value)?)
                 .ok_or(Error::OverflowError)?
                 .to_string();
+            record.insert(aggregation.hid.clone(), aggregation);
         }
 
         for vout in tx.vout.iter() {
@@ -374,51 +383,53 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 .checked_add(Decimal::from_f64(vout.value).unwrap_or_default())
                 .ok_or(Error::OverflowError)?
                 .to_string();
+            record.insert(aggregation.hid.clone(), aggregation);
         }
+    }
 
-        for (_, mut aggregation) in record.clone().into_iter() {
-            let repo = &services.script_aggregation;
-            let latest = repo
-                .by_id
-                .list(
-                    Some((u32::MAX, aggregation.hid.clone())),
-                    SortOrder::Descending,
-                )?
-                .take(1)
-                .take_while(|item| match item {
-                    Ok(((_, hid), _)) => &aggregation.hid == hid,
-                    _ => true,
-                })
-                .map(|item| {
-                    let (_, v) = item?;
-                    Ok(v)
-                })
-                .collect::<Result<Vec<_>>>()?;
+    for (_, mut aggregation) in record.clone().into_iter() {
+        let repo = &services.script_aggregation;
+        let latest = repo
+            .by_id
+            .list(
+                Some((aggregation.hid.clone(), u32::MAX)),
+                SortOrder::Descending,
+            )?
+            .take(1)
+            .take_while(|item| match item {
+                Ok(((hid, _), _)) => &aggregation.hid == hid,
+                _ => true,
+            })
+            .map(|item| {
+                let (_, v) = item?;
+                Ok(v)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-            if let Some(latest) = latest.first().cloned() {
-                aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
-                aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
+        if let Some(latest) = latest.first().cloned() {
+            aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
+            aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 
-                aggregation.amount.tx_in = Decimal::from_str(&aggregation.amount.tx_in)?
-                    .checked_add(Decimal::from_str(&latest.amount.tx_in)?)
-                    .ok_or(Error::OverflowError)?
-                    .to_string();
-                aggregation.amount.tx_out = Decimal::from_str(&aggregation.amount.tx_out)?
-                    .checked_add(Decimal::from_str(&latest.amount.tx_out)?)
-                    .ok_or(Error::OverflowError)?
-                    .to_string();
-            }
-
-            aggregation.statistic.tx_count =
-                aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
-            aggregation.amount.unspent = Decimal::from_str(&aggregation.amount.tx_in)?
-                .checked_sub(Decimal::from_str(&aggregation.amount.tx_out)?)
-                .unwrap_or_default()
+            aggregation.amount.tx_in = Decimal::from_str(&aggregation.amount.tx_in)?
+                .checked_add(Decimal::from_str(&latest.amount.tx_in)?)
+                .ok_or(Error::OverflowError)?
                 .to_string();
-
-            repo.by_id
-                .put(&(block.height, aggregation.hid.clone()), &aggregation)?;
+            aggregation.amount.tx_out = Decimal::from_str(&aggregation.amount.tx_out)?
+                .checked_add(Decimal::from_str(&latest.amount.tx_out)?)
+                .ok_or(Error::OverflowError)?
+                .to_string();
         }
+
+        aggregation.statistic.tx_count =
+            aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
+        aggregation.amount.unspent = Decimal::from_str(&aggregation.amount.tx_in)?
+            .checked_sub(Decimal::from_str(&aggregation.amount.tx_out)?)
+            .unwrap_or_default()
+            .to_string();
+        record.insert(aggregation.hid.clone(), aggregation.clone());
+
+        repo.by_id
+            .put(&(aggregation.hid.clone(), block.height), &aggregation)?;
     }
     Ok(())
 }
@@ -487,6 +498,12 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     // dftx
     index_block_start(services, &block)?;
 
+    // index_script_activity(services, &block)?;
+
+    index_script_aggregation(services, &block)?;
+
+    // index_script_unspent(services, &block)?;
+
     for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
         if is_skipped_tx(&tx.txid) {
             continue;
@@ -499,11 +516,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx_idx,
         };
 
-        index_script_activity(services, &block)?;
-
-        index_script_aggregation(services, &block)?;
-
-        index_script_unspent(services, &block)?;
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
