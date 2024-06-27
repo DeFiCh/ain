@@ -109,7 +109,7 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
-static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap, const std::string tokenSuffix= "/v") {
+static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap, const std::string tokenSuffix = "/v") {
     const auto evmEnabled = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -424,41 +424,39 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         // Add token lock creations TXs: duplicate code from AddSplitDVMTxs.
         // TODO: refactor
 
-                SplitMap lockSplitMapEVM;
-                auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
-                    LogPrintf("add creation Tx %d %d\n", id, isToken);
-                    CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                    int64_t multiplier = COIN;
-                    metadata << (isToken?0:1) << id << multiplier;
+        SplitMap lockSplitMapEVM;
+        auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
+            LogPrintf("add creation Tx %d %d\n", id, isToken);
+            CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+            int64_t multiplier = COIN;
+            metadata << (isToken ? 0 : 1) << id << multiplier;
 
-                    CMutableTransaction mTx(txVersion);
-                    mTx.vin.resize(1);
-                    mTx.vin[0].prevout.SetNull();
-                    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                    mTx.vout.resize(1);
-                    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                    mTx.vout[0].nValue = 0;
-                    auto tx = MakeTransactionRef(std::move(mTx));
-                    if (isToken) {
-                        lockSplitMapEVM[id] = std::make_pair(multiplier, tx->GetHash());
-                    }
-                    pblock->vtx.push_back(tx);
-                    pblocktemplate->vTxFees.push_back(0);
-                    pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
-           GetLegacySigOpCount(*pblock->vtx.back()));
-                };
-                ForEachLockTokenAndPool(
-                    [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
-                        createTokenLockSplitTx(id.v,true);
-                        return true;
-                    },
-                    [&](const DCT_ID &id, const CPoolPair &token) {
-                        createTokenLockSplitTx(id.v, false);
-                        return true;
-                    },
-                    mnview);
-                AddSplitEVMTxs(blockCtx, lockSplitMapEVM,"/lock");
-
+            CMutableTransaction mTx(txVersion);
+            mTx.vin.resize(1);
+            mTx.vin[0].prevout.SetNull();
+            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+            mTx.vout.resize(1);
+            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+            mTx.vout[0].nValue = 0;
+            auto tx = MakeTransactionRef(std::move(mTx));
+            if (isToken) {
+                lockSplitMapEVM[id] = std::make_pair(multiplier, tx->GetHash());
+            }
+            pblock->vtx.push_back(tx);
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+        };
+        ForEachLockTokenAndPool(
+            [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+                createTokenLockSplitTx(id.v, true);
+                return true;
+            },
+            [&](const DCT_ID &id, const CPoolPair &token) {
+                createTokenLockSplitTx(id.v, false);
+                return true;
+            },
+            mnview);
+        AddSplitEVMTxs(blockCtx, lockSplitMapEVM, "/lock");
     }
 
     XVM xvm{};
