@@ -1,4 +1,4 @@
-use std::{fmt, num::ParseIntError};
+use std::{fmt, num::{ParseIntError, ParseFloatError}};
 
 use ain_db::DBError;
 use anyhow::format_err;
@@ -51,6 +51,8 @@ pub enum Error {
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]
     ParseIntError(#[from] ParseIntError),
+    #[error("Ocean: ParseFloatError error: {0:?}")]
+    ParseFloatError(#[from] ParseFloatError),
     #[error("Ocean: DBError error: {0:?}")]
     DBError(#[from] DBError),
     #[error("Ocean: IO error: {0:?}")]
@@ -67,7 +69,7 @@ pub enum Error {
     RpcError(#[from] defichain_rpc::Error),
     #[error("Unable to find {0:}")]
     NotFound(NotFoundKind),
-    #[error("attempting to sync:{0:?} but type:{0:?} with id:{0:?} cannot be found in the index")]
+    #[error("attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index")]
     NotFoundIndex(IndexAction, String, String),
     #[error("Ocean: Decimal error: {0:?}")]
     DecimalError(#[from] rust_decimal::Error),

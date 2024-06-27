@@ -1,3 +1,4 @@
+use crate::model;
 use ain_db::{Column, ColumnName, TypedColumn};
 
 #[derive(Debug)]
@@ -8,9 +9,9 @@ impl ColumnName for ScriptAggregation {
 }
 
 impl Column for ScriptAggregation {
-    type Index = String;
+    type Index = model::ScriptAggregationId;
 }
 
 impl TypedColumn for ScriptAggregation {
-    type Type = String;
+    type Type = model::ScriptAggregation;
 }

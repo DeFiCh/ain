@@ -4,19 +4,21 @@ use super::{
     common::address_to_hid,
     path::Path,
     query::{PaginationQuery, Query},
-    response::ApiPagedResponse,
+    response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
     error::ApiError,
-    model::{ScriptActivity, ScriptUnspent},
+    model::{BlockContext, ScriptActivity, ScriptAggregation, ScriptUnspent},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
 };
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use serde::Deserialize;
+use bitcoin::hex::DisplayHex;
+use rust_decimal::Decimal;
+use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize)]
 struct Address {
@@ -47,13 +49,108 @@ struct Address {
 //     format!("List account history for address {}", address)
 // }
 
-// async fn get_balance(Path(Address { address }): Path<Address>) -> String {
-//     format!("balance for address {address}")
-// }
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationResponse {
+    pub id: String,
+    pub hid: String,
+    pub block: BlockContext,
+    pub script: ScriptAggregationScriptResponse,
+    pub statistic: ScriptAggregationStatisticResponse,
+    pub amount: ScriptAggregationAmountResponse,
+}
 
-// async fn get_aggregation(Path(Address { address }): Path<Address>) -> String {
-//     format!("Aggregation for address {}", address)
-// }
+impl From<ScriptAggregation> for ScriptAggregationResponse {
+    fn from(v: ScriptAggregation) -> Self {
+        Self {
+            id: format!("{}{}", hex::encode(v.id.1.to_be_bytes()), v.id.0),
+            hid: v.hid,
+            block: v.block,
+            script: ScriptAggregationScriptResponse {
+                r#type: v.script.r#type,
+                hex: v.script.hex.as_hex().to_string(),
+            },
+            statistic: ScriptAggregationStatisticResponse {
+                tx_count: v.statistic.tx_count,
+                tx_in_count: v.statistic.tx_in_count,
+                tx_out_count: v.statistic.tx_out_count,
+            },
+            amount: ScriptAggregationAmountResponse {
+                tx_in: format!("{:.8}",v.amount.tx_in),
+                tx_out: format!("{:.8}",v.amount.tx_out),
+                unspent: format!("{:.8}",v.amount.unspent),
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationScriptResponse {
+    pub r#type: String,
+    pub hex: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationStatisticResponse {
+    pub tx_count: i32,
+    pub tx_in_count: i32,
+    pub tx_out_count: i32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptAggregationAmountResponse {
+    pub tx_in: String,
+    pub tx_out: String,
+    pub unspent: String,
+}
+
+fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<ScriptAggregationResponse>> {
+    let latest = ctx
+        .services
+        .script_aggregation
+        .by_id
+        .list(Some((hid.clone(), u32::MAX)), SortOrder::Descending)?
+        .take(1)
+        .take_while(|item| match item {
+            Ok(((v, _), _)) => v == &hid,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, v) = item?;
+            let res = v.into();
+            Ok(res)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(latest.first().cloned())
+}
+
+#[ocean_endpoint]
+async fn get_balance(
+    Path(Address { address }): Path<Address>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<String>> {
+    let hid = address_to_hid(&address, ctx.network.into())?;
+    let aggregation = get_latest_aggregation(&ctx, hid)?;
+    if aggregation.is_none() {
+        return Ok(Response::new("0.00000000".to_string()))
+    }
+    let aggregation = aggregation.unwrap();
+    Ok(Response::new(aggregation.amount.unspent))
+}
+
+#[ocean_endpoint]
+async fn get_aggregation(
+    Path(Address { address }): Path<Address>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<Option<ScriptAggregationResponse>>> {
+    let hid = address_to_hid(&address, ctx.network.into())?;
+    let aggregation = get_latest_aggregation(&ctx, hid)?;
+    Ok(Response::new(aggregation))
+}
 
 // async fn list_token(Path(Address { address }): Path<Address>) -> String {
 //     format!("List tokens for address {}", address)
@@ -118,8 +215,8 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         // .route("/history/:height/:txno", get(get_account_history))
         // .route("/history", get(list_account_history))
-        // .route("/balance", get(get_balance))
-        // .route("/aggregation", get(get_aggregation))
+        .route("/:address/balance", get(get_balance))
+        .route("/:address/aggregation", get(get_aggregation))
         // .route("/tokens", get(list_token))
         // .route("/vaults", get(list_vault))
         .route("/:address/transactions", get(list_transaction))
