@@ -17,6 +17,7 @@ use crate::{
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::hex::DisplayHex;
+use rust_decimal::Decimal;
 use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize)]
@@ -135,10 +136,10 @@ async fn get_balance(
     let hid = address_to_hid(&address, ctx.network.into())?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     if aggregation.is_none() {
-        return Ok(Response::new("0".to_string()))
+        return Ok(Response::new(Decimal::new(0, 8).to_string()))
     }
     let aggregation = aggregation.unwrap();
-    Ok(Response::new(format!("{:8}", aggregation.amount.unspent)))
+    Ok(Response::new(format!("{:.8}", aggregation.amount.unspent)))
 }
 
 #[ocean_endpoint]
