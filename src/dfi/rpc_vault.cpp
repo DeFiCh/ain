@@ -1365,8 +1365,9 @@ UniValue listauctionhistory(const JSONRPCRequest &request) {
     UniValue ret(UniValue::VARR);
 
     auto view = ::GetViewSnapshot();
+    auto accountView = ::GetHistorySnapshot();
 
-    paccountHistoryDB->ForEachAuctionHistory(
+    accountView->ForEachAuctionHistory(
         [&](const AuctionHistoryKey &key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
             if (filter == 0 && start.owner != key.owner) {
                 return true;

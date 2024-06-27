@@ -1380,6 +1380,7 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
     auto view = ::GetViewSnapshot();
+    auto accountView = ::GetHistorySnapshot();
 
     auto hasToken = [&](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
@@ -1493,7 +1494,7 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
 
         if (!noRewards && !account.empty()) {
             // revert previous tx to restore account balances to maxBlockHeight
-            paccountHistoryDB->ForEachAccountHistory(
+            accountView->ForEachAccountHistory(
                 [&](const AccountHistoryKey &key, const AccountHistoryValue &value) {
                     if (maxBlockHeight > key.blockHeight) {
                         return false;
@@ -1507,7 +1508,7 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
                 account);
         }
 
-        paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
+        accountView->ForEachAccountHistory(shouldContinueToNextAccountHistory, account, maxBlockHeight, txn);
 
         if (shouldSearchInWallet) {
             count = limit + start;
@@ -1576,11 +1577,12 @@ UniValue getaccounthistory(const JSONRPCRequest &request) {
     uint32_t txn = request.params[2].get_int();
 
     auto view = ::GetViewSnapshot();
+    auto accountView = ::GetHistorySnapshot();
 
     UniValue result(UniValue::VOBJ);
     AccountHistoryKey AccountKey{owner, blockHeight, txn};
     LOCK(cs_main);
-    if (auto value = paccountHistoryDB->ReadAccountHistory(AccountKey)) {
+    if (auto value = accountView->ReadAccountHistory(AccountKey)) {
         result = accounthistoryToJSON(*view, AccountKey, *value);
     }
 
@@ -1880,6 +1882,7 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
     auto view = ::GetViewSnapshot();
+    auto accountView = ::GetHistorySnapshot();
 
     auto hasToken = [&](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
@@ -1947,7 +1950,7 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
             return true;
         };
 
-        paccountHistoryDB->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
+        accountView->ForEachAccountHistory(shouldContinueToNextAccountHistory, owner, currentHeight);
 
         if (shouldSearchInWallet) {
             searchInWallet(
