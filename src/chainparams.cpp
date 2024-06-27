@@ -1336,6 +1336,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.DF1AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.DF2BayfrontHeight);
+    UpdateHeightValidation("Bayfront Marina", "-bayfrontmarinaheight", consensus.DF3BayfrontMarinaHeight);
     UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.DF4BayfrontGardensHeight);
     UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.DF5ClarkeQuayHeight);
     UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DF6DakotaHeight);
