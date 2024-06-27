@@ -267,7 +267,9 @@ static UniValue DecodeRecipientsGetRecipients(const UniValue &values) {
     return recipients;
 }
 
-static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet, const UniValue &values, bool checkOwnership = true) {
+static CAccounts DecodeRecipientsDefaultInternal(CWallet *const pwallet,
+                                                 const UniValue &values,
+                                                 bool checkOwnership = true) {
     const auto recipients = DecodeRecipientsGetRecipients(values);
     auto accounts = DecodeRecipients(pwallet->chain(), recipients);
     if (!checkOwnership) {
