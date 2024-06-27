@@ -16,8 +16,6 @@ use crate::{
 };
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -74,14 +72,14 @@ fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<S
 async fn get_balance(
     Path(Address { address }): Path<Address>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Decimal>> {
+) -> Result<Response<String>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     if aggregation.is_none() {
-        return Ok(Response::new(dec!(0)))
+        return Ok(Response::new("0".to_string()))
     }
     let aggregation = aggregation.unwrap();
-    Ok(Response::new(aggregation.amount.unspent))
+    Ok(Response::new(format!("{:8}", aggregation.amount.unspent)))
 }
 
 #[ocean_endpoint]
