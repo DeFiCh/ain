@@ -30,7 +30,7 @@ pub struct ScriptAggregationStatistic {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptAggregationAmount {
-    pub tx_in: Decimal,
-    pub tx_out: Decimal,
-    pub unspent: Decimal,
+    pub tx_in: String,
+    pub tx_out: String,
+    pub unspent: String,
 }
