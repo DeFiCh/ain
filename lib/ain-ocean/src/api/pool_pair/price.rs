@@ -1,10 +1,9 @@
-use serde::Serialize;
 use std::{collections::HashMap, sync::Arc};
 
 use defichain_rpc::json::token::TokenInfo;
+use serde::Serialize;
 
 use super::{path::get_best_path, AppContext};
-
 use crate::{
     api::{
         cache::{get_token_cached, list_token_cached},

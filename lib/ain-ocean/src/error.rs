@@ -26,6 +26,8 @@ pub enum NotFoundKind {
     Token,
     #[error("poolpair")]
     PoolPair,
+    #[error("rawtx")]
+    RawTx,
 }
 
 #[derive(Error, Debug)]
@@ -70,6 +72,10 @@ pub enum Error {
     TryFromIntError(#[from] std::num::TryFromIntError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+    #[error("{0}")]
+    BadRequest(String),
 }
 
 #[derive(Serialize)]
@@ -146,6 +152,7 @@ impl Error {
                 )
             }
             Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{self}")),
+            Error::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)
