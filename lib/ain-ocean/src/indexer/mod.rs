@@ -182,43 +182,12 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 continue;
             }
             let vin = vin_standard.unwrap();
-            let tx_vout = if tx.txid == vin.txid {
-                let vout = tx.vout.iter().find(|vout| vout.n == vin.vout);
-                if let Some(vout) = vout {
-                    let value =
-                        Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
-                    let tx_vout = TransactionVout {
-                        id: format!("{}{:x}", tx.txid, vin.vout),
-                        txid: tx.txid,
-                        n: vout.n,
-                        value: format!("{:.8}", value),
-                        token_id: vout.token_id,
-                        script: TransactionVoutScript {
-                            r#type: vout.script_pub_key.r#type.clone(),
-                            hex: vout.script_pub_key.hex.clone(),
-                        },
-                    };
-                    Some(tx_vout)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            let vout = if let Some(tx_vout) = tx_vout {
-                tx_vout
-            } else {
-                let tx_vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
-                if tx_vout.is_none() {
-                    return Err(Error::NotFoundIndex(
-                        IndexAction::Index,
-                        "TransactionVout".to_string(),
-                        format!("{}-{}", vin.txid, vin.vout),
-                    ));
-                }
-                tx_vout.unwrap()
-            };
+            let vout = find_tx_vout(services, block, &vin)?;
+            if vout.is_none() {
+                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
+                continue;
+            }
+            let vout = vout.unwrap();
 
             let id = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
             let hid = as_sha256(vout.script.hex.clone()); // as key
