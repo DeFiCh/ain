@@ -136,22 +136,18 @@ fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
     }
 }
 
-fn find_tx_vout(services: &Arc<Services>, block: &Block<Transaction>, vin: &VinStandard) -> Result<Option<TransactionVout>> {
-    let tx = block
-        .tx
-        .clone()
-        .into_iter()
-        .find(|tx| tx.txid == vin.txid);
+fn find_tx_vout(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+    vin: &VinStandard,
+) -> Result<Option<TransactionVout>> {
+    let tx = block.tx.clone().into_iter().find(|tx| tx.txid == vin.txid);
 
     let tx_vout = if let Some(tx) = tx {
-        let vout = tx
-            .vout
-            .into_iter()
-            .find(|vout| vout.n == vin.vout);
+        let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
 
         if let Some(vout) = vout {
-            let value =
-                Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
+            let value = Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
             let tx_vout = TransactionVout {
                 id: format!("{}{:x}", tx.txid, vin.vout),
                 txid: tx.txid,
@@ -432,10 +428,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             }
             let vin = vin_standard.unwrap();
             let key = (block.height, vin.txid, vin.vout);
-            let id = services
-                .script_unspent
-                .by_key
-                .get(&key)?;
+            let id = services.script_unspent.by_key.get(&key)?;
             if let Some(id) = id {
                 services.script_unspent.by_id.delete(&id)?;
                 services.script_unspent.by_key.delete(&key)?
@@ -447,7 +440,12 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             let script_unspent = ScriptUnspent {
                 id: format!("{}{}", tx.txid, hex::encode(vout.n.to_be_bytes())),
                 hid: hid.clone(),
-                sort: format!("{}{}{}", hex::encode(block.height.to_be_bytes()), tx.txid, hex::encode(vout.n.to_be_bytes())),
+                sort: format!(
+                    "{}{}{}",
+                    hex::encode(block.height.to_be_bytes()),
+                    tx.txid,
+                    hex::encode(vout.n.to_be_bytes())
+                ),
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -466,7 +464,12 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                 },
             };
 
-            let id = (hid.clone(), hex::encode(block.height.to_be_bytes()), tx.txid, hex::encode(vout.n.to_be_bytes()));
+            let id = (
+                hid.clone(),
+                hex::encode(block.height.to_be_bytes()),
+                tx.txid,
+                hex::encode(vout.n.to_be_bytes()),
+            );
             let key = (block.height, tx.txid, vout.n);
             services.script_unspent.by_key.put(&key, &id)?;
             services.script_unspent.by_id.put(&id, &script_unspent)?
@@ -491,7 +494,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     // dftx
     index_block_start(services, &block)?;
 
-    // index_script_activity(services, &block)?;
+    index_script_activity(services, &block)?;
 
     index_script_aggregation(services, &block)?;
 
@@ -508,7 +511,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx,
             tx_idx,
         };
-
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
