@@ -1,3 +1,4 @@
+use crate::model;
 use ain_db::{Column, ColumnName, TypedColumn};
 
 #[derive(Debug)]
@@ -8,9 +9,24 @@ impl ColumnName for ScriptUnspent {
 }
 
 impl Column for ScriptUnspent {
-    type Index = String;
+    type Index = model::ScriptUnspentId;
 }
 
 impl TypedColumn for ScriptUnspent {
-    type Type = String;
+    type Type = model::ScriptUnspent;
+}
+
+#[derive(Debug)]
+pub struct ScriptUnspentKey;
+
+impl ColumnName for ScriptUnspentKey {
+    const NAME: &'static str = "script_unspent_key";
+}
+
+impl Column for ScriptUnspentKey {
+    type Index = model::ScriptUnspentKey;
+}
+
+impl TypedColumn for ScriptUnspentKey {
+    type Type = model::ScriptUnspentId;
 }
