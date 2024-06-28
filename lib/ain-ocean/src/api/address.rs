@@ -17,7 +17,7 @@ use crate::{
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 struct Address {
@@ -75,10 +75,10 @@ impl From<ScriptAggregation> for ScriptAggregationResponse {
                 tx_out_count: v.statistic.tx_out_count,
             },
             amount: ScriptAggregationAmountResponse {
-                tx_in: format!("{:.8}",v.amount.tx_in),
-                tx_out: format!("{:.8}",v.amount.tx_out),
-                unspent: format!("{:.8}",v.amount.unspent),
-            }
+                tx_in: format!("{:.8}", v.amount.tx_in),
+                tx_out: format!("{:.8}", v.amount.tx_out),
+                unspent: format!("{:.8}", v.amount.unspent),
+            },
         }
     }
 }
@@ -106,7 +106,10 @@ pub struct ScriptAggregationAmountResponse {
     pub unspent: String,
 }
 
-fn get_latest_aggregation(ctx: &Arc<AppContext>, hid: String) -> Result<Option<ScriptAggregationResponse>> {
+fn get_latest_aggregation(
+    ctx: &Arc<AppContext>,
+    hid: String,
+) -> Result<Option<ScriptAggregationResponse>> {
     let latest = ctx
         .services
         .script_aggregation
@@ -135,7 +138,7 @@ async fn get_balance(
     let hid = address_to_hid(&address, ctx.network.into())?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     if aggregation.is_none() {
-        return Ok(Response::new("0.00000000".to_string()))
+        return Ok(Response::new("0.00000000".to_string()));
     }
     let aggregation = aggregation.unwrap();
     Ok(Response::new(aggregation.amount.unspent))
@@ -247,20 +250,27 @@ async fn list_transaction_unspent(
         .as_ref()
         .map(|next| {
             let height = &next[0..8];
-            let txid = &next[8..64+8];
-            let n = &next[64+8..];
+            let txid = &next[8..64 + 8];
+            let n = &next[64 + 8..];
 
             let txid = Txid::from_str(txid)?;
             Ok::<(String, Txid, String), Error>((height.to_string(), txid, n.to_string()))
         })
         .transpose()?
-        .unwrap_or(("0".to_string(), Txid::from_byte_array([0x00u8; 32]), "0".to_string()));
+        .unwrap_or((
+            "0".to_string(),
+            Txid::from_byte_array([0x00u8; 32]),
+            "0".to_string(),
+        ));
 
     let res = ctx
         .services
         .script_unspent
         .by_id
-        .list(Some((hid.clone(), next.0, next.1, next.2)), SortOrder::Ascending)?
+        .list(
+            Some((hid.clone(), next.0, next.1, next.2)),
+            SortOrder::Ascending,
+        )?
         .skip(query.next.is_some() as usize)
         .take(query.size)
         .take_while(|item| match item {
