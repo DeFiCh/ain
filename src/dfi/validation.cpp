@@ -2644,10 +2644,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         return DeFiErrors::VaultInvalid(vaultId);
     }
 
-    // get price of loanToken
-    CAmount loanUsdPrice{0};
-    auto paybackAmountInLoanToken = wantedPaybackAmount;
-    if (useDUSDCollateral && dusdToken->first != loanTokenId) {
+    if(useDUSDCollateral) {
         const auto collaterals = mnview.GetVaultCollaterals(vaultId);
         if (!collaterals) {
             return DeFiErrors::LoanInvalidVault(vaultId);
@@ -2660,7 +2657,12 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         if (currentCollAmount < wantedPaybackAmount) {
             wantedPaybackAmount = currentCollAmount;
         }
+    }
 
+    // get price of loanToken
+    CAmount loanUsdPrice{0};
+    auto paybackAmountInLoanToken = wantedPaybackAmount;
+    if (useDUSDCollateral && dusdToken->first != loanTokenId) {
         // Get dToken price in USD
         const CTokenCurrencyPair dTokenUsdPair{loanToken->symbol, "USD"};
         bool useNextPrice{false}, requireLivePrice{true};
@@ -2672,6 +2674,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         loanUsdPrice = *resVal.val;
         paybackAmountInLoanToken = DivideAmounts(wantedPaybackAmount, loanUsdPrice);
     }
+    LogPrintf("paying back %d for token %d %s DUSD collateral to vault %s\n", paybackAmountInLoanToken, loanTokenId.v, useDUSDCollateral?"with":"without", vaultId.ToString());
     // get needed DUSD to payback
     // if not enough: pay only interest, then part of loan
 
@@ -2762,9 +2765,11 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                          height);
                 res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
             } else {
+                LogPrintf("taking %d DUSD collateral\n", subLoan);
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
             }
             if (!res) {
+                LogPrintf("error taking value for loanpayback %s\n", res.dbgMsg);
                 return res;
             }
         }
@@ -2781,6 +2786,8 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                     return res;
                 }
             } else {
+                LogPrintf("burn DUSD for interest directly\n");
+
                 // direct burn
                 CTokenAmount dUSD{dusdToken->first, subInterest};
 
@@ -2793,6 +2800,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             }
         }
     } else {
+        //use DUSD collateral for dToken
         CAmount subInToken;
         const auto subAmount = subLoan + subInterest;
 
@@ -2813,6 +2821,8 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         attributes->SetValue(liveKey, balances);
 
         CTokenAmount collAmount{dusdToken->first, subInToken};
+
+        LogPrintf("burning %d DUSD collateral", subInToken);
         if (auto res = mnview.SubVaultCollateral(vaultId, collAmount); !res) {
             LogPrintf("Error removing collateral %s\n", res);
             return res;
@@ -2846,8 +2856,13 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
             collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
             collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
             for (const auto &[tokenId, amount] : balances.balances) {
+                auto neededAmount= amount;
+                const auto rate = cache.GetInterestRate(vaultId, tokenId, blockCtx.GetHeight());
+                if (rate) {
+                    neededAmount += TotalInterest(*rate, blockCtx.GetHeight());
+                }
                 collToLoans.back().loansWithUSDValue.emplace_back(std::make_pair<CTokenAmount, CAmount>(
-                    {tokenId, amount}, MultiplyAmounts(amount, usdPrices.at(tokenId))));
+                    {tokenId, neededAmount}, MultiplyAmounts(neededAmount, usdPrices.at(tokenId))));
             }
         }
         return true;
@@ -2922,6 +2937,7 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
         cache.SubVaultCollateral(data.vaultId, moved);
         cache.AddBalance(contractAddressValue, moved);
         totalCollToSwap += data.usedCollateralAmount;
+        LogPrintf("swapping %d from vault %s\n", data.usedCollateralAmount,data.vaultId.ToString());
     }
     swapMessage.amountFrom = totalCollToSwap;
 
@@ -2934,9 +2950,10 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
+        LogPrintf("adding %d DUSD to vault %s\n", dusdResult.nValue, data.vaultId.ToString());
         for (const auto &loan : data.loansWithUSDValue) {
             PaybackLoanWithTokenOrDUSDCollateral(
-                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, loan.first.nTokenId,true);
+                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
             dusdResult.nValue -= loan.second;
         }
         if (dusdResult.nValue > 0) {
@@ -3011,7 +3028,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     });
     for (const auto &[owner, vaultId, amount, tokenId] : dusdPaybacks) {
         // for multiple loans, the method fails/reduces used amount if no more collateral left
-        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId,true);
+        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, true);
     }
 
     // TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the
@@ -3051,7 +3068,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     std::sort(gatewaypools.begin(), gatewaypools.end(), [&](const CPoolPair &p1, const CPoolPair &p2) {
         auto dusd1reserve = p1.idTokenA == dUsdToken->first ? p1.reserveA : p1.reserveB;
         auto dusd2reserve = p2.idTokenA == dUsdToken->first ? p2.reserveA : p2.reserveB;
-        return dusd1reserve < dusd2reserve;
+        return dusd1reserve > dusd2reserve;
     });
     std::stringstream log;
     for (const auto &pool : gatewaypools) {
