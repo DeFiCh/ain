@@ -328,8 +328,6 @@ inline auto InterestAddition = [](const CInterestAmount &a, const CInterestAmoun
     return interest;
 };
 
-static const CAmount HIGH_PRECISION_SCALER = COIN * COIN;  // 1,0000,0000,0000,0000
-
 CAmount TotalInterest(const CInterestRateV3 &rate, const uint32_t height);
 CInterestAmount TotalInterestCalculation(const CInterestRateV3 &rate, const uint32_t height);
 CAmount CeilInterest(const base_uint<128> &value, uint32_t height);
