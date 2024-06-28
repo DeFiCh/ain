@@ -95,6 +95,6 @@ class TokenAmount:
         return self._new_with_number(new_number)
 
     def __eq__(self, other):
-        if isinstance(other, NumberWithSymbol):
+        if isinstance(other, TokenAmount):
             return self.number_with_symbol == other.number_with_symbol
         return False
