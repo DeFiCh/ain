@@ -1620,6 +1620,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         return false;
     };
 
+    LOCK(cs_main);  // Lock for pvaultHistoryDB
     std::map<uint32_t, UniValue, std::greater<>> ret;
     const uint32_t height = view->GetLastHeight();
 
