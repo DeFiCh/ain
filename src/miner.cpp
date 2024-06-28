@@ -1177,8 +1177,13 @@ namespace pos {
                     nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
                 }
             } else {
-                // Plus one to avoid time-too-old error on exact median time.
-                nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                if (blockHeight >= static_cast<int64_t>(Params().GetConsensus().DF24Height)) {
+                    // Set time to last block time. New blocks must be after the last block.
+                    nLastCoinStakeSearchTime = tip->GetBlockTime();
+                } else {
+                    // Plus one to avoid time-too-old error on exact median time.
+                    nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
+                }
             }
 
             lastBlockSeen = tip->GetBlockHash();
