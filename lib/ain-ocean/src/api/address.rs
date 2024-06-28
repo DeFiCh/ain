@@ -261,6 +261,7 @@ async fn list_transaction_unspent(
         .script_unspent
         .by_id
         .list(Some((hid.clone(), next.0, next.1, next.2)), SortOrder::Ascending)?
+        .skip(query.next.is_some() as usize)
         .take(query.size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == hid.clone(),
