@@ -2,11 +2,12 @@ use super::BlockContext;
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
-pub type ScriptUnspentId = (Txid, usize); // txid + vout_index
+pub type ScriptUnspentId = (String, String, Txid, String); // hid + hex::encode(block.height) + txid + hex::encode(vout_index)
+pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_index
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptUnspent {
-    pub id: ScriptUnspentId,
+    pub id: String,
     pub hid: String,
     pub sort: String,
     pub block: BlockContext,
@@ -24,6 +25,6 @@ pub struct ScriptUnspentScript {
 pub struct ScriptUnspentVout {
     pub txid: Txid,
     pub n: usize,
-    pub value: String,
+    pub value: f64,
     pub token_id: Option<u32>,
 }

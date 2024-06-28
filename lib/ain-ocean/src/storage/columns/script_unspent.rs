@@ -24,7 +24,7 @@ impl ColumnName for ScriptUnspentKey {
 }
 
 impl Column for ScriptUnspentKey {
-    type Index = String;
+    type Index = model::ScriptUnspentKey;
 }
 
 impl TypedColumn for ScriptUnspentKey {

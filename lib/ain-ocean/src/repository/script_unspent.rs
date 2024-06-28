@@ -5,7 +5,7 @@ use ain_macros::Repository;
 
 use super::{RepositoryOps, SecondaryIndex};
 use crate::{
-    model::{ScriptUnspent, ScriptUnspentId},
+    model::{ScriptUnspent, ScriptUnspentId, ScriptUnspentKey},
     storage::{columns, ocean_store::OceanStore},
     Error, Result,
 };
@@ -18,13 +18,13 @@ pub struct ScriptUnspentRepository {
 }
 
 #[derive(Repository)]
-#[repository(K = "String", V = "ScriptUnspentId")]
+#[repository(K = "ScriptUnspentKey", V = "ScriptUnspentId")]
 pub struct ScriptUnspentKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::ScriptUnspentKey>,
 }
 
-impl SecondaryIndex<String, ScriptUnspentId> for ScriptUnspentKeyRepository {
+impl SecondaryIndex<ScriptUnspentKey, ScriptUnspentId> for ScriptUnspentKeyRepository {
     type Value = ScriptUnspent;
 
     fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {

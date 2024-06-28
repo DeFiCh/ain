@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use super::{
     common::address_to_hid,
@@ -12,12 +12,11 @@ use crate::{
     model::{BlockContext, ScriptActivity, ScriptAggregation, ScriptUnspent},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
-    Result,
+    Error, Result,
 };
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use bitcoin::hex::DisplayHex;
-use rust_decimal::Decimal;
+use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
 use serde::{Serialize, Deserialize};
 
 #[derive(Deserialize)]
@@ -187,23 +186,91 @@ async fn list_transaction(
     }))
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptUnspentResponse {
+    pub id: String,
+    pub hid: String,
+    pub sort: String,
+    pub block: BlockContext,
+    pub script: ScriptUnspentScriptResponse,
+    pub vout: ScriptUnspentVoutResponse,
+}
+
+impl From<ScriptUnspent> for ScriptUnspentResponse {
+    fn from(v: ScriptUnspent) -> Self {
+        Self {
+            id: v.id,
+            hid: v.hid,
+            sort: v.sort,
+            block: v.block,
+            script: ScriptUnspentScriptResponse {
+                r#type: v.script.r#type,
+                hex: v.script.hex.to_lower_hex_string(),
+            },
+            vout: ScriptUnspentVoutResponse {
+                txid: v.vout.txid,
+                n: v.vout.n,
+                value: format!("{:.8}", v.vout.value),
+                token_id: v.vout.token_id,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptUnspentScriptResponse {
+    pub r#type: String,
+    pub hex: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptUnspentVoutResponse {
+    pub txid: Txid,
+    pub n: usize,
+    pub value: String,
+    pub token_id: Option<u32>,
+}
+
 #[ocean_endpoint]
 async fn list_transaction_unspent(
     Path(Address { address }): Path<Address>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<ScriptUnspent>> {
+) -> Result<ApiPagedResponse<ScriptUnspentResponse>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
-    let repo = &ctx.services.script_unspent;
-    let res = repo
-        .by_key
-        .list(query.next, SortOrder::Descending)?
+
+    let next = query
+        .next
+        .as_ref()
+        .map(|next| {
+            let height = &next[0..8];
+            let txid = &next[8..64+8];
+            let n = &next[64+8..];
+
+            let txid = Txid::from_str(txid)?;
+            Ok::<(String, Txid, String), Error>((height.to_string(), txid, n.to_string()))
+        })
+        .transpose()?
+        .unwrap_or(("0".to_string(), Txid::from_byte_array([0x00u8; 32]), "0".to_string()));
+
+    let res = ctx
+        .services
+        .script_unspent
+        .by_id
+        .list(Some((hid.clone(), next.0, next.1, next.2)), SortOrder::Ascending)?
         .take(query.size)
         .take_while(|item| match item {
-            Ok((k, _)) => k == &hid,
+            Ok((k, _)) => k.0 == hid.clone(),
             _ => true,
         })
-        .map(|el| repo.by_key.retrieve_primary_value(el))
+        .map(|item| {
+            let (_, v) = item?;
+            let res = v.into();
+            Ok(res)
+        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |item| {

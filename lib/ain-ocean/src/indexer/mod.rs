@@ -10,7 +10,7 @@ pub mod tx_result;
 
 pub mod helper;
 
-use std::{collections::HashMap, str::FromStr, sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
@@ -431,18 +431,23 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                 continue;
             }
             let vin = vin_standard.unwrap();
-            let id = (vin.txid, vin.vout);
-            // Todo(): delete .by_key(hid)?
-            services.script_unspent.by_id.delete(&id)?
+            let key = (block.height, vin.txid, vin.vout);
+            let id = services
+                .script_unspent
+                .by_key
+                .get(&key)?;
+            if let Some(id) = id {
+                services.script_unspent.by_id.delete(&id)?;
+                services.script_unspent.by_key.delete(&key)?
+            }
         }
 
         for vout in tx.vout.iter() {
-            let id = (tx.txid, vout.n);
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
-                id,
+                id: format!("{}{}", tx.txid, hex::encode(vout.n.to_be_bytes())),
                 hid: hid.clone(),
-                sort: format!("{:x}{}{:x}", block.height, tx.txid, vout.n),
+                sort: format!("{}{}{}", hex::encode(block.height.to_be_bytes()), tx.txid, hex::encode(vout.n.to_be_bytes())),
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -456,11 +461,14 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                 vout: ScriptUnspentVout {
                     txid: tx.txid,
                     n: vout.n,
-                    value: vout.value.to_string(),
+                    value: vout.value,
                     token_id: vout.token_id,
                 },
             };
-            services.script_unspent.by_key.put(&hid, &id)?;
+
+            let id = (hid.clone(), hex::encode(block.height.to_be_bytes()), tx.txid, hex::encode(vout.n.to_be_bytes()));
+            let key = (block.height, tx.txid, vout.n);
+            services.script_unspent.by_key.put(&key, &id)?;
             services.script_unspent.by_id.put(&id, &script_unspent)?
         }
     }
@@ -487,7 +495,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 
     index_script_aggregation(services, &block)?;
 
-    // index_script_unspent(services, &block)?;
+    index_script_unspent(services, &block)?;
 
     for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
         if is_skipped_tx(&tx.txid) {
