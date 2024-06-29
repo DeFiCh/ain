@@ -75,7 +75,7 @@ async fn get_vouts(
         .services
         .transaction
         .vout_by_id
-        .list(Some((id, next)), SortOrder::Descending)?
+        .list(Some((id, next)), SortOrder::Ascending)?
         .paginate(&query)
         .take_while(|item| match item {
             Ok((_, vout)) => vout.txid == id,
