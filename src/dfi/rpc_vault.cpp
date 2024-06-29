@@ -1620,7 +1620,6 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         return false;
     };
 
-    LOCK(cs_main);  // Lock for pvaultHistoryDB
     std::map<uint32_t, UniValue, std::greater<>> ret;
     const uint32_t height = view->GetLastHeight();
 
@@ -1665,9 +1664,9 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         return --count != 0;
     };
 
-    LOCK(cs_main);
+    auto vaultHistory = GetVaultSnapshot();
     VaultHistoryKey startKey{maxBlockHeight, vaultID, std::numeric_limits<uint32_t>::max(), {}};
-    pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
+    vaultHistory->ForEachVaultHistory(shouldContinue, startKey);
 
     // Get vault state changes
     count = limit;
@@ -1691,7 +1690,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     VaultStateKey stateKey{vaultID, maxBlockHeight};
     if (!txTypeSearch) {
-        pvaultHistoryDB->ForEachVaultState(shouldContinueState, stateKey);
+        vaultHistory->ForEachVaultState(shouldContinueState, stateKey);
     }
 
     // Get vault schemes
@@ -1715,7 +1714,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         }
 
         CLoanScheme loanScheme;
-        pvaultHistoryDB->ForEachGlobalScheme(
+        vaultHistory->ForEachGlobalScheme(
             [&](VaultGlobalSchemeKey const &schemeKey, CLazySerialize<VaultGlobalSchemeValue> lazyValue) {
                 if (lazyValue.get().loanScheme.identifier != value.schemeID) {
                     return true;
@@ -1733,7 +1732,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
     };
 
     if (tokenFilter.empty()) {
-        pvaultHistoryDB->ForEachVaultScheme(shouldContinueScheme, stateKey);
+        vaultHistory->ForEachVaultScheme(shouldContinueScheme, stateKey);
     }
 
     // Get vault global scheme changes
@@ -1752,7 +1751,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         for (auto it = schemes.cbegin(); it != schemes.cend(); ++it) {
             auto nit = std::next(it);
             uint32_t endHeight = nit != schemes.cend() ? nit->first - 1 : std::numeric_limits<uint32_t>::max();
-            pvaultHistoryDB->ForEachGlobalScheme(
+            vaultHistory->ForEachGlobalScheme(
                 [&](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> valueLazy) {
                     if (key.blockHeight < minHeight) {
                         return false;
