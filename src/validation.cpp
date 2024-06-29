@@ -3810,6 +3810,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
     if (psnapshotManager) {
         psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
                                             paccountHistoryDB.get(),
+                                            pvaultHistoryDB.get(),
                                             pindexDelete->pprev,
                                             BlockchainNearTip(pindexDelete->pprev->GetBlockTime()));
     }
@@ -4015,6 +4016,7 @@ bool CChainState::ConnectTip(CValidationState &state,
     if (psnapshotManager) {
         psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
                                             paccountHistoryDB.get(),
+                                            pvaultHistoryDB.get(),
                                             pindexNew,
                                             BlockchainNearTip(pindexNew->GetBlockTime()));
     }

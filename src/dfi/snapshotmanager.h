@@ -16,6 +16,7 @@ class CDBWrapper;
 class CFlushableStorageKV;
 class CSnapshotManager;
 class CStorageLevelDB;
+class CVaultHistoryStorage;
 
 namespace leveldb {
     class Snapshot;
@@ -27,7 +28,7 @@ using MapKV = std::map<TBytes, std::optional<TBytes>>;
 std::unique_ptr<CCustomCSView> GetViewSnapshot();
 std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot();
 
-enum class SnapshotType : uint8_t { VIEW, HISTORY };
+enum class SnapshotType : uint8_t { VIEW, HISTORY, VAULT };
 
 struct CBlockSnapshotKey {
     SnapshotType type{};
@@ -93,34 +94,42 @@ public:
 class CSnapshotManager {
     std::unique_ptr<CBlockSnapshot> currentViewSnapshot;
     std::unique_ptr<CBlockSnapshot> currentHistorySnapshot;
+    std::unique_ptr<CBlockSnapshot> currentVaultSnapshot;
 
     std::mutex mtx;
     std::shared_ptr<CDBWrapper> viewDB;
     std::shared_ptr<CDBWrapper> historyDB;
+    std::shared_ptr<CDBWrapper> vaultDB;
 
     using CheckoutOutMap = std::map<CBlockSnapshotKey, CBlockSnapshotValue, CBlockSnapshotKey::Comparator>;
     CheckoutOutMap checkedOutViewMap;
     CheckoutOutMap checkedOutHistoryMap;
+    CheckoutOutMap checkedOutVaultMap;
 
 public:
     CSnapshotManager() = delete;
     CSnapshotManager(std::unique_ptr<CCustomCSView> &otherViewDB,
-                     std::unique_ptr<CAccountHistoryStorage> &otherHistoryDB);
+                     std::unique_ptr<CAccountHistoryStorage> &otherHistoryDB,
+                     std::unique_ptr<CVaultHistoryStorage> &otherVaultDB);
 
     CSnapshotManager(const CSnapshotManager &other) = delete;
     CSnapshotManager &operator=(const CSnapshotManager &other) = delete;
 
     std::unique_ptr<CCustomCSView> GetViewSnapshot();
     std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot();
+    std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot();
 
     void SetBlockSnapshots(CFlushableStorageKV &viewStorge,
                            CAccountHistoryStorage *historyView,
+                           CVaultHistoryStorage *vaultView,
                            const CBlockIndex *block,
                            const bool nearTip);
     bool CheckoutViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
     std::unique_ptr<CCheckedOutSnapshot> CheckoutHistorySnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> CheckoutVaultSnapshot();
     void GetGlobalViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
     std::unique_ptr<CCheckedOutSnapshot> GetGlobalHistorySnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> GetGlobalVaultSnapshot();
     void ReturnSnapshot(const CBlockSnapshotKey &key);
 
     std::shared_ptr<CDBWrapper> GetHistoryDB() const { return historyDB; }

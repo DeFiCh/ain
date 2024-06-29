@@ -2261,7 +2261,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     // Set snapshot now chain has loaded
-    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB);
+    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB, pvaultHistoryDB);
 
 
     if (ShutdownRequested()) {
