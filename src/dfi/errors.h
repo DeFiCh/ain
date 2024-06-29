@@ -242,6 +242,10 @@ public:
         return Res::Err("Unsupported key for Rules {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedBlockTimeType(const unsigned char type) {
+        return Res::Err("Unsupported key for BlockTime {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() { return Res::Err("Unsupported Param ID"); }
 
     static Res GovVarVariableUnsupportedGovType() { return Res::Err("Unsupported Governance ID"); }
@@ -263,6 +267,8 @@ public:
     static Res GovVarValidateFortCanningSpring() { return Res::Err("Cannot be set before FortCanningSpringHeight"); }
 
     static Res GovVarValidateDF23Height() { return Res::Err("Cannot be set before DF23Height"); }
+
+    static Res GovVarValidateDF24Height() { return Res::Err("Cannot be set before DF24Height"); }
 
     static Res GovVarValidateToken(const uint32_t token) { return Res::Err("No such token (%d)", token); }
 

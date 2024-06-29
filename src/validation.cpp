@@ -74,7 +74,8 @@
 #define MICRO 0.000001
 #define MILLI 0.001
 
-UniValue blockToJSON(const CBlock &block,
+UniValue blockToJSON(const CCustomCSView &mnview,
+                     const CBlock &block,
                      const CBlockIndex *tip,
                      const CBlockIndex *blockindex,
                      bool txDetails,
@@ -1393,15 +1394,14 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t> &block,
     return ReadRawBlockFromDisk(block, block_pos, message_start);
 }
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params &consensusParams) {
+CAmount GetBlockSubsidy(const CCustomCSView &mnview, int nHeight, const Consensus::Params &consensusParams) {
     CAmount nSubsidy = consensusParams.baseBlockSubsidy;
 
     if (Params().NetworkIDString() != CBaseChainParams::REGTEST ||
         (Params().NetworkIDString() == CBaseChainParams::REGTEST && gArgs.GetBoolArg("-subsidytest", false))) {
         if (nHeight >= consensusParams.DF8EunosHeight) {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            const size_t reductions =
-                (nHeight - consensusParams.DF8EunosHeight) / consensusParams.emissionReductionPeriod;
+            const size_t reductions = (nHeight - consensusParams.DF8EunosHeight) / GetEmissionReduction(mnview);
 
             // See if we already have this reduction calculated and return if found.
             if (subsidyReductions.find(reductions) != subsidyReductions.end()) {
@@ -2341,7 +2341,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
                            CAmount nFees,
                            const Consensus::Params &consensus) {
     const TAmounts cbValues = tx.GetValuesOut();
-    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    CAmount blockReward = GetBlockSubsidy(mnview, height, consensus);
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0}) {
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
     }
@@ -2503,7 +2503,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
 }
 
 void ReverseGeneralCoinbaseTx(CCustomCSView &mnview, int height, const Consensus::Params &consensus) {
-    CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
+    CAmount blockReward = GetBlockSubsidy(mnview, height, Params().GetConsensus());
 
     if (height >= Params().GetConsensus().DF1AMKHeight) {
         if (height >= Params().GetConsensus().DF8EunosHeight) {
@@ -4013,7 +4013,7 @@ bool CChainState::ConnectTip(CValidationState &state,
              nTimeTotal * MILLI / nBlocksTotal);
 
     if (LogAcceptCategory(BCLog::CONNECT)) {
-        LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
+        LogPrintf("ConnectTip: %s\n", blockToJSON(*pcustomcsview, *pthisBlock, pindexNew, pindexNew, true, 4).write(2));
     }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
     return true;
@@ -5351,8 +5351,8 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader> &headers,
             LogPrintf("Synchronizing blockheaders, height: %d (~%.2f%%)\n",
                       (*ppindex)->nHeight,
                       100.0 /
-                          ((*ppindex)->nHeight + (GetAdjustedTime() - (*ppindex)->GetBlockTime()) /
-                                                     Params().GetConsensus().pos.nTargetSpacing) *
+                          ((*ppindex)->nHeight +
+                           (GetAdjustedTime() - (*ppindex)->GetBlockTime()) / GetTargetSpacing(*pcustomcsview)) *
                           (*ppindex)->nHeight);
         }
     }

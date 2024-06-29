@@ -15,6 +15,7 @@ extern RecursiveMutex cs_main;
 
 class CBlock;
 class CBlockIndex;
+class CCustomCSView;
 class CTxMemPool;
 class UniValue;
 class CTransaction;
@@ -36,7 +37,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
 UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock);
 
 /** Block description to JSON */
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails = false, int verbosity = 0) LOCKS_EXCLUDED(cs_main);
+UniValue blockToJSON(const CCustomCSView &mnview, const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails = false, int verbosity = 0) LOCKS_EXCLUDED(cs_main);
 
 /** Mempool information to JSON */
 UniValue MempoolInfoToJSON(const CTxMemPool& pool);

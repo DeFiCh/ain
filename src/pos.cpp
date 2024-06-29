@@ -6,6 +6,7 @@
 #include <consensus/merkle.h>
 #include <key.h>
 #include <logging.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 #include <sync.h>
@@ -115,7 +116,7 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 
     // Limit adjustment step
     int64_t nActualTimespan = pindexLast->GetBlockTime() - nFirstBlockTime;
-    const auto& nTargetTimespan = newDifficultyAdjust ? params.nTargetTimespanV2 : params.nTargetTimespan;
+    const auto& nTargetTimespan = newDifficultyAdjust ? GetTargetTimespan(*pcustomcsview) : params.nTargetTimespan;
     if (nActualTimespan < nTargetTimespan/4)
         nActualTimespan = nTargetTimespan/4;
     if (nActualTimespan > nTargetTimespan*4)
@@ -155,7 +156,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
         newDifficultyAdjust = false;
     }
 
-    const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
+    const auto interval = newDifficultyAdjust ? DifficultyAdjustment(*pcustomcsview) : params.pos.DifficultyAdjustmentInterval();
     bool skipChange = newDifficultyAdjust ? (nHeight - params.DF8EunosHeight) % interval != 0 : nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
@@ -167,7 +168,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
             // Special difficulty rule for testnet:
             // If the new block's timestamp is more than 2* 30 seconds
             // then allow mining of a min-difficulty block.
-            if (blockTime > pindexLast->GetBlockTime() + params.pos.nTargetSpacing*2)
+            if (blockTime > pindexLast->GetBlockTime() + GetTargetSpacing(*pcustomcsview)*2)
                 return nProofOfWorkLimit;
             else
             {

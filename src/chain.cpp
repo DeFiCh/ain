@@ -5,6 +5,9 @@
 
 #include <chain.h>
 
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+
 /**
  * CChain implementation
  */
@@ -144,7 +147,7 @@ int64_t GetBlockProofEquivalentTime(const CBlockIndex& to, const CBlockIndex& fr
         r = from.nChainWork - to.nChainWork;
         sign = -1;
     }
-    r = r * arith_uint256(params.pos.nTargetSpacing) / GetBlockProof(tip);
+    r = r * arith_uint256(GetTargetSpacing(*pcustomcsview)) / GetBlockProof(tip);
     if (r.bits() > 63) {
         return sign * std::numeric_limits<int64_t>::max();
     }

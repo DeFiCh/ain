@@ -7,6 +7,7 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <core_io.h>
+#include <dfi/masternodes.h>
 #include <httpserver.h>
 #include <index/txindex.h>
 #include <primitives/block.h>
@@ -259,7 +260,8 @@ static bool rest_block(HTTPRequest* req,
     }
 
     case RetFormat::JSON: {
-        UniValue objBlock = blockToJSON(block, tip, pblockindex, showTxDetails);
+        LOCK(cs_main);
+        UniValue objBlock = blockToJSON(*pcustomcsview, block, tip, pblockindex, showTxDetails);
         std::string strJSON = objBlock.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
         req->WriteReply(HTTP_OK, strJSON);
