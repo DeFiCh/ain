@@ -23,6 +23,10 @@ std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot() {
     return psnapshotManager->GetHistorySnapshot();
 }
 
+std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot() {
+    return psnapshotManager->GetVaultSnapshot();
+}
+
 std::unique_ptr<CCustomCSView> CSnapshotManager::GetViewSnapshot() {
     MapKV changed;
     std::unique_ptr<CStorageLevelDB> snapshotDB;

@@ -27,6 +27,7 @@ using MapKV = std::map<TBytes, std::optional<TBytes>>;
 
 std::unique_ptr<CCustomCSView> GetViewSnapshot();
 std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot();
+std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot();
 
 enum class SnapshotType : uint8_t { VIEW, HISTORY, VAULT };
 
