@@ -307,7 +307,7 @@ bool GetTransaction(const uint256 &hash,
 bool ActivateBestChain(CValidationState &state,
                        const CChainParams &chainparams,
                        std::shared_ptr<const CBlock> pblock = std::shared_ptr<const CBlock>());
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params &consensusParams);
+CAmount GetBlockSubsidy(const CCustomCSView &mnview, int nHeight, const Consensus::Params &consensusParams);
 
 /** Guess verification progress (as a fraction between 0.0=genesis and 1.0=current tip). */
 double GuessVerificationProgress(const ChainTxData &data, const CBlockIndex *pindex);

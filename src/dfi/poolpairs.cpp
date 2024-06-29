@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <dfi/masternodes.h>
 #include <dfi/poolpairs.h>
 
 #include <core_io.h>
@@ -725,8 +726,8 @@ std::optional<uint32_t> CPoolPairView::GetShare(DCT_ID const &poolId, const CScr
     return {};
 }
 
-inline CAmount PoolRewardPerBlock(CAmount dailyReward, CAmount rewardPct) {
-    return dailyReward / Params().GetConsensus().blocksPerDay() * rewardPct / COIN;
+inline CAmount PoolRewardPerBlock(const CCustomCSView &view, CAmount dailyReward, CAmount rewardPct) {
+    return dailyReward / BlocksPerDay(view) * rewardPct / COIN;
 }
 
 Res CPoolPairView::SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount rewardPct) {
@@ -735,7 +736,8 @@ Res CPoolPairView::SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount r
     }
     WriteBy<ByRewardPct>(poolId, rewardPct);
     if (auto dailyReward = ReadBy<ByDailyReward, CAmount>(DCT_ID{})) {
-        WriteBy<ByPoolReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(*dailyReward, rewardPct));
+        WriteBy<ByPoolReward>(PoolHeightKey{poolId, height},
+                              PoolRewardPerBlock(*static_cast<CCustomCSView *>(this), *dailyReward, rewardPct));
     }
     return Res::Ok();
 }
@@ -746,7 +748,8 @@ Res CPoolPairView::SetRewardLoanPct(DCT_ID const &poolId, uint32_t height, CAmou
     }
     WriteBy<ByRewardLoanPct>(poolId, rewardLoanPct);
     if (auto dailyReward = ReadBy<ByDailyLoanReward, CAmount>(DCT_ID{})) {
-        WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(*dailyReward, rewardLoanPct));
+        WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height},
+                                  PoolRewardPerBlock(*static_cast<CCustomCSView *>(this), *dailyReward, rewardLoanPct));
     }
     return Res::Ok();
 }
@@ -754,7 +757,8 @@ Res CPoolPairView::SetRewardLoanPct(DCT_ID const &poolId, uint32_t height, CAmou
 Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
     ForEachPoolId([&](DCT_ID const &poolId) {
         if (auto rewardPct = ReadBy<ByRewardPct, CAmount>(poolId)) {
-            WriteBy<ByPoolReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(reward, *rewardPct));
+            WriteBy<ByPoolReward>(PoolHeightKey{poolId, height},
+                                  PoolRewardPerBlock(*static_cast<CCustomCSView *>(this), reward, *rewardPct));
         }
         return true;
     });
@@ -765,7 +769,8 @@ Res CPoolPairView::SetDailyReward(uint32_t height, CAmount reward) {
 Res CPoolPairView::SetLoanDailyReward(const uint32_t height, const CAmount reward) {
     ForEachPoolId([&](DCT_ID const &poolId) {
         if (auto rewardLoanPct = ReadBy<ByRewardLoanPct, CAmount>(poolId)) {
-            WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(reward, *rewardLoanPct));
+            WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height},
+                                      PoolRewardPerBlock(*static_cast<CCustomCSView *>(this), reward, *rewardLoanPct));
         }
         return true;
     });

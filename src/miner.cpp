@@ -446,7 +446,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
+    CAmount blockReward = GetBlockSubsidy(*pcustomcsview, nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
     if (nHeight >= consensus.DF8EunosHeight) {
@@ -1120,6 +1120,7 @@ namespace pos {
         std::vector<int64_t> subNodesBlockTime;
         uint16_t timelock;
         std::optional<CMasternode> nodePtr;
+        unsigned int nBits{};
 
         {
             LOCK(cs_main);
@@ -1163,9 +1164,9 @@ namespace pos {
 
             // Get block times
             subNodesBlockTime = pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, timelock);
+            nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         }
 
-        auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
         // Set search time if null or last block has changed

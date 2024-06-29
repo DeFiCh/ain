@@ -44,6 +44,7 @@ enum ParamIDs : uint8_t {
     Auction = 'i',
     Foundation = 'j',
     DFIP2211F = 'k',
+    BlockTime = 'l',
 };
 
 enum OracleIDs : uint8_t {
@@ -124,6 +125,9 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
+    EmissionReduction = 'z',
+    TargetSpacing = 'A',
+    TargetTimespam = 'B',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -400,6 +404,14 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
 bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+
+int64_t GetTargetSpacing(const CCustomCSView &view);
+int64_t GetTargetTimespan(const CCustomCSView &view);
+int64_t DifficultyAdjustment(const CCustomCSView &view);
+int32_t GetEmissionReduction(const CCustomCSView &view);
+uint32_t BlocksPerDay(const CCustomCSView &view);
+uint32_t BlocksCollateralizationRatioCalculation(const CCustomCSView &view);
+uint32_t BlocksCollateralAuction(const CCustomCSView &view);
 
 enum GovVarsFilter {
     All,

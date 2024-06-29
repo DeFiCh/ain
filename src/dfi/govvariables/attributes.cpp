@@ -104,6 +104,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"dfip2211f",  ParamIDs::DFIP2211F },
         {"feature",    ParamIDs::Feature   },
         {"foundation", ParamIDs::Foundation},
+        {"block_time", ParamIDs::BlockTime },
     };
     return params;
 }
@@ -117,6 +118,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::DFIP2211F,  "dfip2211f" },
         {ParamIDs::Feature,    "feature"   },
         {ParamIDs::Foundation, "foundation"},
+        {ParamIDs::BlockTime,  "block_time"},
     };
     return params;
 }
@@ -281,6 +283,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"transferdomain", DFIPKeys::TransferDomain},
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
+             {"emission_reduction", DFIPKeys::EmissionReduction},
+             {"target_spacing", DFIPKeys::TargetSpacing},
+             {"target_timespan", DFIPKeys::TargetTimespam},
          }},
         {AttributeTypes::EVMType,
          {
@@ -386,6 +391,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TransferDomain, "transferdomain"},
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
+             {DFIPKeys::EmissionReduction, "emission_reduction"},
+             {DFIPKeys::TargetSpacing, "target_spacing"},
+             {DFIPKeys::TargetTimespam, "target_timespan"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -487,6 +495,18 @@ static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
         return DeFiErrors::GovVarVerifyInt();
     }
     return {x, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyMoreThenZeroUInt32(const std::string &str) {
+    auto resVal = VerifyUInt32(str);
+    if (!resVal) {
+        return resVal;
+    }
+    const auto value = std::get<uint32_t>(*resVal.val);
+    if (value == 0) {
+        return DeFiErrors::GovVarVerifyFactor();
+    }
+    return resVal;
 }
 
 static ResVal<CAttributeValue> VerifyMoreThenZeroUInt64(const std::string &str) {
@@ -815,6 +835,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TransferDomain, VerifyBool},
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
+                 {DFIPKeys::EmissionReduction, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::TargetSpacing, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::TargetTimespam, VerifyMoreThenZeroInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -991,6 +1014,11 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         } else if (typeId == ParamIDs::Foundation) {
             if (typeKey != DFIPKeys::Members) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
+            }
+        } else if (typeId == ParamIDs::BlockTime) {
+            if (typeKey != DFIPKeys::EmissionReduction && typeKey != DFIPKeys::TargetSpacing &&
+                typeKey != DFIPKeys::TargetTimespam) {
+                return DeFiErrors::GovVarVariableUnsupportedBlockTimeType(typeKey);
             }
         } else {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
@@ -2075,6 +2103,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return DeFiErrors::GovVarValidateBlockPeriod();
                         }
                     }
+                } else if (attrV0->typeId == ParamIDs::BlockTime) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                        return DeFiErrors::GovVarValidateDF24Height();
+                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
@@ -2413,7 +2445,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     return DeFiErrors::GovVarApplyAutoNoToken(split);
                 }
 
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                const auto startHeight = attrV0->key - BlocksPerDay(mnview) / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
                     if (!var) {
@@ -2501,4 +2533,41 @@ Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::st
     }
 
     return Res::Ok();
+}
+
+int64_t GetTargetSpacing(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetSpacing};
+    return attributes->GetValue(key, Params().GetConsensus().pos.nTargetSpacing);
+}
+
+int64_t GetTargetTimespan(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetTimespam};
+    return attributes->GetValue(key, Params().GetConsensus().pos.nTargetTimespanV2);
+}
+
+int64_t DifficultyAdjustment(const CCustomCSView &view) {
+    return GetTargetTimespan(view) / GetTargetSpacing(view);
+}
+
+int32_t GetEmissionReduction(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::EmissionReduction};
+    return attributes->GetValue(key, Params().GetConsensus().emissionReductionPeriod);
+}
+
+uint32_t BlocksPerDay(const CCustomCSView &view) {
+    uint32_t blocks = 60 * 60 * 24 / GetTargetSpacing(view);
+    return blocks;
+}
+
+uint32_t BlocksCollateralizationRatioCalculation(const CCustomCSView &view) {
+    uint32_t blocks = 15 * 60 / GetTargetSpacing(view);
+    return blocks;
+}
+
+uint32_t BlocksCollateralAuction(const CCustomCSView &view) {
+    uint32_t blocks = 6 * 60 * 60 / GetTargetSpacing(view);
+    return blocks;
 }

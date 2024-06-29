@@ -82,12 +82,6 @@ UniValue mnToJSON(CCustomCSView &view,
     return ret;
 }
 
-CAmount EstimateMnCreationFee(int targetHeight) {
-    // Current height + (1 day blocks) to avoid rejection;
-    targetHeight += (60 * 60 / Params().GetConsensus().pos.nTargetSpacing);
-    return GetMnCreationFee(targetHeight);
-}
-
 /*
  *
  *  Issued by: any
@@ -220,7 +214,7 @@ UniValue createmasternode(const JSONRPCRequest &request) {
         coinControl.destChange = ownerDest;
     }
 
-    rawTx.vout.push_back(CTxOut(EstimateMnCreationFee(targetHeight), scriptMeta));
+    rawTx.vout.push_back(CTxOut(GetMnCreationFee(), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetMnCollateralAmount(targetHeight), scriptOwner));
 
     fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);

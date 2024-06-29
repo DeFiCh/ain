@@ -42,7 +42,7 @@ class CVaultHistoryStorage;
 int GetMnActivationDelay(int height);
 int GetMnResignDelay(int height);
 CAmount GetTokenCollateralAmount();
-CAmount GetMnCreationFee(int height);
+CAmount GetMnCreationFee();
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);

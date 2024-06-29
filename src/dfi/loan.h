@@ -11,6 +11,8 @@
 #include <flushablestorage.h>
 #include <script/script.h>
 
+class CCustomCSView;
+
 class CLoanSetCollateralToken {
 public:
     DCT_ID idToken{UINT_MAX};
@@ -337,8 +339,10 @@ CAmount CeilInterest(const base_uint<128> &value, uint32_t height);
 std::string GetInterestPerBlockHighPrecisionString(const CInterestAmount &value);
 std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CInterestAmount &value);
 
-base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
-CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest);
+CInterestAmount InterestPerBlockCalculationV3(const CCustomCSView &view,
+                                              CAmount amount,
+                                              CAmount tokenInterest,
+                                              CAmount schemeInterest);
 
 class CLoanTakeLoanMessage {
 public:

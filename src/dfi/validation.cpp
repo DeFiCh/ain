@@ -173,8 +173,8 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
                                     int nHeight) {
     if (incentivePair != Params().GetConsensus().blockTokenRewards.end()) {
         CAmount subsidy =
-            CalculateCoinbaseReward(GetBlockSubsidy(nHeight, Params().GetConsensus()), incentivePair->second);
-        subsidy *= Params().GetConsensus().blocksPerDay();
+            CalculateCoinbaseReward(GetBlockSubsidy(cache, nHeight, Params().GetConsensus()), incentivePair->second);
+        subsidy *= BlocksPerDay(cache);
         // Change daily LP reward if it has changed
         auto var = cache.GetVariable(GovVar::TypeName());
         if (var) {
@@ -682,7 +682,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % consensus.blocksCollateralizationRatioCalculation() == 0) {
+    if (pindex->nHeight % BlocksCollateralizationRatioCalculation(cache) == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
         auto &pool = DfTxTaskPool->pool;
@@ -854,7 +854,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                 // All done. Ready to save the overall auction.
                 cache.StoreAuction(vaultId,
                                    CAuctionData{uint32_t(batches.size()),
-                                                pindex->nHeight + consensus.blocksCollateralAuction(),
+                                                pindex->nHeight + BlocksCollateralAuction(cache),
                                                 cache.GetLoanLiquidationPenalty()});
 
                 // Store state in vault DB
@@ -2061,7 +2061,7 @@ static Res VaultSplits(CCustomCSView &view,
         auto amounts = view.GetLoanTokens(vaultId);
         if (amounts) {
             newInterestRatePerBlock =
-                InterestPerBlockCalculationV3(amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
+                InterestPerBlockCalculationV3(view, amounts->balances[newTokenId], loanToken->interest, loanSchemeRate);
             rate.interestPerBlock = newInterestRatePerBlock;
         }
 
