@@ -98,6 +98,7 @@ enum EconomyKeys : uint8_t {
     Loans = 'q',
     TransferDomainStatsLive = 'r',
     EVMBlockStatsLive = 's',
+    TokenLockRatio = 't',
 };
 
 enum DFIPKeys : uint8_t {

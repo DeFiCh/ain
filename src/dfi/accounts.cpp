@@ -94,7 +94,7 @@ uint32_t CAccountsView::GetBalancesHeight(const CScript &owner) {
 
 CTokenLockUserValue CAccountsView::GetTokenLockUserValue(const CTokenLockUserKey &key) const {
     CTokenLockUserValue value;
-    bool ok= ReadBy<ByTokenLockKey>(key, value);
+    bool ok = ReadBy<ByTokenLockKey>(key, value);
     return ok ? value : (CTokenLockUserValue){};
 }
 

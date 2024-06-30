@@ -2644,7 +2644,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         return DeFiErrors::VaultInvalid(vaultId);
     }
 
-    if(useDUSDCollateral) {
+    if (useDUSDCollateral) {
         const auto collaterals = mnview.GetVaultCollaterals(vaultId);
         if (!collaterals) {
             return DeFiErrors::LoanInvalidVault(vaultId);
@@ -2674,7 +2674,11 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         loanUsdPrice = *resVal.val;
         paybackAmountInLoanToken = DivideAmounts(wantedPaybackAmount, loanUsdPrice);
     }
-    LogPrintf("paying back %d for token %d %s DUSD collateral to vault %s\n", paybackAmountInLoanToken, loanTokenId.v, useDUSDCollateral?"with":"without", vaultId.ToString());
+    LogPrintf("paying back %d for token %d %s DUSD collateral to vault %s\n",
+              paybackAmountInLoanToken,
+              loanTokenId.v,
+              useDUSDCollateral ? "with" : "without",
+              vaultId.ToString());
     // get needed DUSD to payback
     // if not enough: pay only interest, then part of loan
 
@@ -2800,7 +2804,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             }
         }
     } else {
-        //use DUSD collateral for dToken
+        // use DUSD collateral for dToken
         CAmount subInToken;
         const auto subAmount = subLoan + subInterest;
 
@@ -2856,7 +2860,7 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
             collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
             collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
             for (const auto &[tokenId, amount] : balances.balances) {
-                auto neededAmount= amount;
+                auto neededAmount = amount;
                 const auto rate = cache.GetInterestRate(vaultId, tokenId, blockCtx.GetHeight());
                 if (rate) {
                     neededAmount += TotalInterest(*rate, blockCtx.GetHeight());
@@ -2937,7 +2941,7 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
         cache.SubVaultCollateral(data.vaultId, moved);
         cache.AddBalance(contractAddressValue, moved);
         totalCollToSwap += data.usedCollateralAmount;
-        LogPrintf("swapping %d from vault %s\n", data.usedCollateralAmount,data.vaultId.ToString());
+        LogPrintf("swapping %d from vault %s\n", data.usedCollateralAmount, data.vaultId.ToString());
     }
     swapMessage.amountFrom = totalCollToSwap;
 
@@ -3279,7 +3283,8 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                                              CCustomCSView &cache,
                                              BlockContext &blockCtx) {
     // TODO: make use of save calculations
-    auto lockedAmount = [&](CAmount input) { return (input * 90) / 100; };
+    auto lockRatio = COIN * 90 / 100;
+    auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
 
     std::unordered_set<uint32_t> tokensToBeLocked;
     std::unordered_set<uint32_t> affectedPools;
@@ -3387,6 +3392,11 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
         }
         return true;
     });
+
+    CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+    auto attributes = cache.GetAttributes();
+    attributes->SetValue(releaseKey, lockRatio);
+    cache.SetVariable(*attributes);
 }
 
 static void ProcessTokenLock(const CBlock &block,

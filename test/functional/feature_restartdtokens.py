@@ -150,12 +150,12 @@ class RestartdTokensTest(DefiTestFramework):
                         20.00006397,
                     ]
                 },
-                { # added DFI for swapping to DUSD in payback
+                {  # added DFI for swapping to DUSD in payback
                     "13": ["USDD-DFI", "11", "0", 266.25872965, 60.83625262]
-                }, 
-                { # swapped USDT->DUSD for payback
-                    "14": ["USDT-USDD","2","11",93.86821509, 95.8751653]
-                }, 
+                },
+                {  # swapped USDT->DUSD for payback
+                    "14": ["USDT-USDD", "2", "11", 93.86821509, 95.8751653]
+                },
             ],
         )
 

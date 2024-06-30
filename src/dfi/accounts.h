@@ -167,6 +167,17 @@ struct CFuturesUserValue {
     }
 };
 
+struct CReleaseLockMessage {
+    CAmount releasePart;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(releasePart);
+    }
+};
+
 struct CTokenLockUserKey {
     CScript owner;
 
@@ -177,13 +188,10 @@ struct CTokenLockUserKey {
         READWRITE(owner);
     }
 
-    bool operator<(const CFuturesUserKey &o) const {
-        return owner < o.owner;
-    }
+    bool operator<(const CFuturesUserKey &o) const { return owner < o.owner; }
 };
 
-struct CTokenLockUserValue : CBalances {
-};
+struct CTokenLockUserValue : CBalances {};
 
 class CAccountsView : public virtual CStorageView {
 public:
@@ -236,7 +244,7 @@ public:
         static constexpr uint8_t prefix() { return 'm'; }
     };
     struct ByTokenLockKey {
-        static constexpr uint8_t prefix() { return '8'; } //FIXME: how to decide a key here?
+        static constexpr uint8_t prefix() { return '8'; }  // FIXME: how to decide a key here?
     };
 
 private:

@@ -3155,6 +3155,94 @@ UniValue getpendingfutureswaps(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
+UniValue releaselockedtokens(const JSONRPCRequest &request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{
+        "releaselockedtokens",
+        "\nreleases a tranche of locked loan tokens\n",
+        {
+          {
+                "releasePart",
+                RPCArg::Type::NUM,
+                RPCArg::Optional::NO,
+                "Percentagepoints to be released",
+            }, {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
+                        {
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                        },
+                    },
+                },
+            }, },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("releaselockedtokens", "3") + HelpExampleRpc("releaselockedtokens", "1.23")},
+    }
+        .Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+
+    CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
+    if (request.params.size() != 1 && !request.params[0].isNum()) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid releaseRatio");
+    }
+
+    auto releaseRatio = AmountFromValue(request.params[0]);
+    CReleaseLockMessage msg{std::move(releaseRatio)};
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::TokenLock) << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    const UniValue &txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
 UniValue listlockedtokens(const JSONRPCRequest &request) {
     RPCHelpMan{
         "listlockedtokens",
@@ -3191,7 +3279,7 @@ UniValue listlockedtokens(const JSONRPCRequest &request) {
             }
             balances.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
         }
-        value.pushKV("values",balances);
+        value.pushKV("values", balances);
 
         listLockedTokens.push_back(value);
 
@@ -3222,7 +3310,7 @@ UniValue getlockedtokens(const JSONRPCRequest &request) {
     LOCK(cs_main);
 
     CTokenLockUserKey key{owner};
-    const auto& value= pcustomcsview->GetTokenLockUserValue(key);
+    const auto &value = pcustomcsview->GetTokenLockUserValue(key);
 
     UniValue obj{UniValue::VARR};
     for (const auto tokenAmount : value.balances) {

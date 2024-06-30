@@ -64,6 +64,7 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::FutureSwapRefund:
         case CustomTxType::TokenSplit:
         case CustomTxType::TokenLock:
+        case CustomTxType::TokenLockRelease:
         case CustomTxType::Reject:
         case CustomTxType::CreateCfp:
         case CustomTxType::ProposalFeeRedistribution:
@@ -188,6 +189,8 @@ std::string ToString(CustomTxType type) {
             return "TokenSplit";
         case CustomTxType::TokenLock:
             return "TokenLock";
+        case CustomTxType::TokenLockRelease:
+            return "TokenLockRelease";
         case CustomTxType::Reject:
             return "Reject";
         case CustomTxType::CreateCfp:

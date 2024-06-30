@@ -12,6 +12,7 @@
 #include <dfi/consensus/poolpairs.h>
 #include <dfi/consensus/proposals.h>
 #include <dfi/consensus/smartcontracts.h>
+#include <dfi/consensus/tokenlock.h>
 #include <dfi/consensus/tokens.h>
 #include <dfi/consensus/vaults.h>
 #include <dfi/consensus/xvm.h>
@@ -141,6 +142,8 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::TokenLock:
             return CCustomTxMessageNone{};
+        case CustomTxType::TokenLockRelease:
+            return CReleaseLockMessage{};
         case CustomTxType::Reject:
             return CCustomTxMessageNone{};
         case CustomTxType::CreateCfp:
@@ -279,6 +282,8 @@ public:
             return IsHardforkEnabled(consensus.DF20GrandCentralHeight);
         } else if constexpr (IsOneOf<T, CTransferDomainMessage, CEvmTxMessage>()) {
             return IsHardforkEnabled(consensus.DF22MetachainHeight);
+        } else if constexpr (IsOneOf<T, CReleaseLockMessage>()) {
+            return IsHardforkEnabled(consensus.DF24Height);
         } else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>()) {
             return Res::Ok();
         } else {
@@ -360,6 +365,7 @@ public:
                                 CProposalsConsensus,
                                 CSmartContractsConsensus,
                                 CTokensConsensus,
+                                CTokenLockConsensus,
                                 CVaultsConsensus,
                                 CXVMConsensus>(obj);
     }

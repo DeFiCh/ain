@@ -424,6 +424,7 @@ libdefi_server_a_SOURCES = \
   dfi/consensus/proposals.cpp \
   dfi/consensus/smartcontracts.cpp \
   dfi/consensus/tokens.cpp \
+  dfi/consensus/tokenlock.cpp \
   dfi/consensus/txvisitor.cpp \
   dfi/consensus/vaults.cpp \
   dfi/consensus/xvm.cpp \
