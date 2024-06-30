@@ -3285,7 +3285,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
     // TODO: make use of save calculations
     auto lockRatio = COIN * 90 / 100;
     auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
-
+    
     std::unordered_set<uint32_t> tokensToBeLocked;
     std::unordered_set<uint32_t> affectedPools;
     ForEachLockTokenAndPool(
@@ -3397,6 +3397,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
     auto attributes = cache.GetAttributes();
     attributes->SetValue(releaseKey, lockRatio);
     cache.SetVariable(*attributes);
+    cache.Flush();
 }
 
 static void ProcessTokenLock(const CBlock &block,

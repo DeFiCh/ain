@@ -3196,18 +3196,18 @@ UniValue releaselockedtokens(const JSONRPCRequest &request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VARR}, true);
 
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() != 1 && !request.params[0].isNum()) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid releaseRatio");
     }
 
-    auto releaseRatio = AmountFromValue(request.params[0]);
+    auto releaseRatio = AmountFromValue(request.params[0])/100;
     CReleaseLockMessage msg{std::move(releaseRatio)};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::TokenLock) << msg;
+    metadata << static_cast<unsigned char>(CustomTxType::TokenLockRelease) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -3507,6 +3507,7 @@ static const CRPCCommand commands[] = {
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
     {"accounts", "listlockedtokens",       &listlockedtokens,       {}                                                          },
     {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
+    {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                                 },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

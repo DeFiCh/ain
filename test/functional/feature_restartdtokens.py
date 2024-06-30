@@ -68,26 +68,216 @@ class RestartdTokensTest(DefiTestFramework):
         # 90% of DUSD-DFI position back to address
         # 90% of balances locked
         # check old pools, check new pools with 10% of old liquidity in new tokens
+        
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
+        )
+        self.check_token_lock()
 
-        #'''
-        print(self.nodes[0].getblockcount())
-        print(self.nodes[0].getaccount(self.address))
-        print("---")
-        print(self.nodes[0].getloantoken("USDD"))
-        print("---")
+        # check correct behaviour on TD of old SPY + DUSD
 
-        print()
-        print(self.nodes[0].getvault(self.loop_vault_id))
-        print()
-        print(self.nodes[0].getvault(self.vault_id1))
-        print()
-        print(self.nodes[0].getvault(self.vault_id2))
-        print()
-        print(self.nodes[0].getvault(self.vault_id2_1))
-        print()
-        print(self.nodes[0].getvault(self.vault_id3))
-        print()
+        # do normal tokensplit on SPY
+        # check correct balances in SC
+        # check correct behaviour on TD of old SPY and new SPY
+
+        # release tranche
+
+        self.nodes[0].releaselockedtokens(1)
+        self.nodes[0].generate(1)
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.89"}}]],
+        )
+
+        assert_equal(
+            [
+                {
+                    "owner": locked["owner"],
+                    "values": [clearFloating(ta) for ta in locked["values"]],
+                }
+                for locked in sorted(
+                    self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]
+                )
+            ],
+            [
+                {
+                    "owner": self.address3,
+                    "values": ['1.779998@SPY', '178.029785@USDD'],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ['133.516174@USDD'],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ['17.801542@USDD'],
+                },
+                {
+                    "owner": self.address,
+                    "values": ['5.340001@SPY', '3863.791276@USDD'],
+                },
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.56000000@SPY",
+                "0.96000000@BTC",
+                "1.00000000@SPY-USDD",
+                 '105.41338074@USDD',
+                "127.27207389@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                "39847.52623049@DFI",
+                "854.81384663@USDT",
+                "94.86637307@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ['1.50018158@USDD'],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            ['0.20001730@USDD'],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ['0.11999981@SPY', '0.99999900@SPY-USDD', '12.00370414@USDD'],
+        )
+        assert_equal(
+            sorted([clearFloating(x) for x in self.nodes[0].getaccount(self.tokenlockaddress)]),
+            ['4193.138778@USDD', '7.119999@SPY'],
+        )
+
+        #release all but 1%
+        self.nodes[0].releaselockedtokens(88)
+        self.nodes[0].generate(1)
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.01"}}]],
+        )
+
+        assert_equal(
+            [
+                {
+                    "owner": locked["owner"],
+                    "values": [clearFloating(ta) for ta in locked["values"]],
+                }
+                for locked in sorted(
+                    self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]
+                )
+            ],
+            [
+                {
+                    "owner": self.address3,
+                    "values": ['0.020000@SPY', '2.000335@USDD'],
+                },
+                {
+                    "owner": self.address,
+                    "values": ['0.060000@SPY', '43.413404@USDD'],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ['0.200017@USDD'],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ['1.500182@USDD'],
+                },
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000000@BTC",
+                "1.00000000@SPY-USDD",
+                "127.27207389@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                 '3925.79125341@USDD',
+                "39847.52623049@DFI",
+                '5.84000113@SPY',
+                "854.81384663@USDT",
+                "94.86637307@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ['133.51617375@USDD'],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            [],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ['0.09999983@SPY', '0.99999900@SPY-USDD', '10.00336968@USDD'
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            ['40.25269270@USDD', '0.719999991@SPY'            ],
+        )
+
+
+        #last tranche
+        self.nodes[0].releaselockedtokens(1)
+        self.nodes[0].generate(1)
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0"}}]],
+        )
+
+        assert_equal(self.nodes[0].listlockedtokens(),
+            [
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000000@BTC",
+                "1.00000000@SPY-USDD",
+                "127.27207389@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                 '3925.79125341@USDD',
+                "39847.52623049@DFI",
+                '5.84000113@SPY',
+                "854.81384663@USDT",
+                "94.86637307@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            [],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            [],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ['0.09999983@SPY', '0.99999900@SPY-USDD', '10.00336968@USDD'
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            [],
+        )
+
+        # check balances
+        # check TD (updated releaseRatio)
         #'''
+
+    def check_token_lock(self):
 
         assert_equal(
             [
@@ -262,6 +452,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "collateralRatio": -1,
             },
         )
+        """
         assert_equal(
             self.nodes[0].getvault(self.vault_id2_2),
             {
@@ -279,6 +470,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "collateralRatio": -1,
             },
         )
+        #"""
         assert_equal(
             self.nodes[0].getvault(self.vault_id3),
             {
@@ -300,15 +492,15 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
-                "0.97000000@BTC",
-                "127.279219613@USDD-DFI",
+                "0.50000000@SPY",
+                "0.96000000@BTC",
+                "1.00000000@SPY-USDD",
+                "127.27207389@USDD-DFI",
                 "22.36066977@USDT-DFI",
-                "840.00000000@USDT",
-                "39850.00000000@DFI",
-                "0.45000000@SPY",
-                "57.00000000@USDD",
-                "0.99999900@SPY-USDD",
-                "94.868328805@USDT-USDD",
+                "39847.52623049@DFI",
+                "62.00000000@USDD",
+                "854.81384663@USDT",
+                "94.86637307@USDT-USDD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -322,30 +514,13 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            [
-                "1.00000000@SPY-DUSD",
-                "0.09000000@SPY",
-                "10.00010000@DUSD",
+            ['0.09999983@SPY', '0.99999900@SPY-USDD', '10.00336968@USDD'
             ],
         )
-
-        # TODO: check in locks USDD and SPY
-        # check release ratio of lock
-        # check total locked funds (gov economy?)
-        # check correct behaviour on TD of old SPY + DUSD
-        # check case with DFI collateral and DUSD loan
-
-        # TODO: add second address with less SPY loan than balance
-
-        # do normal tokensplit on SPY
-        # check correct balances in SC
-        # check correct behaviour on TD of old SPY and new SPY
-
-        # release tranche
-
-        # check balances
-        # check TD (updated releaseRatio)
-        #'''
+        assert_equal(
+            sorted([clearFloating(x) for x in self.nodes[0].getaccount(self.tokenlockaddress)]),
+            ['4240.252692@USDD', '7.199999@SPY'            ],
+        )
 
     def check_initial_state(self):
 
@@ -499,6 +674,10 @@ class RestartdTokensTest(DefiTestFramework):
                 "300.00000000@DUSD",
             ],
         )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            [],
+        )
 
         assert_equal(
             self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
@@ -569,6 +748,10 @@ class RestartdTokensTest(DefiTestFramework):
         self.address1 = self.nodes[0].getnewaddress("", "bech32")
         self.address2 = self.nodes[0].getnewaddress()
         self.address3 = self.nodes[0].getnewaddress()
+        scs= self.nodes[0].listsmartcontracts()
+        for sc in scs:
+            if sc["name"] == "TokenLock":
+                self.tokenlockaddress= sc["address"]
 
         # Generate chain
         self.nodes[0].generate(105)

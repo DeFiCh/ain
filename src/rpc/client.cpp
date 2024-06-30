@@ -353,6 +353,10 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getprice", 0, "request" },
     { "listfixedintervalprices", 0, "pagination" },
 
+
+    { "getlockedtokens", 0, "address" },
+    { "releaselockedtokens", 0, "releasepart" },
+
     { "spv_claimhtlc", 3, "feerate" },
     { "spv_refundhtlc", 2, "feerate" },
     { "spv_refundhtlcall", 1, "feerate" },
