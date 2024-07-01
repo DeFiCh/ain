@@ -783,7 +783,6 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
         }
     }
 
-    const UniValue &txInputs = request.params[2];
     bool funded = false;
     if (msg.to.size() == 1) {
         CCoinControl coinControl;
