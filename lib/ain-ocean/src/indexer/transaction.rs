@@ -17,7 +17,7 @@ use crate::{
     Services,
 };
 
-pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
+pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
     debug!("[index_transaction] Indexing...");
     let idx = ctx.tx_idx;
     let is_evm = check_if_evm_tx(&ctx.tx);
@@ -29,7 +29,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
-    for vout in ctx.tx.vout.into_iter() {
+    for vout in ctx.tx.vout.clone().into_iter() {
         let tx_vout = TransactionVout {
             id: format!("{}{:x}", txid, vout.n),
             txid,
@@ -51,7 +51,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     }
 
     // Indexing transaction vin
-    for vin in ctx.tx.vin.into_iter() {
+    for vin in ctx.tx.vin.clone().into_iter() {
         if is_evm {
             continue;
         }
@@ -66,7 +66,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         id: txid,
         txid,
         order,
-        hash: ctx.tx.hash,
+        hash: ctx.tx.hash.clone(),
         block: ctx.block.clone(),
         version: ctx.tx.version,
         size: ctx.tx.size,
