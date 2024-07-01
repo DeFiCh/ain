@@ -1,23 +1,25 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
-use bitcoin::Txid;
+use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
     defichain_rpc_json::{
         loan::{CollateralTokenDetail, LoanSchemeResult},
         token::TokenInfo,
+        vault::VaultLiquidationBatch,
     },
-    LoanRPC,
+    json::vault::{AuctionPagination, AuctionPaginationStart, VaultState},
+    LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
 use log::debug;
 use serde::Serialize;
 
 use super::{
-    cache::get_token_cached,
-    common::Paginate,
+    cache::{get_loan_scheme_cached, get_token_cached},
+    common::{from_script, parse_display_symbol, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -26,8 +28,8 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error},
-    model::VaultAuctionBatchHistory,
-    repository::RepositoryOps,
+    model::{OraclePriceActive, VaultAuctionBatchHistory},
+    repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
 };
@@ -292,9 +294,206 @@ async fn list_vault_auction_history(
     }))
 }
 
-// async fn list_auction() -> String {
-//     "List of auctions".to_string()
-// }
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultLiquidationResponse {
+    pub vault_id: String,
+    pub loan_scheme: LoanSchemeResult,
+    pub owner_address: String,
+    #[serde(default = "VaultState::in_liquidation")]
+    pub state: VaultState,
+    pub liquidation_height: u64,
+    pub liquidation_penalty: f64,
+    pub batch_count: usize,
+    pub batches: Vec<VaultLiquidationBatchResponse>,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct HighestBidResponse {
+    pub owner: String,
+    pub amount: Option<VaultTokenAmountResponse>,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultLiquidationBatchResponse {
+    index: u32,
+    collaterals: Vec<VaultTokenAmountResponse>,
+    loan: Option<VaultTokenAmountResponse>,
+    highest_bid: Option<HighestBidResponse>,
+    froms: Vec<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultTokenAmountResponse {
+    pub id: String,
+    pub amount: String,
+    pub symbol: String,
+    pub display_symbol: String,
+    pub symbol_key: String,
+    pub name: String,
+    pub active_price: Option<OraclePriceActive>,
+}
+
+#[ocean_endpoint]
+async fn list_auction(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<VaultLiquidationResponse>> {
+    let start = query.next.as_ref().map(|next| {
+        let vault_id = &next[0..64];
+        let height = &next[64..];
+        AuctionPaginationStart {
+            vault_id: vault_id.to_string(),
+            height: height.parse::<u64>().unwrap_or_default(),
+        }
+    });
+
+    let pagination = AuctionPagination {
+        start,
+        including_start: None,
+        limit: if query.size > 30 {
+            Some(30)
+        } else {
+            Some(query.size)
+        },
+    };
+
+    async fn map_liquidation_batches(
+        ctx: &Arc<AppContext>,
+        vault_id: &str,
+        batches: Vec<VaultLiquidationBatch>,
+    ) -> Result<Vec<VaultLiquidationBatchResponse>> {
+        let repo = &ctx.services.auction;
+        let mut vec = Vec::new();
+        for batch in batches {
+            let highest_bid = if let Some(bid) = batch.highest_bid {
+                let amount = map_token_amounts(ctx, vec![bid.amount]).await?;
+                let res = HighestBidResponse {
+                    owner: bid.owner,
+                    amount: amount.first().cloned(),
+                };
+                Some(res)
+            } else {
+                None
+            };
+            let id = (
+                Txid::from_str(vault_id)?,
+                batch.index,
+                Txid::from_byte_array([0xffu8; 32]),
+            );
+            let bids = repo
+                .by_id
+                .list(Some(id), SortOrder::Descending)?
+                .take_while(|item| match item {
+                    Ok(((vid, bindex, _), _)) => {
+                        vid.to_string() == vault_id && bindex == &batch.index
+                    }
+                    _ => true,
+                })
+                .collect::<Vec<_>>();
+            let froms = bids
+                .into_iter()
+                .map(|bid| {
+                    let (_, v) = bid?;
+                    let from_addr = from_script(v.from, ctx.network.into())?;
+                    Ok::<String, Error>(from_addr)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            vec.push(VaultLiquidationBatchResponse {
+                index: batch.index,
+                collaterals: map_token_amounts(ctx, batch.collaterals).await?,
+                loan: map_token_amounts(ctx, vec![batch.loan])
+                    .await?
+                    .first()
+                    .cloned(),
+                froms,
+                highest_bid,
+            })
+        }
+        Ok(vec)
+    }
+
+    async fn map_token_amounts(
+        ctx: &Arc<AppContext>,
+        amounts: Vec<String>,
+    ) -> Result<Vec<VaultTokenAmountResponse>> {
+        if amounts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let amount_token_symbols = amounts
+            .into_iter()
+            .map(|amount| {
+                let amount = amount.to_owned();
+                let parts = amount.split('@').collect::<Vec<&str>>();
+                let [amount, token_symbol] = <[&str; 2]>::try_from(parts)
+                    .map_err(|_| format_err!("Invalid amount structure"))?;
+                Ok([amount.to_string(), token_symbol.to_string()])
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut vault_token_amounts = Vec::new();
+        for [amount, token_symbol] in amount_token_symbols {
+            let token = get_token_cached(ctx, &token_symbol).await?;
+            if token.is_none() {
+                log::error!("Token {token_symbol} not found");
+                continue;
+            }
+            let repo = &ctx.services.oracle_price_active;
+            let (id, token_info) = token.unwrap();
+            let keys = repo
+                .by_key
+                .list(None, SortOrder::Descending)?
+                .collect::<Vec<_>>();
+            log::debug!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
+            let active_price = repo
+                .by_key
+                .list(None, SortOrder::Descending)?
+                .take(1)
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == id,
+                    _ => true,
+                })
+                .map(|el| repo.by_key.retrieve_primary_value(el))
+                .collect::<Result<Vec<_>>>()?;
+
+            vault_token_amounts.push(VaultTokenAmountResponse {
+                id,
+                display_symbol: parse_display_symbol(&token_info),
+                amount: amount.to_string(),
+                symbol: token_info.symbol,
+                symbol_key: token_info.symbol_key,
+                name: token_info.name,
+                active_price: active_price.first().cloned(),
+            })
+        }
+
+        Ok(vault_token_amounts)
+    }
+
+    let mut vaults = Vec::new();
+    let liquidation_vaults = ctx.client.list_auctions(Some(pagination)).await?;
+    for vault in liquidation_vaults {
+        let loan_scheme = get_loan_scheme_cached(&ctx, vault.loan_scheme_id).await?;
+        let res = VaultLiquidationResponse {
+            batches: map_liquidation_batches(&ctx, &vault.vault_id, vault.batches).await?,
+            vault_id: vault.vault_id,
+            loan_scheme,
+            owner_address: vault.owner_address,
+            state: vault.state,
+            liquidation_height: vault.liquidation_height,
+            liquidation_penalty: vault.liquidation_penalty,
+            batch_count: vault.batch_count,
+        };
+        vaults.push(res)
+    }
+
+    Ok(ApiPagedResponse::of(vaults, query.size, |auction| {
+        format!("{}{}", auction.vault_id.clone(), auction.liquidation_height)
+    }))
+}
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
@@ -310,6 +509,6 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
             "/vaults/:id/auctions/:height/batches/:batchIndex/history",
             get(list_vault_auction_history),
         )
-        // .route("/auctions", get(list_auction))
+        .route("/auctions", get(list_auction))
         .layer(Extension(ctx))
 }
