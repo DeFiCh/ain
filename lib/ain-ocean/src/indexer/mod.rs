@@ -159,7 +159,7 @@ fn find_tx_vout(
                     hex: vout.script_pub_key.hex.clone(),
                 },
             };
-            return Ok(Some(tx_vout))
+            return Ok(Some(tx_vout));
         }
     }
     services.transaction.vout_by_id.get(&(vin.txid, vin.vout))
@@ -186,7 +186,13 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
-                id: format!("{}{}{}{}", hex::encode(block.height.to_be_bytes()), ScriptActivityTypeHex::Vin, vin.txid, hex::encode(vin.vout.to_be_bytes())),
+                id: format!(
+                    "{}{}{}{}",
+                    hex::encode(block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vin,
+                    vin.txid,
+                    hex::encode(vin.vout.to_be_bytes())
+                ),
                 hid: hid.clone(),
                 r#type: ScriptActivityType::Vin,
                 type_hex: ScriptActivityTypeHex::Vin,
@@ -209,7 +215,13 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: format!("{:.8}", vout.value.parse::<f32>()?),
                 token_id: vout.token_id,
             };
-            let id = (hid, block.height, ScriptActivityTypeHex::Vin, vin.txid, vin.vout);
+            let id = (
+                hid,
+                block.height,
+                ScriptActivityTypeHex::Vin,
+                vin.txid,
+                vin.vout,
+            );
             services.script_activity.by_id.put(&id, &script_activity)?
         }
 
@@ -219,7 +231,13 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             }
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                id: format!("{}{}{}{}", hex::encode(block.height.to_be_bytes()), ScriptActivityTypeHex::Vout, tx.txid, hex::encode(vout.n.to_be_bytes())),
+                id: format!(
+                    "{}{}{}{}",
+                    hex::encode(block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vout,
+                    tx.txid,
+                    hex::encode(vout.n.to_be_bytes())
+                ),
                 hid: hid.clone(),
                 r#type: ScriptActivityType::Vout,
                 type_hex: ScriptActivityTypeHex::Vout,
@@ -242,7 +260,13 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: format!("{:.8}", vout.value),
                 token_id: vout.token_id,
             };
-            let id = (hid, block.height, ScriptActivityTypeHex::Vout, tx.txid, vout.n);
+            let id = (
+                hid,
+                block.height,
+                ScriptActivityTypeHex::Vout,
+                tx.txid,
+                vout.n,
+            );
             services.script_activity.by_id.put(&id, &script_activity)?
         }
     }
@@ -513,7 +537,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                 log_elapsed(start, "Indexed dftx");
             }
         }
-
     }
 
     log_elapsed(start, "Indexed block");
