@@ -1531,7 +1531,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git?rev=332a5c6d0098a008c2354962bfa2d936a128e289#332a5c6d0098a008c2354962bfa2d936a128e289"
+source = "git+https://github.com/defich/rust-defichain-rpc.git#bd540ae7f9c802a537e245e59f59fee006f1b11c"
 dependencies = [
  "async-trait",
  "defichain-rpc-json",
@@ -1544,7 +1544,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git?rev=332a5c6d0098a008c2354962bfa2d936a128e289#332a5c6d0098a008c2354962bfa2d936a128e289"
+source = "git+https://github.com/defich/rust-defichain-rpc.git#bd540ae7f9c802a537e245e59f59fee006f1b11c"
 dependencies = [
  "bitcoin",
  "serde",
