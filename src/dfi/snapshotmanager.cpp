@@ -104,10 +104,10 @@ static void ReturnSnapshot(T &db, U &snapshot, V &checkedMap) {
 template <typename T, typename U>
 static void SetCurrentSnapshot(T &db, U &currentSnapshot, SnapshotType type, const CBlockIndex *block) {
     if (db) {
-        // Get history database snapshot
+        // Get database snapshot
         const auto snapshot = db->GetStorage().CreateLevelDBSnapshot();
 
-        // Set current history snapshot
+        // Set current snapshot
         currentSnapshot = std::make_unique<CBlockSnapshot>(
             snapshot, MapKV{}, CBlockSnapshotKey{type, block->nHeight, block->GetBlockHash()});
     }
