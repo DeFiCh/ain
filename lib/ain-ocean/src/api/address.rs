@@ -18,6 +18,7 @@ use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 #[derive(Deserialize)]
 struct Address {
@@ -162,12 +163,74 @@ async fn get_aggregation(
 //     format!("List vaults for address {}", address)
 // }
 
+#[skip_serializing_none]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptActivityResponse {
+    pub id: String,
+    pub hid: String,
+    pub r#type: String,
+    pub type_hex: String,
+    pub txid: Txid,
+    pub block: BlockContext,
+    pub script: ScriptActivityScriptResponse,
+    pub vin: Option<ScriptActivityVinVoutResponse>,
+    pub vout: Option<ScriptActivityVinVoutResponse>,
+    pub value: String,
+    pub token_id: Option<u32>,
+}
+
+impl From<ScriptActivity> for ScriptActivityResponse {
+    fn from(v: ScriptActivity) -> Self {
+        Self {
+            id: v.id,
+            hid: v.hid,
+            r#type: v.r#type.to_string(),
+            type_hex: v.type_hex.to_string(),
+            txid: v.txid,
+            block: v.block,
+            script: ScriptActivityScriptResponse {
+                r#type: v.script.r#type,
+                hex: v.script.hex.to_lower_hex_string(),
+            },
+            vin: v.vin.map(|vin| {
+                ScriptActivityVinVoutResponse {
+                    txid: vin.txid,
+                    n: vin.n
+                }
+            }),
+            vout: v.vout.map(|vout| {
+                ScriptActivityVinVoutResponse {
+                    txid: vout.txid,
+                    n: vout.n
+                }
+            }),
+            value: v.value,
+            token_id: v.token_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptActivityScriptResponse {
+    pub r#type: String,
+    pub hex: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptActivityVinVoutResponse {
+    pub txid: Txid,
+    pub n: usize,
+}
+
 #[ocean_endpoint]
-async fn list_transaction(
+async fn list_transactions(
     Path(Address { address }): Path<Address>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<ScriptActivity>> {
+) -> Result<ApiPagedResponse<ScriptActivityResponse>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
     let next = query
         .next
@@ -203,7 +266,7 @@ async fn list_transaction(
         })
         .map(|item| {
             let (_, v) = item?;
-            Ok(v)
+            Ok(v.into())
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -320,7 +383,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:address/aggregation", get(get_aggregation))
         // .route("/tokens", get(list_token))
         // .route("/vaults", get(list_vault))
-        .route("/:address/transactions", get(list_transaction))
+        .route("/:address/transactions", get(list_transactions))
         .route(
             "/:address/transactions/unspent",
             get(list_transaction_unspent),

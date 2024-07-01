@@ -9,6 +9,15 @@ pub enum ScriptActivityType {
     Vout,
 }
 
+impl fmt::Display for ScriptActivityType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ScriptActivityType::Vin => write!(f, "vin"),
+            ScriptActivityType::Vout => write!(f, "vout"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityTypeHex {
     Vin,
@@ -27,7 +36,6 @@ impl fmt::Display for ScriptActivityTypeHex {
 pub type ScriptActivityId = (String, u32, ScriptActivityTypeHex, Txid, usize); // (hid, block.height, type_hex, txid, index)
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ScriptActivity {
     pub id: String, // unique id of this output: block height, type, txid(vin/vout), n(vin/vout)
     pub hid: String, // hashed id, for length compatibility reasons this is the hashed id of script
@@ -43,21 +51,18 @@ pub struct ScriptActivity {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ScriptActivityScript {
     pub r#type: String,
     pub hex: Vec<u8>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ScriptActivityVin {
     pub txid: Txid,
     pub n: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ScriptActivityVout {
     pub txid: Txid,
     pub n: usize,

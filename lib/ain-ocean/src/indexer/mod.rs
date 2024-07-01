@@ -206,7 +206,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                     n: vin.vout,
                 }),
                 vout: None,
-                value: vout.value,
+                value: format!("{:.8}", vout.value.parse::<f32>()?),
                 token_id: vout.token_id,
             };
             let id = (hid, block.height, ScriptActivityTypeHex::Vin, vin.txid, vin.vout);
@@ -239,7 +239,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                     txid: tx.txid,
                     n: vout.n,
                 }),
-                value: vout.value.to_string(),
+                value: format!("{:.8}", vout.value),
                 token_id: vout.token_id,
             };
             let id = (hid, block.height, ScriptActivityTypeHex::Vout, tx.txid, vout.n);
