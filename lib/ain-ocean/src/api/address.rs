@@ -9,7 +9,9 @@ use super::{
 };
 use crate::{
     error::ApiError,
-    model::{BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent},
+    model::{
+        BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent,
+    },
     repository::RepositoryOps,
     storage::SortOrder,
     Error, Result,
@@ -193,17 +195,13 @@ impl From<ScriptActivity> for ScriptActivityResponse {
                 r#type: v.script.r#type,
                 hex: v.script.hex.to_lower_hex_string(),
             },
-            vin: v.vin.map(|vin| {
-                ScriptActivityVinVoutResponse {
-                    txid: vin.txid,
-                    n: vin.n
-                }
+            vin: v.vin.map(|vin| ScriptActivityVinVoutResponse {
+                txid: vin.txid,
+                n: vin.n,
             }),
-            vout: v.vout.map(|vout| {
-                ScriptActivityVinVoutResponse {
-                    txid: vout.txid,
-                    n: vout.n
-                }
+            vout: v.vout.map(|vout| ScriptActivityVinVoutResponse {
+                txid: vout.txid,
+                n: vout.n,
             }),
             value: v.value,
             token_id: v.token_id,
@@ -237,27 +235,35 @@ async fn list_transactions(
         .as_ref()
         .map(|next| {
             let height = &next[0..8];
-            let vin_vout_type = &next[8..8+2];
-            let txid = &next[8+2..64+8+2];
-            let n = &next[64+8+2..];
+            let vin_vout_type = &next[8..8 + 2];
+            let txid = &next[8 + 2..64 + 8 + 2];
+            let n = &next[64 + 8 + 2..];
 
             let height = height.parse::<u32>()?;
             let vin_vout_type = match vin_vout_type {
-               "00" => ScriptActivityTypeHex::Vin,
-               _ => ScriptActivityTypeHex::Vout,
+                "00" => ScriptActivityTypeHex::Vin,
+                _ => ScriptActivityTypeHex::Vout,
             };
             let txid = Txid::from_str(txid)?;
             let n = n.parse::<usize>()?;
             Ok::<(u32, ScriptActivityTypeHex, Txid, usize), Error>((height, vin_vout_type, txid, n))
         })
         .transpose()?
-        .unwrap_or((u32::MAX, ScriptActivityTypeHex::Vout, Txid::from_byte_array([0xffu8; 32]), usize::MAX));
+        .unwrap_or((
+            u32::MAX,
+            ScriptActivityTypeHex::Vout,
+            Txid::from_byte_array([0xffu8; 32]),
+            usize::MAX,
+        ));
 
     let res = ctx
         .services
         .script_activity
         .by_id
-        .list(Some((hid.clone(), next.0, next.1, next.2, next.3)), SortOrder::Descending)?
+        .list(
+            Some((hid.clone(), next.0, next.1, next.2, next.3)),
+            SortOrder::Descending,
+        )?
         .skip(query.next.is_some() as usize)
         .take(query.size)
         .take_while(|item| match item {
