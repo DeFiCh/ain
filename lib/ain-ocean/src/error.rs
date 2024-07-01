@@ -1,4 +1,7 @@
-use std::num::ParseIntError;
+use std::{
+    fmt,
+    num::{ParseFloatError, ParseIntError},
+};
 
 use ain_db::DBError;
 use anyhow::format_err;
@@ -11,6 +14,21 @@ use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
 use serde_json::json;
 use thiserror::Error;
+
+#[derive(Debug)]
+pub enum IndexAction {
+    Index,
+    Invalidate,
+}
+
+impl fmt::Display for IndexAction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            IndexAction::Index => write!(f, "index"),
+            IndexAction::Invalidate => write!(f, "invalidate"),
+        }
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum NotFoundKind {
@@ -38,6 +56,8 @@ pub enum Error {
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]
     ParseIntError(#[from] ParseIntError),
+    #[error("Ocean: ParseFloatError error: {0:?}")]
+    ParseFloatError(#[from] ParseFloatError),
     #[error("Ocean: DBError error: {0:?}")]
     DBError(#[from] DBError),
     #[error("Ocean: IO error: {0:?}")]
@@ -54,6 +74,10 @@ pub enum Error {
     RpcError(#[from] defichain_rpc::Error),
     #[error("Unable to find {0:}")]
     NotFound(NotFoundKind),
+    #[error(
+        "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
+    )]
+    NotFoundIndex(IndexAction, String, String),
     #[error("Ocean: Decimal error: {0:?}")]
     DecimalError(#[from] rust_decimal::Error),
     #[error("Decimal conversion error")]
@@ -70,6 +94,8 @@ pub enum Error {
     BitcoinAddressError(#[from] bitcoin::address::Error),
     #[error("Ocean: TryFromIntError: {0:?}")]
     TryFromIntError(#[from] std::num::TryFromIntError),
+    #[error("{0:}")]
+    AddressParseError(#[from] bitcoin::address::error::ParseError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
     #[error("Validation error: {0}")]

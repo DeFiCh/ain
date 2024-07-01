@@ -47,6 +47,7 @@ num_cpus.workspace = true
 petgraph = { version = "0.6.4", features = ["serde-1"] }
 parking_lot.workspace = true
 indexmap.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 tempdir.workspace = true

@@ -1,7 +1,11 @@
+use anyhow::format_err;
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::str::FromStr;
+
+use crate::hex_encoder::as_sha256;
 
 use super::query::PaginationQuery;
 
@@ -44,6 +48,17 @@ pub fn from_script(script: ScriptBuf, network: Network) -> crate::Result<String>
     let script = script.as_script();
     let address = Address::from_script(script, network)?.to_string();
     Ok(address)
+}
+
+pub fn to_script(address: &str, network: Network) -> crate::Result<ScriptBuf> {
+    let addr = Address::from_str(address)?.require_network(network)?;
+    Ok(ScriptBuf::from(addr))
+}
+
+pub fn address_to_hid(address: &str, network: Network) -> crate::Result<String> {
+    let script = to_script(address, network).map_err(|_| format_err!("InvalidDefiAddress"))?;
+    let bytes = script.to_bytes();
+    Ok(as_sha256(bytes))
 }
 
 /// Finds the balance of a specified token symbol within a list of token strings.

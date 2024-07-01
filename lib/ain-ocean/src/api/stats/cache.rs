@@ -1,8 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use anyhow::format_err;
 use cached::proc_macro::cached;
 use defichain_rpc::{
-    defichain_rpc_json::token::TokenPagination, AccountRPC, Client, LoanRPC, TokenRPC,
+    defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client,
+    LoanRPC, TokenRPC,
 };
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
@@ -119,7 +121,7 @@ lazy_static::lazy_static! {
 )]
 pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).unwrap();
-    let mut tokens = ctx
+    let accounts = ctx
         .client
         .get_account(burn_address, None, Some(true))
         .await?;
@@ -129,10 +131,20 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let emission =
         Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
     let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
-    let account_balance = tokens
-        .0
-        .remove("0")
-        .map_or(dec!(0), |v| Decimal::from_f64(v).unwrap_or_default());
+    let account_balance = if let AccountAmount::List(accounts) = accounts {
+        for account in accounts {
+            let parts = account.split('@').collect::<Vec<&str>>();
+            let [amount, token_id] = <[&str; 2]>::try_from(parts)
+                .map_err(|_| format_err!("Invalid account structure"))?;
+
+            if token_id == "DFI" {
+                return Ok(Decimal::from_str(amount).unwrap_or_default());
+            }
+        }
+        dec!(0)
+    } else {
+        dec!(0)
+    };
 
     Ok(utxo + account_balance + emission + fee)
 }

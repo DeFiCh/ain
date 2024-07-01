@@ -61,6 +61,7 @@ prettyplease = "0.2.4"
 libsecp256k1 = "0.7"
 ripemd = { version = "0.1", default-features = false }
 sha3 = "0.10"
+sha2 = { version = "0.10", default-features = false }
 
 ## common
 
