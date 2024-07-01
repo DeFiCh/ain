@@ -195,9 +195,11 @@ public:
 
 class CVaultHistoryStorage : public CVaultHistoryView {
 public:
-    CVaultHistoryStorage(CVaultHistoryStorage &vaultHistory)
-        : CStorageView(new CFlushableStorageKV(vaultHistory.DB())) {}
     CVaultHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
+
+    explicit CVaultHistoryStorage(std::shared_ptr<CDBWrapper> &db, std::unique_ptr<CCheckedOutSnapshot> &otherSnapshot);
+
+    CStorageLevelDB &GetStorage() { return static_cast<CStorageLevelDB &>(DB()); }
 };
 
 extern std::unique_ptr<CVaultHistoryStorage> pvaultHistoryDB;

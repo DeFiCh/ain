@@ -89,6 +89,10 @@ Res CAccountsHistoryView::EraseAccountHistoryHeight(uint32_t height) {
 CAccountHistoryStorage::CAccountHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
     : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe)) {}
 
+CAccountHistoryStorage::CAccountHistoryStorage(std::shared_ptr<CDBWrapper> &db,
+                                               std::unique_ptr<CCheckedOutSnapshot> &otherSnapshot)
+    : CStorageView(new CStorageLevelDB(db, otherSnapshot)) {}
+
 CBurnHistoryStorage::CBurnHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
     : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe)) {}
 

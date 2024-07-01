@@ -102,4 +102,8 @@ void CVaultHistoryView::EraseGlobalScheme(const VaultGlobalSchemeKey &key) {
 CVaultHistoryStorage::CVaultHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory, bool fWipe)
     : CStorageView(new CStorageLevelDB(dbName, cacheSize, fMemory, fWipe)) {}
 
+CVaultHistoryStorage::CVaultHistoryStorage(std::shared_ptr<CDBWrapper> &db,
+                                           std::unique_ptr<CCheckedOutSnapshot> &otherSnapshot)
+    : CStorageView(new CStorageLevelDB(db, otherSnapshot)) {}
+
 std::unique_ptr<CVaultHistoryStorage> pvaultHistoryDB;
