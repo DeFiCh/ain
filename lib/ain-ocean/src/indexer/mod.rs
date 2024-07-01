@@ -143,7 +143,7 @@ fn find_tx_vout(
 ) -> Result<Option<TransactionVout>> {
     let tx = block.tx.clone().into_iter().find(|tx| tx.txid == vin.txid);
 
-    let tx_vout = if let Some(tx) = tx {
+    if let Some(tx) = tx {
         let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
 
         if let Some(vout) = vout {
@@ -159,15 +159,10 @@ fn find_tx_vout(
                     hex: vout.script_pub_key.hex.clone(),
                 },
             };
-            Some(tx_vout)
-        } else {
-            services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?
+            return Ok(Some(tx_vout))
         }
-    } else {
-        None
-    };
-
-    Ok(tx_vout)
+    }
+    services.transaction.vout_by_id.get(&(vin.txid, vin.vout))
 }
 
 fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
@@ -189,13 +184,12 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             }
             let vout = vout.unwrap();
 
-            let id = (block.height, ScriptActivityType::Vin, vin.txid, vin.vout);
             let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
-                id: id.clone(),
+                id: format!("{}{}{}{}", hex::encode(block.height.to_be_bytes()), ScriptActivityTypeHex::Vin, vin.txid, hex::encode(vin.vout.to_be_bytes())),
                 hid: hid.clone(),
                 r#type: ScriptActivityType::Vin,
-                type_hex: ScriptActivityTypeHex::Vout,
+                type_hex: ScriptActivityTypeHex::Vin,
                 txid: tx.txid,
                 block: BlockContext {
                     hash: block.hash,
@@ -215,7 +209,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: vout.value,
                 token_id: vout.token_id,
             };
-            services.script_activity.by_key.put(&hid, &id)?;
+            let id = (hid, block.height, ScriptActivityTypeHex::Vin, vin.txid, vin.vout);
             services.script_activity.by_id.put(&id, &script_activity)?
         }
 
@@ -223,12 +217,11 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             if vout.script_pub_key.hex.starts_with(&[0x6a]) {
                 continue;
             }
-            let id = (block.height, ScriptActivityType::Vout, tx.txid, vout.n);
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                id: id.clone(),
+                id: format!("{}{}{}{}", hex::encode(block.height.to_be_bytes()), ScriptActivityTypeHex::Vout, tx.txid, hex::encode(vout.n.to_be_bytes())),
                 hid: hid.clone(),
-                r#type: ScriptActivityType::Vin,
+                r#type: ScriptActivityType::Vout,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
                 block: BlockContext {
@@ -249,7 +242,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 value: vout.value.to_string(),
                 token_id: vout.token_id,
             };
-            services.script_activity.by_key.put(&hid, &id)?;
+            let id = (hid, block.height, ScriptActivityTypeHex::Vout, tx.txid, vout.n);
             services.script_activity.by_id.put(&id, &script_activity)?
         }
     }
@@ -481,6 +474,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx_idx,
         };
 
+        index_transaction(services, &ctx)?;
+
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
             continue;
@@ -519,7 +514,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             }
         }
 
-        index_transaction(services, ctx)?;
     }
 
     log_elapsed(start, "Indexed block");

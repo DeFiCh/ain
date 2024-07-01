@@ -9,8 +9,8 @@ use super::{
 };
 use crate::{
     error::ApiError,
-    model::{BlockContext, ScriptActivity, ScriptAggregation, ScriptUnspent},
-    repository::{RepositoryOps, SecondaryIndex},
+    model::{BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent},
+    repository::RepositoryOps,
     storage::SortOrder,
     Error, Result,
 };
@@ -169,23 +169,46 @@ async fn list_transaction(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<ScriptActivity>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
-    let repo = &ctx.services.script_activity;
-    let res = repo
-        .by_key
-        .list(query.next, SortOrder::Descending)?
+    let next = query
+        .next
+        .as_ref()
+        .map(|next| {
+            let height = &next[0..8];
+            let vin_vout_type = &next[8..8+2];
+            let txid = &next[8+2..64+8+2];
+            let n = &next[64+8+2..];
+
+            let height = height.parse::<u32>()?;
+            let vin_vout_type = match vin_vout_type {
+               "00" => ScriptActivityTypeHex::Vin,
+               _ => ScriptActivityTypeHex::Vout,
+            };
+            let txid = Txid::from_str(txid)?;
+            let n = n.parse::<usize>()?;
+            Ok::<(u32, ScriptActivityTypeHex, Txid, usize), Error>((height, vin_vout_type, txid, n))
+        })
+        .transpose()?
+        .unwrap_or((u32::MAX, ScriptActivityTypeHex::Vout, Txid::from_byte_array([0xffu8; 32]), usize::MAX));
+
+    let res = ctx
+        .services
+        .script_activity
+        .by_id
+        .list(Some((hid.clone(), next.0, next.1, next.2, next.3)), SortOrder::Descending)?
+        .skip(query.next.is_some() as usize)
         .take(query.size)
         .take_while(|item| match item {
-            Ok((k, _)) => k == &hid,
+            Ok((k, _)) => k.0 == hid,
             _ => true,
         })
-        .map(|el| repo.by_key.retrieve_primary_value(el))
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |item| {
-        format!(
-            "{:?}-{:?}-{:?}-{:?}",
-            item.id.0, item.id.1, item.id.2, item.id.3
-        )
+        item.id.clone()
     }))
 }
 
