@@ -12,12 +12,10 @@
 extern bool EnsureWalletIsAvailable(bool avoidException);                // in rpcwallet.cpp
 extern bool DecodeHexTx(CTransaction &tx, const std::string &strHexTx);  // in core_io.h
 
-CAccounts GetAllMineAccounts(CWallet *const pwallet) {
+CAccounts GetAllMineAccounts(CWallet *const pwallet, CCustomCSView &mnview) {
     CAccounts walletAccounts;
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto targetHeight = ::ChainActive().Height() + 1;
+    int targetHeight = mnview.GetLastHeight() + 1;
 
     CalcMissingRewardTempFix(mnview, targetHeight, *pwallet);
 
@@ -291,9 +289,9 @@ static std::vector<CTxIn> GetInputs(const UniValue &inputs) {
     return vin;
 }
 
-std::optional<CScript> AmIFounder(CWallet *const pwallet) {
+std::optional<CScript> AmIFounder(CWallet *const pwallet, CCustomCSView &mnview) {
     auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = pcustomcsview->GetAttributes();
+    const auto attributes = mnview.GetAttributes();
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
         if (const auto databaseMembers = attributes->GetValue(
@@ -381,9 +379,9 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker &pwallet,
     return fund(mtx, pwallet, {}, &coinControl, coinSelectOpts), sign(mtx, pwallet, {});
 }
 
-static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet) {
+static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet, CCustomCSView &mnview) {
     auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = pcustomcsview->GetAttributes();
+    const auto attributes = mnview.GetAttributes();
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
         if (const auto databaseMembers = attributes->GetValue(
@@ -412,6 +410,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       bool needFounderAuth,
                                       CTransactionRef &optAuthTx,
                                       const UniValue &explicitInputs,
+                                      CCustomCSView &mnview,
                                       const CoinSelectionOptions &coinSelectOpts) {
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
@@ -438,10 +437,10 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
     }
     // Look for founder's auth. minttoken may already have an auth in result.
     if (needFounderAuth && result.empty()) {
-        auto anyFounder = AmIFounder(pwallet);
+        auto anyFounder = AmIFounder(pwallet, mnview);
         if (anyFounder) {
             auths.insert(anyFounder.value());
-            auto authInput = GetAnyFoundationAuthInput(pwallet);
+            auto authInput = GetAnyFoundationAuthInput(pwallet, mnview);
             if (authInput) {
                 result.push_back(authInput.value());
             } else {
@@ -510,10 +509,8 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request) {
     return CWalletCoinsUnlocker{std::move(wallet)};
 }
 
-std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId) {
-    LOCK(cs_main);
-
-    const auto attributes = pcustomcsview->GetAttributes();
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId, CCustomCSView &mnview) {
+    const auto attributes = mnview.GetAttributes();
 
     CDataStructureV0 activeKey{AttributeTypes::Param, typeId, DFIPKeys::Active};
     const auto active = attributes->GetValue(activeKey, false);
@@ -597,6 +594,8 @@ UniValue setgov(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
+    auto view = ::GetViewSnapshot();
+
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() > 0 && request.params[0].isObject()) {
         for (const std::string &name : request.params[0].getKeys()) {
@@ -627,8 +626,8 @@ UniValue setgov(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -720,7 +719,8 @@ UniValue unsetgov(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight = pcustomcsview->GetLastHeight() + 1;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -729,8 +729,8 @@ UniValue unsetgov(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -803,6 +803,8 @@ UniValue setgovheight(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VNUM, UniValue::VARR}, true);
 
+    auto view = ::GetViewSnapshot();
+
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     const auto keys = request.params[0].getKeys();
     if (!keys.empty()) {
@@ -837,8 +839,8 @@ UniValue setgovheight(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -876,10 +878,10 @@ UniValue getgov(const JSONRPCRequest &request) {
         return *res;
     }
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
     const auto name = request.params[0].getValStr();
-    if (const auto var = pcustomcsview->GetVariable(name)) {
+    if (const auto var = view->GetVariable(name)) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV(var->GetName(), var->Export());
         return GetRPCResultCache().Set(request, ret);
@@ -887,13 +889,13 @@ UniValue getgov(const JSONRPCRequest &request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
-static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs) {
+static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs, CCustomCSView &view) {
     // OpReturnLimits
     const auto opReturnLimits = OpReturnLimits::From(height, params.GetConsensus(), attrs);
     opReturnLimits.SetToAttributesIfNotExists(attrs);
 
     // TransferDomainConfig
-    const auto tdConfig = TransferDomainConfig::From(*pcustomcsview);
+    const auto tdConfig = TransferDomainConfig::From(view);
     tdConfig.SetToAttributesIfNotExists(attrs);
 }
 
@@ -960,16 +962,16 @@ UniValue listgovs(const JSONRPCRequest &request) {
                                   "ORACLE_DEVIATION",
                                   "ATTRIBUTES"};
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
     // Get all stored Gov var changes
-    auto pending = pcustomcsview->GetAllStoredVariables();
-    const auto height = pcustomcsview->GetLastHeight();
+    auto pending = view->GetAllStoredVariables();
+    const auto height = view->GetLastHeight();
 
     UniValue result(UniValue::VARR);
     for (const auto &name : vars) {
         UniValue innerResult(UniValue::VARR);
-        auto var = pcustomcsview->GetVariable(name);
+        auto var = view->GetVariable(name);
         if (var) {
             UniValue ret(UniValue::VOBJ);
             UniValue val;
@@ -981,7 +983,7 @@ UniValue listgovs(const JSONRPCRequest &request) {
                 } else {
                     if (height >= Params().GetConsensus().DF22MetachainHeight) {
                         if (auto attributes = dynamic_cast<ATTRIBUTES *>(var.get()); attributes) {
-                            AddDefaultVars(height, Params(), *attributes);
+                            AddDefaultVars(height, Params(), *attributes, *view);
                         }
                     }
                     auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
@@ -1028,17 +1030,19 @@ UniValue isappliedcustomtx(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM}, false);
 
-    LOCK(cs_main);
-
     UniValue result(UniValue::VBOOL);
     result.setBool(false);
 
     uint256 txHash = ParseHashV(request.params[0], "txid");
     int blockHeight = request.params[1].get_int();
 
-    auto blockindex = ::ChainActive()[blockHeight];
-    if (!blockindex) {
-        return result;
+    CBlockIndex *blockindex;
+    {
+        LOCK(cs_main);
+        blockindex = ::ChainActive()[blockHeight];
+        if (!blockindex) {
+            return result;
+        }
     }
 
     uint256 hashBlock;
@@ -1089,6 +1093,8 @@ UniValue listsmartcontracts(const JSONRPCRequest &request) {
     }
         .Check(request);
 
+    auto view = ::GetViewSnapshot();
+
     UniValue arr(UniValue::VARR);
     for (const auto &item : Params().GetConsensus().smartContracts) {
         UniValue obj(UniValue::VOBJ);
@@ -1098,7 +1104,7 @@ UniValue listsmartcontracts(const JSONRPCRequest &request) {
         obj.pushKV("call", GetContractCall(item.first));
         obj.pushKV("address", EncodeDestination(dest));
 
-        pcustomcsview->ForEachBalance(
+        view->ForEachBalance(
             [&](const CScript &owner, CTokenAmount balance) {
                 if (owner != item.second) {
                     return false;

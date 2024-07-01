@@ -6,7 +6,7 @@
 #include <policy/settings.h>
 
 extern UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplementation &token, bool verbose);
-extern std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview);
+extern std::pair<int, int> GetFixedIntervalPriceBlocks(const CCustomCSView &mnview);
 
 UniValue setCollateralTokenToJSON(CCustomCSView &view, const CLoanSetCollateralTokenImplementation &collToken) {
     UniValue collTokenObj(UniValue::VOBJ);
@@ -158,19 +158,17 @@ UniValue setcollateraltoken(const JSONRPCRequest &request) {
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
+    {
         DCT_ID idToken;
 
-        auto token = pcustomcsview->GetTokenGuessId(tokenSymbol, idToken);
+        auto token = view->GetTokenGuessId(tokenSymbol, idToken);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
         }
         collToken.idToken = idToken;
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -184,8 +182,8 @@ UniValue setcollateraltoken(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -233,20 +231,19 @@ UniValue getcollateraltoken(const JSONRPCRequest &request) {
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
+    uint32_t height = view->GetLastHeight();
 
-    uint32_t height = ::ChainActive().Height();
-
-    auto token = pcustomcsview->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
+    auto token = view->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
     if (!token) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
     }
 
     CollateralTokenKey start{idToken, height};
 
-    auto collToken = pcustomcsview->HasLoanCollateralToken(start);
+    auto collToken = view->HasLoanCollateralToken(start);
     if (collToken && collToken->factor) {
-        ret.pushKVs(setCollateralTokenToJSON(*pcustomcsview, *collToken));
+        ret.pushKVs(setCollateralTokenToJSON(*view, *collToken));
     }
 
     return GetRPCResultCache().Set(request, ret);
@@ -267,12 +264,12 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
     }
 
     UniValue ret(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
+    auto view = ::GetViewSnapshot();
 
-    view.ForEachLoanCollateralToken([&](const CollateralTokenKey &key, const uint256 &collTokenTx) {
-        auto collToken = view.GetLoanCollateralToken(collTokenTx);
+    view->ForEachLoanCollateralToken([&](const CollateralTokenKey &key, const uint256 &collTokenTx) {
+        auto collToken = view->GetLoanCollateralToken(collTokenTx);
         if (collToken) {
-            ret.push_back(setCollateralTokenToJSON(view, *collToken));
+            ret.push_back(setCollateralTokenToJSON(*view, *collToken));
         }
 
         return true;
@@ -282,7 +279,7 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
         return ret;
     }
 
-    auto attributes = view.GetAttributes();
+    auto attributes = view->GetAttributes();
 
     attributes->ForEach(
         [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -290,8 +287,8 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
                 return false;
             }
             if (attr.key == TokenKeys::LoanCollateralEnabled) {
-                if (auto collToken = view.GetCollateralTokenFromAttributes({attr.typeId})) {
-                    ret.push_back(setCollateralTokenToJSON(view, *collToken));
+                if (auto collToken = view->GetCollateralTokenFromAttributes({attr.typeId})) {
+                    ret.push_back(setCollateralTokenToJSON(*view, *collToken));
                 }
             }
             return true;
@@ -397,13 +394,8 @@ UniValue setloantoken(const JSONRPCRequest &request) {
         loanToken.interest = 0;
     }
 
-    int targetHeight;
-
-    {
-        LOCK(cs_main);
-
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::SetLoanToken) << loanToken;
@@ -416,8 +408,8 @@ UniValue setloantoken(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
     CTxOut collateralOutput(1, *auths.cbegin());
@@ -517,12 +509,12 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
     std::optional<CLoanSetLoanTokenImplementation> loanToken;
     std::optional<CTokenImplementation> token;
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
+    {
         DCT_ID id;
-        token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        token = view->GetTokenGuessId(tokenStr, id);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
@@ -534,12 +526,10 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
         if (id == DCT_ID{0}) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
-        loanToken = pcustomcsview->GetLoanTokenByID(id);
+        loanToken = view->GetLoanTokenByID(id);
         if (!loanToken) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
         }
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
@@ -574,8 +564,8 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -611,10 +601,10 @@ UniValue listloantokens(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    CCustomCSView view(*pcustomcsview);
+    auto view = ::GetViewSnapshot();
 
-    view.ForEachLoanToken([&](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
-        ret.push_back(setLoanTokenToJSON(view, loanToken, key));
+    view->ForEachLoanToken([&](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        ret.push_back(setLoanTokenToJSON(*view, loanToken, key));
         return true;
     });
 
@@ -622,7 +612,7 @@ UniValue listloantokens(const JSONRPCRequest &request) {
         return ret;
     }
 
-    auto attributes = view.GetAttributes();
+    auto attributes = view->GetAttributes();
 
     attributes->ForEach(
         [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -631,8 +621,8 @@ UniValue listloantokens(const JSONRPCRequest &request) {
             }
             if (attr.key == TokenKeys::LoanMintingEnabled) {
                 auto tokenId = DCT_ID{attr.typeId};
-                if (auto loanToken = view.GetLoanTokenFromAttributes(tokenId)) {
-                    ret.push_back(setLoanTokenToJSON(view, *loanToken, tokenId));
+                if (auto loanToken = view->GetLoanTokenFromAttributes(tokenId)) {
+                    ret.push_back(setLoanTokenToJSON(*view, *loanToken, tokenId));
                 }
             }
             return true;
@@ -667,19 +657,19 @@ UniValue getloantoken(const JSONRPCRequest &request) {
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
-    auto token = pcustomcsview->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
+    auto token = view->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
     if (!token) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenSymbol));
     }
 
-    auto loanToken = pcustomcsview->GetLoanTokenByID(idToken);
+    auto loanToken = view->GetLoanTokenByID(idToken);
     if (!loanToken) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("<%s> is not a valid loan token!", tokenSymbol.c_str()));
     }
 
-    auto res = setLoanTokenToJSON(*pcustomcsview, *loanToken, idToken);
+    auto res = setLoanTokenToJSON(*view, *loanToken, idToken);
     return GetRPCResultCache().Set(request, res);
 }
 
@@ -729,11 +719,8 @@ UniValue createloanscheme(const JSONRPCRequest &request) {
     loanScheme.rate = AmountFromValue(request.params[1]);
     loanScheme.identifier = request.params[2].get_str();
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::LoanScheme) << loanScheme;
@@ -747,7 +734,7 @@ UniValue createloanscheme(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -824,11 +811,8 @@ UniValue updateloanscheme(const JSONRPCRequest &request) {
         loanScheme.updateHeight = request.params[3].get_int();
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::LoanScheme) << loanScheme;
@@ -842,7 +826,7 @@ UniValue updateloanscheme(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -905,11 +889,8 @@ UniValue setdefaultloanscheme(const JSONRPCRequest &request) {
     CDefaultLoanSchemeMessage defaultScheme;
     defaultScheme.identifier = request.params[0].get_str();
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::DefaultLoanScheme) << defaultScheme;
@@ -923,7 +904,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -991,11 +972,8 @@ UniValue destroyloanscheme(const JSONRPCRequest &request) {
         destroyScheme.destroyHeight = request.params[1].get_int();
     }
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::DestroyLoanScheme) << destroyScheme;
@@ -1009,7 +987,7 @@ UniValue destroyloanscheme(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1054,9 +1032,9 @@ UniValue listloanschemes(const JSONRPCRequest &request) {
     };
     std::set<CLoanScheme, decltype(cmp)> loans(cmp);
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
 
-    pcustomcsview->ForEachLoanScheme([&loans](const std::string &identifier, const CLoanSchemeData &data) {
+    view->ForEachLoanScheme([&loans](const std::string &identifier, const CLoanSchemeData &data) {
         CLoanScheme loanScheme;
         loanScheme.rate = data.rate;
         loanScheme.ratio = data.ratio;
@@ -1065,7 +1043,7 @@ UniValue listloanschemes(const JSONRPCRequest &request) {
         return true;
     });
 
-    auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
+    auto defaultLoan = view->GetDefaultLoanScheme();
 
     UniValue ret(UniValue::VARR);
     for (const auto &item : loans) {
@@ -1114,13 +1092,13 @@ UniValue getloanscheme(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
     }
 
-    LOCK(cs_main);
-    auto loanScheme = pcustomcsview->GetLoanScheme(loanSchemeId);
+    auto view = ::GetViewSnapshot();
+    auto loanScheme = view->GetLoanScheme(loanSchemeId);
     if (!loanScheme) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
     }
 
-    auto defaultLoan = pcustomcsview->GetDefaultLoanScheme();
+    auto defaultLoan = view->GetDefaultLoanScheme();
 
     UniValue result{UniValue::VOBJ};
     result.pushKV("id", loanSchemeId);
@@ -1214,12 +1192,12 @@ UniValue takeloan(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
     }
 
-    int targetHeight;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CScript ownerAddress;
     {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-        auto vault = pcustomcsview->GetVault(takeLoan.vaultId);
+        auto vault = view->GetVault(takeLoan.vaultId);
         if (!vault) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Vault <%s> not found", takeLoan.vaultId.GetHex()));
         }
@@ -1237,8 +1215,8 @@ UniValue takeloan(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1356,11 +1334,10 @@ UniValue paybackloan(const JSONRPCRequest &request) {
     // Check amounts or/and loans
     bool hasAmounts = !metaObj["amounts"].isNull();
     bool hasLoans = !metaObj["loans"].isNull();
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     bool isFCR = targetHeight >= Params().GetConsensus().DF15FortCanningRoadHeight;
     CBalances amounts;
     if (hasAmounts) {
@@ -1387,7 +1364,7 @@ UniValue paybackloan(const JSONRPCRequest &request) {
                 auto tokenStr = trim_ws(obj["dToken"].getValStr());
 
                 DCT_ID id;
-                auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+                auto token = view->GetTokenGuessId(tokenStr, id);
                 if (!token) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
                 }
@@ -1396,7 +1373,7 @@ UniValue paybackloan(const JSONRPCRequest &request) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s is not a loan token!", tokenStr));
                 }
 
-                auto loanToken = pcustomcsview->GetLoanTokenByID(id);
+                auto loanToken = view->GetLoanTokenByID(id);
                 if (!loanToken) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't find %s loan token!", tokenStr));
                 }
@@ -1418,7 +1395,8 @@ UniValue paybackloan(const JSONRPCRequest &request) {
             balances = amounts;
         }
 
-        auto selectedAccounts = SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet), balances, SelectionPie);
+        auto selectedAccounts =
+            SelectAccountsByTargetBalances(GetAllMineAccounts(pwallet, *view), balances, SelectionPie);
 
         for (auto &account : selectedAccounts) {
             auto it = amounts.balances.begin();
@@ -1468,8 +1446,8 @@ UniValue paybackloan(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
     const UniValue &txInputs = request.params[1];
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -1505,21 +1483,23 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
     }
     UniValue ret{UniValue::VOBJ};
 
-    LOCK(cs_main);
-    auto view = *pcustomcsview;
-
-    auto height = ::ChainActive().Height() + 1;
+    auto view = ::GetViewSnapshot();
+    auto height = view->GetLastHeight() + 1;
 
     bool useNextPrice = false, requireLivePrice = true;
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    int64_t lastBlockTime{};
+    {
+        LOCK(cs_main);
+        lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    }
 
     uint64_t totalCollateralValue = 0, totalLoanValue = 0, totalVaults = 0, totalAuctions = 0, totalLoanSchemes = 0,
              totalCollateralTokens = 0, totalLoanTokens = 0;
 
-    auto fixedIntervalBlock = view.GetIntervalBlock();
-    auto priceDeviation = view.GetPriceDeviation();
-    auto defaultScheme = view.GetDefaultLoanScheme();
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), view);
+    auto fixedIntervalBlock = view->GetIntervalBlock();
+    auto priceDeviation = view->GetPriceDeviation();
+    auto defaultScheme = view->GetDefaultLoanScheme();
+    auto priceBlocks = GetFixedIntervalPriceBlocks(*view);
 
     TaskGroup g;
     g.AddTask();
@@ -1527,25 +1507,25 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
     auto &pool = DfTxTaskPool->pool;
 
     boost::asio::post(pool, [&] {
-        view.ForEachLoanScheme([&](const std::string &identifier, const CLoanSchemeData &data) {
+        view->ForEachLoanScheme([&](const std::string &identifier, const CLoanSchemeData &data) {
             totalLoanSchemes++;
             return true;
         });
 
         // First assume it's on the DB. For later, might be worth thinking if it's better to incorporate
         // attributes right into the for each loop, so the interface remains consistent.
-        view.ForEachLoanCollateralToken([&](CollateralTokenKey const &key, uint256 const &collTokenTx) {
+        view->ForEachLoanCollateralToken([&](CollateralTokenKey const &key, uint256 const &collTokenTx) {
             totalCollateralTokens++;
             return true;
         });
 
-        view.ForEachLoanToken([&](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+        view->ForEachLoanToken([&](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
             totalLoanTokens++;
             return true;
         });
 
         // Now, let's go over attributes. If it's on attributes, the above calls would have done nothing.
-        auto attributes = view.GetAttributes();
+        auto attributes = view->GetAttributes();
 
         attributes->ForEach(
             [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -1561,7 +1541,7 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
             },
             CDataStructureV0{AttributeTypes::Token});
 
-        view.ForEachVaultAuction(
+        view->ForEachVaultAuction(
             [&](const CVaultId &vaultId, const CAuctionData &data) {
                 totalAuctions += data.batchCount;
                 return true;
@@ -1575,7 +1555,7 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
     std::atomic<uint64_t> colsValTotal{0};
     std::atomic<uint64_t> loansValTotal{0};
 
-    view.ForEachVault([&](const CVaultId &vaultId, const CVaultData &data) {
+    view->ForEachVault([&](const CVaultId &vaultId, const CVaultData &data) {
         g.AddTask();
         boost::asio::post(pool,
                           [&,
@@ -1586,11 +1566,11 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
                            height = height,
                            useNextPrice = useNextPrice,
                            requireLivePrice = requireLivePrice] {
-                              auto collaterals = view.GetVaultCollaterals(vaultId);
+                              auto collaterals = view->GetVaultCollaterals(vaultId);
                               if (!collaterals) {
                                   collaterals = CBalances{};
                               }
-                              auto rate = view.GetVaultAssets(
+                              auto rate = view->GetVaultAssets(
                                   vaultId, *collaterals, height, lastBlockTime, useNextPrice, requireLivePrice);
                               if (rate) {
                                   colsValTotal.fetch_add(rate.val->totalCollaterals, std::memory_order_relaxed);
@@ -1671,26 +1651,26 @@ UniValue getinterest(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
     }
 
-    LOCK(cs_main);
+    auto view = ::GetViewSnapshot();
+    auto height = view->GetLastHeight() + 1;
 
-    const auto scheme = pcustomcsview->GetLoanScheme(loanSchemeId);
+    const auto scheme = view->GetLoanScheme(loanSchemeId);
     if (!scheme) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
     }
 
     DCT_ID id{~0u};
 
-    if (!tokenStr.empty() && !pcustomcsview->GetTokenGuessId(tokenStr, id)) {
+    if (!tokenStr.empty() && !view->GetTokenGuessId(tokenStr, id)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
     }
 
     UniValue ret(UniValue::VARR);
-    const auto height = ::ChainActive().Height() + 1;
 
     std::map<DCT_ID, std::pair<CInterestAmount, CInterestAmount>> interest;
 
     auto vaultInterest = [&](const CVaultId &vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate) {
-        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vault = view->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId) {
             return true;
         }
@@ -1700,7 +1680,7 @@ UniValue getinterest(const JSONRPCRequest &request) {
 
         auto &[cumulativeInterest, interestPerBlock] = interest[tokenId];
 
-        auto token = pcustomcsview->GetToken(tokenId);
+        auto token = view->GetToken(tokenId);
         if (!token) {
             return true;
         }
@@ -1713,14 +1693,13 @@ UniValue getinterest(const JSONRPCRequest &request) {
     };
 
     if (height >= Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
-        pcustomcsview->ForEachVaultInterestV3(vaultInterest);
+        view->ForEachVaultInterestV3(vaultInterest);
     } else if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
-        pcustomcsview->ForEachVaultInterestV2(
-            [&](const CVaultId &vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
-                return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
-            });
+        view->ForEachVaultInterestV2([&](const CVaultId &vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
+            return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
+        });
     } else {
-        pcustomcsview->ForEachVaultInterest([&](const CVaultId &vaultId, DCT_ID tokenId, const CInterestRate &rate) {
+        view->ForEachVaultInterest([&](const CVaultId &vaultId, DCT_ID tokenId, const CInterestRate &rate) {
             return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
         });
     }
@@ -1736,7 +1715,7 @@ UniValue getinterest(const JSONRPCRequest &request) {
                                           ? -CeilInterest(totalInterestPerBlock.amount, height)
                                           : CeilInterest(totalInterestPerBlock.amount, height);
 
-        const auto token = pcustomcsview->GetToken(tokenId);
+        const auto token = view->GetToken(tokenId);
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(totalInterest));
         obj.pushKV("interestPerBlock", ValueFromAmount(interestPerBlock));
@@ -1774,13 +1753,13 @@ UniValue paybackwithcollateral(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CScript ownerAddress;
     {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
         // decode vaultId
-        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vault = view->GetVault(vaultId);
         if (!vault) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
         }
@@ -1797,8 +1776,8 @@ UniValue paybackwithcollateral(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
