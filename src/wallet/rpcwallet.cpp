@@ -421,6 +421,31 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
+    LogPrintf("sendtoaddress logging\n");
+    LogPrintf("1. address: %s\n", request.params[0].getValStr());
+    LogPrintf("2. amount: %s\n", request.params[1].getValStr());
+    if (!request.params[2].isNull()) {
+        LogPrintf("3. comment: %s\n", request.params[2].getValStr());
+    }
+    if (!request.params[3].isNull()) {
+        LogPrintf("4. comment_to: %s\n", request.params[3].getValStr());
+    }
+    if (!request.params[4].isNull()) {
+        LogPrintf("5. subtractfeefromamount: %d\n", request.params[4].get_bool());
+    }
+    if (!request.params[5].isNull()) {
+        LogPrintf("6. replaceable: %d\n", request.params[5].get_bool());
+    }
+    if (!request.params[6].isNull()) {
+        LogPrintf("7. conf_target: %s\n", request.params[6].getValStr());
+    }
+    if (!request.params[7].isNull()) {
+        LogPrintf("8. estimate_mode: %s\n", request.params[7].getValStr());
+    }
+    if (!request.params[8].isNull()) {
+        LogPrintf("9. avoid_reuse: %s\n", request.params[8].getValStr());
+    }
+
     RejectErc55Address(GetScriptForDestination(dest));
 
     // Amount
