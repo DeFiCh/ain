@@ -542,7 +542,7 @@ async fn map_token_amounts(
 }
 
 #[ocean_endpoint]
-async fn list_auction(
+async fn list_auctions(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<VaultLiquidatedResponse>> {
@@ -601,6 +601,6 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
             "/vaults/:id/auctions/:height/batches/:batchIndex/history",
             get(list_vault_auction_history),
         )
-        .route("/auctions", get(list_auction))
+        .route("/auctions", get(list_auctions))
         .layer(Extension(ctx))
 }
