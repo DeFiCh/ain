@@ -14,6 +14,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind},
+    model::ApiProposalInfo,
     Result,
 };
 
@@ -32,7 +33,7 @@ pub struct GovernanceQuery {
 async fn list_gov_proposals(
     Query(query): Query<GovernanceQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<ProposalInfo>> {
+) -> Result<ApiPagedResponse<ApiProposalInfo>> {
     let size = match query.all {
         Some(true) => 0,
         _ => query.pagination.size,
@@ -41,6 +42,7 @@ async fn list_gov_proposals(
     let opts = ListProposalsOptions {
         pagination: Some(ListProposalsPagination {
             limit: Some(size),
+            start: query.pagination.next.clone(),
             ..ListProposalsPagination::default()
         }),
         status: query.status,
@@ -48,23 +50,28 @@ async fn list_gov_proposals(
         cycle: query.cycle,
     };
     let mut proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
-    proposals.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
-    Ok(ApiPagedResponse::of(proposals, size, |proposal| {
-        proposal.proposal_id.to_string()
-    }))
+    let mut proposals_with_string_amount: Vec<ApiProposalInfo> =
+        proposals.into_iter().map(ApiProposalInfo::from).collect();
+    // proposals.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
+    proposals_with_string_amount.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
+    Ok(ApiPagedResponse::of(
+        proposals_with_string_amount,
+        size,
+        |proposal| proposal.proposal_id.to_string(),
+    ))
 }
 
 #[ocean_endpoint]
 async fn get_gov_proposal(
-    Path(proposal_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<ProposalInfo>> {
+    Path(proposal_id): Path<String>,
+) -> Result<Response<ApiProposalInfo>> {
     let txid: Txid = proposal_id
         .parse()
         .map_err(|_| Error::NotFound(NotFoundKind::Proposal))?;
 
     let proposal = ctx.client.get_gov_proposal(txid).await?;
-    Ok(Response::new(proposal))
+    Ok(Response::new(proposal.into()))
 }
 
 #[ocean_endpoint]
