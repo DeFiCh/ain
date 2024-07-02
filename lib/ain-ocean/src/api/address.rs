@@ -1,7 +1,8 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use super::{
-    common::address_to_hid,
+    cache::get_token_cached,
+    common::{address_to_hid, parse_display_symbol},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -20,7 +21,9 @@ use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use serde_with::skip_serializing_none;
+use defichain_rpc::RpcApi;
 
 #[derive(Deserialize)]
 struct Address {
@@ -381,13 +384,75 @@ async fn list_transaction_unspent(
     }))
 }
 
+// Tokens owned by an address
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct AddressToken {
+    id: String,
+    amount: String,
+    symbol: String,
+    display_symbol: String,
+    symbol_key: String,
+    name: String,
+    #[serde(rename = "isDAT")]
+    is_dat: bool,
+    #[serde(rename = "isLPS")]
+    is_lps: bool,
+    is_loan_token: bool,
+}
+
+#[ocean_endpoint]
+async fn list_tokens(
+    Path(Address { address }): Path<Address>,
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<AddressToken>> {
+    let account: BTreeMap<String, f64> = ctx.client.call(
+        "getaccount",
+        &[
+            address.into(),
+            json!({
+                "limit": query.size,
+                "start": query.next.as_ref().and_then(|n| n.parse::<u32>().ok()).unwrap_or_default(),
+                "including_start": query.next.is_none()
+            }),
+            true.into(),
+        ],
+    ).await?;
+
+    let mut vec = Vec::new();
+    for (k, v) in account {
+        let token = get_token_cached(&ctx, &k).await?;
+        if token.is_none() {
+            continue
+        }
+        let (id, info) = token.unwrap();
+        let address_token = AddressToken {
+            id,
+            amount: format!("{:.8}", v),
+            display_symbol: parse_display_symbol(&info),
+            symbol: info.symbol,
+            symbol_key: info.symbol_key,
+            name: info.name,
+            is_dat: info.is_dat,
+            is_lps: info.is_lps,
+            is_loan_token: info.is_loan_token,
+        };
+        vec.push(address_token)
+    }
+
+    Ok(ApiPagedResponse::of(vec, query.size, |item| {
+        item.id.clone()
+    }))
+}
+
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         // .route("/history/:height/:txno", get(get_account_history))
         // .route("/history", get(list_account_history))
         .route("/:address/balance", get(get_balance))
         .route("/:address/aggregation", get(get_aggregation))
-        // .route("/tokens", get(list_token))
+        .route("/:address/tokens", get(list_tokens))
         // .route("/vaults", get(list_vault))
         .route("/:address/transactions", get(list_transactions))
         .route(
