@@ -1,4 +1,5 @@
 mod block;
+mod governance;
 mod masternode;
 mod masternode_stats;
 pub mod oracle;
@@ -21,7 +22,9 @@ mod transaction_vin;
 mod transaction_vout;
 mod tx_result;
 mod vault_auction_batch_history;
+// use ain_dftx::governance;
 pub use block::*;
+pub use governance::*;
 pub use masternode::*;
 pub use masternode_stats::*;
 pub use oracle::*;
