@@ -217,10 +217,26 @@ async fn list_loan_token(
     }))
 }
 
-// #[ocean_endpoint]
-// async fn get_loan_token(Path(token_id): Path<String>) -> String {
-//     format!("Details of loan token with id {}", token_id)
-// }
+#[ocean_endpoint]
+async fn get_loan_token(
+    Path(token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<LoanToken>> {
+    let loan_token_result = ctx.client.get_loan_token(token_id).await?;
+    let res = loan_token_result
+        .token
+        .0
+        .into_iter()
+        .next()
+        .map(|(id, info)| LoanToken {
+            token_id: id.clone(),
+            token: TokenData::from_with_id(id, info),
+            interest: loan_token_result.interest,
+        })
+        .ok_or(format_err!("Unable to find loan token"))?;
+
+    Ok(Response::new(res))
+}
 
 #[ocean_endpoint]
 async fn list_vaults(
@@ -627,7 +643,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/collaterals", get(list_collateral_token))
         .route("/collaterals/:id", get(get_collateral_token))
         .route("/tokens", get(list_loan_token))
-        // .route("/tokens/:id", get(get_loan_token))
+        .route("/tokens/:id", get(get_loan_token))
         .route("/vaults", get(list_vaults))
         .route("/vaults/:id", get(get_vault))
         .route(
