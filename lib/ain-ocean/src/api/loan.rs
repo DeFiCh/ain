@@ -10,7 +10,7 @@ use defichain_rpc::{
         token::TokenInfo,
         vault::{VaultActive, VaultLiquidationBatch},
     },
-    json::vault::{AuctionPagination, AuctionPaginationStart, VaultLiquidation, VaultResult, VaultState},
+    json::vault::{AuctionPagination, AuctionPaginationStart, ListVaultOptions, VaultLiquidation, VaultPagination, VaultResult, VaultState},
     LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
@@ -222,10 +222,43 @@ async fn list_loan_token(
 //     format!("Details of loan token with id {}", token_id)
 // }
 
-// #[ocean_endpoint]
-// async fn list_vault() -> String {
-//     "List of vaults".to_string()
-// }
+#[ocean_endpoint]
+async fn list_vaults(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<VaultResponse>> {
+    let option = ListVaultOptions {
+        verbose: Some(true),
+        owner_address: None,
+        loan_scheme_id: None,
+        state: None,
+    };
+    let pagination = VaultPagination {
+        start: query.next,
+        including_start: None,
+        limit: if query.size > 30 {
+            Some(30)
+        } else {
+            Some(query.size)
+        },
+    };
+    let vaults = ctx.client.list_vaults(option, pagination).await?;
+    let mut list = Vec::new();
+    for vault in vaults {
+        let each = match vault {
+            VaultResult::VaultActive(vault) => VaultResponse::Active(map_vault_active(&ctx, vault).await?),
+            VaultResult::VaultLiquidation(vault) => VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?),
+        };
+        list.push(each)
+    }
+
+    Ok(ApiPagedResponse::of(list, query.size, |each| {
+        match each {
+            VaultResponse::Active(vault) => vault.vault_id.clone(),
+            VaultResponse::Liquidated(vault) => vault.vault_id.clone(),
+        }
+    }))
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -595,7 +628,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/collaterals/:id", get(get_collateral_token))
         .route("/tokens", get(list_loan_token))
         // .route("/tokens/:id", get(get_loan_token))
-        // .route("/vaults", get(list_vault))
+        .route("/vaults", get(list_vaults))
         .route("/vaults/:id", get(get_vault))
         .route(
             "/vaults/:id/auctions/:height/batches/:batchIndex/history",
