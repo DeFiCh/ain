@@ -23,17 +23,20 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
     CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
     auto currentRatio = attributes->GetValue(releaseKey, CAmount{});
     if (currentRatio < obj.releasePart) {
-        return Res::Err("can't release more than locked %s vs %s",GetDecimalString(currentRatio),GetDecimalString(obj.releasePart));
+        return Res::Err("can't release more than locked %s vs %s",
+                        GetDecimalString(currentRatio),
+                        GetDecimalString(obj.releasePart));
     }
-    
+
     auto newRatio = currentRatio - obj.releasePart;
     // part of locked funds to be released
     auto relativePartToRelease = currentRatio <= obj.releasePart ? COIN : DivideAmounts(obj.releasePart, currentRatio);
-    LogPrintf("releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. relative releasePart: %s \n",
-              GetDecimalString(currentRatio),
-              GetDecimalString(obj.releasePart),
-              GetDecimalString(newRatio),
-              GetDecimalString(relativePartToRelease));
+    LogPrintf(
+        "releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. relative releasePart: %s \n",
+        GetDecimalString(currentRatio),
+        GetDecimalString(obj.releasePart),
+        GetDecimalString(newRatio),
+        GetDecimalString(relativePartToRelease));
 
     // calc part of current funds that should be released
     // cap to all funds
