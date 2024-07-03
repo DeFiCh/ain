@@ -536,8 +536,10 @@ std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId,
         // Get last height
         auto lastHeight = height - 1;
 
+        uint64_t resignDelay = GetMnResignDelay(height);
+
         // Cannot expire below block count required to calculate average time
-        if (lastHeight < static_cast<uint64_t>(Params().GetConsensus().mn.newResignDelay)) {
+        if (lastHeight < resignDelay) {
             return *timelock;
         }
 
@@ -546,7 +548,7 @@ std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId,
 
         // Get average time of the last two times the activation delay worth of blocks
         uint64_t totalTime{0};
-        for (; lastHeight + Params().GetConsensus().mn.newResignDelay >= height; --lastHeight) {
+        for (; lastHeight + resignDelay >= height; --lastHeight) {
             const auto &blockIndex{::ChainActive()[lastHeight]};
             // Last height might not be available due to rollback or call to invalidateblock
             if (!blockIndex) {
@@ -554,7 +556,7 @@ std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId,
             }
             totalTime += blockIndex->nTime;
         }
-        const uint32_t averageTime = totalTime / Params().GetConsensus().mn.newResignDelay;
+        const uint32_t averageTime = totalTime / resignDelay;
 
         // Below expiration return timelock
         if (averageTime < timelockExpire) {
