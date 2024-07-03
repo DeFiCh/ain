@@ -2900,9 +2900,18 @@ namespace {
         CAmount totalUSDNeeded = 0;
         CAmount usedCollateralAmount = 0;
     };
+
+    struct SwapInfo {
+        DCT_ID poolId;
+        arith_uint256 feeIn;
+        arith_uint256 feeOut;
+        arith_uint256 commission;
+        arith_uint256 reserveIn;
+        arith_uint256 reserveOut;
+    };
 }  // namespace
 
-static void paybackWithSwappedCollateral(const DCT_ID &collId,
+static bool paybackWithSwappedCollateral(const DCT_ID &collId,
                                          const std::map<DCT_ID, CAmount> &usdPrices,
                                          const CTokensView::TokenIDPair &dUsdToken,
                                          CCustomCSView &cache,
@@ -2935,25 +2944,68 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
         }
         totalUSD += data.totalUSDNeeded;
     }
+    if (totalUSD == 0) {
+        return false;
+    }
     LogPrintf("Swapping collateral %d, needing %d DUSD\n", collId.v, totalUSD.GetLow64());
+
+    const auto attributes = cache.GetAttributes();
+    std::vector<SwapInfo> swapInfos;
+
+    auto swapInfoFromPool = [&](const DCT_ID &poolId, const CPoolPair &pool, DCT_ID tokenIn) {
+        auto isAtoB = pool.idTokenA == tokenIn;
+        auto tokenOut = isAtoB ? pool.idTokenB : pool.idTokenA;
+
+        CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, poolId.v, PoolKeys::TokenAFeeDir};
+        CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, poolId.v, PoolKeys::TokenBFeeDir};
+        const auto feeDirIn = attributes->GetValue(isAtoB ? dirAKey : dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto feeDirOut = attributes->GetValue(isAtoB ? dirBKey : dirAKey, CFeeDir{FeeDirValues::Both});
+
+        SwapInfo result{poolId};
+        auto dexfeeInPct = cache.GetDexFeeInPct(poolId, tokenIn);
+        auto dexfeeOutPct = cache.GetDexFeeOutPct(poolId, tokenOut);
+        result.feeIn = feeDirIn.feeDir != Out ? COIN - dexfeeInPct : COIN;
+        result.feeOut = feeDirOut.feeDir != In ? COIN - dexfeeOutPct : COIN;
+        result.reserveIn = isAtoB ? pool.reserveA : pool.reserveB;
+        result.reserveOut = isAtoB ? pool.reserveB : pool.reserveA;
+        result.commission = (COIN - pool.commission);
+        LogPrintf("pool swap info %d (%d->%d). reserves: %s-%s, fees: %s-%s, comm: %s \n",
+                  result.poolId.v,
+                  tokenIn.v,
+                  tokenOut.v,
+                  GetDecimalString(result.reserveIn.GetLow64()),
+                  GetDecimalString(result.reserveOut.GetLow64()),
+                  GetDecimalString(result.feeIn.GetLow64()),
+                  GetDecimalString(result.feeOut.GetLow64()),
+                  GetDecimalString(result.commission.GetLow64()));
+
+        return result;
+    };
     // initial run estimate price based on max DUSD impact
     // TODO: do we need to have tokenPair ordered correctly here?
     const auto &poolView = cache.GetPoolPair(dUsdToken.first, collId);
-    const auto &pool = poolView->second;
-    const auto &commisionFac = (COIN - pool.commission);
-    // TODO: also consider fees
-    const auto reserveColl = arith_uint256(pool.idTokenB == collId ? pool.reserveB : pool.reserveA);
-    const auto reserveDUSD = arith_uint256(pool.idTokenB == collId ? pool.reserveA : pool.reserveB);
-
-    LogPrintf("Pool %d, commission %d , reserve %d - %d\n",
-              poolView->first.v,
-              commisionFac,
-              reserveColl.GetLow64(),
-              reserveDUSD.GetLow64());
-    auto input = ((reserveColl * reserveDUSD) / (reserveDUSD - totalUSD)) - reserveColl;
+    if (!poolView) {
+        // no direct pool, go throu DFI
+        const auto &toDfi = cache.GetPoolPair(collId, DCT_ID{0});
+        const auto &DFItoDUSD = cache.GetPoolPair(DCT_ID{0}, dUsdToken.first);
+        if (!toDfi || !DFItoDUSD) {
+            // FIXME: no path via DFI?!?
+            return true;  // true cause there would have been something to swap
+        }
+        swapInfos.emplace_back(swapInfoFromPool(toDfi->first, toDfi->second, collId));
+        swapInfos.emplace_back(swapInfoFromPool(DFItoDUSD->first, DFItoDUSD->second, DCT_ID{0}));
+    } else {
+        swapInfos.emplace_back(swapInfoFromPool(poolView->first, poolView->second, collId));
+    }
+    auto output = totalUSD;
+    for (const auto &swap : swapInfos) {
+        auto swapOutput = (arith_uint256(output) * COIN) / swap.feeOut;
+        auto swapInput = ((swap.reserveOut * swap.reserveIn) / (swap.reserveOut - swapOutput)) - swap.reserveIn;
+        // resulting input= next output
+        output = swapInput * swap.feeIn / swap.commission;
+    }
     // this is the estimated price if all needed USD are swapped ->  max slipage
-    //= (input/(COIN-commission))/TotalUSD
-    auto estimatedCollPerDUSD = input * COIN / ((totalUSD * commisionFac) / COIN);
+    auto estimatedCollPerDUSD = output * COIN / totalUSD;
     // now see how much collateral is acutally useable per vault
     LogPrintf("first esimate (based on wanted DUSD output): %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
 
@@ -2970,13 +3022,20 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
         }
         LogPrintf("estimating for %d coll used\n", totalCollateralUsed.GetLow64());
 
-        auto output =
-            reserveDUSD - ((reserveColl * reserveDUSD) / (reserveColl + ((totalCollateralUsed * commisionFac) / COIN)));
-        return totalCollateralUsed * COIN / output;
+        auto input = totalCollateralUsed;
+        for (const auto &swap : swapInfos) {
+            auto swapInput = ((input * swap.feeIn / COIN) * swap.commission) / COIN;
+            auto swapOutput = swap.reserveOut - ((swap.reserveIn * swap.reserveOut) / (swap.reserveIn + swapInput));
+            input = swapOutput * swap.feeOut / COIN;
+        }
+        return totalCollateralUsed * COIN / input;
     };
+
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
     LogPrintf("second estimate (based on av. coll) collPerDUSD: %.8f\n",
               (double)estimatedCollPerDUSD.GetLow64() / COIN);
+    estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
+    LogPrintf("third estimate (based on av. coll) collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
     LogPrintf("final estimate collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
 
@@ -3000,8 +3059,13 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
     }
     swapMessage.amountFrom = totalCollToSwap;
 
+    std::vector<DCT_ID> poolIds;
+    for (const auto &info : swapInfos) {
+        poolIds.emplace_back(info.poolId);
+    }
+    LogPrintf("swapping %s@%d to DUSD\n", GetDecimalString(totalCollToSwap), collId.v);
     auto poolSwap = CPoolSwap(swapMessage, blockCtx.GetHeight());
-    poolSwap.ExecuteSwap(cache, {}, blockCtx.GetConsensus());
+    poolSwap.ExecuteSwap(cache, poolIds, blockCtx.GetConsensus());
     auto availableDUSD = cache.GetBalance(contractAddressValue, dUsdToken.first);
 
     for (const auto &data : collToLoans) {
@@ -3021,6 +3085,7 @@ static void paybackWithSwappedCollateral(const DCT_ID &collId,
             cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, dusdResult.nValue});
         }
     }
+    return true;
 }
 
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
@@ -3090,12 +3155,9 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, true);
     }
 
-    // TODO: also use other collateral, first DFI, then any remaining collateral (needs to be swapped to DUSD in the
-    // method first)
-
     //  get loans (token, id and usd value) and collateral per vault
     //  get resulting DUSD for full swap
-    //  iterate 2 times to get a good estimation with slipage
+    //  iterate to get a good estimation with slipage
     //  swap and payback loans
     //  -> repeat with next collateral
     std::map<DCT_ID, CAmount> usdPrices;
@@ -3138,10 +3200,12 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
 
     for (const auto &pool : gatewaypools) {
         auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
-        paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx);
+        if (!paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx)) {
+            break;
+        }
     }
 
-    // TODO: find paths for remaining collaterals
+    // remaining collaterals (no direct path, will go via DFI)
     allUsedCollaterals.clear();
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         bool gotLoan = false;
@@ -3160,8 +3224,12 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         }
         return true;
     });
-    // for each collateral: find path and use paybackWithSwappedCollateral with poolIds (need to adapt for composite
-    // swaps)
+
+    for (const auto &collId : allUsedCollaterals) {
+        if (!paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx)) {
+            break;
+        }
+    }
 }
 
 // creates the needed splits for token lock and the number of needed pools
