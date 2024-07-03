@@ -58,8 +58,6 @@ UniValue spv_sendrawtx(const JSONRPCRequest& request)
     return UniValue("");
 }
 
-extern CAmount GetAnchorSubsidy(int anchorHeight, int prevAnchorHeight, const Consensus::Params& consensusParams);
-
 /*
  * Create, sign and send (optional) anchor tx using only spv api
  * Issued by: any
@@ -142,14 +140,12 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Feerate should be > 0!");
     }
 
-    THeight prevAnchorHeight{0};
     CAnchor anchor;
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK(locked_chain->mutex());
 
         anchor = panchorauths->CreateBestAnchor(rewardDest);
-        prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
     }
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
@@ -184,12 +180,13 @@ UniValue spv_createanchor(const JSONRPCRequest& request)
             sendResult = ENOSPV;
     }
 
+    LOCK(cs_main);
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", HexStr(rawtx));
     result.pushKV("txHash", hash.ToString());
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
-    result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, Params().GetConsensus())));
+    result.pushKV("estimatedReward", ValueFromAmount(pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward)));
     result.pushKV("cost", cost);
     if (send) {
         result.pushKV("sendResult", sendResult);
@@ -231,14 +228,12 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "rewardAddress (" + rewardAddress + ") does not refer to a P2PKH or P2SH or P2WPKH address");
     }
 
-    THeight prevAnchorHeight{0};
     CAnchor anchor;
     {
         auto locked_chain = pwallet->chain().lock();
         LOCK(locked_chain->mutex());
 
         anchor = panchorauths->CreateBestAnchor(rewardDest);
-        prevAnchorHeight = panchors->GetActiveAnchor() ? panchors->GetActiveAnchor()->anchor.height : 0;
     }
     if (anchor.sigs.empty()) {
         throw JSONRPCError(RPC_VERIFY_ERROR, "Min anchor quorum was not reached!");
@@ -266,11 +261,12 @@ UniValue spv_createanchortemplate(const JSONRPCRequest& request)
         mtx.vout.push_back(CBtcTxOut(spv::P2WSH_DUST, metaScripts[i]));
     }
 
+    LOCK(cs_main);
     UniValue result(UniValue::VOBJ);
     result.pushKV("txHex", EncodeHexBtcTx(CBtcTransaction(mtx)));
     result.pushKV("defiHash", anchor.blockHash.ToString());
     result.pushKV("defiHeight", (int) anchor.height);
-    result.pushKV("estimatedReward", ValueFromAmount(GetAnchorSubsidy(anchor.height, prevAnchorHeight, consensus)));
+    result.pushKV("estimatedReward", ValueFromAmount(pcustomcsview->GetCommunityBalance(CommunityAccountType::AnchorReward)));
     result.pushKV("anchorAddress", Params().GetConsensus().spv.anchors_address);
 
     return result;
