@@ -2410,7 +2410,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Create masternode
         CMasternode node;
-        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+        node.creationHeight = chain_active_height - GetMnActivationDelay(chain_active_height);
         node.ownerType = WitV0KeyHashType;
         node.ownerAuthAddress = keyID;
         node.operatorType = WitV0KeyHashType;
