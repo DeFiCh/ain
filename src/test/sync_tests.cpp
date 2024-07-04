@@ -62,19 +62,21 @@ BOOST_AUTO_TEST_CASE(lock_free)
         // Every thread decrements count
         threads.fetch_sub(1, std::memory_order_acq_rel);
 
-        std::unique_lock lock{m};
-        context.fetch_add(1, std::memory_order_acq_rel);
-        
-        // Wait for all threads to decrement count
-        while (threads.load(std::memory_order_acquire) > 0) {
-            std::this_thread::yield();
-        }
+        {
+            std::unique_lock lock{m};
+            context.fetch_add(1, std::memory_order_acq_rel);
+            
+            // Wait for all threads to decrement count
+            while (threads.load(std::memory_order_acquire) > 0) {
+                std::this_thread::yield();
+            }
 
-        // Ensure only one thread is in the critical section
-        BOOST_CHECK_EQUAL(threads.load(std::memory_order_acquire), 0);
-        BOOST_CHECK_EQUAL(context.load(std::memory_order_acquire), 1);
-        
-        context.fetch_sub(1, std::memory_order_acq_rel);
+            // Ensure only one thread is in the critical section
+            BOOST_CHECK_EQUAL(threads.load(std::memory_order_acquire), 0);
+            BOOST_CHECK_EQUAL(context.load(std::memory_order_acquire), 1);
+
+            context.fetch_sub(1, std::memory_order_acq_rel);
+        }
     };
 
     std::vector<std::thread> threads;
