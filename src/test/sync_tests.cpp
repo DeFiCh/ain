@@ -59,14 +59,22 @@ BOOST_AUTO_TEST_CASE(lock_free)
         static std::atomic_int context(0);
         static std::atomic_int threads(num_threads);
 
-        threads--; // every thread decrements count
+        // Every thread decrements count
+        threads.fetch_sub(1, std::memory_order_acq_rel);
 
         std::unique_lock lock{m};
-        context++;
-        while (threads > 0); // wait all threads to be here
-        BOOST_CHECK_EQUAL(threads.load(), 0); // now they wait for lock
-        BOOST_CHECK_EQUAL(context.load(), 1); // but only one operates
-        context--;
+        context.fetch_add(1, std::memory_order_acq_rel);
+        
+        // Wait for all threads to decrement count
+        while (threads.load(std::memory_order_acquire) > 0) {
+            std::this_thread::yield();
+        }
+
+        // Ensure only one thread is in the critical section
+        BOOST_CHECK_EQUAL(threads.load(std::memory_order_acquire), 0);
+        BOOST_CHECK_EQUAL(context.load(std::memory_order_acquire), 1);
+        
+        context.fetch_sub(1, std::memory_order_acq_rel);
     };
 
     std::vector<std::thread> threads;
