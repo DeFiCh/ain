@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
 
     auto testFunc = []() {
         static AtomicMutex m;
-        static std::atomic_int context(0);
+        static uint64_t context(0);
         static std::atomic_int threads(num_threads);
 
         // Every thread decrements count
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
 
         {
             std::unique_lock lock{m};
-            context.fetch_add(1, std::memory_order_acq_rel);
+            ++context;
             
             // Wait for all threads to decrement count
             while (threads.load(std::memory_order_acquire) > 0) {
@@ -73,9 +73,9 @@ BOOST_AUTO_TEST_CASE(lock_free)
 
             // Ensure only one thread is in the critical section
             BOOST_CHECK_EQUAL(threads.load(std::memory_order_acquire), 0);
-            BOOST_CHECK_EQUAL(context.load(std::memory_order_acquire), 1);
+            BOOST_CHECK_EQUAL(context, 1);
 
-            context.fetch_sub(1, std::memory_order_acq_rel);
+            --context;
         }
     };
 
