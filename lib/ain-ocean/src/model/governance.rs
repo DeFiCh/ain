@@ -1,7 +1,5 @@
-use bitcoin::Txid;
 use defichain_rpc::json::governance::{ProposalInfo, ProposalStatus, ProposalType};
-use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
 #[skip_serializing_none]
@@ -14,6 +12,10 @@ pub struct ApiProposalInfo {
     pub context_hash: String,
     pub r#type: ProposalType,
     pub status: ProposalStatus,
+    #[serde(
+        serialize_with = "serialize_amount",
+        skip_serializing_if = "should_skip"
+    )]
     pub amount: Option<String>,
     pub current_cycle: u64,
     pub total_cycles: u64,
@@ -71,4 +73,17 @@ impl From<ProposalInfo> for ApiProposalInfo {
             fee_redistribution_total: proposal.fee_redistribution_total,
         }
     }
+}
+fn serialize_amount<S>(amount: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match amount {
+        Some(value) => serializer.serialize_some(value),
+        None => serializer.serialize_some(&serde_json::Value::String("undefined".to_string())),
+    }
+}
+
+fn should_skip<T>(_option: &Option<T>) -> bool {
+    false
 }

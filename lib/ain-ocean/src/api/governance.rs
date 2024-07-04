@@ -49,7 +49,7 @@ async fn list_gov_proposals(
         r#type: query.r#type,
         cycle: query.cycle,
     };
-    let mut proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
+    let proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
     let mut proposals_with_string_amount: Vec<ApiProposalInfo> =
         proposals.into_iter().map(ApiProposalInfo::from).collect();
     // proposals.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
