@@ -64,7 +64,7 @@ std::unique_ptr<CVaultHistoryStorage> CSnapshotManager::GetVaultSnapshot() {
     }
 
     // Create new view using snapshot and change map
-    return std::make_unique<CVaultHistoryStorage>(historyDB, snapshot);
+    return std::make_unique<CVaultHistoryStorage>(vaultDB, snapshot);
 }
 
 CCheckedOutSnapshot::~CCheckedOutSnapshot() {
@@ -287,7 +287,7 @@ void CSnapshotManager::ReturnSnapshot(const CBlockSnapshotKey &key) {
     std::unique_lock<std::mutex> lock(mtx);
     ::DestructSnapshot(key, checkedOutViewMap, currentViewSnapshot, viewDB);
     ::DestructSnapshot(key, checkedOutHistoryMap, currentHistorySnapshot, historyDB);
-    ::DestructSnapshot(key, checkedOutVaultMap, currentVaultSnapshot, historyDB);
+    ::DestructSnapshot(key, checkedOutVaultMap, currentVaultSnapshot, vaultDB);
 }
 
 std::unique_ptr<CSnapshotManager> psnapshotManager;
