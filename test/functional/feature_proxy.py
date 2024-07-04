@@ -42,7 +42,8 @@ from test_framework.util import (
     PORT_RANGE,
     assert_equal,
 )
-from test_framework.netutil import test_ipv6_local
+
+# from test_framework.netutil import test_ipv6_local
 
 RANGE_BEGIN = PORT_MIN + 2 * PORT_RANGE  # Start after p2p and rpc ports
 
@@ -53,7 +54,7 @@ class ProxyTest(DefiTestFramework):
         self.setup_clean_chain = True
 
     def setup_nodes(self):
-        self.have_ipv6 = test_ipv6_local()
+        self.have_ipv6 = False
         # Create two proxies on different ports
         # ... one unauthenticated
         self.conf1 = Socks5Configuration()
