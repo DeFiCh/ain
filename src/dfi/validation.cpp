@@ -3537,7 +3537,22 @@ static void ProcessTokenLock(const CBlock &block,
         return;
     }
 
-    // TODO: cancel all auctions?
+    //FIXME: is this correct?
+    cache.ForEachVaultAuction([&](const auto &vaultId, const auto &auctionData) {
+        auto vault= cache.GetVault(vaultId);
+        vault->isUnderLiquidation = false;
+        cache.StoreVault(vaultId, *vault);
+        for (uint32_t i = 0; i < auctionData.batchCount; i++) {
+            auto bid= cache.GetAuctionBid({vaultId,i});
+            //repay bid
+            cache.AddBalance(bid->first, bid->second);
+        }
+        cache.EraseAuction(vaultId, auctionData.liquidationHeight);
+
+        // Store state in vault DB
+        cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
+        return true;
+    },pindex->nHeight,{});
 
     ForceCloseAllLoans(pindex, cache, blockCtx);
 
