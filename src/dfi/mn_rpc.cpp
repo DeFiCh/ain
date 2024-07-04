@@ -883,7 +883,13 @@ UniValue getgov(const JSONRPCRequest &request) {
     const auto name = request.params[0].getValStr();
     if (const auto var = view->GetVariable(name)) {
         UniValue ret(UniValue::VOBJ);
-        ret.pushKV(var->GetName(), var->Export());
+        if (name == "ATTRIBUTES") {
+            if (auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(var)) {
+                ret.pushKV(var->GetName(), attributes->ExportFiltered(GovVarsFilter::All, "", view.get()));
+            }
+        } else {
+            ret.pushKV(var->GetName(), var->Export());
+        }
         return GetRPCResultCache().Set(request, ret);
     }
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
@@ -981,13 +987,12 @@ UniValue listgovs(const JSONRPCRequest &request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
-                    if (height >= Params().GetConsensus().DF22MetachainHeight) {
-                        if (auto attributes = dynamic_cast<ATTRIBUTES *>(var.get()); attributes) {
+                    if (auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(var)) {
+                        if (height >= Params().GetConsensus().DF22MetachainHeight) {
                             AddDefaultVars(height, Params(), *attributes, *view);
                         }
+                        val = attributes->ExportFiltered(mode, prefix, view.get());
                     }
-                    auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    val = a->ExportFiltered(mode, prefix);
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || mode == GovVarsFilter::PrefixedAttributes ||
