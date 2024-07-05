@@ -25,9 +25,11 @@ namespace leveldb {
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, std::optional<TBytes>>;
 
-std::unique_ptr<CCustomCSView> GetViewSnapshot();
-std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot();
-std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot();
+using SnapshotCollection = std::tuple<std::unique_ptr<CCustomCSView>,
+                                      std::unique_ptr<CAccountHistoryStorage>,
+                                      std::unique_ptr<CVaultHistoryStorage>>;
+
+SnapshotCollection GetSnapshots();
 
 enum class SnapshotType : uint8_t { VIEW, HISTORY, VAULT };
 
@@ -116,24 +118,23 @@ public:
     CSnapshotManager(const CSnapshotManager &other) = delete;
     CSnapshotManager &operator=(const CSnapshotManager &other) = delete;
 
-    std::unique_ptr<CCustomCSView> GetViewSnapshot();
-    std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot();
-    std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot();
-
+    SnapshotCollection GetSnapshots();
     void SetBlockSnapshots(CFlushableStorageKV &viewStorge,
                            CAccountHistoryStorage *historyView,
                            CVaultHistoryStorage *vaultView,
                            const CBlockIndex *block,
                            const bool nearTip);
-    bool CheckoutViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
-    std::unique_ptr<CCheckedOutSnapshot> CheckoutHistorySnapshot();
-    std::unique_ptr<CCheckedOutSnapshot> CheckoutVaultSnapshot();
-    void GetGlobalViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
-    std::unique_ptr<CCheckedOutSnapshot> GetGlobalHistorySnapshot();
-    std::unique_ptr<CCheckedOutSnapshot> GetGlobalVaultSnapshot();
     void ReturnSnapshot(const CBlockSnapshotKey &key);
 
-    std::shared_ptr<CDBWrapper> GetHistoryDB() const { return historyDB; }
+private:
+    std::optional<SnapshotCollection> GetCurrentSnapshots();
+    SnapshotCollection GetGlobalSnapshots();
+    std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> CheckoutViewSnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> CheckoutHistorySnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> CheckoutVaultSnapshot();
+    std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> GetGlobalViewSnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> GetGlobalHistorySnapshot();
+    std::unique_ptr<CCheckedOutSnapshot> GetGlobalVaultSnapshot();
 };
 
 extern std::unique_ptr<CSnapshotManager> psnapshotManager;

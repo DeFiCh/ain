@@ -15,56 +15,63 @@ static void CheckoutSnapshot(T &checkedOutMap, const CBlockSnapshot &snapshot) {
     }
 }
 
-std::unique_ptr<CCustomCSView> GetViewSnapshot() {
-    return psnapshotManager->GetViewSnapshot();
+SnapshotCollection GetSnapshots() {
+    return psnapshotManager->GetSnapshots();
 }
 
-std::unique_ptr<CAccountHistoryStorage> GetHistorySnapshot() {
-    return psnapshotManager->GetHistorySnapshot();
+SnapshotCollection CSnapshotManager::GetSnapshots() {
+    if (auto currentSnapshots = GetCurrentSnapshots()) {
+        return std::move(*currentSnapshots);
+    }
+    return GetGlobalSnapshots();
 }
 
-std::unique_ptr<CVaultHistoryStorage> GetVaultSnapshot() {
-    return psnapshotManager->GetVaultSnapshot();
-}
+std::optional<SnapshotCollection> CSnapshotManager::GetCurrentSnapshots() {
+    std::unique_lock lock(mtx);
 
-std::unique_ptr<CCustomCSView> CSnapshotManager::GetViewSnapshot() {
-    MapKV changed;
-    std::unique_ptr<CStorageLevelDB> snapshotDB;
-
-    // Get database snapshot and flushable storage changed map
-    if (const auto res = CheckoutViewSnapshot(changed, snapshotDB); !res) {
-        // If snapshot not present get global snapshot
-        GetGlobalViewSnapshot(changed, snapshotDB);
+    if (!currentViewSnapshot || (historyDB && !currentHistorySnapshot) || (vaultDB && !currentVaultSnapshot)) {
+        return {};
     }
 
-    // Create new view using snapshot and change map
-    return std::make_unique<CCustomCSView>(snapshotDB, changed);
-}
+    auto [changed, snapshotDB] = CheckoutViewSnapshot();
+    auto viewSnapshot = std::make_unique<CCustomCSView>(snapshotDB, changed);
 
-std::unique_ptr<CAccountHistoryStorage> CSnapshotManager::GetHistorySnapshot() {
-    // Get database snapshot
-    auto snapshot = psnapshotManager->CheckoutHistorySnapshot();
-
-    if (!snapshot) {
-        // If snapshot not present get global snapshot
-        snapshot = psnapshotManager->GetGlobalHistorySnapshot();
+    std::unique_ptr<CAccountHistoryStorage> historySnapshot{};
+    if (historyDB) {
+        auto snapshot = CheckoutHistorySnapshot();
+        historySnapshot = std::make_unique<CAccountHistoryStorage>(historyDB, snapshot);
     }
 
-    // Create new view using snapshot and change map
-    return std::make_unique<CAccountHistoryStorage>(historyDB, snapshot);
-}
-
-std::unique_ptr<CVaultHistoryStorage> CSnapshotManager::GetVaultSnapshot() {
-    // Get database snapshot
-    auto snapshot = psnapshotManager->CheckoutVaultSnapshot();
-
-    if (!snapshot) {
-        // If snapshot not present get global snapshot
-        snapshot = psnapshotManager->GetGlobalVaultSnapshot();
+    std::unique_ptr<CVaultHistoryStorage> vaultSnapshot{};
+    if (vaultDB) {
+        auto snapshot = CheckoutVaultSnapshot();
+        vaultSnapshot = std::make_unique<CVaultHistoryStorage>(vaultDB, snapshot);
     }
 
-    // Create new view using snapshot and change map
-    return std::make_unique<CVaultHistoryStorage>(vaultDB, snapshot);
+    return std::make_tuple(std::move(viewSnapshot), std::move(historySnapshot), std::move(vaultSnapshot));
+}
+
+SnapshotCollection CSnapshotManager::GetGlobalSnapshots() {
+    // Same lock order as ConnectBlock
+    LOCK(cs_main);
+    std::unique_lock lock(mtx);
+
+    auto [changed, snapshotDB] = GetGlobalViewSnapshot();
+    auto viewSnapshot = std::make_unique<CCustomCSView>(snapshotDB, changed);
+
+    std::unique_ptr<CAccountHistoryStorage> historySnapshot{};
+    if (historyDB) {
+        auto snapshot = GetGlobalHistorySnapshot();
+        historySnapshot = std::make_unique<CAccountHistoryStorage>(historyDB, snapshot);
+    }
+
+    std::unique_ptr<CVaultHistoryStorage> vaultSnapshot{};
+    if (vaultDB) {
+        auto snapshot = GetGlobalVaultSnapshot();
+        vaultSnapshot = std::make_unique<CVaultHistoryStorage>(vaultDB, snapshot);
+    }
+
+    return std::make_tuple(std::move(viewSnapshot), std::move(historySnapshot), std::move(vaultSnapshot));
 }
 
 CCheckedOutSnapshot::~CCheckedOutSnapshot() {
@@ -118,7 +125,7 @@ void CSnapshotManager::SetBlockSnapshots(CFlushableStorageKV &viewStorge,
                                          CVaultHistoryStorage *vaultView,
                                          const CBlockIndex *block,
                                          const bool nearTip) {
-    std::unique_lock<std::mutex> lock(mtx);
+    std::unique_lock lock(mtx);
 
     // Return current snapshots
     ::ReturnSnapshot(viewDB, currentViewSnapshot, checkedOutViewMap);
@@ -142,11 +149,7 @@ void CSnapshotManager::SetBlockSnapshots(CFlushableStorageKV &viewStorge,
     ::SetCurrentSnapshot(vaultView, currentVaultSnapshot, SnapshotType::VAULT, block);
 }
 
-void CSnapshotManager::GetGlobalViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB) {
-    // Same lock order as ConnectBlock
-    LOCK(cs_main);
-    std::unique_lock<std::mutex> lock(mtx);
-
+std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> CSnapshotManager::GetGlobalViewSnapshot() {
     // Get database snapshot and flushable storage changed map
     auto [changedMap, snapshot] = pcustomcsview->GetStorage().CreateSnapshotData();
 
@@ -161,16 +164,10 @@ void CSnapshotManager::GetGlobalViewSnapshot(MapKV &changed, std::unique_ptr<CSt
     // Track checked out snapshot
     ::CheckoutSnapshot(checkedOutViewMap, *currentViewSnapshot);
 
-    // Set args
-    changed = changedMap;
-    snapshotDB = std::make_unique<CStorageLevelDB>(viewDB, globalSnapshot);
+    return {changedMap, std::make_unique<CStorageLevelDB>(viewDB, globalSnapshot)};
 }
 
 std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::GetGlobalHistorySnapshot() {
-    // Same lock order as ConnectBlock
-    LOCK(cs_main);
-    std::unique_lock<std::mutex> lock(mtx);
-
     // Get database snapshot and flushable storage changed map
     auto snapshot = paccountHistoryDB->GetStorage().CreateLevelDBSnapshot();
 
@@ -189,10 +186,6 @@ std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::GetGlobalHistorySnapshot(
 }
 
 std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::GetGlobalVaultSnapshot() {
-    // Same lock order as ConnectBlock
-    LOCK(cs_main);
-    std::unique_lock<std::mutex> lock(mtx);
-
     // Get database snapshot and flushable storage changed map
     auto snapshot = pvaultHistoryDB->GetStorage().CreateLevelDBSnapshot();
 
@@ -210,34 +203,18 @@ std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::GetGlobalVaultSnapshot() 
     return globalSnapshot;
 }
 
-bool CSnapshotManager::CheckoutViewSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB) {
-    std::unique_lock<std::mutex> lock(mtx);
-
-    if (!currentViewSnapshot) {
-        return false;
-    }
-
+std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> CSnapshotManager::CheckoutViewSnapshot() {
     // Create checked out snapshot
     auto snapshot =
         std::make_unique<CCheckedOutSnapshot>(currentViewSnapshot->GetLevelDBSnapshot(), currentViewSnapshot->GetKey());
 
-    // Set args
-    changed = currentViewSnapshot->GetChanged();
-    snapshotDB = std::make_unique<CStorageLevelDB>(viewDB, snapshot);
-
     // Track checked out snapshot
     ::CheckoutSnapshot(checkedOutViewMap, *currentViewSnapshot);
 
-    return true;
+    return {currentViewSnapshot->GetChanged(), std::make_unique<CStorageLevelDB>(viewDB, snapshot)};
 }
 
 std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::CheckoutHistorySnapshot() {
-    std::unique_lock<std::mutex> lock(mtx);
-
-    if (!currentHistorySnapshot) {
-        return {};
-    }
-
     // Create checked out snapshot
     auto snapshot = std::make_unique<CCheckedOutSnapshot>(currentHistorySnapshot->GetLevelDBSnapshot(),
                                                           currentHistorySnapshot->GetKey());
@@ -249,12 +226,6 @@ std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::CheckoutHistorySnapshot()
 }
 
 std::unique_ptr<CCheckedOutSnapshot> CSnapshotManager::CheckoutVaultSnapshot() {
-    std::unique_lock<std::mutex> lock(mtx);
-
-    if (!currentVaultSnapshot) {
-        return {};
-    }
-
     // Create checked out snapshot
     auto snapshot = std::make_unique<CCheckedOutSnapshot>(currentVaultSnapshot->GetLevelDBSnapshot(),
                                                           currentVaultSnapshot->GetKey());
@@ -284,7 +255,7 @@ static void DestructSnapshot(const CBlockSnapshotKey &key, T &checkedOutMap, U &
 }
 
 void CSnapshotManager::ReturnSnapshot(const CBlockSnapshotKey &key) {
-    std::unique_lock<std::mutex> lock(mtx);
+    std::unique_lock lock(mtx);
     ::DestructSnapshot(key, checkedOutViewMap, currentViewSnapshot, viewDB);
     ::DestructSnapshot(key, checkedOutHistoryMap, currentHistorySnapshot, historyDB);
     ::DestructSnapshot(key, checkedOutVaultMap, currentVaultSnapshot, vaultDB);
