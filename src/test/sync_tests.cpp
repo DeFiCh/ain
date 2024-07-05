@@ -67,9 +67,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
             ++context;
             
             // Wait for all threads to decrement count
-            while (threads.load(std::memory_order_acquire) > 0) {
-                std::this_thread::yield();
-            }
+            while (threads.load(std::memory_order_acquire) > 0);
 
             // Ensure only one thread is in the critical section
             BOOST_CHECK_EQUAL(threads.load(std::memory_order_acquire), 0);
