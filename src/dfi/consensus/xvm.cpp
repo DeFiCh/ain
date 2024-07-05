@@ -392,6 +392,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                     return res;
                 }
             }
+            // Process TokenLock
+            if (height >= consensus.DF24Height) {
+                res = ExecuteLockTransferDomain(mnview, height, tx.GetHash(), dst.address, destAmount);
+                if (!res) {
+                    return res;
+                }
+            }
 
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, destAmount);

@@ -30,13 +30,18 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
 
     auto newRatio = currentRatio - obj.releasePart;
     // part of locked funds to be released
-    auto relativePartToRelease = currentRatio <= obj.releasePart ? COIN : DivideAmounts(obj.releasePart, currentRatio);
+    auto releaseAmount= [&](const CAmount& amount) {
+        if(currentRatio <= obj.releasePart) {
+            return amount;
+        } else {
+            return MultiplyDivideAmounts(amount,obj.releasePart,currentRatio);
+        }
+    };
     LogPrintf(
-        "releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. relative releasePart: %s \n",
+        "releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. \n",
         GetDecimalString(currentRatio),
         GetDecimalString(obj.releasePart),
-        GetDecimalString(newRatio),
-        GetDecimalString(relativePartToRelease));
+        GetDecimalString(newRatio));
 
     // calc part of current funds that should be released
     // cap to all funds
@@ -48,7 +53,7 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
         auto newBalance = CTokenLockUserValue{};
         bool gotNew = false;
         for (const auto &[tokenId, amount] : value.balances) {
-            const CTokenAmount moved = {tokenId, MultiplyAmounts(amount, relativePartToRelease)};
+            const CTokenAmount moved = {tokenId, releaseAmount(amount)};
 
             CAccountsHistoryWriter view(
                 mnview, blockCtx.GetHeight(), txCtx.GetTxn(), tx.GetHash(), uint8_t(CustomTxType::TokenLockRelease));

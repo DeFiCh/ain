@@ -3382,15 +3382,15 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
 }
 
 static void LockToken(CCustomCSView &cache,
-                      const CBlockIndex *pindex,
+                      const int height,
+                      const uint256 refHash,
                       const CScript &owner,
                       const CTokenAmount &tokenAmount) {
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
 
     LogPrintf("locking %s %d@%d\n", ScriptToString(owner), tokenAmount.nValue, tokenAmount.nTokenId.v);
 
-    CAccountsHistoryWriter addView(
-        cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
+    CAccountsHistoryWriter addView(cache, height, GetNextAccPosition(), refHash, uint8_t(CustomTxType::TokenLock));
     addView.AddBalance(contractAddressValue, tokenAmount);
     addView.Flush();
 
@@ -3443,7 +3443,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
             }
             subView.Flush();
 
-            LockToken(cache, pindex, owner, {amount.nTokenId, amountToLock});
+            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {amount.nTokenId, amountToLock});
         }
         if (affectedPools.count(amount.nTokenId.v) && amount.nValue > 0) {
             poolBalanceToProcess.emplace_back(owner, amount);
@@ -3480,14 +3480,14 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
 
         if (tokensToBeLocked.count(poolPair->idTokenA.v)) {
             LogPrintf("locking from pool %d@%d\n", resAmountA, poolPair->idTokenA.v);
-            LockToken(cache, pindex, owner, {poolPair->idTokenA, resAmountA});
+            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenA, resAmountA});
         } else {
             addView.AddBalance(owner, {poolPair->idTokenA, resAmountA});
         }
 
         if (tokensToBeLocked.count(poolPair->idTokenB.v)) {
             LogPrintf("locking from pool %d@%d\n", resAmountB, poolPair->idTokenB.v);
-            LockToken(cache, pindex, owner, {poolPair->idTokenB, resAmountB});
+            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenB, resAmountB});
         } else {
             addView.AddBalance(owner, {poolPair->idTokenB, resAmountB});
         }
@@ -3515,7 +3515,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                     // TODO: errorhandling
                     return false;
                 }
-                LockToken(cache, pindex, owner, {tokenId, amountToLock});
+                LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {tokenId, amountToLock});
             }
         }
         return true;
@@ -3537,22 +3537,25 @@ static void ProcessTokenLock(const CBlock &block,
         return;
     }
 
-    //FIXME: is this correct?
-    cache.ForEachVaultAuction([&](const auto &vaultId, const auto &auctionData) {
-        auto vault= cache.GetVault(vaultId);
-        vault->isUnderLiquidation = false;
-        cache.StoreVault(vaultId, *vault);
-        for (uint32_t i = 0; i < auctionData.batchCount; i++) {
-            auto bid= cache.GetAuctionBid({vaultId,i});
-            //repay bid
-            cache.AddBalance(bid->first, bid->second);
-        }
-        cache.EraseAuction(vaultId, auctionData.liquidationHeight);
+    // FIXME: is this correct?
+    cache.ForEachVaultAuction(
+        [&](const auto &vaultId, const auto &auctionData) {
+            auto vault = cache.GetVault(vaultId);
+            vault->isUnderLiquidation = false;
+            cache.StoreVault(vaultId, *vault);
+            for (uint32_t i = 0; i < auctionData.batchCount; i++) {
+                auto bid = cache.GetAuctionBid({vaultId, i});
+                // repay bid
+                cache.AddBalance(bid->first, bid->second);
+            }
+            cache.EraseAuction(vaultId, auctionData.liquidationHeight);
 
-        // Store state in vault DB
-        cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
-        return true;
-    },pindex->nHeight,{});
+            // Store state in vault DB
+            cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
+            return true;
+        },
+        pindex->nHeight,
+        {});
 
     ForceCloseAllLoans(pindex, cache, blockCtx);
 
@@ -4368,4 +4371,41 @@ Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amoun
             return res;
         }
     }
+}
+
+Res ExecuteLockTransferDomain(CCustomCSView &view,
+                              const int height,
+                              const uint256 refHash,
+                              const CScript &owner,
+                              CTokenAmount &amount) {
+    if (amount.nValue == 0) {
+        return Res::Ok();
+    }
+    CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+    auto attributes = view.GetAttributes();
+    const auto lockRatio = attributes->GetValue(releaseKey, CAmount{});
+    LogPrintf("checking for lock on TD:%s@%d current ratio: %s\n",
+              GetDecimalString(amount.nValue),
+              amount.nTokenId.v,
+              GetDecimalString(lockRatio));
+
+    if (lockRatio > 0) {
+        // check if its a loan token
+
+        const auto loanTokens = GetLoanTokensForLock(view);
+        bool isLoanToken = false;
+        for (const auto &[tokenId, token] : loanTokens) {
+            if (amount.nTokenId == tokenId) {
+                isLoanToken = true;
+                break;
+            }
+        }
+
+        if (isLoanToken) {
+            const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
+            LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount});
+            amount.nValue -= lockedAmount;
+        }
+    }
+    return Res::Ok();
 }

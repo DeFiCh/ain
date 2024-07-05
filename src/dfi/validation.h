@@ -43,6 +43,11 @@ Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, cons
 
 bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount);
 Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount);
+Res ExecuteLockTransferDomain(CCustomCSView &view,
+                              const int height,
+                              const uint256 blockHash,
+                              const CScript &owner,
+                              CTokenAmount &amount);
 
 void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLoanTokenImplementation &)> tokenCallback,
                              std::function<bool(const DCT_ID &, const CPoolPair &)> poolCallback,
