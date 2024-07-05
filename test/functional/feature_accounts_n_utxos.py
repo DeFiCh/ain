@@ -56,6 +56,8 @@ class AccountsAndUTXOsTest(DefiTestFramework):
         toGold = self.nodes[1].getnewaddress("", "legacy")
         toSilver = self.nodes[0].getnewaddress("", "legacy")
 
+        bech32 = self.nodes[0].getnewaddress("", "bech32")
+
         # accounttoaccount
         # ========================
         # missing from (account)
@@ -174,6 +176,48 @@ class AccountsAndUTXOsTest(DefiTestFramework):
         self.nodes[0].generate(1)
         assert initialBalance != self.nodes[0].getbalances()["mine"]["trusted"]
 
+        # check usage of own utxos if possible
+        # generate multiple utxos to check selection
+        for i in range(10):
+            self.nodes[0].sendutxosfrom(accountGold, bech32, 0.1)
+        self.nodes[0].generate(1)
+
+        # should only use own utxos
+        txId = self.nodes[0].utxostoaccount({accountGold: "1@DFI"}, [])
+        tx = self.nodes[0].getrawtransaction(txId, True)
+        assert_equal(len(tx["vin"]), 1)
+        for vin in tx["vin"]:
+            txo = self.nodes[0].gettxout(vin["txid"], vin["vout"], False)
+            assert_equal(txo["scriptPubKey"]["addresses"][0], accountGold)
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.nodes[0].getaccount(accountGold),
+            ["201.00000000@DFI", "900.00000000@GOLD#128"],
+        )
+
+        # same for bech32
+        txId = self.nodes[0].utxostoaccount({bech32: "0.5@DFI"}, [])
+        tx = self.nodes[0].getrawtransaction(txId, True)
+        for vin in tx["vin"]:
+            txo = self.nodes[0].gettxout(vin["txid"], vin["vout"], False)
+            assert_equal(txo["scriptPubKey"]["addresses"][0], bech32)
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.nodes[0].getaccount(accountGold),
+            ["201.00000000@DFI", "900.00000000@GOLD#128"],
+        )
+        assert_equal(self.nodes[0].getaccount(bech32), ["0.50000000@DFI"])
+
+        # should fill up if not enough own
+        txId = self.nodes[0].utxostoaccount({bech32: "1@DFI"}, [])
+        tx = self.nodes[0].getrawtransaction(txId, True)
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.nodes[0].getaccount(accountGold),
+            ["201.00000000@DFI", "900.00000000@GOLD#128"],
+        )
+        assert_equal(self.nodes[0].getaccount(bech32), ["1.50000000@DFI"])
+
         # accounttoutxos
         # ========================
         # missing from (account)
@@ -264,7 +308,7 @@ class AccountsAndUTXOsTest(DefiTestFramework):
             self.nodes[0].getaccount(accountSilver, {}, True)[idSilver], initialSilver
         )
 
-        assert_equal(len(self.nodes[0].getrawmempool()), 4)  # 4 txs
+        assert_equal(len(self.nodes[0].getrawmempool()), 17)  # 17 txs expected overall
 
 
 if __name__ == "__main__":
