@@ -1177,7 +1177,8 @@ namespace pos {
                     nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
                 }
             } else {
-                if (blockHeight >= static_cast<int64_t>(Params().GetConsensus().DF24Height)) {
+                if (gArgs.GetBoolArg("-testfuturestakingonly", false) ||
+                    blockHeight >= static_cast<int64_t>(Params().GetConsensus().DF24Height)) {
                     // Set time to last block time. New blocks must be after the last block.
                     nLastCoinStakeSearchTime = tip->GetBlockTime();
                 } else {
