@@ -52,7 +52,6 @@ async fn list_gov_proposals(
     let proposals = ctx.client.list_gov_proposals(Some(opts)).await?;
     let mut proposals_with_string_amount: Vec<ApiProposalInfo> =
         proposals.into_iter().map(ApiProposalInfo::from).collect();
-    // proposals.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
     proposals_with_string_amount.sort_by(|a, b| a.creation_height.cmp(&b.creation_height));
     Ok(ApiPagedResponse::of(
         proposals_with_string_amount,

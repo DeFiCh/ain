@@ -22,7 +22,6 @@ mod transaction_vin;
 mod transaction_vout;
 mod tx_result;
 mod vault_auction_batch_history;
-// use ain_dftx::governance;
 pub use block::*;
 pub use governance::*;
 pub use masternode::*;

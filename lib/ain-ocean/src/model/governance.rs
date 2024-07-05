@@ -80,7 +80,7 @@ where
 {
     match amount {
         Some(value) => serializer.serialize_some(value),
-        None => serializer.serialize_some(&serde_json::Value::String("undefined".to_string())),
+        None => serializer.serialize_none(),
     }
 }
 
