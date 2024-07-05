@@ -16,9 +16,11 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <dfi/vaulthistory.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -432,7 +434,7 @@ static UniValue getblockcount(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    const auto view = ::GetViewSnapshot();
+    const auto [view, accountView, vaultView] = GetSnapshots();
     return view->GetLastHeight();
 }
 
@@ -1169,7 +1171,7 @@ static UniValue getblock(const JSONRPCRequest& request)
         return strHex;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     return blockToJSON(*view, block, tip, pblockindex, verbosity >= 2, verbosity);
 }
 

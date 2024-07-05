@@ -1,6 +1,7 @@
-#include <dfi/mn_rpc.h>
-
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
+#include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <index/txindex.h>
 
@@ -138,7 +139,7 @@ UniValue createtoken(const JSONRPCRequest &request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet,
@@ -262,7 +263,7 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     CTxDestination ownerDest;
     CScript owner;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -494,11 +495,11 @@ UniValue listtokens(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue ret(UniValue::VOBJ);
     view->ForEachToken(
-        [&](DCT_ID const &id, CTokenImplementation token) {
+        [&, &view = view](DCT_ID const &id, CTokenImplementation token) {
             ret.pushKVs(tokenToJSON(*view, id, token, verbose));
 
             limit--;
@@ -525,7 +526,7 @@ UniValue gettoken(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     DCT_ID id;
     auto token = view->GetTokenGuessId(request.params[0].getValStr(), id);
@@ -620,7 +621,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto nHeight = view->GetLastHeight() + 1;
     bool actualHeight{false};
     CustomTxType guess;
@@ -788,7 +789,7 @@ UniValue minttokens(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     // auth
     std::set<CScript> auths;
@@ -916,7 +917,7 @@ UniValue burntokens(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
         if (burnedTokens.from.empty()) {
@@ -1020,7 +1021,7 @@ UniValue decodecustomtx(const JSONRPCRequest &request) {
     std::string warnings;
 
     if (tx) {
-        auto view = ::GetViewSnapshot();
+        auto [view, accountView, vaultView] = GetSnapshots();
 
         // Skip coinbase TXs except for genesis block
         if (tx->IsCoinBase()) {

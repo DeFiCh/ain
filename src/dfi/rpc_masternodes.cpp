@@ -1,4 +1,6 @@
+#include <dfi/accountshistory.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <pos_kernel.h>
 
@@ -160,7 +162,7 @@ UniValue createmasternode(const JSONRPCRequest &request) {
     CTxDestination ownerDest = DecodeDestination(ownerAddress);  // type will be checked on apply/create
     CTxDestination operatorDest = DecodeDestination(operatorAddress);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     bool eunosPaya = view->GetLastHeight() >= Params().GetConsensus().DF10EunosPayaHeight;
@@ -231,7 +233,7 @@ UniValue createmasternode(const JSONRPCRequest &request) {
 UniValue resignmasternode(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     RPCHelpMan{
         "resignmasternode",
@@ -396,7 +398,7 @@ UniValue updatemasternode(const JSONRPCRequest &request) {
     const uint256 nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -582,11 +584,11 @@ UniValue listmasternodes(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VOBJ);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto mnIds = view->GetOperatorsMulti();
     view->ForEachMasternode(
-        [&](const uint256 &nodeId, CMasternode node) {
+        [&, &view = view](const uint256 &nodeId, CMasternode node) {
             if (!including_start) {
                 including_start = true;
                 return (true);
@@ -621,10 +623,10 @@ UniValue getmasternode(const JSONRPCRequest &request) {
 
     const auto idStr = request.params[0].get_str();
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const auto mnIds = view->GetOperatorsMulti();
 
-    auto printMasternode = [&](const uint256 &id) -> std::optional<UniValue> {
+    auto printMasternode = [&, &view = view](const uint256 &id) -> std::optional<UniValue> {
         auto node = view->GetMasternode(id);
         if (node) {
             auto res = mnToJSON(*view, id, *node, true, mnIds, pwallet);
@@ -710,7 +712,7 @@ UniValue getmasternodeblocks(const JSONRPCRequest &request) {
         ++idCount;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     if (!identifier["ownerAddress"].isNull()) {
         CKeyID ownerAddressID;
@@ -840,7 +842,7 @@ UniValue getanchorteams(const JSONRPCRequest &request) {
 
     int blockHeight;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     if (!request.params[0].isNull()) {
         blockHeight = request.params[0].get_int();
@@ -919,7 +921,7 @@ UniValue getactivemasternodecount(const JSONRPCRequest &request) {
         pindex = ::ChainActive().Tip();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     // Get active MNs from last week's worth of blocks
     for (int i{0}; pindex && i < blockSample; pindex = pindex->pprev, ++i) {
@@ -946,7 +948,7 @@ UniValue listanchors(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto confirms = view->CAnchorConfirmsView::GetAnchorConfirmData();
 

@@ -3,9 +3,11 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <base58.h>
+#include <dfi/accountshistory.h>
 #include <dfi/consensus/xvm.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 #include <policy/settings.h>
 #include <regex>
 
@@ -594,7 +596,7 @@ UniValue setgov(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     if (request.params.size() > 0 && request.params[0].isObject()) {
@@ -719,7 +721,7 @@ UniValue unsetgov(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -803,7 +805,7 @@ UniValue setgovheight(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VNUM, UniValue::VARR}, true);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
     const auto keys = request.params[0].getKeys();
@@ -878,7 +880,7 @@ UniValue getgov(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto name = request.params[0].getValStr();
     if (const auto var = view->GetVariable(name)) {
@@ -968,7 +970,7 @@ UniValue listgovs(const JSONRPCRequest &request) {
                                   "ORACLE_DEVIATION",
                                   "ATTRIBUTES"};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     // Get all stored Gov var changes
     auto pending = view->GetAllStoredVariables();
@@ -1098,7 +1100,7 @@ UniValue listsmartcontracts(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue arr(UniValue::VARR);
     for (const auto &item : Params().GetConsensus().smartContracts) {

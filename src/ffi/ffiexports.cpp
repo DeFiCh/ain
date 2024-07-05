@@ -1,8 +1,10 @@
 #include <clientversion.h>
+#include <dfi/accountshistory.h>
 #include <dfi/customtx.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/validation.h>
+#include <dfi/vaulthistory.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <httprpc.h>
@@ -40,7 +42,7 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -215,7 +217,7 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -259,7 +261,7 @@ rust::string getClientVersion() {
 }
 
 std::array<int64_t, 2> getEthSyncStatus() {
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto viewHeight = view->GetLastHeight();
     auto currentHeight = viewHeight ? viewHeight : -1;

@@ -1,7 +1,8 @@
-#include <dfi/mn_rpc.h>
-
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
+#include <dfi/mn_rpc.h>
 #include <dfi/validation.h>
+#include <dfi/vaulthistory.h>
 
 UniValue poolToJSON(const CCustomCSView &view,
                     DCT_ID const &id,
@@ -263,11 +264,11 @@ UniValue listpoolpairs(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue ret(UniValue::VOBJ);
     view->ForEachPoolPair(
-        [&](DCT_ID const &id, CPoolPair pool) {
+        [&, &view = view](DCT_ID const &id, CPoolPair pool) {
             const auto token = view->GetToken(id);
             if (token) {
                 ret.pushKVs(poolToJSON(*view, id, pool, *token, verbose));
@@ -306,7 +307,7 @@ UniValue getpoolpair(const JSONRPCRequest &request) {
         verbose = request.params[1].getBool();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     DCT_ID id{};
     auto token = view->GetTokenGuessId(request.params[0].getValStr(), id);
@@ -388,7 +389,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VSTR, UniValue::VARR}, true);
 
     // decode
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CLiquidityMessage msg{};
     if (request.params[0].get_obj().getKeys().size() == 1 &&
         request.params[0].get_obj().getKeys()[0] == "*") {  // auto-selection accounts from wallet
@@ -521,7 +522,7 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
     rawTx.vin = GetAuthInputsSmart(
@@ -652,7 +653,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     }
     RejectErc55Address(ownerAddress);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     DCT_ID idtokenA, idtokenB;
@@ -800,7 +801,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
     const std::string poolStr = trim_ws(metaObj["pool"].getValStr());
     DCT_ID poolId;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -959,7 +960,7 @@ UniValue poolswap(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
     CPoolSwapMessage poolSwapMsg{};
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CheckAndFillPoolSwapMessage(request, poolSwapMsg, *view);
     int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
 
@@ -1083,7 +1084,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
 
     CPoolSwapMessageV2 poolSwapMsgV2{};
     CPoolSwapMessage &poolSwapMsg = poolSwapMsgV2.swapInfo;
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CheckAndFillPoolSwapMessage(request, poolSwapMsg, *view);
 
     RejectErc55Address(poolSwapMsg.from);
@@ -1222,18 +1223,18 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
 
     CPoolSwapMessage poolSwapMsg{};
 
-    auto mnview_dummy = ::GetViewSnapshot();
-    CheckAndFillPoolSwapMessage(request, poolSwapMsg, *mnview_dummy);
+    auto [view, accountView, vaultView] = GetSnapshots();
+    CheckAndFillPoolSwapMessage(request, poolSwapMsg, *view);
 
     const Consensus::Params &consensus = Params().GetConsensus();
 
     // test execution and get amount
     Res res = Res::Ok();
     {
-        uint32_t targetHeight = mnview_dummy->GetLastHeight() + 1;
+        uint32_t targetHeight = view->GetLastHeight() + 1;
         auto poolSwap = CPoolSwap({poolSwapMsg, targetHeight});
         std::vector<DCT_ID> poolIds;
-        auto poolPair = mnview_dummy->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
+        auto poolPair = view->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
         if (poolPair && poolPair->second.status && path == "auto") {
             path = "direct";
@@ -1248,7 +1249,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
 
             poolIds.push_back(poolPair->first);
         } else if (path == "auto" || path == "composite") {
-            poolIds = poolSwap.CalculateSwaps(*mnview_dummy, consensus, true);
+            poolIds = poolSwap.CalculateSwaps(*view, consensus, true);
         } else {
             path = "custom";
 
@@ -1264,7 +1265,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
             }
         }
 
-        res = poolSwap.ExecuteSwap(*mnview_dummy, poolIds, consensus, true);
+        res = poolSwap.ExecuteSwap(*view, poolIds, consensus, true);
         if (!res) {
             std::string errorMsg{"Cannot find usable pool pair."};
             if (!poolSwap.errors.empty()) {
@@ -1379,11 +1380,11 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
     }
 
     PoolShareKey startKey{start, CScript{}};
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue ret(UniValue::VOBJ);
     view->ForEachPoolShare(
-        [&](DCT_ID const &poolId, const CScript &provider, uint32_t) {
+        [&, &view = view](DCT_ID const &poolId, const CScript &provider, uint32_t) {
             const CTokenAmount tokenAmount = view->GetBalance(provider, poolId);
             if (tokenAmount.nValue) {
                 const auto poolPair = view->GetPoolPair(poolId);
@@ -1421,7 +1422,7 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height();
@@ -1438,35 +1439,36 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
 
     const auto dusdId = dusdToken->first.v;
 
-    view->ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
-        const auto sourceToken = view->GetToken(DCT_ID{key.sourceID});
-        const auto destToken = view->GetToken(DCT_ID{key.destID});
+    view->ForEachTokenAverageLiquidity(
+        [&, &view = view](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+            const auto sourceToken = view->GetToken(DCT_ID{key.sourceID});
+            const auto destToken = view->GetToken(DCT_ID{key.destID});
 
-        if (sourceToken && destToken) {
-            arith_uint256 totalSwapAmount{};
-            view->ForEachFuturesUserValues(
-                [&](const CFuturesUserKey &, const CFuturesUserValue &futuresValues) {
-                    const auto destination = futuresValues.destination ? futuresValues.destination : dusdId;
-                    if (futuresValues.source.nTokenId.v == key.sourceID && destination == key.destID) {
-                        totalSwapAmount += futuresValues.source.nValue;
-                    }
-                    return true;
-                },
-                {static_cast<uint32_t>(height), {}, std::numeric_limits<uint32_t>::max()});
+            if (sourceToken && destToken) {
+                arith_uint256 totalSwapAmount{};
+                view->ForEachFuturesUserValues(
+                    [&](const CFuturesUserKey &, const CFuturesUserValue &futuresValues) {
+                        const auto destination = futuresValues.destination ? futuresValues.destination : dusdId;
+                        if (futuresValues.source.nTokenId.v == key.sourceID && destination == key.destID) {
+                            totalSwapAmount += futuresValues.source.nValue;
+                        }
+                        return true;
+                    },
+                    {static_cast<uint32_t>(height), {}, std::numeric_limits<uint32_t>::max()});
 
-            const auto liquidityLimit = MultiplyAmounts(liquidity, averageLiquidityPercentage);
+                const auto liquidityLimit = MultiplyAmounts(liquidity, averageLiquidityPercentage);
 
-            UniValue poolRes(UniValue::VOBJ);
-            UniValue limitRes(UniValue::VOBJ);
-            limitRes.pushKV("liquidity", GetDecimalString(liquidity));
-            limitRes.pushKV("limit", GetDecimalString(liquidityLimit));
-            limitRes.pushKV("remaining", GetDecimalString(liquidityLimit - totalSwapAmount.GetLow64()));
-            poolRes.pushKV(sourceToken->symbol + '-' + destToken->symbol, limitRes);
-            ret.push_back(poolRes);
-        }
+                UniValue poolRes(UniValue::VOBJ);
+                UniValue limitRes(UniValue::VOBJ);
+                limitRes.pushKV("liquidity", GetDecimalString(liquidity));
+                limitRes.pushKV("limit", GetDecimalString(liquidityLimit));
+                limitRes.pushKV("remaining", GetDecimalString(liquidityLimit - totalSwapAmount.GetLow64()));
+                poolRes.pushKV(sourceToken->symbol + '-' + destToken->symbol, limitRes);
+                ret.push_back(poolRes);
+            }
 
-        return true;
-    });
+            return true;
+        });
 
     return GetRPCResultCache().Set(request, ret);
 }

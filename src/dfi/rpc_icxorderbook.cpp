@@ -1,4 +1,6 @@
+#include <dfi/accountshistory.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 UniValue icxOrderToJSON(const CICXOrderImplemetation &order, const uint8_t status, const CCustomCSView &view) {
     UniValue orderObj(UniValue::VOBJ);
@@ -346,7 +348,7 @@ UniValue icxcreateorder(const JSONRPCRequest &request) {
         order.orderType = CICXOrder::TYPE_EXTERNAL;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -525,7 +527,7 @@ UniValue icxmakeoffer(const JSONRPCRequest &request) {
         makeoffer.expiry = metaObj["expiry"].get_int();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -692,7 +694,7 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest &request) {
         submitdfchtlc.timeout = metaObj["timeout"].get_int();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript authScript;
@@ -886,7 +888,7 @@ UniValue icxsubmitexthtlc(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"timeout\" must be non-null");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript authScript;
@@ -1027,7 +1029,7 @@ UniValue icxclaimdfchtlc(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"seed\" must be non-null");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1121,7 +1123,7 @@ UniValue icxcloseorder(const JSONRPCRequest &request) {
     CICXCloseOrder closeorder;
     closeorder.orderTx = uint256S(request.params[0].getValStr());
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript authScript;
@@ -1230,7 +1232,7 @@ UniValue icxcloseoffer(const JSONRPCRequest &request) {
     CICXCloseOffer closeoffer;
     closeoffer.offerTx = uint256S(request.params[0].getValStr());
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript authScript;
@@ -1312,7 +1314,7 @@ UniValue icxgetorder(const JSONRPCRequest &request) {
         "EXPERIMENTAL warning:",
         "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     uint256 orderTxid = uint256S(request.params[0].getValStr());
     auto order = view->GetICXOrderByCreationTx(orderTxid);
@@ -1393,7 +1395,7 @@ UniValue icxlistorders(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     DCT_ID idToken = {std::numeric_limits<uint32_t>::max()};
     if (!tokenSymbol.empty() && !chain.empty()) {
@@ -1412,7 +1414,7 @@ UniValue icxlistorders(const JSONRPCRequest &request) {
         DCT_ID prefix;
         prefix = idToken;
 
-        auto orderkeylambda = [&](const CICXOrderView::OrderKey &key, uint8_t status) {
+        auto orderkeylambda = [&, &view = view](const CICXOrderView::OrderKey &key, uint8_t status) {
             if (key.first != prefix || !limit) {
                 return (false);
             }
@@ -1432,7 +1434,7 @@ UniValue icxlistorders(const JSONRPCRequest &request) {
 
         return ret;
     } else if (offers) {
-        auto offerkeylambda = [&](const CICXOrderView::TxidPairKey &key, uint8_t status) {
+        auto offerkeylambda = [&, &view = view](const CICXOrderView::TxidPairKey &key, uint8_t status) {
             if (key.first != orderTxid || !limit) {
                 return (false);
             }
@@ -1452,7 +1454,7 @@ UniValue icxlistorders(const JSONRPCRequest &request) {
         return ret;
     }
 
-    auto orderlambda = [&](const CICXOrderView::OrderKey &key, uint8_t status) {
+    auto orderlambda = [&, &view = view](const CICXOrderView::OrderKey &key, uint8_t status) {
         if (!limit) {
             return false;
         }
@@ -1536,9 +1538,9 @@ UniValue icxlisthtlcs(const JSONRPCRequest &request) {
         "WARNING",
         "ICX and Atomic Swap are experimental features. You might end up losing your funds. USE IT AT YOUR OWN RISK.");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto dfchtlclambda = [&](const CICXOrderView::TxidPairKey &key, uint8_t status) {
+    auto dfchtlclambda = [&, &view = view](const CICXOrderView::TxidPairKey &key, uint8_t status) {
         if (key.first != offerTxid || !limit) {
             return false;
         }
@@ -1549,7 +1551,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest &request) {
         }
         return true;
     };
-    auto exthtlclambda = [&](const CICXOrderView::TxidPairKey &key, uint8_t status) {
+    auto exthtlclambda = [&, &view = view](const CICXOrderView::TxidPairKey &key, uint8_t status) {
         if (key.first != offerTxid || !limit) {
             return false;
         }
@@ -1562,7 +1564,7 @@ UniValue icxlisthtlcs(const JSONRPCRequest &request) {
     };
 
     view->ForEachICXClaimDFCHTLC(
-        [&](const CICXOrderView::TxidPairKey &key, uint8_t status) {
+        [&, &view = view](const CICXOrderView::TxidPairKey &key, uint8_t status) {
             if (key.first != offerTxid || !limit) {
                 return false;
             }

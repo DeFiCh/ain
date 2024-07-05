@@ -1,5 +1,7 @@
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <functional>
 
@@ -289,7 +291,7 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -428,7 +430,7 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -522,7 +524,7 @@ UniValue votegov(const JSONRPCRequest &request) {
                            "https://github.com/DeFiCh/ain/issues/1704");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CTxDestination ownerDest;
@@ -643,7 +645,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         (request.params.size() > 1 && request.params[1].isNull()) ? SLEEP_TIME_MILLIS : request.params[1].get_int();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     struct VotingState {
@@ -832,7 +834,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     uint256 mnId;
     uint256 propId;
@@ -973,7 +975,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     std::map<std::string, VotingInfo> map;
 
     view->ForEachProposalVote(
-        [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
+        [&, &view = view](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
             if (!propId.IsNull() && pId != propId) {
                 return false;
             }
@@ -1092,7 +1094,7 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VSTR}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto prop = view->GetProposal(propId);
     if (!prop) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
@@ -1106,7 +1108,7 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
     }
 
     std::set<uint256> activeMasternodes;
-    view->ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
+    view->ForEachMasternode([&, &view = view](const uint256 &mnId, CMasternode node) {
         if (node.IsActive(targetHeight, *view) && node.mintedBlocks) {
             activeMasternodes.insert(mnId);
         }
@@ -1336,7 +1338,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     }
 
     UniValue ret{UniValue::VARR};
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     using IdPropPair = std::pair<CProposalId, CProposalObject>;
     using CycleEndHeightInt = int;

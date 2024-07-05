@@ -1,8 +1,10 @@
 #include <boost/asio.hpp>
 
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/threadpool.h>
+#include <dfi/vaulthistory.h>
 #include <policy/settings.h>
 
 extern UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplementation &token, bool verbose);
@@ -158,7 +160,7 @@ UniValue setcollateraltoken(const JSONRPCRequest &request) {
         collToken.activateAfterBlock = metaObj["activateAfterBlock"].get_int();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -231,7 +233,7 @@ UniValue getcollateraltoken(const JSONRPCRequest &request) {
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     uint32_t height = view->GetLastHeight();
 
     auto token = view->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
@@ -264,9 +266,9 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
     }
 
     UniValue ret(UniValue::VARR);
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    view->ForEachLoanCollateralToken([&](const CollateralTokenKey &key, const uint256 &collTokenTx) {
+    view->ForEachLoanCollateralToken([&, &view = view](const CollateralTokenKey &key, const uint256 &collTokenTx) {
         auto collToken = view->GetLoanCollateralToken(collTokenTx);
         if (collToken) {
             ret.push_back(setCollateralTokenToJSON(*view, *collToken));
@@ -282,7 +284,7 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
     auto attributes = view->GetAttributes();
 
     attributes->ForEach(
-        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+        [&, &view = view](const CDataStructureV0 &attr, const CAttributeValue &) {
             if (attr.type != AttributeTypes::Token) {
                 return false;
             }
@@ -394,7 +396,7 @@ UniValue setloantoken(const JSONRPCRequest &request) {
         loanToken.interest = 0;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -509,7 +511,7 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
     std::optional<CLoanSetLoanTokenImplementation> loanToken;
     std::optional<CTokenImplementation> token;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     {
@@ -601,9 +603,9 @@ UniValue listloantokens(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    view->ForEachLoanToken([&](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
+    view->ForEachLoanToken([&, &view = view](DCT_ID const &key, CLoanView::CLoanSetLoanTokenImpl loanToken) {
         ret.push_back(setLoanTokenToJSON(*view, loanToken, key));
         return true;
     });
@@ -615,7 +617,7 @@ UniValue listloantokens(const JSONRPCRequest &request) {
     auto attributes = view->GetAttributes();
 
     attributes->ForEach(
-        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+        [&, &view = view](const CDataStructureV0 &attr, const CAttributeValue &) {
             if (attr.type != AttributeTypes::Token) {
                 return false;
             }
@@ -657,7 +659,7 @@ UniValue getloantoken(const JSONRPCRequest &request) {
     std::string tokenSymbol = request.params[0].get_str();
     DCT_ID idToken;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto token = view->GetTokenGuessId(trim_ws(tokenSymbol), idToken);
     if (!token) {
@@ -719,7 +721,7 @@ UniValue createloanscheme(const JSONRPCRequest &request) {
     loanScheme.rate = AmountFromValue(request.params[1]);
     loanScheme.identifier = request.params[2].get_str();
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -811,7 +813,7 @@ UniValue updateloanscheme(const JSONRPCRequest &request) {
         loanScheme.updateHeight = request.params[3].get_int();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -889,7 +891,7 @@ UniValue setdefaultloanscheme(const JSONRPCRequest &request) {
     CDefaultLoanSchemeMessage defaultScheme;
     defaultScheme.identifier = request.params[0].get_str();
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -972,7 +974,7 @@ UniValue destroyloanscheme(const JSONRPCRequest &request) {
         destroyScheme.destroyHeight = request.params[1].get_int();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -1032,7 +1034,7 @@ UniValue listloanschemes(const JSONRPCRequest &request) {
     };
     std::set<CLoanScheme, decltype(cmp)> loans(cmp);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     view->ForEachLoanScheme([&loans](const std::string &identifier, const CLoanSchemeData &data) {
         CLoanScheme loanScheme;
@@ -1092,7 +1094,7 @@ UniValue getloanscheme(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto loanScheme = view->GetLoanScheme(loanSchemeId);
     if (!loanScheme) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot find existing loan scheme with id " + loanSchemeId);
@@ -1192,7 +1194,7 @@ UniValue takeloan(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript ownerAddress;
@@ -1335,7 +1337,7 @@ UniValue paybackloan(const JSONRPCRequest &request) {
     bool hasAmounts = !metaObj["amounts"].isNull();
     bool hasLoans = !metaObj["loans"].isNull();
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     bool isFCR = targetHeight >= Params().GetConsensus().DF15FortCanningRoadHeight;
@@ -1483,7 +1485,7 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
     }
     UniValue ret{UniValue::VOBJ};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto height = view->GetLastHeight() + 1;
 
     bool useNextPrice = false, requireLivePrice = true;
@@ -1506,7 +1508,7 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
 
     auto &pool = DfTxTaskPool->pool;
 
-    boost::asio::post(pool, [&] {
+    boost::asio::post(pool, [&, &view = view] {
         view->ForEachLoanScheme([&](const std::string &identifier, const CLoanSchemeData &data) {
             totalLoanSchemes++;
             return true;
@@ -1555,7 +1557,7 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
     std::atomic<uint64_t> colsValTotal{0};
     std::atomic<uint64_t> loansValTotal{0};
 
-    view->ForEachVault([&](const CVaultId &vaultId, const CVaultData &data) {
+    view->ForEachVault([&, &view = view](const CVaultId &vaultId, const CVaultData &data) {
         g.AddTask();
         boost::asio::post(pool,
                           [&,
@@ -1651,7 +1653,7 @@ UniValue getinterest(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "id cannot be empty or more than 8 chars long");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto height = view->GetLastHeight() + 1;
 
     const auto scheme = view->GetLoanScheme(loanSchemeId);
@@ -1669,7 +1671,7 @@ UniValue getinterest(const JSONRPCRequest &request) {
 
     std::map<DCT_ID, std::pair<CInterestAmount, CInterestAmount>> interest;
 
-    auto vaultInterest = [&](const CVaultId &vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate) {
+    auto vaultInterest = [&, &view = view](const CVaultId &vaultId, const DCT_ID tokenId, const CInterestRateV3 &rate) {
         auto vault = view->GetVault(vaultId);
         if (!vault || vault->schemeId != loanSchemeId) {
             return true;
@@ -1753,7 +1755,7 @@ UniValue paybackwithcollateral(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript ownerAddress;

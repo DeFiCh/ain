@@ -2,7 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <dfi/accountshistory.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <dfi/govvariables/attributes.h>
 
@@ -162,7 +164,7 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
@@ -291,7 +293,7 @@ UniValue updateoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[4];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
@@ -377,7 +379,7 @@ UniValue removeoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
@@ -519,7 +521,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript oracleAddress;
@@ -658,7 +660,7 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto oracleRes = view->GetOracleData(oracleId);
     if (!oracleRes.ok) {
@@ -736,7 +738,7 @@ UniValue listoracles(const JSONRPCRequest &request) {
     }
 
     UniValue res(UniValue::VARR);
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     view->ForEachOracle(
         [&](const COracleId &id, CLazySerialize<COracle>) {
             if (!including_start) {
@@ -838,7 +840,7 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue result(UniValue::VARR);
     view->ForEachOracle(
@@ -1031,7 +1033,7 @@ UniValue getprice(const JSONRPCRequest &request) {
         lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto result = GetAggregatePrice(*view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result) {
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
@@ -1105,7 +1107,7 @@ UniValue listprices(const JSONRPCRequest &request) {
         lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto res = GetAllAggregatePrices(*view, lastBlockTime, paginationObj);
     return GetRPCResultCache().Set(request, res);
 }
@@ -1143,7 +1145,7 @@ UniValue getfixedintervalprice(const JSONRPCRequest &request) {
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto fixedPrice = view->GetFixedIntervalPrice(pairId);
     if (!fixedPrice) {
@@ -1217,11 +1219,11 @@ UniValue listfixedintervalprices(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue listPrice{UniValue::VARR};
     view->ForEachFixedIntervalPrice(
-        [&](const CTokenCurrencyPair &, CFixedIntervalPrice fixedIntervalPrice) {
+        [&, &view = view](const CTokenCurrencyPair &, CFixedIntervalPrice fixedIntervalPrice) {
             UniValue obj{UniValue::VOBJ};
             obj.pushKV("priceFeedId",
                        (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
@@ -1251,7 +1253,7 @@ UniValue getfutureswapblock(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const auto currentHeight = view->GetLastHeight();
 
     const auto block = GetFuturesBlock(ParamIDs::DFIP2203, *view);
@@ -1279,7 +1281,7 @@ UniValue getdusdswapblock(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const auto currentHeight = view->GetLastHeight();
 
     const auto block = GetFuturesBlock(ParamIDs::DFIP2206F, *view);

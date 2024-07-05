@@ -359,7 +359,7 @@ UniValue createvault(const JSONRPCRequest &request) {
         }
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
     const auto attributes = view->GetAttributes();
     const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
@@ -447,7 +447,7 @@ UniValue closevault(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript ownerAddress;
@@ -617,10 +617,10 @@ UniValue listvaults(const JSONRPCRequest &request) {
 
     UniValue valueArr{UniValue::VARR};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     view->ForEachVault(
-        [&](const CVaultId &vaultId, const CVaultData &data) {
+        [&, &view = view](const CVaultId &vaultId, const CVaultData &data) {
             if (!including_start) {
                 including_start = true;
                 return (true);
@@ -678,7 +678,7 @@ UniValue getvault(const JSONRPCRequest &request) {
         verbose = request.params[1].get_bool();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto vault = view->GetVault(vaultId);
     if (!vault) {
@@ -747,7 +747,7 @@ UniValue updatevault(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CVaultMessage vault;
@@ -911,7 +911,7 @@ UniValue deposittovault(const JSONRPCRequest &request) {
 
     const UniValue &txInputs = request.params[3];
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
     rawTx.vin = GetAuthInputsSmart(
@@ -1005,7 +1005,7 @@ UniValue withdrawfromvault(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CScript ownerAddress;
@@ -1104,7 +1104,7 @@ UniValue placeauctionbid(const JSONRPCRequest &request) {
     uint32_t index = request.params[1].get_int();
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CScript from = {};
     auto fromStr = request.params[2].get_str();
@@ -1242,10 +1242,10 @@ UniValue listauctions(const JSONRPCRequest &request) {
 
     UniValue valueArr{UniValue::VARR};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     view->ForEachVaultAuction(
-        [&](const CVaultId &vaultId, const CAuctionData &data) {
+        [&, &view = view](const CVaultId &vaultId, const CAuctionData &data) {
             if (!including_start) {
                 including_start = true;
                 return (true);
@@ -1364,11 +1364,10 @@ UniValue listauctionhistory(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    auto view = ::GetViewSnapshot();
-    auto accountView = ::GetHistorySnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     accountView->ForEachAuctionHistory(
-        [&](const AuctionHistoryKey &key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
+        [&, &view = view](const AuctionHistoryKey &key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
             if (filter == 0 && start.owner != key.owner) {
                 return true;
             }
@@ -1607,9 +1606,9 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     std::set<uint256> txs;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto hasToken = [&](const TAmounts &diffs) {
+    auto hasToken = [&, &view = view](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
             auto token = view->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1634,7 +1633,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
     // Get vault TXs
     auto count = limit;
 
-    auto shouldContinue = [&](const VaultHistoryKey &key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool {
+    auto shouldContinue = [&, &view = view](const VaultHistoryKey &key,
+                                            CLazySerialize<VaultHistoryValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return true;
         }
@@ -1664,14 +1664,14 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         return --count != 0;
     };
 
-    auto vaultHistory = GetVaultSnapshot();
     VaultHistoryKey startKey{maxBlockHeight, vaultID, std::numeric_limits<uint32_t>::max(), {}};
-    vaultHistory->ForEachVaultHistory(shouldContinue, startKey);
+    vaultView->ForEachVaultHistory(shouldContinue, startKey);
 
     // Get vault state changes
     count = limit;
 
-    auto shouldContinueState = [&](const VaultStateKey &key, CLazySerialize<VaultStateValue> valueLazy) -> bool {
+    auto shouldContinueState = [&, &view = view](const VaultStateKey &key,
+                                                 CLazySerialize<VaultStateValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return false;
         }
@@ -1690,7 +1690,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     VaultStateKey stateKey{vaultID, maxBlockHeight};
     if (!txTypeSearch) {
-        vaultHistory->ForEachVaultState(shouldContinueState, stateKey);
+        vaultView->ForEachVaultState(shouldContinueState, stateKey);
     }
 
     // Get vault schemes
@@ -1698,7 +1698,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     std::map<uint32_t, uint256> schemes;
 
-    auto shouldContinueScheme = [&](const VaultSchemeKey &key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool {
+    auto shouldContinueScheme = [&, &view = view, &vaultView = vaultView](
+                                    const VaultSchemeKey &key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return false;
         }
@@ -1714,7 +1715,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         }
 
         CLoanScheme loanScheme;
-        vaultHistory->ForEachGlobalScheme(
+        vaultView->ForEachGlobalScheme(
             [&](VaultGlobalSchemeKey const &schemeKey, CLazySerialize<VaultGlobalSchemeValue> lazyValue) {
                 if (lazyValue.get().loanScheme.identifier != value.schemeID) {
                     return true;
@@ -1732,7 +1733,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
     };
 
     if (tokenFilter.empty()) {
-        vaultHistory->ForEachVaultScheme(shouldContinueScheme, stateKey);
+        vaultView->ForEachVaultScheme(shouldContinueScheme, stateKey);
     }
 
     // Get vault global scheme changes
@@ -1751,8 +1752,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         for (auto it = schemes.cbegin(); it != schemes.cend(); ++it) {
             auto nit = std::next(it);
             uint32_t endHeight = nit != schemes.cend() ? nit->first - 1 : std::numeric_limits<uint32_t>::max();
-            vaultHistory->ForEachGlobalScheme(
-                [&](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> valueLazy) {
+            vaultView->ForEachGlobalScheme(
+                [&, &view = view](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> valueLazy) {
                     if (key.blockHeight < minHeight) {
                         return false;
                     }
@@ -1831,7 +1832,7 @@ UniValue estimateloan(const JSONRPCRequest &request) {
 
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     auto vault = view->GetVault(vaultId);
     if (!vault) {
@@ -1951,7 +1952,7 @@ UniValue estimatecollateral(const JSONRPCRequest &request) {
         collateralSplits["DFI"] = 1;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CAmount totalLoanValue{0};
     for (const auto &loan : loanBalances.balances) {
@@ -2047,7 +2048,7 @@ UniValue estimatevault(const JSONRPCRequest &request) {
     CBalances collateralBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
     CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     uint32_t height = view->GetLastHeight();
 
     CVaultAssets result{};
@@ -2117,7 +2118,7 @@ UniValue getstoredinterest(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto vaultId = ParseHashV(request.params[0], "vaultId");
     if (const auto vault = view->GetVault(vaultId); !vault) {
@@ -2165,13 +2166,13 @@ UniValue logstoredinterests(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto height = view->GetLastHeight();
 
     using VaultInfo = std::tuple<DCT_ID, CAmount, CInterestRateV3>;
     std::map<std::string, std::vector<VaultInfo>> items;
 
-    view->ForEachVault([&](const CVaultId &vaultId, const CVaultData &vaultData) {
+    view->ForEachVault([&, &view = view](const CVaultId &vaultId, const CVaultData &vaultData) {
         auto vaultTokens = view->GetLoanTokens(vaultId);
         if (!vaultTokens) {
             return true;
@@ -2228,7 +2229,7 @@ UniValue getloantokens(const JSONRPCRequest &request) {
         return *res;
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto vaultId = ParseHashV(request.params[0], "vaultId");
     const auto loanTokens = view->GetLoanTokens(vaultId);

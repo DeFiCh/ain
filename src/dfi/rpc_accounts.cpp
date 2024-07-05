@@ -4,6 +4,7 @@
 #include <dfi/mn_rpc.h>
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
+#include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
 #include <boost/asio.hpp>
 
@@ -405,13 +406,13 @@ UniValue listaccounts(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CalcMissingRewardTempFix(*view, targetHeight, *pwallet);
 
     view->ForEachAccount(
-        [&](const CScript &account) {
+        [&, &view = view](const CScript &account) {
             if (isMineOnly && IsMineCached(*pwallet, account) != ISMINE_SPENDABLE) {
                 return true;
             }
@@ -532,7 +533,7 @@ UniValue getaccount(const JSONRPCRequest &request) {
         ret.setObject();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     view->CalculateOwnerRewards(reqOwner, targetHeight);
@@ -669,12 +670,12 @@ UniValue gettokenbalances(const JSONRPCRequest &request) {
 
     CBalances totalBalances;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CalcMissingRewardTempFix(*view, targetHeight, *pwallet);
 
-    view->ForEachAccount([&](const CScript &account) {
+    view->ForEachAccount([&, &view = view](const CScript &account) {
         if (IsMineCached(*pwallet, account) == ISMINE_SPENDABLE) {
             view->CalculateOwnerRewards(account, targetHeight);
             view->ForEachBalance([&](CScript const &owner,
@@ -986,7 +987,7 @@ UniValue accounttoaccount(const JSONRPCRequest &request) {
 
     const UniValue &txInputs = request.params[2];
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
@@ -1110,7 +1111,7 @@ UniValue accounttoutxos(const JSONRPCRequest &request) {
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
     // auth
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
@@ -1400,10 +1401,9 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
-    auto view = ::GetViewSnapshot();
-    auto accountView = ::GetHistorySnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto hasToken = [&](const TAmounts &diffs) {
+    auto hasToken = [&, &view = view](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
             auto token = view->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1436,7 +1436,8 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
             isMatchOwner = [](const CScript &owner) { return true; };
         }
 
-        auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
+        auto shouldContinueToNextAccountHistory = [&, &view = view](const AccountHistoryKey &key,
+                                                                    AccountHistoryValue value) -> bool {
             if (!isMatchOwner(key.owner)) {
                 return false;
             }
@@ -1516,7 +1517,7 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
         if (!noRewards && !account.empty()) {
             // revert previous tx to restore account balances to maxBlockHeight
             accountView->ForEachAccountHistory(
-                [&](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                [&, &view = view](const AccountHistoryKey &key, const AccountHistoryValue &value) {
                     if (maxBlockHeight > key.blockHeight) {
                         return false;
                     }
@@ -1541,7 +1542,7 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
                     uint32_t height = index->nHeight;
                     return txs.count(pwtx->GetHash()) || startBlock > height || height > maxBlockHeight;
                 },
-                [&](const COutputEntry &entry, const CBlockIndex *index, const CWalletTx *pwtx) {
+                [&, &view = view](const COutputEntry &entry, const CBlockIndex *index, const CWalletTx *pwtx) {
                     uint32_t height = index->nHeight;
                     uint32_t nIndex = pwtx->nIndex;
                     if (txn != std::numeric_limits<uint32_t>::max() && height == maxBlockHeight && nIndex > txn) {
@@ -1597,8 +1598,7 @@ UniValue getaccounthistory(const JSONRPCRequest &request) {
     uint32_t blockHeight = request.params[1].get_int();
     uint32_t txn = request.params[2].get_int();
 
-    auto view = ::GetViewSnapshot();
-    auto accountView = ::GetHistorySnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue result(UniValue::VOBJ);
     AccountHistoryKey AccountKey{owner, blockHeight, txn};
@@ -1706,9 +1706,9 @@ UniValue listburnhistory(const JSONRPCRequest &request) {
 
     std::set<uint256> txs;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto hasToken = [&](const TAmounts &diffs) {
+    auto hasToken = [&, &view = view](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
             auto token = view->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1732,7 +1732,8 @@ UniValue listburnhistory(const JSONRPCRequest &request) {
 
     auto count = limit;
 
-    auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
+    auto shouldContinueToNextAccountHistory = [&, &view = view](const AccountHistoryKey &key,
+                                                                AccountHistoryValue value) -> bool {
         if (!isMatchOwner(key.owner)) {
             return false;
         }
@@ -1902,10 +1903,9 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
     std::set<uint256> txs;
     const bool shouldSearchInWallet = (tokenFilter.empty() || tokenFilter == "DFI") && !hasTxFilter;
 
-    auto view = ::GetViewSnapshot();
-    auto accountView = ::GetHistorySnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto hasToken = [&](const TAmounts &diffs) {
+    auto hasToken = [&, &view = view](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
             auto token = view->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
@@ -1923,7 +1923,8 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
         uint32_t lastHeight = view->GetLastHeight();
         const auto currentHeight = lastHeight;
 
-        auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key, AccountHistoryValue value) -> bool {
+        auto shouldContinueToNextAccountHistory = [&, &view = view](const AccountHistoryKey &key,
+                                                                    AccountHistoryValue value) -> bool {
             if (!owner.empty() && owner != key.owner) {
                 return false;
             }
@@ -2006,7 +2007,7 @@ UniValue listcommunitybalances(const JSONRPCRequest &request) {
     }
     UniValue ret(UniValue::VOBJ);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     CAmount burnt{0};
     for (const auto &kv : Params().GetConsensus().blockTokenRewards) {
         // Skip these as any unused balance will be burnt.
@@ -2106,7 +2107,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     }
 
     if (request.params[0].get_obj().empty()) {  // autoselection
-        auto view = ::GetViewSnapshot();
+        auto [view, accountView, vaultView] = GetSnapshots();
         CAccounts foundMineAccounts = GetAllMineAccounts(pwallet, *view);
 
         AccountSelectionMode selectionMode = SelectionPie;
@@ -2155,7 +2156,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     UniValue txInputs(UniValue::VARR);
 
     // auth
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     std::set<CScript> auths;
     for (const auto &acc : msg.from) {
         auths.emplace(acc.first);
@@ -2444,7 +2445,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         msg.transfers.push_back({src, dst});
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -2523,7 +2524,7 @@ UniValue getburninfo(const JSONRPCRequest &request) {
     CBalances dfipaybacktokens;
     CBalances dfiToDUSDTokens;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const auto height = view->GetLastHeight();
     uint256 hash;
     {
@@ -2853,7 +2854,7 @@ UniValue executesmartcontract(const JSONRPCRequest &request) {
 
     const auto &contractName = request.params[0].get_str();
     if (contractName == "dbtcdfiswap") {
-        auto view = ::GetViewSnapshot();
+        auto [view, accountView, vaultView] = GetSnapshots();
         return HandleSendDFIP2201(request, std::move(pwallet), *view);
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Specified smart contract not found");
@@ -2917,7 +2918,7 @@ UniValue futureswap(const JSONRPCRequest &request) {
 
     RejectErc55Address(msg.owner);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     if (!request.params[2].isNull()) {
         DCT_ID destTokenID{};
@@ -3014,7 +3015,7 @@ UniValue withdrawfutureswap(const JSONRPCRequest &request) {
     msg.source = DecodeAmount(pwallet->chain(), request.params[1], "");
     msg.withdraw = true;
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     if (!request.params[2].isNull()) {
         DCT_ID destTokenID{};
@@ -3082,38 +3083,39 @@ UniValue listpendingfutureswaps(const JSONRPCRequest &request) {
     }
     UniValue listFutures{UniValue::VARR};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    view->ForEachFuturesUserValues([&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
-        CTxDestination dest;
-        ExtractDestination(key.owner, dest);
-        if (!IsValidDestination(dest)) {
-            return true;
-        }
-
-        const auto source = view->GetToken(futuresValues.source.nTokenId);
-        if (!source) {
-            return true;
-        }
-
-        UniValue value{UniValue::VOBJ};
-        value.pushKV("owner", EncodeDestination(dest));
-        value.pushKV("source", ValueFromAmount(futuresValues.source.nValue).getValStr() + '@' + source->symbol);
-
-        if (source->symbol == "DUSD") {
-            const auto destination = view->GetLoanTokenByID({futuresValues.destination});
-            if (!destination) {
+    view->ForEachFuturesUserValues(
+        [&, &view = view](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
+            CTxDestination dest;
+            ExtractDestination(key.owner, dest);
+            if (!IsValidDestination(dest)) {
                 return true;
             }
-            value.pushKV("destination", destination->symbol);
-        } else {
-            value.pushKV("destination", "DUSD");
-        }
 
-        listFutures.push_back(value);
+            const auto source = view->GetToken(futuresValues.source.nTokenId);
+            if (!source) {
+                return true;
+            }
 
-        return true;
-    });
+            UniValue value{UniValue::VOBJ};
+            value.pushKV("owner", EncodeDestination(dest));
+            value.pushKV("source", ValueFromAmount(futuresValues.source.nValue).getValStr() + '@' + source->symbol);
+
+            if (source->symbol == "DUSD") {
+                const auto destination = view->GetLoanTokenByID({futuresValues.destination});
+                if (!destination) {
+                    return true;
+                }
+                value.pushKV("destination", destination->symbol);
+            } else {
+                value.pushKV("destination", "DUSD");
+            }
+
+            listFutures.push_back(value);
+
+            return true;
+        });
 
     return GetRPCResultCache().Set(request, listFutures);
 }
@@ -3144,7 +3146,7 @@ UniValue getpendingfutureswaps(const JSONRPCRequest &request) {
 
     const auto owner = DecodeScript(request.params[0].get_str());
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const uint32_t height = view->GetLastHeight();
 
     std::vector<CFuturesUserValue> storedFutures;
@@ -3218,7 +3220,7 @@ UniValue logaccountbalances(const JSONRPCRequest &request) {
         outToRpc = p[1].get_bool();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     std::map<std::string, std::vector<CTokenAmount>> accounts;
     size_t count{};
@@ -3276,7 +3278,7 @@ UniValue listpendingdusdswaps(const JSONRPCRequest &request) {
     }
     UniValue listFutures{UniValue::VARR};
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     view->ForEachFuturesDUSD([&](const CFuturesUserKey &key, const CAmount &amount) {
         CTxDestination dest;
@@ -3319,7 +3321,7 @@ UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
 
     const auto owner = DecodeScript(request.params[0].get_str());
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     const uint32_t height = view->GetLastHeight();
 
     CAmount total{};

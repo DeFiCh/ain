@@ -1,7 +1,9 @@
 #include <dfi/mn_rpc.h>
 
 #include <ain_rs_exports.h>
+#include <dfi/accountshistory.h>
 #include <dfi/errors.h>
+#include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
 #include <key_io.h>
 #include <util/strencodings.h>
@@ -85,7 +87,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
 
     // TODO Get chain ID from Params when defined
@@ -216,9 +218,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
         throwInvalidParam();
     }
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto tryResolveMapBlockOrTxResult = [&view](ResVal<std::string> &res, const std::string &input) {
+    auto tryResolveMapBlockOrTxResult = [&view = view](ResVal<std::string> &res, const std::string &input) {
         res = view->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
         if (res) {
             return VMDomainRPCMapType::TxHashDVMToEVM;
@@ -306,7 +308,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
     };
 
     auto handleMapBlockNumberDVMToEVMRequest =
-        [&view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+        [&view = view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
             uint64_t height;
             const int current_tip = ::ChainActive().Height();
             bool success = ParseUInt64(input, &height);
@@ -330,7 +332,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         };
 
     auto handleMapBlockNumberEVMToDVMRequest =
-        [&view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+        [&view = view, &throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
             uint64_t height;
             bool success = ParseUInt64(input, &height);
             if (!success || height < 0) {
@@ -415,7 +417,7 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    auto view = ::GetViewSnapshot();
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     uint64_t count{};
     UniValue result{UniValue::VOBJ};
