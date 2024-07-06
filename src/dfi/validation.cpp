@@ -1662,8 +1662,7 @@ static Res PoolSplits(CCustomCSView &view,
                       const CBlockIndex *pindex,
                       const Consensus::Params &consensus,
                       const std::vector<std::pair<DCT_ID, uint256>> &poolCreationTxs,
-                      const T multiplier,
-                      const std::string oldPoolSuffix = "/v") {
+                      const T multiplier) {
     // TODO: print whole map
     LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d, pools: %d)\n",
               tokenMap.begin()->first,
@@ -1672,6 +1671,7 @@ static Res PoolSplits(CCustomCSView &view,
               poolCreationTxs.size());
 
     try {
+        const std::string oldPoolSuffix = "/v";
         assert(poolCreationTxs.size());
         for (const auto &[oldPoolId, creationTx] : poolCreationTxs) {
             auto loopTime = GetTimeMillis();
@@ -2409,8 +2409,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
                                const T &splits,
-                               BlockContext &blockCtx,
-                               const std::string wantedSuffix = "/v") {
+                               BlockContext &blockCtx) {
+    const std::string wantedSuffix = "/v";
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2566,6 +2566,28 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             }
             return true;
         });
+
+        // convert lock values
+        if (pindex->nHeight >= consensus.DF24Height) {
+            auto multi = multiplier;
+            auto oldId = id;
+            view.ForEachTokenLockUserValues([&](const auto &key, const auto &value) {
+                auto newBalance = CTokenLockUserValue{};
+                bool changed = false;
+                for (const auto &[tokenId, amount] : value.balances) {
+                    if (tokenId.v == oldId) {
+                        newBalance.Add({newTokenId, CalculateNewAmount(multi, amount)});
+                        changed = true;
+                    } else {
+                        newBalance.Add({tokenId, amount});
+                    }
+                }
+                if (changed) {
+                    view.StoreTokenLockUserValues(key, newBalance);
+                }
+                return true;
+            });
+        }
 
         LogPrintf(
             "Token split info: rebalance " /* Continued */
@@ -3330,7 +3352,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
 
     // Execute Splits on tokens (without pools)
-    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx, "/lock");
+    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx);
     LogPrintf("executed token 'splits' for locks\n");
 
     // rename DUSD -> USDD (before updating pools to get correct pool token names)
@@ -3365,7 +3387,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     // convert pools, based on tokenMap (needs change in existing code)
 
     res = PoolSplits(
-        cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, consensus, creationTxPerPoolId, COIN, "/lock");
+        cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, consensus, creationTxPerPoolId, COIN);
     if (!res) {
         LogPrintf("Pool splits failed %s\n", res.msg);
         // TODO: handle error
