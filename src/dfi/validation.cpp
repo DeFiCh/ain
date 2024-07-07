@@ -3322,6 +3322,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     CreationTxs creationTxs;
     std::vector<std::pair<DCT_ID, uint256>> emptyPoolPairs;
 
+    CBalances lockedTokens;
     std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
     ForEachLockTokenAndPool(
         [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
@@ -3335,6 +3336,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
             // TODO: normal token split requires token to be locked before
             CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, id.v};
             attributes->SetValue(lockKey, true);
+            lockedTokens.Add({id, COIN});
             return true;
         },
         [&](const DCT_ID &id, const CPoolPair &token) {
@@ -3347,6 +3349,11 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
         },
         cache);
 
+    CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+    // TODO: this is mainly used to know what token ids got locked (for use in TD later on). maybe add real balances
+    // for stats?
+
+    attributes->SetValue(lockedTokenKey, lockedTokens);
     cache.SetVariable(*attributes);
 
     LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
@@ -4365,10 +4372,13 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
     return true;
 }
 
-Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
+Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount, bool &includedLock) {
     if (amount.nValue == 0) {
         return Res::Ok();
     }
+    CDataStructureV0 lockedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+    auto attributes = view.GetAttributes();
+    const auto lockedTokens = attributes->GetValue(lockedKey, CBalances{});
 
     while (true) {
         const auto idMultiplierPair = view.GetTokenSplitMultiplier(amount.nTokenId.v);
@@ -4378,6 +4388,9 @@ Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amoun
 
         if (const auto token = view.GetToken(amount.nTokenId); !token) {
             return Res::Err("Token not found");
+        }
+        if (lockedTokens.balances.count(amount.nTokenId) > 0) {
+            includedLock = true;
         }
 
         auto &[id, multiplierVariant] = *idMultiplierPair;
@@ -4412,22 +4425,9 @@ Res ExecuteLockTransferDomain(CCustomCSView &view,
               GetDecimalString(lockRatio));
 
     if (lockRatio > 0) {
-        // check if its a loan token
-
-        const auto loanTokens = GetLoanTokensForLock(view);
-        bool isLoanToken = false;
-        for (const auto &[tokenId, token] : loanTokens) {
-            if (amount.nTokenId == tokenId) {
-                isLoanToken = true;
-                break;
-            }
-        }
-
-        if (isLoanToken) {
-            const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
-            LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount});
-            amount.nValue -= lockedAmount;
-        }
+        const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
+        LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount});
+        amount.nValue -= lockedAmount;
     }
     return Res::Ok();
 }

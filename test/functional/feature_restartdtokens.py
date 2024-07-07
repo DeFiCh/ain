@@ -66,6 +66,22 @@ class RestartdTokensTest(DefiTestFramework):
             self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
             [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
         )
+        print(self.nodes[0].listgovs())
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/locked_tokens"),
+            [
+                [
+                    {
+                        "ATTRIBUTES": {
+                            "v0/live/economy/locked_tokens": [
+                                "1.00000000@SPY/v1",
+                                "1.00000000@DUSD/v1",
+                            ]
+                        }
+                    }
+                ]
+            ],
+        )
         self.check_token_lock()
 
         # check correct behaviour on TD of old SPY + DUSD
@@ -108,6 +124,45 @@ class RestartdTokensTest(DefiTestFramework):
                     "dst": {
                         "address": self.newaddress,
                         "amount": "0.1@SPY/v1",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        # TD of new token must not lock it
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.newaddress,
+                        "amount": "1@USDD",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.evmaddress,
+                        "amount": "1@USDD",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.evmaddress,
+                        "amount": "1@USDD",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.newaddress,
+                        "amount": "1@USDD",
                         "domain": 2,
                     },
                     "singlekeycheck": False,

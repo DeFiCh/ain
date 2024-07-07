@@ -99,6 +99,7 @@ enum EconomyKeys : uint8_t {
     TransferDomainStatsLive = 'r',
     EVMBlockStatsLive = 's',
     TokenLockRatio = 't',
+    LockedTokens = 'u',
 };
 
 enum DFIPKeys : uint8_t {

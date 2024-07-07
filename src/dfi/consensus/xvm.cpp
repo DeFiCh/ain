@@ -387,16 +387,17 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Process TokenSplit
             if (height >= consensus.DF23Height) {
-                res = ExecuteTokenMigrationTransferDomain(mnview, destAmount);
+                bool needToLock = false;
+                res = ExecuteTokenMigrationTransferDomain(mnview, destAmount, needToLock);
                 if (!res) {
                     return res;
                 }
-            }
-            // Process TokenLock
-            if (height >= consensus.DF24Height) {
-                res = ExecuteLockTransferDomain(mnview, height, tx.GetHash(), dst.address, destAmount);
-                if (!res) {
-                    return res;
+                // Process TokenLock
+                if (needToLock && height >= consensus.DF24Height) {
+                    res = ExecuteLockTransferDomain(mnview, height, tx.GetHash(), dst.address, destAmount);
+                    if (!res) {
+                        return res;
+                    }
                 }
             }
 

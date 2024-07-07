@@ -413,6 +413,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::TransferDomainStatsLive, "transferdomain"},
              {EconomyKeys::EVMBlockStatsLive, "evm"},
              {EconomyKeys::TokenLockRatio, "token_lock_ratio"},
+             {EconomyKeys::LockedTokens, "locked_tokens"},
          }},
         {AttributeTypes::Governance,
          {

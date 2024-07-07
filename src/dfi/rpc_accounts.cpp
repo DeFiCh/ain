@@ -3203,7 +3203,7 @@ UniValue releaselockedtokens(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid releaseRatio");
     }
 
-    auto releaseRatio = AmountFromValue(request.params[0])/100;
+    auto releaseRatio = AmountFromValue(request.params[0]) / 100;
     CReleaseLockMessage msg{std::move(releaseRatio)};
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -3507,7 +3507,7 @@ static const CRPCCommand commands[] = {
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
     {"accounts", "listlockedtokens",       &listlockedtokens,       {}                                                          },
     {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
-    {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                                 },
+    {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                             },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

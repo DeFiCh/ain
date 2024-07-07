@@ -30,18 +30,17 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
 
     auto newRatio = currentRatio - obj.releasePart;
     // part of locked funds to be released
-    auto releaseAmount= [&](const CAmount& amount) {
-        if(currentRatio <= obj.releasePart) {
+    auto releaseAmount = [&](const CAmount &amount) {
+        if (currentRatio <= obj.releasePart) {
             return amount;
         } else {
-            return MultiplyDivideAmounts(amount,obj.releasePart,currentRatio);
+            return MultiplyDivideAmounts(amount, obj.releasePart, currentRatio);
         }
     };
-    LogPrintf(
-        "releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. \n",
-        GetDecimalString(currentRatio),
-        GetDecimalString(obj.releasePart),
-        GetDecimalString(newRatio));
+    LogPrintf("releasing locked tokens, current ratio %s, releasing %s, resulting ratio %s. \n",
+              GetDecimalString(currentRatio),
+              GetDecimalString(obj.releasePart),
+              GetDecimalString(newRatio));
 
     // calc part of current funds that should be released
     // cap to all funds
