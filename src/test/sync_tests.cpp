@@ -7,6 +7,7 @@
 
 #include <future>
 
+#include <boost/asio.hpp>
 #include <boost/test/unit_test.hpp>
 
 template<typename MutexType>
@@ -77,13 +78,11 @@ BOOST_AUTO_TEST_CASE(lock_free)
         }
     };
 
-    std::vector<std::thread> threads;
-
-    for (int i = 0; i < num_threads; i++)
-        threads.emplace_back(testFunc);
-
-    for (auto& thread : threads)
-        thread.join();
+    boost::asio::thread_pool workerPool(num_threads);
+    for (auto i = 0; i < num_threads; ++i) {
+        boost::asio::post(workerPool, testFunc);
+    }
+    workerPool.join();
 }
 
 BOOST_AUTO_TEST_SUITE_END()
