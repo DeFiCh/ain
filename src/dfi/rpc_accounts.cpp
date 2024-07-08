@@ -757,7 +757,7 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
 
     // decode recipients
     CUtxosToAccountMessage msg{};
-    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownerskipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[0].get_obj(), ownershipCheck);
 
     for (const auto &[to, amount] : msg.to) {
@@ -791,9 +791,30 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
         }
     }
 
+    bool funded = false;
+    if (msg.to.size() == 1) {
+        CCoinControl coinControl;
+        // try to fill inputs from target address and use it as change
+        const auto &target = msg.to.begin()->first;
+        CTxDestination dest;
+        ExtractDestination(target, dest);
+        if (IsMineCached(*pwallet, target) == ISMINE_SPENDABLE) {
+            if (IsValidDestination(dest)) {
+                coinControl.destChange = dest;
+                coinControl.matchDestination = dest;
+                try {
+                    fund(rawTx, pwallet, {}, &coinControl, request.metadata.coinSelectOpts);
+                    funded = true;
+                } catch (const UniValue &e) {
+                    // likely not enough utxos, silent catch and try again outside
+                }
+            }
+        }
+    }
     // fund
-    fund(rawTx, pwallet, {}, nullptr, request.metadata.coinSelectOpts);
-
+    if (!funded) {
+        fund(rawTx, pwallet, {}, nullptr, request.metadata.coinSelectOpts);
+    }
     // check execution
     execTestTx(CTransaction(rawTx), targetHeight);
 
@@ -923,7 +944,7 @@ UniValue accounttoaccount(const JSONRPCRequest &request) {
 
     // decode sender and recipients
     CAccountToAccountMessage msg{};
-    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownerskipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
     if (SumAllTransfers(msg.to).balances.empty()) {
@@ -2054,7 +2075,7 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VSTR}, false);
 
     CAnyAccountsToAccountsMessage msg;
-    auto ownershipCheck = gArgs.GetBoolArg("-dvmownershipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
+    auto ownershipCheck = gArgs.GetBoolArg("-dvmownerskipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
     const CBalances sumTransfersTo = SumAllTransfers(msg.to);
