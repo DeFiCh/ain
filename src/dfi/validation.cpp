@@ -4321,6 +4321,16 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         return false;
     }
 
+    CDataStructureV0 lockedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+    CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+    auto attributes = cache->GetAttributes();
+    const auto lockRatio = attributes->GetValue(releaseKey, CAmount{});
+    const auto lockedTokens = attributes->GetValue(lockedKey, CBalances{});
+    if (lockRatio > 0 && lockedTokens.balances.count(DCT_ID{oldAmount.id}) > 0) {
+        return false;  // tokens that got locked must not be upgraded on EVM while lock is active (need to be TD to DVM,
+                       // cause it gets locked)
+    }
+
     const auto idMultiplierPair = cache->GetTokenSplitMultiplier(oldAmount.id);
     if (!idMultiplierPair) {
         newAmount = oldAmount;
@@ -4345,7 +4355,6 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         }
     }
 
-    auto attributes = cache->GetAttributes();
     auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
     // Transfer out old token

@@ -10,9 +10,11 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path
+from test_framework.util import assert_raises_web3_error
 
 from decimal import Decimal
 import time
+from web3 import Web3
 
 
 class RestartdTokensTest(DefiTestFramework):
@@ -66,7 +68,7 @@ class RestartdTokensTest(DefiTestFramework):
             self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
             [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
         )
-        print(self.nodes[0].listgovs())
+
         assert_equal(
             self.nodes[0].listgovs("v0/live/economy/locked_tokens"),
             [
@@ -83,6 +85,41 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
         self.check_token_lock()
+        # Call upgradeToken on pre-lock must fail
+        amount = Web3.to_wei(10, "ether")
+        print(f"{amount}")
+
+        upgrade_txn = self.dusd_contract.functions.upgradeToken(
+            amount
+        ).build_transaction(
+            {
+                "from": self.evmaddress,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evmaddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 5_000_000,
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            upgrade_txn, self.evm_privkey
+        )
+
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(40),
+        )
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            Decimal(0),
+        )
+        assert_equal(tx_receipt["status"], 0)
 
         # check correct behaviour on TD of old SPY + DUSD
 
@@ -132,6 +169,19 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(30),
+        )
+        assert_equal(
+            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(0.4),
+        )
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            Decimal(0),
+        )
+
         # TD of new token must not lock it
 
         self.nodes[0].transferdomain(
@@ -152,6 +202,10 @@ class RestartdTokensTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call() / 1e18,
+            Decimal(1),
+        )
         self.nodes[0].transferdomain(
             [
                 {
@@ -591,7 +645,14 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
     def check_token_lock(self):
+        self.usddId = int(list(self.nodes[0].gettoken("USDD").keys())[0])
 
+        self.usdd_contract = self.nodes[0].w3.eth.contract(
+            address=self.nodes[0].w3.to_checksum_address(
+                f"0xff0000000000000000000000000000000000{self.usddId:0{4}x}"
+            ),
+            abi=self.dst20_v2_abi,
+        )
         assert_equal(
             [
                 {
@@ -1142,6 +1203,20 @@ class RestartdTokensTest(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
+                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evmaddress,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].transferdomain(
+            [
+                {
                     "src": {"address": self.address, "amount": "0.5@SPY", "domain": 2},
                     "dst": {
                         "address": self.evmaddress,
@@ -1187,12 +1262,6 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
         # DST20 ABI
-        self.dst20_abi = open(
-            get_solc_artifact_path("dst20_v1", "abi.json"),
-            "r",
-            encoding="utf8",
-        ).read()
-
         self.dst20_v2_abi = open(
             get_solc_artifact_path("dst20_v2", "abi.json"),
             "r",
@@ -1320,7 +1389,7 @@ class RestartdTokensTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create account DFI
-        self.nodes[0].utxostoaccount({self.address: "50000@DFI"})
+        self.nodes[0].utxostoaccount({self.address: "50001@DFI"})
         self.nodes[0].sendutxosfrom(self.address, self.address1, 1)
         self.nodes[0].sendutxosfrom(self.address, self.address2, 1)
         self.nodes[0].sendutxosfrom(self.address, self.address3, 1)
