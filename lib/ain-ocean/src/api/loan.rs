@@ -212,9 +212,7 @@ async fn list_loan_token(
                 .by_key
                 .get(&(token.to_string(), currency.to_string()))?;
             let active_price = if let Some(key) = key {
-                repo
-                    .by_id
-                    .get(&key)?
+                repo.by_id.get(&key)?
             } else {
                 None
             };
@@ -257,9 +255,7 @@ async fn get_loan_token(
                 .by_key
                 .get(&(token.to_string(), currency.to_string()))?;
             let active_price = if let Some(key) = key {
-                repo
-                    .by_id
-                    .get(&key)?
+                repo.by_id.get(&key)?
             } else {
                 None
             };
@@ -275,7 +271,7 @@ async fn get_loan_token(
         .transpose()?;
 
     if token.is_none() {
-        return Err(format_err!("Token {:?} does not exist!", token_id).into())
+        return Err(format_err!("Token {:?} does not exist!", token_id).into());
     }
 
     Ok(Response::new(token.unwrap()))
@@ -376,7 +372,10 @@ async fn map_vault_active(
     })
 }
 
-async fn map_vault_liquidation(ctx: &Arc<AppContext>, vault: VaultLiquidation) -> Result<VaultLiquidatedResponse> {
+async fn map_vault_liquidation(
+    ctx: &Arc<AppContext>,
+    vault: VaultLiquidation,
+) -> Result<VaultLiquidatedResponse> {
     let loan_scheme = get_loan_scheme_cached(ctx, vault.loan_scheme_id).await?;
     Ok(VaultLiquidatedResponse {
         batches: map_liquidation_batches(ctx, &vault.vault_id, vault.batches).await?,
