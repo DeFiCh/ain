@@ -220,7 +220,7 @@ async fn list_loan_token(
             };
 
             let token = LoanToken {
-                token_id: flatten_token.id.clone(),
+                token_id: flatten_token.data.creation_tx.clone(),
                 token: TokenData::from_with_id(flatten_token.id, flatten_token.data),
                 interest: format!("{:.2}", flatten_token.interest),
                 fixed_interval_price_id,
@@ -265,7 +265,7 @@ async fn get_loan_token(
             };
 
             Ok::<LoanToken, Error>(LoanToken {
-                token_id: id.clone(),
+                token_id: info.creation_tx.clone(),
                 token: TokenData::from_with_id(id, info),
                 interest: format!("{:.2}", loan_token_result.interest),
                 fixed_interval_price_id,
