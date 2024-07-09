@@ -82,7 +82,6 @@ async fn get_account_history(
     }): Path<History>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<AddressHistory>> {
-        log::debug!("get_account_history address: {:?}", address);
     let res = ctx
         .client
         .get_account_history(&address, height, txno)
