@@ -18,9 +18,10 @@ use crate::{
     Error, Result,
 };
 use ain_macros::ocean_endpoint;
+use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
-use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
-use defichain_rpc::RpcApi;
+use bitcoin::{hashes::Hash, hex::DisplayHex, BlockHash, Txid};
+use defichain_rpc::{json::account::AccountHistory, AccountRPC, RpcApi};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
@@ -30,25 +31,66 @@ struct Address {
     address: String,
 }
 
-// #[derive(Deserialize)]
-// struct History {
-//     address: String,
-//     height: i64,
-//     txno: i64,
-// }
+#[derive(Deserialize)]
+struct History {
+    address: String,
+    height: u32,
+    txno: u32,
+}
 
-// async fn get_account_history(
-//     Path(History {
-//         address,
-//         height,
-//         txno,
-//     }): Path<History>,
-// ) -> String {
-//     format!(
-//         "Account history for address {}, height {}, txno {}",
-//         address, height, txno
-//     )
-// }
+#[derive(Debug, Serialize)]
+struct AddressHistory {
+    owner: String,
+    txid: Option<Txid>,
+    txn: Option<u64>,
+    r#type: String,
+    amounts: Vec<String>,
+    block: AddressHistoryBlock,
+}
+
+impl From<AccountHistory> for AddressHistory {
+    fn from(history: AccountHistory) -> Self {
+        Self {
+            owner: history.owner,
+            txid: history.txid,
+            txn: history.txn,
+            r#type: history.r#type,
+            amounts: history.amounts,
+            block: AddressHistoryBlock {
+                height: history.block_height,
+                hash: history.block_hash,
+                time: history.block_time,
+            }
+        }
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Debug, Serialize)]
+struct AddressHistoryBlock {
+    height: u64,
+    hash: Option<BlockHash>,
+    time: Option<u64>,
+}
+
+#[ocean_endpoint]
+async fn get_account_history(
+    Path(History {
+        address,
+        height,
+        txno,
+    }): Path<History>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<AddressHistory>> {
+        log::debug!("get_account_history address: {:?}", address);
+    let res = ctx
+        .client
+        .get_account_history(&address, height, txno)
+        .await
+        .map_err(|_| format_err!("Record not found"))?;
+
+    Ok(Response::new(res.into()))
+}
 
 // async fn list_account_history(Path(Address { address }): Path<Address>) -> String {
 //     format!("List account history for address {}", address)
@@ -448,7 +490,7 @@ async fn list_tokens(
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
-        // .route("/history/:height/:txno", get(get_account_history))
+        .route("/:address/history/:height/:txno", get(get_account_history))
         // .route("/history", get(list_account_history))
         .route("/:address/balance", get(get_balance))
         .route("/:address/aggregation", get(get_aggregation))
