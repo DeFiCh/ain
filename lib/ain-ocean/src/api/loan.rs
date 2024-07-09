@@ -203,7 +203,7 @@ async fn list_loan_token(
         })
         .map(|flatten_token| {
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
-            let parts = fixed_interval_price_id.split("/").collect::<Vec<&str>>();
+            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
             let [token, currency] = <[&str; 2]>::try_from(parts)
                 .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
 
@@ -248,7 +248,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let parts = fixed_interval_price_id.split("/").collect::<Vec<&str>>();
+            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
             let [token, currency] = <[&str; 2]>::try_from(parts)
                 .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
 
@@ -376,10 +376,7 @@ async fn map_vault_active(
     })
 }
 
-async fn map_vault_liquidation(
-    ctx: &Arc<AppContext>,
-    vault: VaultLiquidation,
-) -> Result<VaultLiquidatedResponse> {
+async fn map_vault_liquidation(ctx: &Arc<AppContext>, vault: VaultLiquidation) -> Result<VaultLiquidatedResponse> {
     let loan_scheme = get_loan_scheme_cached(ctx, vault.loan_scheme_id).await?;
     Ok(VaultLiquidatedResponse {
         batches: map_liquidation_batches(ctx, &vault.vault_id, vault.batches).await?,
