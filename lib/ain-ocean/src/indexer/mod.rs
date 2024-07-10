@@ -12,6 +12,8 @@ pub mod helper;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
+use std::{sync::Arc, time::Instant};
+use crate::indexer::loan_token::invalidate_block_end;
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
@@ -571,6 +573,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(_block: Block<Transaction>) -> Result<()> {
+pub fn invalidate_block(services: &Arc<Services>,_block: Block<Transaction>) -> Result<()> {
+    invalidate_block_end(services,_block)?;
+    invalidate_(services,_block)?;
     Ok(())
 }
