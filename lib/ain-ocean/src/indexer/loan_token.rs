@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::loans::SetLoanToken;
+use defichain_rpc::json::blockchain::{Block, Transaction};
 use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
@@ -205,3 +206,4 @@ fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActi
 
     true
 }
+fn invalidate_block_end(service: &Arc<Services>, block: Block<Transaction>) {}
