@@ -16,7 +16,7 @@ pub fn ocean_index_block(block_str: String) -> Result<()> {
 #[ffi_fallible]
 pub fn ocean_invalidate_block(block_str: String) -> Result<()> {
     let block: Block<Transaction> = serde_json::from_str(&block_str)?;
-    ain_ocean::invalidate_block(block)
+    ain_ocean::invalidate_block(&ain_ocean::SERVICES,block)
 }
 
 #[ffi_fallible]

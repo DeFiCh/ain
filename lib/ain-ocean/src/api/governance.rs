@@ -23,7 +23,7 @@ pub struct GovernanceQuery {
     pub pagination: PaginationQuery,
     pub status: Option<ListProposalsStatus>,
     pub r#type: Option<ListProposalsType>,
-    pub cycle: Option<u64>,
+    pub cycle: Option<i64>,
     pub all: Option<bool>,
     pub masternode: Option<String>,
 }
