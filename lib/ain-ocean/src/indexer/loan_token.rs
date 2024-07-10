@@ -8,7 +8,7 @@ use rust_decimal_macros::dec;
 use crate::{
     indexer::{Context, Index, Result},
     model::{
-        OraclePriceActive, OraclePriceActiveActive, OraclePriceActiveActiveOracles,
+        BlockContext, OraclePriceActive, OraclePriceActiveActive, OraclePriceActiveActiveOracles,
         OraclePriceActiveNext, OraclePriceActiveNextOracles, OraclePriceAggregated,
     },
     repository::RepositoryOps,

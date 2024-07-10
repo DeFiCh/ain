@@ -13,7 +13,7 @@ pub mod helper;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use std::{sync::Arc, time::Instant};
-use crate::indexer::loan_token::invalidate_block_end;
+
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
@@ -492,7 +492,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         if is_skipped_tx(&tx.txid) {
             continue;
         }
-
         let start = Instant::now();
         let ctx = Context {
             block: block_ctx.clone(),
@@ -553,11 +552,11 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         median_time: block.mediantime,
         transaction_count,
         difficulty: block.difficulty,
-        masternode: block.masternode,
-        minter: block.minter,
+        masternode: block.masternode.clone(),
+        minter: block.minter.clone(),
         minter_block_count: block.minted_blocks,
         stake_modifier: block.stake_modifier.to_owned(),
-        merkleroot: block.merkleroot,
+        merkleroot: block.merkleroot.clone(),
         size: block.size,
         size_stripped: block.strippedsize,
         weight: block.weight,
@@ -570,11 +569,12 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         .by_height
         .put(&block_ctx.height, &block_hash)?;
 
+    //index block end
+   // index_block_end(services, &block)?;
+
     Ok(())
 }
 
-pub fn invalidate_block(services: &Arc<Services>,_block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(services,_block)?;
-    invalidate_(services,_block)?;
+pub fn invalidate_block(_services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
     Ok(())
 }
