@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::loans::SetLoanToken;
+use defichain_rpc::json::blockchain::{Block, Transaction};
 use rust_decimal::{prelude::Zero, Decimal};
 
 use crate::{
@@ -183,3 +184,4 @@ pub fn is_live(
         false
     }
 }
+fn invalidate_block_end(service: &Arc<Services>, block: Block<Transaction>) {}
