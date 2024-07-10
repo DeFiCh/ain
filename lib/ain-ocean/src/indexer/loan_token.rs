@@ -178,10 +178,26 @@ pub fn is_live(
         if abs_diff >= threshold {
             return false;
         }
-
         true
     } else {
         false
     }
 }
-fn invalidate_block_end(service: &Arc<Services>, block: Block<Transaction>) {}
+pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    let pt = services
+        .price_ticker
+        .by_id
+        .list(None, SortOrder::Ascending)?
+        .map(|item| {
+            let (_, priceticker) = item?;
+            Ok(priceticker)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    for ticker in pt {
+        let id_with_height = (ticker.id.0.clone(), ticker.id.1.clone(), block.height);
+        services.oracle_price_active.by_id.delete(&id_with_height)?;
+    }
+
+    Ok(())
+}
