@@ -467,6 +467,11 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
     Ok(())
 }
 
+fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    loan_token::index_active_price(services, block)?;
+    Ok(())
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
