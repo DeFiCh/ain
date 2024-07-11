@@ -574,7 +574,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(_services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(_services, _block)?;
+pub fn invalidate_block(_block: Block<Transaction>) -> Result<()> {
     Ok(())
 }

@@ -17,134 +17,6 @@ use crate::{
     Services,
 };
 
-pub fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let block_interval = match Network::Regtest {
-        Network::Regtest => 6,
-        _ => 120,
-    };
-    if block.height % block_interval == 0 {
-        let pt = services
-            .price_ticker
-            .by_id
-            .list(None, SortOrder::Ascending)?
-            .map(|item| {
-                let (_, priceticker) = item?;
-                Ok(priceticker)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        for ticker in pt {
-            let aggregated_price = services
-                .oracle_price_aggregated
-                .by_key
-                .list(Some(ticker.id.clone()), SortOrder::Descending)?
-                .map(|item| {
-                    let (_, id) = item?;
-                    let b = services
-                        .oracle_price_aggregated
-                        .by_id
-                        .get(&id)?
-                        .ok_or("Missing oracle previous history index")?;
-
-                    Ok(b)
-                })
-                .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
-
-            if !aggregated_price.is_empty() {
-                let previous_price = services
-                    .oracle_price_active
-                    .by_key
-                    .list(Some(ticker.id.clone()), SortOrder::Descending)?
-                    .map(|item| {
-                        let (_, id) = item?;
-                        let b = services
-                            .oracle_price_active
-                            .by_id
-                            .get(&id)?
-                            .ok_or("Missing oracle previous history index")?;
-
-                        Ok(b)
-                    })
-                    .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
-                let price_active_id = (
-                    ticker.id.0.clone(),
-                    ticker.id.1.clone(),
-                    aggregated_price[0].block.height,
-                );
-
-                let oracle_price_key = (ticker.id.0.clone(), ticker.id.1.clone());
-                let next_price = match aggregated_validate(aggregated_price[0].clone(), block.time)
-                {
-                    true => OraclePriceActiveNext {
-                        amount: aggregated_price[0].aggregated.amount.clone(),
-                        weightage: aggregated_price[0].aggregated.weightage,
-                        oracles: OraclePriceActiveNextOracles {
-                            active: aggregated_price[0].aggregated.oracles.active,
-                            total: aggregated_price[0].aggregated.oracles.total,
-                        },
-                    },
-                    false => Default::default(),
-                };
-
-                let active_price: OraclePriceActiveActive;
-
-                if previous_price.is_empty() {
-                    active_price = OraclePriceActiveActive {
-                        amount: Default::default(),
-                        weightage: Default::default(),
-                        oracles: OraclePriceActiveActiveOracles {
-                            active: Default::default(),
-                            total: Default::default(),
-                        },
-                    };
-                } else if let Some(next) = previous_price.first().map(|price| &price.next) {
-                    active_price = OraclePriceActiveActive {
-                        amount: next.amount.clone(),
-                        weightage: next.weightage,
-                        oracles: OraclePriceActiveActiveOracles {
-                            active: next.oracles.active,
-                            total: next.oracles.total,
-                        },
-                    };
-                } else {
-                    let oracles = OraclePriceActiveActiveOracles {
-                        active: previous_price[0].active.oracles.active,
-                        total: previous_price[0].active.oracles.total,
-                    };
-                    active_price = OraclePriceActiveActive {
-                        amount: previous_price[0].active.amount.clone(),
-                        weightage: previous_price[0].active.weightage,
-                        oracles,
-                    };
-                }
-
-                let oracle_price_active = OraclePriceActive {
-                    id: price_active_id.clone(),
-                    key: oracle_price_key,
-                    sort: hex::encode(block.height.to_be_bytes()),
-                    active: active_price.clone(),
-                    next: next_price.clone(),
-                    is_live: is_live(Some(active_price), Some(next_price)),
-                    block: BlockContext {
-                        hash: block.hash,
-                        height: block.height,
-                        time: block.time,
-                        median_time: block.mediantime,
-                    },
-                };
-                services
-                    .oracle_price_active
-                    .by_id
-                    .put(&price_active_id, &oracle_price_active)?;
-                services
-                    .oracle_price_active
-                    .by_key
-                    .put(&oracle_price_active.key, &oracle_price_active.id)?;
-            }
-        }
-    }
-    Ok(())
-}
 impl Index for SetLoanToken {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let ticker_id = (self.currency_pair.token, self.currency_pair.currency);
@@ -158,7 +30,7 @@ impl Index for SetLoanToken {
                     .oracle_price_aggregated
                     .by_id
                     .get(&id)?
-                    .ok_or("Missing oracle previous history index")?;
+                    .ok_or("Missing oracle aggregated price index")?;
 
                 Ok(aggregated)
             })
@@ -335,29 +207,132 @@ fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActi
 
     true
 }
-pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+
+pub fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     let block_interval = match Network::Regtest {
         Network::Regtest => 6,
         _ => 120,
     };
+    if block.height % block_interval == 0 {
+        let pt = services
+            .price_ticker
+            .by_id
+            .list(None, SortOrder::Ascending)?
+            .map(|item| {
+                let (_, priceticker) = item?;
+                Ok(priceticker)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-    if block.height % block_interval != 0 {
-        return Ok(());
+        for ticker in pt {
+            let aggregated_price = services
+                .oracle_price_aggregated
+                .by_key
+                .list(Some(ticker.id.clone()), SortOrder::Descending)?
+                .map(|item| {
+                    let (_, id) = item?;
+                    let b = services
+                        .oracle_price_aggregated
+                        .by_id
+                        .get(&id)?
+                        .ok_or("Missing oracle aggregated_price index")?;
+
+                    Ok(b)
+                })
+                .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+
+            if !aggregated_price.is_empty() {
+                let previous_price = services
+                    .oracle_price_active
+                    .by_key
+                    .list(Some(ticker.id.clone()), SortOrder::Descending)?
+                    .map(|item| {
+                        let (_, id) = item?;
+                        let b = services
+                            .oracle_price_active
+                            .by_id
+                            .get(&id)?
+                            .ok_or("Missing oracle price active index")?;
+
+                        Ok(b)
+                    })
+                    .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+                let price_active_id = (
+                    ticker.id.0.clone(),
+                    ticker.id.1.clone(),
+                    aggregated_price[0].block.height,
+                );
+
+                let oracle_price_key = (ticker.id.0.clone(), ticker.id.1.clone());
+                let next_price = match aggregated_validate(aggregated_price[0].clone(), block.time)
+                {
+                    true => OraclePriceActiveNext {
+                        amount: aggregated_price[0].aggregated.amount.clone(),
+                        weightage: aggregated_price[0].aggregated.weightage,
+                        oracles: OraclePriceActiveNextOracles {
+                            active: aggregated_price[0].aggregated.oracles.active,
+                            total: aggregated_price[0].aggregated.oracles.total,
+                        },
+                    },
+                    false => Default::default(),
+                };
+
+                let active_price: OraclePriceActiveActive;
+
+                if previous_price.is_empty() {
+                    active_price = OraclePriceActiveActive {
+                        amount: Default::default(),
+                        weightage: Default::default(),
+                        oracles: OraclePriceActiveActiveOracles {
+                            active: Default::default(),
+                            total: Default::default(),
+                        },
+                    };
+                } else if let Some(next) = previous_price.first().map(|price| &price.next) {
+                    active_price = OraclePriceActiveActive {
+                        amount: next.amount.clone(),
+                        weightage: next.weightage,
+                        oracles: OraclePriceActiveActiveOracles {
+                            active: next.oracles.active,
+                            total: next.oracles.total,
+                        },
+                    };
+                } else {
+                    let oracles = OraclePriceActiveActiveOracles {
+                        active: previous_price[0].active.oracles.active,
+                        total: previous_price[0].active.oracles.total,
+                    };
+                    active_price = OraclePriceActiveActive {
+                        amount: previous_price[0].active.amount.clone(),
+                        weightage: previous_price[0].active.weightage,
+                        oracles,
+                    };
+                }
+
+                let oracle_price_active = OraclePriceActive {
+                    id: price_active_id.clone(),
+                    key: oracle_price_key,
+                    sort: hex::encode(block.height.to_be_bytes()),
+                    active: active_price.clone(),
+                    next: next_price.clone(),
+                    is_live: is_live(Some(active_price), Some(next_price)),
+                    block: BlockContext {
+                        hash: block.hash,
+                        height: block.height,
+                        time: block.time,
+                        median_time: block.mediantime,
+                    },
+                };
+                services
+                    .oracle_price_active
+                    .by_id
+                    .put(&price_active_id, &oracle_price_active)?;
+                services
+                    .oracle_price_active
+                    .by_key
+                    .put(&oracle_price_active.key, &oracle_price_active.id)?;
+            }
+        }
     }
-    let pt = services
-        .price_ticker
-        .by_id
-        .list(None, SortOrder::Ascending)?
-        .map(|item| {
-            let (_, priceticker) = item?;
-            Ok(priceticker)
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    for ticker in pt {
-        let id_with_height = (ticker.id.0.clone(), ticker.id.1.clone(), block.height);
-        services.oracle_price_active.by_id.delete(&id_with_height)?;
-    }
-
     Ok(())
 }
