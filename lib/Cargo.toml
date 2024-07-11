@@ -124,7 +124,7 @@ substrate-bn = "0.6"
 #### Ocean dependencies
 bitcoin = "0.31"
 cached = { version = "0.48", features = ["async"] }
-defichain-rpc = { version = "0.18.0", git = "https://github.com/defich/rust-defichain-rpc.git", rev = "550743d7b18bbd9bc0ddc6a9ecbb16d7d72151f7"}
+defichain-rpc = { version = "0.18.0", git = "https://github.com/defich/rust-defichain-rpc.git"}
 
 ### Local crates
 ain-cpp-imports = { path = "./ain-cpp-imports" }

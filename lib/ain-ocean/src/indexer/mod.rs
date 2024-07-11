@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
-use loan_token::{index_block_end, invalidate_block_end};
+use loan_token::index_block_end;
 use log::debug;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 
@@ -217,7 +217,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(_services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(_services, _block)?;
+pub fn invalidate_block(_block: Block<Transaction>) -> Result<()> {
     Ok(())
 }
