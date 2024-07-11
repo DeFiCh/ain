@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::loans::SetLoanToken;
+use defichain_rpc::json::blockchain::{Block, Transaction};
 use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
@@ -230,6 +231,32 @@ pub fn perform_active_price_tick(
         "set_loan_token indexing oracle_price_active: {:?}",
         oracle_price_active
     );
+
+    Ok(())
+}
+pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    let block_interval = match Network::Regtest {
+        Network::Regtest => 6,
+        _ => 120,
+    };
+
+    if block.height % block_interval != 0 {
+        return Ok(());
+    }
+    let pt = services
+        .price_ticker
+        .by_id
+        .list(None, SortOrder::Ascending)?
+        .map(|item| {
+            let (_, priceticker) = item?;
+            Ok(priceticker)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    for ticker in pt {
+        let id_with_height = (ticker.id.0.clone(), ticker.id.1.clone(), block.height);
+        services.oracle_price_active.by_id.delete(&id_with_height)?;
+    }
 
     Ok(())
 }
