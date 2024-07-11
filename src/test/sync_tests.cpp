@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(lock_free)
     constexpr int num_threads = 10;
 
     auto testFunc = []() {
-        static AtomicMutex m;
+        static std::mutex m;
         static uint64_t context(0);
         static std::atomic_int threads(num_threads);
 
