@@ -10,7 +10,10 @@ use defichain_rpc::{
         token::TokenInfo,
         vault::{VaultActive, VaultLiquidationBatch},
     },
-    json::vault::{AuctionPagination, AuctionPaginationStart, ListVaultOptions, VaultLiquidation, VaultPagination, VaultResult, VaultState},
+    json::vault::{
+        AuctionPagination, AuctionPaginationStart, ListVaultOptions, VaultLiquidation,
+        VaultPagination, VaultResult, VaultState,
+    },
     LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
@@ -262,17 +265,19 @@ async fn list_vaults(
     let mut list = Vec::new();
     for vault in vaults {
         let each = match vault {
-            VaultResult::VaultActive(vault) => VaultResponse::Active(map_vault_active(&ctx, vault).await?),
-            VaultResult::VaultLiquidation(vault) => VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?),
+            VaultResult::VaultActive(vault) => {
+                VaultResponse::Active(map_vault_active(&ctx, vault).await?)
+            }
+            VaultResult::VaultLiquidation(vault) => {
+                VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?)
+            }
         };
         list.push(each)
     }
 
-    Ok(ApiPagedResponse::of(list, query.size, |each| {
-        match each {
-            VaultResponse::Active(vault) => vault.vault_id.clone(),
-            VaultResponse::Liquidated(vault) => vault.vault_id.clone(),
-        }
+    Ok(ApiPagedResponse::of(list, query.size, |each| match each {
+        VaultResponse::Active(vault) => vault.vault_id.clone(),
+        VaultResponse::Liquidated(vault) => vault.vault_id.clone(),
     }))
 }
 
@@ -302,7 +307,7 @@ struct VaultActiveResponse {
     interest_amounts: Vec<VaultTokenAmountResponse>,
 }
 
-async fn map_loan_scheme(ctx: &Arc<AppContext>,id: String) -> Result<LoanScheme> {
+async fn map_loan_scheme(ctx: &Arc<AppContext>, id: String) -> Result<LoanScheme> {
     let loan_scheme = get_loan_scheme_cached(ctx, id).await?;
     Ok(LoanScheme {
         id: loan_scheme.id,
@@ -311,7 +316,10 @@ async fn map_loan_scheme(ctx: &Arc<AppContext>,id: String) -> Result<LoanScheme>
     })
 }
 
-async fn map_vault_active(ctx: &Arc<AppContext>, vault: VaultActive) -> Result<VaultActiveResponse> {
+async fn map_vault_active(
+    ctx: &Arc<AppContext>,
+    vault: VaultActive,
+) -> Result<VaultActiveResponse> {
     Ok(VaultActiveResponse {
         vault_id: vault.vault_id,
         loan_scheme: map_loan_scheme(ctx, vault.loan_scheme_id).await?,
@@ -328,8 +336,11 @@ async fn map_vault_active(ctx: &Arc<AppContext>, vault: VaultActive) -> Result<V
     })
 }
 
-async fn map_vault_liquidation(ctx: &Arc<AppContext>, vault: VaultLiquidation) -> Result<VaultLiquidatedResponse> {
-    let loan_scheme = get_loan_scheme_cached(&ctx, vault.loan_scheme_id).await?;
+async fn map_vault_liquidation(
+    ctx: &Arc<AppContext>,
+    vault: VaultLiquidation,
+) -> Result<VaultLiquidatedResponse> {
+    let loan_scheme = get_loan_scheme_cached(ctx, vault.loan_scheme_id).await?;
     Ok(VaultLiquidatedResponse {
         batches: map_liquidation_batches(ctx, &vault.vault_id, vault.batches).await?,
         vault_id: vault.vault_id,
@@ -353,8 +364,8 @@ impl Serialize for VaultResponse {
         S: Serializer,
     {
         match self {
-           VaultResponse::Active(v) => v.serialize(serializer),
-           VaultResponse::Liquidated(v) => v.serialize(serializer),
+            VaultResponse::Active(v) => v.serialize(serializer),
+            VaultResponse::Liquidated(v) => v.serialize(serializer),
         }
     }
 }
@@ -366,8 +377,12 @@ async fn get_vault(
 ) -> Result<Response<VaultResponse>> {
     let vault = ctx.client.get_vault(vault_id, Some(false)).await?;
     let res = match vault {
-        VaultResult::VaultActive(vault) => VaultResponse::Active(map_vault_active(&ctx, vault).await?),
-        VaultResult::VaultLiquidation(vault) => VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?),
+        VaultResult::VaultActive(vault) => {
+            VaultResponse::Active(map_vault_active(&ctx, vault).await?)
+        }
+        VaultResult::VaultLiquidation(vault) => {
+            VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?)
+        }
     };
 
     Ok(Response::new(res))
@@ -505,9 +520,7 @@ async fn map_liquidation_batches(
             .by_id
             .list(Some(id), SortOrder::Descending)?
             .take_while(|item| match item {
-                Ok(((vid, bindex, _), _)) => {
-                    vid.to_string() == vault_id && bindex == &batch.index
-                }
+                Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
                 _ => true,
             })
             .collect::<Vec<_>>();
