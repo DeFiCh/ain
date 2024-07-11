@@ -86,7 +86,7 @@ pub fn is_live(
     }
 }
 
-pub fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+pub fn index_active_price(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     let block_interval = match Network::Regtest {
         Network::Regtest => 6,
         _ => 120,
@@ -114,6 +114,7 @@ pub fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> 
     }
     Ok(())
 }
+
 pub fn perform_active_price_tick(
     services: &Arc<Services>,
     ticker: (String, String),
