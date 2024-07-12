@@ -2037,7 +2037,8 @@ static Res VaultSplits(CCustomCSView &view,
                        const DCT_ID oldTokenId,
                        const DCT_ID newTokenId,
                        const int height,
-                       const T multiplier) {
+                       const T multiplier,
+                       CAmount &totalBalance) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 
@@ -2120,6 +2121,7 @@ static Res VaultSplits(CCustomCSView &view,
 
         auto oldTokenAmount = CTokenAmount{oldTokenId, amount};
         auto newTokenAmount = CTokenAmount{newTokenId, newAmount};
+        totalBalance += newAmount;
 
         LogPrint(BCLog::TOKENSPLIT,
                  "TokenSplit: V Collateral (%s: %s => %s)\n",
@@ -2597,12 +2599,6 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             balanceUpdates.size(),
             totalBalance);
 
-        res = view.AddMintedTokens(newTokenId, totalBalance);
-        if (!res) {
-            LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
-            continue;
-        }
-
         try {
             for (const auto &[owner, balances] : balanceUpdates) {
                 CAccountsHistoryWriter subView(view,
@@ -2634,9 +2630,15 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             continue;
         }
 
-        res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+        res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier, totalBalance);
         if (!res) {
             LogPrintf("Token splits failed: %s\n", res.msg);
+            continue;
+        }
+
+        res = view.AddMintedTokens(newTokenId, totalBalance);
+        if (!res) {
+            LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
             continue;
         }
 

@@ -48,21 +48,11 @@ class RestartdTokensTest(DefiTestFramework):
         # setup tokens, vaults, pools etc.
         self.setup()
 
-        self.check_initial_state()
         # ensure expected initial state
+        self.check_initial_state()
 
         # do restart and check funds
         self.nodes[0].generate(1000 - self.nodes[0].getblockcount())
-
-        # check split funds
-        # looped vault must be unlooped and 90% of DUSD collateral locked
-        # SPY payed back with balance,
-        #     swap all DUSD from collateral to pay back,
-        #     swap parts of DFI to pay back
-        # 90% of LM positions locked as tokens
-        # 90% of DUSD-DFI position back to address
-        # 90% of balances locked
-        # check old pools, check new pools with 10% of old liquidity in new tokens
 
         assert_equal(
             self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
@@ -85,51 +75,336 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
         self.check_token_lock()
-        # Call upgradeToken on pre-lock must fail
-        amount = Web3.to_wei(10, "ether")
-        print(f"{amount}")
 
-        upgrade_txn = self.dusd_contract.functions.upgradeToken(
-            amount
-        ).build_transaction(
-            {
-                "from": self.evmaddress,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evmaddress),
-                "maxFeePerGas": 10_000_000_000,
-                "maxPriorityFeePerGas": 1_500_000_000,
-                "gas": 5_000_000,
-            }
+        self.check_upgrade_fail()
+
+        self.check_td()
+
+        self.release_first_1()
+
+        # release all but 1%
+        self.release_88()
+
+        self.check_token_split()
+
+        # TD with lock again (check correct lock ratio)
+
+        self.check_td_99()
+
+        # last tranche
+        self.release_final_1()
+
+    def check_td_99(self):
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.evmaddress,
+                        "amount": "10@DUSD/v1",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address1,
+                        "amount": "10@DUSD/v1",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
         )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            upgrade_txn, self.evm_privkey
-        )
-
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
         self.nodes[0].generate(1)
 
-        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
-
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.evmaddress,
+                        "amount": "0.2@SPY/v1",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address1,
+                        "amount": "0.2@SPY/v1",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        # 99% directly transfered, only 1% still locked
         assert_equal(
-            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
-            Decimal(40),
+            sorted(self.nodes[0].getaccount(self.newaddress)),
+            ["0.99000000@SPY", "9.90000000@USDD"],
         )
         assert_equal(
-            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
-            Decimal(0),
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ["1.98000000@SPY", "143.41617441@USDD"],
         )
-        assert_equal(tx_receipt["status"], 0)
+        assert_equal(
+            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
+            [
+                {
+                    "owner": self.newaddress,
+                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ["0.20001733@USDD"],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ["1.60018174@USDD", "0.02000000@SPY"],
+                },
+                {
+                    "owner": self.address3,
+                    "values": ["2.00033567@USDD", "0.20000000@SPY"],
+                },
+                {
+                    "owner": self.address,
+                    "values": ["43.39903314@USDD", "0.60000010@SPY"],
+                },
+            ],
+        )
 
-        # check correct behaviour on TD of old SPY + DUSD
+    def release_final_1(self):
+        self.nodes[0].releaselockedtokens(1)
+        self.nodes[0].generate(1)
 
-        # do normal tokensplit on SPY
-        # check correct balances in SC
-        # check correct behaviour on TD of old SPY and new SPY
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0"}}]],
+        )
 
-        # release tranche
+        assert_equal(
+            self.nodes[0].listlockedtokens(),
+            [],
+        )
 
-        # TD with lock
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.newaddress)),
+            ["1.00000000@SPY", "10.00000000@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000005@BTC",
+                "127.27205531@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                "3.16228537@SPY-USDD",
+                "3967.91298178@USDD",
+                "39847.82177820@DFI",
+                "59.00000270@SPY",
+                "854.81196721@USDT",
+                "94.86637327@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ["145.01635615@USDD", "2.00000000@SPY"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            ["18.00155935@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ["18.99999470@SPY", "190.03357927@USDD", "3.16228854@SPY-USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            [],
+        )
+
+    def check_token_split(self):
+        # updated SPY
+        self.idSPY = list(self.nodes[0].gettoken("SPY").keys())[0]
+
+        # Lock token
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/locks/token/{self.idSPY}": "true"}})
+        self.nodes[0].generate(1)
+
+        # Token split
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    f"v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}": f"{self.idSPY}/10"
+                }
+            }
+        )
+        self.nodes[0].generate(2)
+
+        assert_equal(
+            [
+                {
+                    id: [
+                        token["symbol"],
+                        token["isLoanToken"],
+                        token["mintable"],
+                        round(
+                            float(token["minted"]), 7
+                        ),  # got some flipping errors on last digit
+                    ]
+                }
+                for (id, token) in self.nodes[0].listtokens().items()
+            ],
+            [
+                {"0": ["DFI", False, False, 0.0]},
+                {"1": ["BTC", False, True, 2.0]},
+                {"2": ["USDT", False, True, 1010.0]},
+                {"3": ["SPY/v1", False, False, 0.0]},
+                {"4": ["DUSD/v1", False, False, 0.0]},
+                {"5": ["SPY-DUSD/v1", False, False, 0.0]},
+                {"6": ["DUSD-DFI/v1", False, False, 0.0]},
+                {"7": ["BTC-DFI", False, False, 0.0]},
+                {"8": ["USDT-DFI", False, False, 0.0]},
+                {"9": ["USDT-DUSD/v1", False, False, 0.0]},
+                {"10": ["SPY/v2", False, False, 0.0]},
+                {"11": ["USDD", True, True, 4970.0804783]},
+                {"12": ["SPY-USDD/v1", False, False, 0.0]},
+                {"13": ["USDD-DFI", False, False, 0.0]},
+                {"14": ["USDT-USDD", False, False, 0.0]},
+                {"15": ["SPY", True, True, 81.0000091]},
+                {"16": ["SPY-USDD", False, False, 0.0]},
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.newaddress)),
+            ["0.99000000@SPY", "9.90000000@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000005@BTC",
+                "127.27205531@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                "3.16228537@SPY-USDD",
+                "3924.51394864@USDD",
+                "39847.82177820@DFI",
+                "58.40000260@SPY",
+                "854.81196721@USDT",
+                "94.86637327@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ["133.51617441@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            ["17.80154202@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ["18.79999470@SPY", "188.03324360@USDD", "3.16228854@SPY-USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            ["0.81000010@SPY", "47.19956788@USDD"],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
+            [
+                {
+                    "owner": self.newaddress,
+                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ["0.20001733@USDD"],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ["1.50018174@USDD"],
+                },
+                {
+                    "owner": self.address3,
+                    "values": ["2.00033567@USDD", "0.20000000@SPY"],
+                },
+                {
+                    "owner": self.address,
+                    "values": ["43.39903314@USDD", "0.60000010@SPY"],
+                },
+            ],
+        )
+
+    def release_88(self):
+        self.nodes[0].releaselockedtokens(88)
+        self.nodes[0].generate(1)
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.01"}}]],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
+            [
+                {
+                    "owner": self.newaddress,
+                    "values": ["0.00100000@SPY", "0.10000000@USDD"],
+                },
+                {
+                    "owner": self.address3,
+                    "values": ["0.02000000@SPY", "2.00033567@USDD"],
+                },
+                {
+                    "owner": self.address,
+                    "values": ["0.06000001@SPY", "43.39903314@USDD"],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ["0.20001733@USDD"],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ["1.50018174@USDD"],
+                },
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.newaddress)),
+            ["0.09900000@SPY", "9.90000000@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000005@BTC",
+                "0.99999900@SPY-USDD",
+                "127.27205531@USDD-DFI",
+                "22.36066977@USDT-DFI",
+                "3924.51394864@USDD",
+                "39847.82177820@DFI",
+                "5.84000026@SPY",
+                "854.81196721@USDT",
+                "94.86637327@USDT-USDD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address1)),
+            ["133.51617441@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address2)),
+            ["17.80154202@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ["1.00000000@SPY-USDD", "1.87999947@SPY", "188.03324360@USDD"],
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
+            ["0.08100001@SPY", "47.19956788@USDD"],
+        )
+
+    def check_td(self):
 
         self.newaddress = self.nodes[0].getnewaddress("", "bech32")
         self.nodes[0].transferdomain(
@@ -255,323 +530,6 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
-        self.release_first_1()
-
-        # release all but 1%
-        self.release_88()
-
-        # updated SPY
-        self.idSPY = list(self.nodes[0].gettoken("SPY").keys())[0]
-
-        # Lock token
-        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/locks/token/{self.idSPY}": "true"}})
-        self.nodes[0].generate(1)
-
-        # Token split
-        self.nodes[0].setgov(
-            {
-                "ATTRIBUTES": {
-                    f"v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}": f"{self.idSPY}/10"
-                }
-            }
-        )
-        self.nodes[0].generate(2)
-
-        assert_equal(
-            [
-                {
-                    id: [
-                        token["symbol"],
-                        token["isLoanToken"],
-                        token["mintable"],
-                        round(
-                            float(token["minted"]), 7
-                        ),  # got some flipping errors on last digit
-                    ]
-                }
-                for (id, token) in self.nodes[0].listtokens().items()
-            ],
-            [
-                {"0": ["DFI", False, False, 0.0]},
-                {"1": ["BTC", False, True, 2.0]},
-                {"2": ["USDT", False, True, 1010.0]},
-                {"3": ["SPY/v1", False, False, 0.0]},
-                {"4": ["DUSD/v1", False, False, 0.0]},
-                {"5": ["SPY-DUSD/v1", False, False, 0.0]},
-                {"6": ["DUSD-DFI/v1", False, False, 0.0]},
-                {"7": ["BTC-DFI", False, False, 0.0]},
-                {"8": ["USDT-DFI", False, False, 0.0]},
-                {"9": ["USDT-DUSD/v1", False, False, 0.0]},
-                {"10": ["SPY/v2", False, False, 0.0]},
-                {"11": ["USDD", True, True, 4800.0605722]},
-                {"12": ["SPY-USDD/v1", False, False, 0.0]},
-                {"13": ["USDD-DFI", False, False, 0.0]},
-                {"14": ["USDT-USDD", False, False, 0.0]},
-                {"15": ["SPY", True, True, 81.0000091]},
-                {"16": ["SPY-USDD", False, False, 0.0]},
-            ],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.99000000@SPY", "9.90000000@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address)),
-            [
-                "0.96000005@BTC",
-                "127.27205531@USDD-DFI",
-                "22.36066977@USDT-DFI",
-                "3.16228537@SPY-USDD",
-                "3924.51394864@USDD",
-                "39847.82177820@DFI",
-                "58.40000260@SPY",
-                "854.81196721@USDT",
-                "94.86637327@USDT-USDD",
-                "99.99999000@BTC-DFI",
-            ],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address1)),
-            ["133.51617441@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address2)),
-            ["17.80154202@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address3)),
-            ["18.79999470@SPY", "188.03324360@USDD", "3.16228854@SPY-USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.81000010@SPY", "47.19956788@USDD"],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
-            [
-                {
-                    "owner": self.newaddress,
-                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
-                },
-                {
-                    "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
-                },
-                {
-                    "owner": self.address1,
-                    "values": ["1.50018174@USDD"],
-                },
-                {
-                    "owner": self.address3,
-                    "values": ["2.00033567@USDD", "0.20000000@SPY"],
-                },
-                {
-                    "owner": self.address,
-                    "values": ["43.39903314@USDD", "0.60000010@SPY"],
-                },
-            ],
-        )
-
-        # TD with lock again (check correct lock ratio)
-
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {
-                        "address": self.evmaddress,
-                        "amount": "10@DUSD/v1",
-                        "domain": 3,
-                    },
-                    "dst": {
-                        "address": self.address1,
-                        "amount": "10@DUSD/v1",
-                        "domain": 2,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {
-                        "address": self.evmaddress,
-                        "amount": "0.2@SPY/v1",
-                        "domain": 3,
-                    },
-                    "dst": {
-                        "address": self.address1,
-                        "amount": "0.2@SPY/v1",
-                        "domain": 2,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-        # 99% directly transfered, only 1% still locked
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.99000000@SPY", "9.90000000@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address1)),
-            ["1.98000000@SPY", "143.41617441@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
-            [
-                {
-                    "owner": self.newaddress,
-                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
-                },
-                {
-                    "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
-                },
-                {
-                    "owner": self.address1,
-                    "values": ["1.60018174@USDD", "0.02000000@SPY"],
-                },
-                {
-                    "owner": self.address3,
-                    "values": ["2.00033567@USDD", "0.20000000@SPY"],
-                },
-                {
-                    "owner": self.address,
-                    "values": ["43.39903314@USDD", "0.60000010@SPY"],
-                },
-            ],
-        )
-
-        # last tranche
-        self.release_final_1()
-
-    def release_final_1(self):
-        self.nodes[0].releaselockedtokens(1)
-        self.nodes[0].generate(1)
-
-        assert_equal(
-            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
-            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0"}}]],
-        )
-
-        assert_equal(
-            self.nodes[0].listlockedtokens(),
-            [],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["1.00000000@SPY", "10.00000000@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address)),
-            [
-                "0.96000005@BTC",
-                "127.27205531@USDD-DFI",
-                "22.36066977@USDT-DFI",
-                "3.16228537@SPY-USDD",
-                "3967.91298178@USDD",
-                "39847.82177820@DFI",
-                "59.00000270@SPY",
-                "854.81196721@USDT",
-                "94.86637327@USDT-USDD",
-                "99.99999000@BTC-DFI",
-            ],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address1)),
-            ["145.01635615@USDD", "2.00000000@SPY"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address2)),
-            ["18.00155935@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address3)),
-            ["18.99999470@SPY", "190.03357927@USDD", "3.16228854@SPY-USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            [],
-        )
-
-    def release_88(self):
-        self.nodes[0].releaselockedtokens(88)
-        self.nodes[0].generate(1)
-
-        assert_equal(
-            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
-            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.01"}}]],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
-            [
-                {
-                    "owner": self.newaddress,
-                    "values": ["0.00100000@SPY", "0.10000000@USDD"],
-                },
-                {
-                    "owner": self.address3,
-                    "values": ["0.02000000@SPY", "2.00033567@USDD"],
-                },
-                {
-                    "owner": self.address,
-                    "values": ["0.06000001@SPY", "43.39903314@USDD"],
-                },
-                {
-                    "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
-                },
-                {
-                    "owner": self.address1,
-                    "values": ["1.50018174@USDD"],
-                },
-            ],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.09900000@SPY", "9.90000000@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address)),
-            [
-                "0.96000005@BTC",
-                "0.99999900@SPY-USDD",
-                "127.27205531@USDD-DFI",
-                "22.36066977@USDT-DFI",
-                "3924.51394864@USDD",
-                "39847.82177820@DFI",
-                "5.84000026@SPY",
-                "854.81196721@USDT",
-                "94.86637327@USDT-USDD",
-                "99.99999000@BTC-DFI",
-            ],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address1)),
-            ["133.51617441@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address2)),
-            ["17.80154202@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address3)),
-            ["1.00000000@SPY-USDD", "1.87999947@SPY", "188.03324360@USDD"],
-        )
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.08100001@SPY", "47.19956788@USDD"],
-        )
-
     def release_first_1(self):
 
         self.nodes[0].releaselockedtokens(1)
@@ -679,7 +637,7 @@ class RestartdTokensTest(DefiTestFramework):
                 {"8": ["USDT-DFI", False, False, 0.0]},
                 {"9": ["USDT-DUSD/v1", False, False, 0.0]},
                 {"10": ["SPY", True, True, 8.0000009]},
-                {"11": ["USDD", True, True, 4790.0605722]},
+                {"11": ["USDD", True, True, 4960.0804783]},
                 {"12": ["SPY-USDD", False, False, 0.0]},
                 {"13": ["USDD-DFI", False, False, 0.0]},
                 {"14": ["USDT-USDD", False, False, 0.0]},
@@ -907,6 +865,43 @@ class RestartdTokensTest(DefiTestFramework):
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
             ["4238.96110687@USDD", "7.19999991@SPY"],
         )
+
+    def check_upgrade_fail(self):
+        # Call upgradeToken on pre-lock must fail
+        amount = Web3.to_wei(10, "ether")
+        print(f"{amount}")
+
+        upgrade_txn = self.dusd_contract.functions.upgradeToken(
+            amount
+        ).build_transaction(
+            {
+                "from": self.evmaddress,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evmaddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 5_000_000,
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            upgrade_txn, self.evm_privkey
+        )
+
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(40),
+        )
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            Decimal(0),
+        )
+        assert_equal(tx_receipt["status"], 0)
 
     def check_initial_state(self):
 
