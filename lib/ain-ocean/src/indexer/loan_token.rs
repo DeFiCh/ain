@@ -25,16 +25,14 @@ impl Index for SetLoanToken {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        let ticker_id = (
-            self.currency_pair.token.clone(),
-            self.currency_pair.currency.clone(),
+        active_price_invalidate_transaction(
+            services,
             context.block.height,
-        );
-        services.oracle_price_active.by_id.delete(&ticker_id)?;
-        services
-            .oracle_price_active
-            .by_key
-            .delete(&(ticker_id.0, ticker_id.1))?;
+            (
+                self.currency_pair.token.clone(),
+                self.currency_pair.currency.clone(),
+            ),
+        )?;
         Ok(())
     }
 }
@@ -234,7 +232,10 @@ pub fn perform_active_price_tick(
 
     Ok(())
 }
-pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+pub fn active_price_invalidate_block_end(
+    services: &Arc<Services>,
+    block: Block<Transaction>,
+) -> Result<()> {
     let block_interval = match Network::Regtest {
         Network::Regtest => 6,
         _ => 120,
@@ -258,5 +259,18 @@ pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>)
         services.oracle_price_active.by_id.delete(&id_with_height)?;
     }
 
+    Ok(())
+}
+pub fn active_price_invalidate_transaction(
+    services: &Arc<Services>,
+    block_height: u32,
+    ticker: (String, String),
+) -> Result<()> {
+    let ticker_id = (ticker.0, ticker.1, block_height);
+    services.oracle_price_active.by_id.delete(&ticker_id)?;
+    services
+        .oracle_price_active
+        .by_key
+        .delete(&(ticker_id.0, ticker_id.1))?;
     Ok(())
 }

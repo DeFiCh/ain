@@ -569,13 +569,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(services: &Arc<Services>,_block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(services, _block)?;
-    // let trx = _block.tx;
-    // for transaction in trx {
-    //    for vout in transaction.vout{
-          
-    //    }
-    // }
+pub fn invalidate_block(services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
+    active_price_invalidate_block_end(services, _block)?;
+
     Ok(())
 }
