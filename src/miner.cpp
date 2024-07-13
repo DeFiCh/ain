@@ -109,7 +109,7 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
-static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap, const std::string tokenSuffix = "/v") {
+static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     const auto evmEnabled = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -142,7 +142,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap, con
             newId = mnview.IncrementLastDctId();
         }
 
-        std::string newTokenSuffix = tokenSuffix;
+        std::string newTokenSuffix = "/v";
         auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
         if (!res) {
             continue;
@@ -456,7 +456,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
                 return true;
             },
             mnview);
-        AddSplitEVMTxs(blockCtx, lockSplitMapEVM, "/lock");
+        AddSplitEVMTxs(blockCtx, lockSplitMapEVM);
     }
 
     XVM xvm{};
