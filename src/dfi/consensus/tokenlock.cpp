@@ -14,6 +14,9 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
+    if (obj.releasePart == 0) {
+        return Res::Err("release ratio can not be 0");
+    }
     const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
@@ -51,11 +54,11 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
         const auto &owner = key.owner;
         auto newBalance = CTokenLockUserValue{};
         bool gotNew = false;
+        CAccountsHistoryWriter view(
+            mnview, blockCtx.GetHeight(), txCtx.GetTxn(), tx.GetHash(), uint8_t(CustomTxType::TokenLockRelease));
+
         for (const auto &[tokenId, amount] : value.balances) {
             const CTokenAmount moved = {tokenId, releaseAmount(amount)};
-
-            CAccountsHistoryWriter view(
-                mnview, blockCtx.GetHeight(), txCtx.GetTxn(), tx.GetHash(), uint8_t(CustomTxType::TokenLockRelease));
 
             view.AddBalance(owner, moved);
             view.SubBalance(contractAddressValue, moved);
@@ -64,8 +67,8 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
                 newBalance.Add({tokenId, updated});
                 gotNew = true;
             }
-            view.Flush();
         }
+        view.Flush();
         if (gotNew) {
             mnview.StoreTokenLockUserValues(key, newBalance);
         } else {

@@ -1788,7 +1788,7 @@ static Res PoolSplits(CCustomCSView &view,
             CAmount oldTotalLiquidityInShares = 0;
             CAmount newTotalLiquidityInShares = 0;
             if (isOptimizedSplitLogic) {
-                if (!balancesToMigrate.empty()) {
+                if (oldPoolPair->totalLiquidity > CPoolPair::MINIMUM_LIQUIDITY) {
                     oldTotalLiquidityInShares = oldPoolPair->totalLiquidity - CPoolPair::MINIMUM_LIQUIDITY;
 
                     CAmount amountA{0}, amountB{0};
@@ -1805,15 +1805,20 @@ static Res PoolSplits(CCustomCSView &view,
                         amountB = oldPoolPair->reserveB;
                     }
                     newPoolPair.totalLiquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64();
+                    if (newPoolPair.totalLiquidity < CPoolPair::MINIMUM_LIQUIDITY) {
+                        throw std::runtime_error("totalLiquidity in new pool is less than minimum.");
+                    }
                     newTotalLiquidityInShares = newPoolPair.totalLiquidity - CPoolPair::MINIMUM_LIQUIDITY;
-
                     newPoolPair.reserveA = amountA;
                     newPoolPair.reserveB = amountB;
 
-                    oldPoolPair->reserveA = 0;
-                    oldPoolPair->reserveB = 0;
-                    oldPoolPair->totalLiquidity = 0;
+                } else {
+                    throw std::runtime_error("totalLiquidity in old pool is less than minimum.");
                 }
+
+                oldPoolPair->reserveA = 0;
+                oldPoolPair->reserveB = 0;
+                oldPoolPair->totalLiquidity = 0;
             } else if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
                 // Special case. No liquidity providers in a previously used pool.
                 balancesToMigrate.emplace_back(Params().GetConsensus().burnAddress,
@@ -1860,6 +1865,8 @@ static Res PoolSplits(CCustomCSView &view,
 
                     // First deposit to the pool has MINIMUM_LIQUIDITY removed and does not
                     // belong to anyone. Give this to the last person leaving the pool.
+                    //Note: if optimized Split logic is not ok, at least this needs to change. right now the last one in the list receives the minLiquidity and the first one pays it.
+                    // so rather give the Minimum liquidity to the first entry in the list.
                     if (oldPoolPair->totalLiquidity - amount == CPoolPair::MINIMUM_LIQUIDITY) {
                         amount += CPoolPair::MINIMUM_LIQUIDITY;
                     }
@@ -2538,13 +2545,11 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                              creationTxs.at(oldTokenId.v).second,
                              multiplier);
             if (!res) {
-                LogPrintf("Pool splits failed \n");
                 LogPrintf("Pool splits failed %s\n", res.msg);
                 continue;
             }
         }
 
-        LogPrintf("converting balances\n");
         auto totalBalance = totalBalanceMap[newTokenId.v];
 
         std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
@@ -2737,6 +2742,10 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             wantedPaybackAmount = currentCollAmount;
         }
     }
+    if(wantedPaybackAmount == 0) {
+        //nothing to pay back
+        return Res::Ok();
+    }
 
     // get price of loanToken
     CAmount loanUsdPrice{0};
@@ -2795,7 +2804,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         subLoan = currentLoanAmount;
     }
 
-    if (loanToken->symbol == "DUSD") {
+    if (loanTokenId == dusdToken->first) {
         TrackDUSDSub(mnview, {loanTokenId, subLoan});
     }
 
@@ -2843,12 +2852,13 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
                 LogPrint(BCLog::LOAN,
-                         "CLoanPaybackLoanMessage(): Sub loan from balance - %lld, height - %d\n",
+                         "Sub loan from balance - %lld, height - %d\n",
                          subLoan,
                          height);
                 res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
             } else {
-                LogPrintf("taking %d DUSD collateral\n", subLoan);
+                LogPrintf("taking %lld DUSD collateral\n", subLoan);
+                //paying back DUSD loan with DUSD collateral -> no need to multiply
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
             }
             if (!res) {
@@ -2860,7 +2870,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             if (!useDUSDCollateral) {
                 // burn interest Token->USD->DFI->burnAddress
                 LogPrint(BCLog::LOAN,
-                         "CLoanPaybackLoanMessage(): Swapping %s interest to DFI - %lld, height - %d\n",
+                         "Swapping %s interest to DFI - %lld, height - %d\n",
                          loanToken->symbol,
                          subInterest,
                          height);
@@ -2869,7 +2879,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                     return res;
                 }
             } else {
-                LogPrintf("burn DUSD for interest directly\n");
+                LogPrintf("burn  %lld DUSD for interest directly\n",subInterest);
 
                 // direct burn
                 CTokenAmount dUSD{dusdToken->first, subInterest};
@@ -2884,17 +2894,17 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         }
     } else {
         // use DUSD collateral for dToken
-        CAmount subInToken;
+        CAmount subInDUSD;
         const auto subAmount = subLoan + subInterest;
 
         // if payback overpay loan and interest amount
         if (paybackAmountInLoanToken > subAmount) {
-            subInToken = MultiplyAmounts(subAmount, loanUsdPrice);
-            if (DivideAmounts(subInToken, loanUsdPrice) != subAmount) {
-                subInToken += 1;
+            subInDUSD = MultiplyAmounts(subAmount, loanUsdPrice);
+            if (DivideAmounts(subInDUSD, loanUsdPrice) != subAmount) {
+                subInDUSD += 1;
             }
         } else {
-            subInToken = wantedPaybackAmount;
+            subInDUSD = wantedPaybackAmount;
         }
 
         CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
@@ -2903,9 +2913,9 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
         attributes->SetValue(liveKey, balances);
 
-        CTokenAmount collAmount{dusdToken->first, subInToken};
+        CTokenAmount collAmount{dusdToken->first, subInDUSD};
 
-        LogPrintf("burning %d DUSD collateral", subInToken);
+        LogPrintf("burning %d DUSD collateral", subInDUSD);
         if (auto res = mnview.SubVaultCollateral(vaultId, collAmount); !res) {
             LogPrintf("Error removing collateral %s\n", res);
             return res;
@@ -2927,8 +2937,8 @@ namespace {
 
     struct SwapInfo {
         DCT_ID poolId;
-        arith_uint256 feeIn;
-        arith_uint256 feeOut;
+        arith_uint256 feeFactorIn;
+        arith_uint256 feeFactorOut;
         arith_uint256 commission;
         arith_uint256 reserveIn;
         arith_uint256 reserveOut;
@@ -2941,10 +2951,10 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
                                          CCustomCSView &cache,
                                          BlockContext &blockCtx) {
     std::vector<CollToLoan> collToLoans;
+    //collect all loanValues (in USD) of vaults which contain this collateral
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto colls = cache.GetVaultCollaterals(vaultId);
         if (colls->balances.count(collId)) {
-            auto owner = cache.GetVault(vaultId)->ownerAddress;
             collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
             collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
             for (const auto &[tokenId, amount] : balances.balances) {
@@ -2969,6 +2979,7 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         totalUSD += data.totalUSDNeeded;
     }
     if (totalUSD == 0) {
+        //no loans, nothing to swap
         return false;
     }
     LogPrintf("Swapping collateral %d, needing %d DUSD\n", collId.v, totalUSD.GetLow64());
@@ -2988,25 +2999,25 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         SwapInfo result{poolId};
         auto dexfeeInPct = cache.GetDexFeeInPct(poolId, tokenIn);
         auto dexfeeOutPct = cache.GetDexFeeOutPct(poolId, tokenOut);
-        result.feeIn = feeDirIn.feeDir != Out ? COIN - dexfeeInPct : COIN;
-        result.feeOut = feeDirOut.feeDir != In ? COIN - dexfeeOutPct : COIN;
+        result.feeFactorIn = feeDirIn.feeDir != Out ? COIN - dexfeeInPct : COIN;
+        result.feeFactorOut = feeDirOut.feeDir != In ? COIN - dexfeeOutPct : COIN;
         result.reserveIn = isAtoB ? pool.reserveA : pool.reserveB;
         result.reserveOut = isAtoB ? pool.reserveB : pool.reserveA;
         result.commission = (COIN - pool.commission);
-        LogPrintf("pool swap info %d (%d->%d). reserves: %s-%s, fees: %s-%s, comm: %s \n",
+        LogPrintf("pool swap info %d (%d->%d). reserves: %s-%s, fee factors: %s-%s, comm: %s \n",
                   result.poolId.v,
                   tokenIn.v,
                   tokenOut.v,
                   GetDecimalString(result.reserveIn.GetLow64()),
                   GetDecimalString(result.reserveOut.GetLow64()),
-                  GetDecimalString(result.feeIn.GetLow64()),
-                  GetDecimalString(result.feeOut.GetLow64()),
+                  GetDecimalString(result.feeFactorIn.GetLow64()),
+                  GetDecimalString(result.feeFactorOut.GetLow64()),
                   GetDecimalString(result.commission.GetLow64()));
 
         return result;
     };
-    // initial run estimate price based on max DUSD impact
-    // TODO: do we need to have tokenPair ordered correctly here?
+
+    //get affected pools and swapInfo from the pools
     const auto &poolView = cache.GetPoolPair(dUsdToken.first, collId);
     if (!poolView) {
         // no direct pool, go throu DFI
@@ -3021,12 +3032,15 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     } else {
         swapInfos.emplace_back(swapInfoFromPool(poolView->first, poolView->second, collId));
     }
+
+    // initial run estimate price based on max DUSD impact
     auto output = totalUSD;
-    for (const auto &swap : swapInfos) {
-        auto swapOutput = (arith_uint256(output) * COIN) / swap.feeOut;
+    for (auto rit= swapInfos.rbegin();rit != swapInfos.rend();++rit) {
+        const auto swap= *rit;
+        auto swapOutput = (arith_uint256(output) * COIN) / swap.feeFactorOut;
         auto swapInput = ((swap.reserveOut * swap.reserveIn) / (swap.reserveOut - swapOutput)) - swap.reserveIn;
-        // resulting input= next output
-        output = swapInput * swap.feeIn / swap.commission;
+        // resulting needed input= next wanted output
+        output = swapInput * swap.feeFactorIn / swap.commission;
     }
     // this is the estimated price if all needed USD are swapped ->  max slipage
     auto estimatedCollPerDUSD = output * COIN / totalUSD;
@@ -3038,30 +3052,29 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         for (auto &data : collToLoans) {
             const auto &neededColl = MultiplyAmounts(lastEstimateCollPerDUSD, data.totalUSDNeeded);
             if (neededColl < data.useableCollateralAmount) {
-                data.usedCollateralAmount = neededColl.GetLow64();
+                totalCollateralUsed += neededColl.GetLow64();
             } else {
-                data.usedCollateralAmount = data.useableCollateralAmount;
+                totalCollateralUsed += data.useableCollateralAmount;
             }
-            totalCollateralUsed += data.usedCollateralAmount;
         }
         LogPrintf("estimating for %d coll used\n", totalCollateralUsed.GetLow64());
 
         auto input = totalCollateralUsed;
         for (const auto &swap : swapInfos) {
-            auto swapInput = ((input * swap.feeIn / COIN) * swap.commission) / COIN;
+            auto swapInput = ((input * swap.feeFactorIn / COIN) * swap.commission) / COIN;
             auto swapOutput = swap.reserveOut - ((swap.reserveIn * swap.reserveOut) / (swap.reserveIn + swapInput));
-            input = swapOutput * swap.feeOut / COIN;
+            input = swapOutput * swap.feeFactorOut / COIN;
         }
         return totalCollateralUsed * COIN / input;
     };
 
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
     LogPrintf("second estimate (based on av. coll) collPerDUSD: %.8f\n",
-              (double)estimatedCollPerDUSD.GetLow64() / COIN);
+              GetDecimalString(estimatedCollPerDUSD.GetLow64()));
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
-    LogPrintf("third estimate (based on av. coll) collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+    LogPrintf("third estimate (based on av. coll) collPerDUSD: %.8f\n", GetDecimalString(estimatedCollPerDUSD.GetLow64()));
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
-    LogPrintf("final estimate collPerDUSD: %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+    LogPrintf("final estimate collPerDUSD: %.8f\n", GetDecimalString(estimatedCollPerDUSD.GetLow64()));
 
     // move to contract and swap there
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
@@ -3074,12 +3087,18 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     swapMessage.maxPrice = PoolPrice::getMaxValid();
 
     CAmount totalCollToSwap = 0;
-    for (const auto &data : collToLoans) {
+    for (auto &data : collToLoans) {
+        const auto &neededColl = MultiplyAmounts(estimatedCollPerDUSD, data.totalUSDNeeded);
+        if (neededColl < data.useableCollateralAmount) {
+            data.usedCollateralAmount = neededColl.GetLow64();
+        } else {
+            data.usedCollateralAmount = data.useableCollateralAmount;
+        }
         CTokenAmount moved = {collId, data.usedCollateralAmount};
         cache.SubVaultCollateral(data.vaultId, moved);
         cache.AddBalance(contractAddressValue, moved);
-        totalCollToSwap += data.usedCollateralAmount;
-        LogPrintf("swapping %d from vault %s\n", data.usedCollateralAmount, data.vaultId.ToString());
+        totalCollToSwap += moved.nValue;
+        LogPrintf("swapping %d from vault %s\n", moved.nValue, data.vaultId.ToString());
     }
     swapMessage.amountFrom = totalCollToSwap;
 
@@ -3097,11 +3116,14 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
-        LogPrintf("adding %d DUSD to vault %s\n", dusdResult.nValue, data.vaultId.ToString());
+        LogPrintf("adding %s DUSD to vault %s\n", GetDecimalString(dusdResult.nValue), data.vaultId.ToString());
         for (const auto &loan : data.loansWithUSDValue) {
             PaybackLoanWithTokenOrDUSDCollateral(
                 cache, blockCtx, {}, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
             dusdResult.nValue -= loan.second;
+            if(dusdResult.nValue <= 0) {
+                break;
+            }
         }
         if (dusdResult.nValue > 0) {
             // burn excess DUSD from swap
@@ -3133,7 +3155,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         }
         auto res = PaybackWithCollateral(cache, vault, vaultId, pindex->nHeight, pindex->nTime);
         if (!res) {
-            // FIXME: throw error
+            // FIXME: throw error?
             return false;
         }
         return true;
@@ -3157,6 +3179,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, false);
     }
 
+
     // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
     std::vector<std::tuple<CScript, CVaultId, CAmount, DCT_ID>> dusdPaybacks;
     std::set<DCT_ID> allUsedCollaterals;
@@ -3179,11 +3202,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, true);
     }
 
-    //  get loans (token, id and usd value) and collateral per vault
-    //  get resulting DUSD for full swap
-    //  iterate to get a good estimation with slipage
-    //  swap and payback loans
-    //  -> repeat with next collateral
+    //get possible collaterals from gateway pools
     std::map<DCT_ID, CAmount> usdPrices;
     std::vector<CPoolPair> gatewaypools;
     // Get dToken price in USD
@@ -3256,7 +3275,7 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     }
 }
 
-// creates the needed splits for token lock and the number of needed pools
+// iterates over all locked tokens and affected pools
 void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLoanTokenImplementation &)> tokenCallback,
                              std::function<bool(const DCT_ID &, const CPoolPair &)> poolCallback,
                              CCustomCSView &cache) {
@@ -3393,7 +3412,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
         totalBalanceMap[id] = CAmount{0};
     }
 
-    // convert pools, based on tokenMap (needs change in existing code)
+    // convert pools, based on tokenMap (needed change in existing code)
 
     res = PoolSplits(
         cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, consensus, creationTxPerPoolId, COIN);
@@ -3419,7 +3438,7 @@ static void LockToken(CCustomCSView &cache,
                       const CTokenAmount &tokenAmount) {
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
 
-    LogPrintf("locking %s %d@%d\n", ScriptToString(owner), tokenAmount.nValue, tokenAmount.nTokenId.v);
+    LogPrintf("locking %s %d@%d\n", ScriptToString(owner), GetDecimalString(tokenAmount.nValue), tokenAmount.nTokenId.v);
 
     CAccountsHistoryWriter addView(cache, height, GetNextAccPosition(), refHash, uint8_t(CustomTxType::TokenLock));
     addView.AddBalance(contractAddressValue, tokenAmount);
@@ -3437,6 +3456,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                                              CCustomCSView &cache,
                                              BlockContext &blockCtx) {
     // TODO: make use of save calculations
+    // Note: if not 90%, only need to change here
     auto lockRatio = COIN * 90 / 100;
     auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
 
@@ -3500,8 +3520,8 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                   poolPair->reserveA,
                   poolPair->reserveB,
                   poolPair->totalLiquidity);
-        CAmount resAmountA = (arith_uint256(amountToLock) * poolPair->reserveA / poolPair->totalLiquidity).GetLow64();
-        CAmount resAmountB = (arith_uint256(amountToLock) * poolPair->reserveB / poolPair->totalLiquidity).GetLow64();
+        CAmount resAmountA = MultiplyDivideAmounts(amountToLock, poolPair->reserveA ,poolPair->totalLiquidity);
+        CAmount resAmountB = MultiplyDivideAmounts(amountToLock,poolPair->reserveB,poolPair->totalLiquidity);
         poolPair->reserveA -= resAmountA;
         poolPair->reserveB -= resAmountB;
         poolPair->totalLiquidity -= amountToLock;
