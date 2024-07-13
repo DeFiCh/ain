@@ -5,7 +5,6 @@
 #include <ain_rs_exports.h>
 #include <chain.h>
 #include <dfi/accountshistory.h>
-#include <dfi/consensus/loans.h>
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/govvariables/loan_daily_reward.h>
@@ -3132,6 +3131,14 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     }
     return true;
 }
+
+//implemented in loans.h but not included to prevent circular dependency
+//maybe we do not even need that, but use our own payback, since we have "payback loan with DUSD collateral" anyway
+Res PaybackWithCollateral(CCustomCSView &view,
+                          const CVaultData &vault,
+                          const CVaultId &vaultId,
+                          uint32_t height,
+                          uint64_t time);
 
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
