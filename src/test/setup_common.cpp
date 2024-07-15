@@ -11,8 +11,10 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
+#include <dfi/accountshistory.h>
 #include <dfi/anchors.h>
 #include <dfi/masternodes.h>
+#include <dfi/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
@@ -137,6 +139,8 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         pcustomcsDB.reset();
         pcustomcsDB = std::make_unique<CStorageLevelDB>(GetDataDir() / "enhancedcs", nMinDbCache << 20, true, true);
         pcustomcsview = std::make_unique<CCustomCSView>(*pcustomcsDB.get());
+        paccountHistoryDB = std::make_unique<CAccountHistoryStorage>(GetDataDir() / "history", nMinDbCache << 20, true, true);
+        pvaultHistoryDB = std::make_unique<CVaultHistoryStorage>(GetDataDir() / "vault", nMinDbCache << 20, true, true);
 
         panchorauths.reset();
         panchorauths = std::make_unique<CAnchorAuthIndex>();
@@ -145,6 +149,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         panchors.reset();
         panchors = std::make_unique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
+        psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB, pvaultHistoryDB);
     }
 
     if (!LoadGenesisBlock(chainparams)) {
