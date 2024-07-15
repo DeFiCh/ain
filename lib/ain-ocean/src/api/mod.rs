@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
 
-// mod address;
+mod address;
 mod block;
 mod cache;
 pub mod common;
@@ -73,7 +73,7 @@ pub async fn ocean_router(
     Ok(Router::new().nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()
-            // .nest("/address/", address::router(Arc::clone(&context)))
+            .nest("/address/", address::router(Arc::clone(&context)))
             .nest("/governance", governance::router(Arc::clone(&context)))
             .nest("/loans", loan::router(Arc::clone(&context)))
             .nest("/fee", fee::router(Arc::clone(&context)))

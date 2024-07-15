@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use bitcoin::{hashes::Hash, Txid};
-use defichain_rpc::json::blockchain::{Transaction, Vin};
 use log::debug;
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
 };
 
-use super::Context;
+use super::{helper::check_if_evm_tx, Context};
 use crate::{
     error::Error,
     indexer::Result,
@@ -19,7 +17,7 @@ use crate::{
     Services,
 };
 
-pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
+pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
     debug!("[index_transaction] Indexing...");
     let idx = ctx.tx_idx;
     let is_evm = check_if_evm_tx(&ctx.tx);
@@ -31,12 +29,13 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
-    for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
+    for vout in ctx.tx.vout.clone().into_iter() {
         let tx_vout = TransactionVout {
+            id: format!("{}{:x}", txid, vout.n),
             txid,
-            n: vout_idx,
-            value: vout.value,
-            token_id: 0,
+            n: vout.n,
+            value: vout.value.to_string(),
+            token_id: Some(0),
             script: TransactionVoutScript {
                 hex: vout.script_pub_key.hex,
                 r#type: vout.script_pub_key.r#type,
@@ -45,14 +44,14 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         services
             .transaction
             .vout_by_id
-            .put(&(txid, vout_idx), &tx_vout)?;
+            .put(&(txid, vout.n), &tx_vout)?;
 
         total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
         vouts.push(tx_vout);
     }
 
     // Indexing transaction vin
-    for vin in ctx.tx.vin.into_iter() {
+    for vin in ctx.tx.vin.clone().into_iter() {
         if is_evm {
             continue;
         }
@@ -67,7 +66,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         id: txid,
         txid,
         order,
-        hash: ctx.tx.hash,
+        hash: ctx.tx.hash.clone(),
         block: ctx.block.clone(),
         version: ctx.tx.version,
         size: ctx.tx.size,
@@ -86,18 +85,4 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         .put(&(ctx.block.hash, order), &txid)?;
 
     Ok(())
-}
-
-fn check_if_evm_tx(txn: &Transaction) -> bool {
-    txn.vin.len() == 2
-        && txn.vin.iter().all(|vin| match vin {
-            Vin::Coinbase(_) => true,
-            Vin::Standard(tx) => tx.txid == Txid::all_zeros(),
-        })
-        && txn.vout.len() == 1
-        && txn.vout[0]
-            .script_pub_key
-            .asm
-            .starts_with("OP_RETURN 4466547839")
-        && txn.vout[0].value == 0f64
 }
