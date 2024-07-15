@@ -1,6 +1,5 @@
 use crate::model;
 use ain_db::{Column, ColumnName, TypedColumn};
-use crate::model;
 
 #[derive(Debug)]
 pub struct ScriptActivity;
