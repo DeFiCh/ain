@@ -18,7 +18,7 @@ use crate::{
     Error, Result,
 };
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, BlockHash, Txid};
 use defichain_rpc::{json::account::AccountHistory, AccountRPC, RpcApi};
@@ -60,7 +60,7 @@ impl From<AccountHistory> for AddressHistory {
                 height: history.block_height,
                 hash: history.block_hash,
                 time: history.block_time,
-            }
+            },
         }
     }
 }
@@ -86,7 +86,7 @@ async fn get_account_history(
         .client
         .get_account_history(&address, height, txno)
         .await
-        .map_err(|_| format_err!("Record not found"))?;
+        .context("Record not found")?;
 
     Ok(Response::new(res.into()))
 }
