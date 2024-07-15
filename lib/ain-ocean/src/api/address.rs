@@ -20,10 +20,10 @@ use crate::{
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, Txid};
+use defichain_rpc::RpcApi;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
-use defichain_rpc::RpcApi;
 
 #[derive(Deserialize)]
 struct Address {
@@ -424,7 +424,7 @@ async fn list_tokens(
     for (k, v) in account {
         let token = get_token_cached(&ctx, &k).await?;
         if token.is_none() {
-            continue
+            continue;
         }
         let (id, info) = token.unwrap();
         let address_token = AddressToken {
