@@ -592,7 +592,7 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID &keyID,
         }
 
         // If no values set for pre-fork MN use the fork time
-        const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+        const auto loops = GetTimelockLoops(timelock);
         for (uint8_t i{0}; i < loops; ++i) {
             if (!subNodesBlockTime[i]) {
                 subNodesBlockTime[i] = block->GetBlockTime();

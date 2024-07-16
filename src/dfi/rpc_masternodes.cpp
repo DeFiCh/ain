@@ -56,9 +56,7 @@ UniValue mnToJSON(CCustomCSView &view,
                 node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
 
             if (currentHeight >= Params().GetConsensus().DF10EunosPayaHeight) {
-                const uint8_t loops = *timelock == CMasternode::TENYEAR    ? 4
-                                      : *timelock == CMasternode::FIVEYEAR ? 3
-                                                                           : 2;
+                const auto loops = GetTimelockLoops(*timelock);
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(

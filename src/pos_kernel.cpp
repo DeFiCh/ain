@@ -38,25 +38,19 @@ namespace pos {
     }
 
     bool CheckKernelHash(const uint256& stakeModifier, uint32_t nBits, int64_t creationHeight, int64_t coinstakeTime, uint64_t blockHeight,
-                    const uint256& masternodeID, const Consensus::Params& params, const std::vector<int64_t> subNodesBlockTime, const uint16_t timelock, CheckContextState& ctxState) {
+                    const uint256& masternodeID, const Consensus::Params& params, const int64_t subNodeBlockTime, const CheckContextState ctxState) {
         // Base target
         arith_uint256 targetProofOfStake;
         targetProofOfStake.SetCompact(nBits);
 
         if (blockHeight >= static_cast<uint64_t>(params.DF10EunosPayaHeight)) {
-            const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+            const auto hashProofOfStake = UintToArith256(CalcKernelHashMulti(stakeModifier, creationHeight, coinstakeTime, masternodeID, ctxState.subNode));
 
-            // Check whether we meet hash for each subnode in turn
-            for (uint8_t i{0}; i < loops; ++i) {
-                const auto hashProofOfStake = UintToArith256(CalcKernelHashMulti(stakeModifier, creationHeight, coinstakeTime, masternodeID, i));
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodeBlockTime);
 
-                auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[i]);
-
-                // Increase target by coinDayWeight.
-                if ((hashProofOfStake / static_cast<uint64_t>(GetMnCollateralAmount(static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
-                    ctxState.subNode = i;
-                    return true;
-                }
+            // Increase target by coinDayWeight.
+            if ((hashProofOfStake / static_cast<uint64_t>(GetMnCollateralAmount(static_cast<int>(creationHeight)))) <= targetProofOfStake * coinDayWeight) {
+                return true;
             }
 
             return false;
@@ -68,7 +62,7 @@ namespace pos {
         // been since a masternode staked a block.
         if (blockHeight >= static_cast<uint64_t>(params.DF7DakotaCrescentHeight))
         {
-            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodesBlockTime[0]);
+            auto coinDayWeight = CalcCoinDayWeight(params, coinstakeTime, subNodeBlockTime);
 
             // Increase target by coinDayWeight.
             return (hashProofOfStake / static_cast<uint64_t>( GetMnCollateralAmount( static_cast<int>(creationHeight) ) ) ) <= targetProofOfStake * coinDayWeight;

@@ -126,9 +126,6 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
             if (status == Staker::Status::stakeReady) {
                 status = staker.stake(Params(), stakerParams);
             }
-            if (status == Staker::Status::error) {
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
-            }
             if (status == Staker::Status::minted) {
                 LogPrintf("GenerateBlocks: minted a block!\n");
                 nMinted++;
@@ -304,7 +301,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
             if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
-                const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                const auto loops = GetTimelockLoops(*timelock);
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());

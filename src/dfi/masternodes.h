@@ -143,6 +143,10 @@ public:
     friend bool operator!=(const CMasternode &a, const CMasternode &b);
 };
 
+inline uint8_t GetTimelockLoops(uint16_t timelock) {
+    return CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+}
+
 struct CCreateMasterNodeMessage {
     char operatorType;
     CKeyID operatorAuthAddress;

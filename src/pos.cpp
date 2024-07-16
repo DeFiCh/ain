@@ -58,7 +58,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
     uint256 masternodeID;
     int64_t creationHeight;
-    std::vector<int64_t> subNodesBlockTime;
+    std::vector<int64_t> subNodesBlockTime{0,0,0,0};
     uint16_t timelock{0};
     {
         // check that block minter exists and active at the height of the block
@@ -92,9 +92,22 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
 
     // checking PoS kernel is faster, so check it first
-    if (!CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(),height,
-                         masternodeID, params, subNodesBlockTime, timelock, ctxState)) {
-        return false;
+    auto loops = GetTimelockLoops(timelock);
+    if (height < static_cast<uint64_t>(params.DF10EunosPayaHeight)) {
+        loops = 1;
+    }
+
+    bool kernelFound{};
+    for (uint8_t i{}; i < loops; ++i) {
+        if (CheckKernelHash(blockHeader.stakeModifier, blockHeader.nBits, creationHeight, blockHeader.GetBlockTime(), height,
+                            masternodeID, params, subNodesBlockTime[i], {i})) {
+            kernelFound = true;
+            ctxState.subNode = i;
+            break;
+        }
+        if (!kernelFound) {
+            return false;
+        }
     }
 
     /// @todo Make sure none mint a big amount of continuous blocks
@@ -208,7 +221,7 @@ std::optional<std::string> CheckSignedBlock(const std::shared_ptr<CBlock>& pbloc
     uint256 hashBlock = pblock->GetHash();
 
     // verify hash target and signature of coinstake tx
-    if (!CheckProofOfStake(*(CBlockHeader*)pblock.get(), pindexPrev,  chainparams.GetConsensus(), pcustomcsview.get()))
+    if (!CheckProofOfStake(*static_cast<CBlockHeader *>(pblock.get()), pindexPrev,  chainparams.GetConsensus(), pcustomcsview.get()))
         return {std::string{} + "proof-of-stake checking failed"};
 
     LogPrintf("new proof-of-stake block found hash: %s\n", hashBlock.GetHex());

@@ -8,10 +8,13 @@
 #include <atomic>
 
 static std::atomic<bool> fRequestShutdown(false);
+std::condition_variable shutdown_cv;
+std::mutex shutdown_mutex;
 
 void StartShutdown()
 {
     fRequestShutdown = true;
+    shutdown_cv.notify_all();
 }
 void AbortShutdown()
 {

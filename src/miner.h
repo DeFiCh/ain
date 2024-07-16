@@ -36,6 +36,8 @@ static const bool DEFAULT_GENERATE = false;
 
 static const bool DEFAULT_PRINTPRIORITY = false;
 
+static constexpr uint64_t DEFAULT_MIN_TARGET_MULTIPLIER = 1;
+
 extern TxOrderings txOrdering;
 
 struct CBlockTemplate {
@@ -241,10 +243,11 @@ namespace pos {
             CScript coinbaseScript = CScript();
             CKey minterKey = CKey();
             CKeyID operatorID = {};
+            uint8_t subNode = 0;
         };
 
         /// always forward by value to avoid dangling pointers
-        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+        void operator()(CChainParams chainparams);
     };
 
     class Staker {
@@ -253,7 +256,6 @@ namespace pos {
 
     public:
         enum class Status {
-            error,
             initWaiting,
             stakeWaiting,
             stakeReady,
@@ -275,6 +277,8 @@ namespace pos {
         template <typename F>
         void withSearchInterval(F &&f, int64_t height);
     };
+
+    bool StartStakingThreads(const int blockHeight, std::vector<std::thread> &threadGroup);
 }  // namespace pos
 
 #endif  // DEFI_MINER_H
