@@ -25,7 +25,7 @@ impl Index for SetLoanToken {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        active_price_invalidate_transaction(
+        invalidate_transaction(
             services,
             context.block.height,
             (
@@ -232,10 +232,7 @@ pub fn perform_active_price_tick(
 
     Ok(())
 }
-pub fn active_price_invalidate_block_end(
-    services: &Arc<Services>,
-    block: Block<Transaction>,
-) -> Result<()> {
+pub fn invalidate_block_end(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     let block_interval = match Network::Regtest {
         Network::Regtest => 6,
         _ => 120,
@@ -261,7 +258,7 @@ pub fn active_price_invalidate_block_end(
 
     Ok(())
 }
-pub fn active_price_invalidate_transaction(
+pub fn invalidate_transaction(
     services: &Arc<Services>,
     block_height: u32,
     ticker: (String, String),

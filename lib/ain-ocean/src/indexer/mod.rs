@@ -34,7 +34,7 @@ use crate::{
     storage::SortOrder,
     Error, Result, Services,
 };
-
+use loan_token::invalidate_block_end;
 pub(crate) trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
@@ -570,7 +570,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 }
 
 pub fn invalidate_block(services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
-    active_price_invalidate_block_end(services, _block)?;
-
+    invalidate_block_end(services, _block)?;
     Ok(())
 }
