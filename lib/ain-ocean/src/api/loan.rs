@@ -199,7 +199,7 @@ async fn list_loan_token(
         })
         .fake_paginate(&query, |token| match &query.next {
             None => false,
-            Some(v) => v != &token.id,
+            Some(v) => v != &token.data.creation_tx,
         })
         .map(|flatten_token| {
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
