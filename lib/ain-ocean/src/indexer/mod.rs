@@ -15,6 +15,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
+use loan_token::{invalidate_block_end, invalidate_transaction};
 use log::debug;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -34,7 +35,6 @@ use crate::{
     storage::SortOrder,
     Error, Result, Services,
 };
-use loan_token::invalidate_block_end;
 pub(crate) trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
@@ -569,7 +569,35 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(services: &Arc<Services>, _block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(services, _block)?;
+pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    invalidate_block_end(services, block)?;
+    for i in 0..block.tx.len() {
+        let txn = &block.tx[i];
+        for vout in &txn.vout {
+            if !vout.script_pub_key.asm.starts_with("OP_RETURN 44665478") {
+                continue;
+            }
+            let bytes = hex::decode(vout.script_pub_key.hex)?;
+            if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
+                continue;
+            }
+            let offset = 1 + match bytes[1] {
+                0x4c => 2,
+                0x4d => 3,
+                0x4e => 4,
+                _ => 1,
+            };
+            let raw_tx = &bytes[offset..];
+            let tx = deserialize::<Stack>(raw_tx)?;
+            //todo get transaction 
+            // invalidate_transaction(services, block_height, ticker)
+        }
+    }
+    Ok(())
+}
+
+pub fn invalidate_block_start(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    services.masternode.by_height.delete(block.height)?;
+    //todo to get the pool pair
     Ok(())
 }
