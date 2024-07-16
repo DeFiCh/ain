@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 use super::{
     cache::get_token_cached,
     common::{address_to_hid, parse_display_symbol},
+    loan::{get_all_vaults, VaultResponse},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -21,7 +22,10 @@ use ain_macros::ocean_endpoint;
 use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, BlockHash, Txid};
-use defichain_rpc::{json::account::AccountHistory, AccountRPC, RpcApi};
+use defichain_rpc::{
+    json::{account::AccountHistory, vault::ListVaultOptions},
+    AccountRPC, RpcApi,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
@@ -205,9 +209,29 @@ async fn get_aggregation(
 //     format!("List tokens for address {}", address)
 // }
 
-// async fn list_vault(Path(Address { address }): Path<Address>) -> String {
-//     format!("List vaults for address {}", address)
-// }
+#[ocean_endpoint]
+async fn list_vaults(
+    Path(Address { address }): Path<Address>,
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<VaultResponse>> {
+    let options = ListVaultOptions {
+        verbose: Some(true),
+        owner_address: Some(address),
+        loan_scheme_id: None,
+        state: None,
+    };
+    let vaults = get_all_vaults(&ctx, options, &query).await?;
+
+    Ok(ApiPagedResponse::of(
+        vaults,
+        query.size,
+        |each| match each {
+            VaultResponse::Active(vault) => vault.vault_id.clone(),
+            VaultResponse::Liquidated(vault) => vault.vault_id.clone(),
+        },
+    ))
+}
 
 #[skip_serializing_none]
 #[derive(Debug, Serialize)]
@@ -494,7 +518,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:address/balance", get(get_balance))
         .route("/:address/aggregation", get(get_aggregation))
         .route("/:address/tokens", get(list_tokens))
-        // .route("/vaults", get(list_vault))
+        .route("/vaults", get(list_vaults))
         .route("/:address/transactions", get(list_transactions))
         .route(
             "/:address/transactions/unspent",
