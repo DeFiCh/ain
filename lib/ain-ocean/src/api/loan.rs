@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::{format_err, Context};
+use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -159,16 +159,14 @@ async fn get_collateral_token(
     )))
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoanToken {
     token_id: String,
     token: TokenData,
-    interest: f64,
-    // activate_after_block: u32,
-    // fixed_interval_price_id: String,
-    // TODO when indexing price
-    // activePrice?: ActivePrice
+    interest: String,
+    fixed_interval_price_id: String,
+    active_price: Option<OraclePriceActive>,
 }
 
 #[ocean_endpoint]
@@ -181,10 +179,11 @@ async fn list_loan_token(
     struct FlattenToken {
         id: String,
         data: TokenInfo,
+        fixed_interval_price_id: String,
         interest: f64,
     }
 
-    let fut = tokens
+    let res = tokens
         .into_iter()
         .flat_map(|el| {
             el.token
@@ -194,26 +193,40 @@ async fn list_loan_token(
                 .map(|(id, data)| FlattenToken {
                     id,
                     data,
+                    fixed_interval_price_id: el.fixed_interval_price_id,
                     interest: el.interest,
                 })
         })
         .fake_paginate(&query, |token| match &query.next {
             None => false,
-            Some(v) => v != &token.id,
+            Some(v) => v != &token.data.creation_tx,
         })
-        .map(|token| async move {
+        .map(|flatten_token| {
+            let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
+            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
+            let [token, currency] = <[&str; 2]>::try_from(parts)
+                .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
+
+            let repo = &ctx.services.oracle_price_active;
+            let key = repo
+                .by_key
+                .get(&(token.to_string(), currency.to_string()))?;
+            let active_price = if let Some(key) = key {
+                repo.by_id.get(&key)?
+            } else {
+                None
+            };
+
             let token = LoanToken {
-                token_id: token.id.clone(),
-                token: TokenData::from_with_id(token.id, token.data),
-                interest: token.interest,
-                // activate_after_block: todo!(),
-                // fixed_interval_price_id: todo!(),
+                token_id: flatten_token.data.creation_tx.clone(),
+                token: TokenData::from_with_id(flatten_token.id, flatten_token.data),
+                interest: format!("{:.2}", flatten_token.interest),
+                fixed_interval_price_id,
+                active_price,
             };
             Ok::<LoanToken, Error>(token)
         })
-        .collect::<Vec<_>>();
-
-    let res = try_join_all(fut).await?;
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
         loan_scheme.token_id.to_owned()
@@ -225,20 +238,43 @@ async fn get_loan_token(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanToken>> {
-    let loan_token_result = ctx.client.get_loan_token(token_id).await?;
-    let res = loan_token_result
+    let loan_token_result = ctx.client.get_loan_token(token_id.clone()).await?;
+    let token = loan_token_result
         .token
         .0
         .into_iter()
         .next()
-        .map(|(id, info)| LoanToken {
-            token_id: id.clone(),
-            token: TokenData::from_with_id(id, info),
-            interest: loan_token_result.interest,
-        })
-        .context("Unable to find loan token")?;
+        .map(|(id, info)| {
+            let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
+            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
+            let [token, currency] = <[&str; 2]>::try_from(parts)
+                .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
 
-    Ok(Response::new(res))
+            let repo = &ctx.services.oracle_price_active;
+            let key = repo
+                .by_key
+                .get(&(token.to_string(), currency.to_string()))?;
+            let active_price = if let Some(key) = key {
+                repo.by_id.get(&key)?
+            } else {
+                None
+            };
+
+            Ok::<LoanToken, Error>(LoanToken {
+                token_id: info.creation_tx.clone(),
+                token: TokenData::from_with_id(id, info),
+                interest: format!("{:.2}", loan_token_result.interest),
+                fixed_interval_price_id,
+                active_price,
+            })
+        })
+        .transpose()?;
+
+    if token.is_none() {
+        return Err(format_err!("Token {:?} does not exist!", token_id).into());
+    }
+
+    Ok(Response::new(token.unwrap()))
 }
 
 #[ocean_endpoint]
