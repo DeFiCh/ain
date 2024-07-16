@@ -106,6 +106,7 @@ impl Index for AppointOracle {
             context.block.height,
             context.tx.txid,
         ))?;
+        services.oracle_history.by_key.delete(&(oracle_id))?;
         for currency_pair in self.price_feeds.as_ref().iter() {
             let token_currency_id = (
                 currency_pair.token.to_owned(),
@@ -204,6 +205,11 @@ impl Index for RemoveOracle {
                             .oracle_token_currency
                             .by_id
                             .put(&oracle_token_currency.id, &oracle_token_currency)?;
+
+                        services
+                            .oracle_token_currency
+                            .by_key
+                            .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
                     }
                 }
             }
