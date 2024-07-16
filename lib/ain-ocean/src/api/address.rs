@@ -518,7 +518,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:address/balance", get(get_balance))
         .route("/:address/aggregation", get(get_aggregation))
         .route("/:address/tokens", get(list_tokens))
-        .route("/vaults", get(list_vaults))
+        .route("/:address/vaults", get(list_vaults))
         .route("/:address/transactions", get(list_transactions))
         .route(
             "/:address/transactions/unspent",
