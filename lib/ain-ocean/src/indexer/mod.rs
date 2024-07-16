@@ -531,7 +531,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                     DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                     DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
-                    // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+                    DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                     _ => (),
                 }
                 log_elapsed(start, "Indexed dftx");

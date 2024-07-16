@@ -198,7 +198,7 @@ fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Dec
         let [amount, token] = parts
             .as_slice()
             .try_into()
-            .context("Invalid pool pair symbol structure")?;
+            .context("Invalid amount structure")?;
 
         if token != "0" && token != "DFI" {
             return Ok(accumulate);
