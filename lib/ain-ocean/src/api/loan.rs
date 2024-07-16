@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::{format_err, Context};
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -236,7 +236,7 @@ async fn get_loan_token(
             token: TokenData::from_with_id(id, info),
             interest: loan_token_result.interest,
         })
-        .ok_or(format_err!("Unable to find loan token"))?;
+        .context("Unable to find loan token")?;
 
     Ok(Response::new(res))
 }
