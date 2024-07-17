@@ -15,7 +15,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
-use loan_token::{invalidate_block_end, invalidate_transaction};
+use loan_token::invalidate_block_end;
 use log::debug;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
@@ -570,14 +570,14 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 }
 
 pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
-    invalidate_block_end(services, block)?;
+    invalidate_block_end(services, block.clone())?;
     for i in 0..block.tx.len() {
         let txn = &block.tx[i];
         for vout in &txn.vout {
             if !vout.script_pub_key.asm.starts_with("OP_RETURN 44665478") {
                 continue;
             }
-            let bytes = hex::decode(vout.script_pub_key.hex)?;
+            let bytes = hex::decode(vout.script_pub_key.hex.clone())?;
             if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
                 continue;
             }
@@ -588,16 +588,38 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                 _ => 1,
             };
             let raw_tx = &bytes[offset..];
-            let tx = deserialize::<Stack>(raw_tx)?;
-            //todo get transaction 
-            // invalidate_transaction(services, block_height, ticker)
+            let _tx = deserialize::<Stack>(raw_tx)?;
         }
     }
+    invalidate_block_start(services, block)?;
     Ok(())
 }
 
 pub fn invalidate_block_start(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
-    services.masternode.by_height.delete(block.height)?;
-    //todo to get the pool pair
+    services
+        .masternode
+        .by_height
+        .delete(&(block.height, block.tx[0].txid))?;
+
+    let pool_pairs: Result<Vec<u32>> = services
+        .poolpair
+        .by_height
+        .list(Some((block.height, usize::MAX)), SortOrder::Descending)?
+        .map(|el| {
+            let ((k, _), (_pool_id, _id_token_a, _id_token_b)) = el?;
+            Ok(k)
+        })
+        .collect();
+
+    let poolpairs = pool_pairs?;
+    for pool_id in poolpairs {
+        for interval in AGGREGATED_INTERVALS {
+            services
+                .pool_swap_aggregated
+                .by_id
+                .delete(&(pool_id, interval, block.hash))?;
+        }
+    }
+
     Ok(())
 }
