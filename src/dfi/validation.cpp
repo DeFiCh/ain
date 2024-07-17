@@ -4071,10 +4071,7 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
     auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash).GetHex();
 
     if (xvm.evm.blockHash != blockResultBlockHash) {
-        LogPrintf("\nIGNORED ERROR:\nIncorrect EVM block hash in coinbase output %s != %s\n",
-                  xvm.evm.blockHash,
-                  blockResultBlockHash);
-        // return Res::Err("Incorrect EVM block hash in coinbase output");
+        return Res::Err("Incorrect EVM block hash in coinbase output");
     }
 
     if (xvm.evm.burntFee != blockResult.total_burnt_fees) {
