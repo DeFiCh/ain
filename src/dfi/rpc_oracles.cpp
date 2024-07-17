@@ -2,7 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <dfi/accountshistory.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <dfi/govvariables/attributes.h>
 
@@ -162,11 +164,12 @@ UniValue appointoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[3];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -290,11 +293,12 @@ UniValue updateoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[4];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;  //    std::string oracles;
 
@@ -375,11 +379,12 @@ UniValue removeoracle(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.emplace_back(0, scriptMeta);
 
+    auto [view, accountView, vaultView] = GetSnapshots();
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -516,18 +521,17 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     CSetOracleDataMessage msg{oracleId, timestamp, std::move(tokenPrices)};
 
-    int targetHeight;
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CScript oracleAddress;
     {
-        LOCK(cs_main);
         // check if tx parameters are valid
-        auto oracleRes = pcustomcsview->GetOracleData(oracleId);
+        auto oracleRes = view->GetOracleData(oracleId);
         if (!oracleRes.ok) {
             throw JSONRPCError(RPC_INVALID_REQUEST, oracleRes.msg);
         }
         oracleAddress = oracleRes.val->oracleAddress;
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     // timestamp is checked at consensus level
@@ -553,8 +557,8 @@ UniValue setoracledata(const JSONRPCRequest &request) {
 
     std::set<CScript> auths{oracleAddress};
 
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -580,7 +584,8 @@ bool diffInHour(int64_t time1, int64_t time2) {
     return std::abs(time1 - time2) < SECONDS_PER_HOUR;
 }
 
-std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustomCSView &mnview) {
+std::pair<int, int> GetFixedIntervalPriceBlocks(const CCustomCSView &mnview) {
+    const auto currentHeight = mnview.GetLastHeight();
     auto fixedBlocks = mnview.GetIntervalBlock();
     auto nextPriceBlock = currentHeight + (fixedBlocks - ((currentHeight) % fixedBlocks));
     auto activePriceBlock = nextPriceBlock - fixedBlocks;
@@ -655,10 +660,9 @@ UniValue getoracledata(const JSONRPCRequest &request) {
     // decode oracle id
     COracleId oracleId = ParseHashV(request.params[0], "oracleid");
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);  // don't write into actual DB
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto oracleRes = mnview.GetOracleData(oracleId);
+    auto oracleRes = view->GetOracleData(oracleId);
     if (!oracleRes.ok) {
         throw JSONRPCError(RPC_DATABASE_ERROR, oracleRes.msg);
     }
@@ -733,11 +737,9 @@ UniValue listoracles(const JSONRPCRequest &request) {
         }
     }
 
-    LOCK(cs_main);
-
     UniValue res(UniValue::VARR);
-    CCustomCSView view(*pcustomcsview);
-    view.ForEachOracle(
+    auto [view, accountView, vaultView] = GetSnapshots();
+    view->ForEachOracle(
         [&](const COracleId &id, CLazySerialize<COracle>) {
             if (!including_start) {
                 including_start = true;
@@ -832,12 +834,16 @@ UniValue listlatestrawprices(const JSONRPCRequest &request) {
         tokenPair = DecodeTokenCurrencyPair(request.params[0]);
     }
 
-    LOCK(cs_main);
-    CCustomCSView mnview(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    int64_t lastBlockTime{};
+    {
+        LOCK(cs_main);
+        lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    }
+
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue result(UniValue::VARR);
-    mnview.ForEachOracle(
+    view->ForEachOracle(
         [&](const COracleId &oracleId, COracle oracle) {
             if (!including_start) {
                 including_start = true;
@@ -1021,10 +1027,14 @@ UniValue getprice(const JSONRPCRequest &request) {
 
     auto tokenPair = DecodeTokenCurrencyPair(request.params[0]);
 
-    LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    auto result = GetAggregatePrice(view, tokenPair.first, tokenPair.second, lastBlockTime);
+    int64_t lastBlockTime{};
+    {
+        LOCK(cs_main);
+        lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    }
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto result = GetAggregatePrice(*view, tokenPair.first, tokenPair.second, lastBlockTime);
     if (!result) {
         throw JSONRPCError(RPC_MISC_ERROR, result.msg);
     }
@@ -1091,10 +1101,14 @@ UniValue listprices(const JSONRPCRequest &request) {
         paginationObj = request.params[0].get_obj();
     }
 
-    LOCK(cs_main);
-    CCustomCSView view(*pcustomcsview);
-    auto lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
-    auto res = GetAllAggregatePrices(view, lastBlockTime, paginationObj);
+    int64_t lastBlockTime{};
+    {
+        LOCK(cs_main);
+        lastBlockTime = ::ChainActive().Tip()->GetBlockTime();
+    }
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto res = GetAllAggregatePrices(*view, lastBlockTime, paginationObj);
     return GetRPCResultCache().Set(request, res);
 }
 
@@ -1131,20 +1145,21 @@ UniValue getfixedintervalprice(const JSONRPCRequest &request) {
     objPrice.pushKV("fixedIntervalPriceId", fixedIntervalStr);
     auto pairId = DecodePriceFeedUni(objPrice);
 
-    LOCK(cs_main);
-    auto fixedPrice = pcustomcsview->GetFixedIntervalPrice(pairId);
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    auto fixedPrice = view->GetFixedIntervalPrice(pairId);
     if (!fixedPrice) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, fixedPrice.msg);
     }
 
-    auto priceBlocks = GetFixedIntervalPriceBlocks(::ChainActive().Height(), *pcustomcsview);
+    auto priceBlocks = GetFixedIntervalPriceBlocks(*view);
 
     objPrice.pushKV("activePrice", ValueFromAmount(fixedPrice.val->priceRecord[0]));
     objPrice.pushKV("nextPrice", ValueFromAmount(fixedPrice.val->priceRecord[1]));
     objPrice.pushKV("activePriceBlock", (int)priceBlocks.first);
     objPrice.pushKV("nextPriceBlock", (int)priceBlocks.second);
     objPrice.pushKV("timestamp", fixedPrice.val->timestamp);
-    objPrice.pushKV("isLive", fixedPrice.val->isLive(pcustomcsview->GetPriceDeviation()));
+    objPrice.pushKV("isLive", fixedPrice.val->isLive(view->GetPriceDeviation()));
     return GetRPCResultCache().Set(request, objPrice);
 }
 
@@ -1204,18 +1219,18 @@ UniValue listfixedintervalprices(const JSONRPCRequest &request) {
         }
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue listPrice{UniValue::VARR};
-    pcustomcsview->ForEachFixedIntervalPrice(
-        [&](const CTokenCurrencyPair &, CFixedIntervalPrice fixedIntervalPrice) {
+    view->ForEachFixedIntervalPrice(
+        [&, &view = view](const CTokenCurrencyPair &, CFixedIntervalPrice fixedIntervalPrice) {
             UniValue obj{UniValue::VOBJ};
             obj.pushKV("priceFeedId",
                        (fixedIntervalPrice.priceFeedId.first + "/" + fixedIntervalPrice.priceFeedId.second));
             obj.pushKV("activePrice", ValueFromAmount(fixedIntervalPrice.priceRecord[0]));
             obj.pushKV("nextPrice", ValueFromAmount(fixedIntervalPrice.priceRecord[1]));
             obj.pushKV("timestamp", fixedIntervalPrice.timestamp);
-            obj.pushKV("isLive", fixedIntervalPrice.isLive(pcustomcsview->GetPriceDeviation()));
+            obj.pushKV("isLive", fixedIntervalPrice.isLive(view->GetPriceDeviation()));
             listPrice.push_back(obj);
             limit--;
             return limit != 0;
@@ -1237,11 +1252,11 @@ UniValue getfutureswapblock(const JSONRPCRequest &request) {
     if (auto res = GetRPCResultCache().TryGet(request)) {
         return *res;
     }
-    LOCK(cs_main);
 
-    const auto currentHeight = ::ChainActive().Height();
+    auto [view, accountView, vaultView] = GetSnapshots();
+    const auto currentHeight = view->GetLastHeight();
 
-    const auto block = GetFuturesBlock(ParamIDs::DFIP2203);
+    const auto block = GetFuturesBlock(ParamIDs::DFIP2203, *view);
     if (!block || block->blockPeriod == 0) {
         return 0;
     }
@@ -1265,11 +1280,11 @@ UniValue getdusdswapblock(const JSONRPCRequest &request) {
     if (auto res = GetRPCResultCache().TryGet(request)) {
         return *res;
     }
-    LOCK(cs_main);
 
-    const auto currentHeight = ::ChainActive().Height();
+    auto [view, accountView, vaultView] = GetSnapshots();
+    const auto currentHeight = view->GetLastHeight();
 
-    const auto block = GetFuturesBlock(ParamIDs::DFIP2206F);
+    const auto block = GetFuturesBlock(ParamIDs::DFIP2206F, *view);
     if (!block || block->blockPeriod == 0) {
         return 0;
     }
