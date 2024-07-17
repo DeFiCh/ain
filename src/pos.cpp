@@ -105,9 +105,10 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
             ctxState.subNode = i;
             break;
         }
-        if (!kernelFound) {
-            return false;
-        }
+    }
+
+    if (!kernelFound) {
+        return false;
     }
 
     /// @todo Make sure none mint a big amount of continuous blocks
