@@ -1151,7 +1151,7 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
-    '''      SETUP    '''
+    """      SETUP    """
 
     def setup(self):
 
