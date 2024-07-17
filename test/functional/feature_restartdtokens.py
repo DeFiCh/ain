@@ -10,7 +10,6 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path
-from test_framework.util import assert_raises_web3_error
 
 from decimal import Decimal
 import time
@@ -1152,7 +1151,7 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
-    ######## SETUP ##########
+    '''      SETUP    '''
 
     def setup(self):
 
@@ -1566,7 +1565,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        ## address2
+        # address2
 
         self.vault_id2 = self.nodes[0].createvault(self.address2, "")
         self.vault_id2_1 = self.nodes[0].createvault(self.address2, "")
@@ -1608,7 +1607,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        ## address3
+        # address3
 
         self.vault_id3 = self.nodes[0].createvault(self.address3, "")
         self.nodes[0].generate(1)
