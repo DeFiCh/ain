@@ -7,9 +7,10 @@ use rust_decimal_macros::dec;
 use crate::{
     indexer::{Context, Index, Result},
     model::{
-        OraclePriceActive, OraclePriceActiveActive, OraclePriceActiveActiveOracles,
+        BlockContext, OraclePriceActive, OraclePriceActiveActive, OraclePriceActiveActiveOracles,
         OraclePriceActiveNext, OraclePriceActiveNextOracles, OraclePriceAggregated,
     },
+    network::Network,
     repository::RepositoryOps,
     storage::SortOrder,
     Services,
@@ -17,121 +18,8 @@ use crate::{
 
 impl Index for SetLoanToken {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        let ticker_id = (self.currency_pair.token, self.currency_pair.currency);
-        let aggregated_prices = services
-            .oracle_price_aggregated
-            .by_key
-            .list(Some(ticker_id.clone()), SortOrder::Descending)?
-            .map(|item| {
-                let (_, id) = item?;
-                let aggregated = services
-                    .oracle_price_aggregated
-                    .by_id
-                    .get(&id)?
-                    .ok_or("Missing oracle previous history index")?;
-
-                Ok(aggregated)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        log::debug!(
-            "set_loan_token indexing aggregated_price: {:?}",
-            aggregated_prices
-        );
-
-        if aggregated_prices.is_empty() {
-            return Ok(());
-        }
-        let aggregated_price = aggregated_prices.first().unwrap();
-
-        let previous_prices = services
-            .oracle_price_active
-            .by_key
-            .list(Some(ticker_id.clone()), SortOrder::Descending)?
-            .take(1)
-            .map(|item| {
-                let (_, id) = item?;
-                let price = services
-                    .oracle_price_active
-                    .by_id
-                    .get(&id)?
-                    .ok_or("Missing oracle previous history index")?;
-                Ok(price)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let active_price = if previous_prices.first().is_some() {
-            if previous_prices[0].next.is_some() {
-                let price = previous_prices[0].next.clone().unwrap();
-                Some(OraclePriceActiveActive {
-                    amount: price.amount,
-                    weightage: price.weightage,
-                    oracles: OraclePriceActiveActiveOracles {
-                        active: price.oracles.active,
-                        total: price.oracles.total,
-                    },
-                })
-            } else if previous_prices[0].active.is_some() {
-                let price = previous_prices[0].active.clone().unwrap();
-                Some(OraclePriceActiveActive {
-                    amount: price.amount,
-                    weightage: price.weightage,
-                    oracles: OraclePriceActiveActiveOracles {
-                        active: price.oracles.active,
-                        total: price.oracles.total,
-                    },
-                })
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let price_active_id = (
-            ticker_id.0.clone(),
-            ticker_id.1.clone(),
-            aggregated_price.block.height,
-        );
-
-        let next_price = if is_aggregate_valid(aggregated_price, ctx) {
-            Some(OraclePriceActiveNext {
-                amount: aggregated_price.aggregated.amount.clone(),
-                weightage: aggregated_price.aggregated.weightage,
-                oracles: OraclePriceActiveNextOracles {
-                    active: aggregated_price.aggregated.oracles.active,
-                    total: aggregated_price.aggregated.oracles.total,
-                },
-            })
-        } else {
-            None
-        };
-
-        let oracle_price_active = OraclePriceActive {
-            id: price_active_id.clone(),
-            key: ticker_id,
-            sort: hex::encode(ctx.block.height.to_be_bytes()),
-            active: active_price.clone(),
-            next: next_price.clone(),
-            is_live: is_live(active_price, next_price),
-            block: ctx.block.clone(),
-        };
-
-        services
-            .oracle_price_active
-            .by_id
-            .put(&price_active_id, &oracle_price_active)?;
-
-        services
-            .oracle_price_active
-            .by_key
-            .put(&oracle_price_active.key, &oracle_price_active.id)?;
-
-        log::debug!(
-            "set_loan_token indexing oracle_price_active: {:?}",
-            oracle_price_active
-        );
-
+        let ticker = (self.currency_pair.token, self.currency_pair.currency);
+        perform_active_price_tick(services, ticker, &ctx.block)?;
         Ok(())
     }
 
@@ -150,8 +38,8 @@ impl Index for SetLoanToken {
     }
 }
 
-fn is_aggregate_valid(aggregate: &OraclePriceAggregated, context: &Context) -> bool {
-    if (aggregate.block.time - context.block.time).abs() >= 3600 {
+fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -> bool {
+    if (aggregate.block.time - block.time).abs() >= 3600 {
         return false;
     }
 
@@ -204,4 +92,149 @@ fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActi
     }
 
     true
+}
+
+pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    let block_interval = match Network::Regtest {
+        Network::Regtest => 6,
+        _ => 120,
+    };
+    if block.height % block_interval == 0 {
+        let pt = services
+            .price_ticker
+            .by_id
+            .list(None, SortOrder::Ascending)?
+            .map(|item| {
+                let (_, priceticker) = item?;
+                Ok(priceticker)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for ticker in pt {
+            perform_active_price_tick(services, ticker.id, block)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn perform_active_price_tick(
+    services: &Arc<Services>,
+    ticker_id: (String, String),
+    block: &BlockContext,
+) -> Result<()> {
+    let aggregated_prices = services
+        .oracle_price_aggregated
+        .by_key
+        .list(Some(ticker_id.clone()), SortOrder::Descending)?
+        .map(|item| {
+            let (_, id) = item?;
+            let aggregated = services
+                .oracle_price_aggregated
+                .by_id
+                .get(&id)?
+                .ok_or("Missing oracle previous history index")?;
+
+            Ok(aggregated)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    log::debug!(
+        "set_loan_token indexing aggregated_price: {:?}",
+        aggregated_prices
+    );
+
+    if aggregated_prices.is_empty() {
+        return Ok(());
+    }
+    let aggregated_price = aggregated_prices.first().unwrap();
+
+    let previous_prices = services
+        .oracle_price_active
+        .by_key
+        .list(Some(ticker_id.clone()), SortOrder::Descending)?
+        .take(1)
+        .map(|item| {
+            let (_, id) = item?;
+            let price = services
+                .oracle_price_active
+                .by_id
+                .get(&id)?
+                .ok_or("Missing oracle previous history index")?;
+            Ok(price)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let active_price = if previous_prices.first().is_some() {
+        if previous_prices[0].next.is_some() {
+            let price = previous_prices[0].next.clone().unwrap();
+            Some(OraclePriceActiveActive {
+                amount: price.amount,
+                weightage: price.weightage,
+                oracles: OraclePriceActiveActiveOracles {
+                    active: price.oracles.active,
+                    total: price.oracles.total,
+                },
+            })
+        } else if previous_prices[0].active.is_some() {
+            let price = previous_prices[0].active.clone().unwrap();
+            Some(OraclePriceActiveActive {
+                amount: price.amount,
+                weightage: price.weightage,
+                oracles: OraclePriceActiveActiveOracles {
+                    active: price.oracles.active,
+                    total: price.oracles.total,
+                },
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let price_active_id = (
+        ticker_id.0.clone(),
+        ticker_id.1.clone(),
+        aggregated_price.block.height,
+    );
+
+    let next_price = if is_aggregate_valid(aggregated_price, block) {
+        Some(OraclePriceActiveNext {
+            amount: aggregated_price.aggregated.amount.clone(),
+            weightage: aggregated_price.aggregated.weightage,
+            oracles: OraclePriceActiveNextOracles {
+                active: aggregated_price.aggregated.oracles.active,
+                total: aggregated_price.aggregated.oracles.total,
+            },
+        })
+    } else {
+        None
+    };
+
+    let oracle_price_active = OraclePriceActive {
+        id: price_active_id.clone(),
+        key: ticker_id,
+        sort: hex::encode(block.height.to_be_bytes()),
+        active: active_price.clone(),
+        next: next_price.clone(),
+        is_live: is_live(active_price, next_price),
+        block: block.clone(),
+    };
+
+    services
+        .oracle_price_active
+        .by_id
+        .put(&price_active_id, &oracle_price_active)?;
+
+    services
+        .oracle_price_active
+        .by_key
+        .put(&oracle_price_active.key, &oracle_price_active.id)?;
+
+    log::debug!(
+        "set_loan_token indexing oracle_price_active: {:?}",
+        oracle_price_active
+    );
+
+    Ok(())
 }

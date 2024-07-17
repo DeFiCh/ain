@@ -465,6 +465,11 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
     Ok(())
 }
 
+fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    loan_token::index_active_price(services, block)?;
+    Ok(())
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
@@ -490,7 +495,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         if is_skipped_tx(&tx.txid) {
             continue;
         }
-
         let start = Instant::now();
         let ctx = Context {
             block: block_ctx.clone(),
@@ -511,7 +515,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             0x4e => 4,
             _ => 1,
         };
-
         let raw_tx = &bytes[offset..];
         match deserialize::<Stack>(raw_tx) {
             Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
@@ -567,6 +570,9 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         .block
         .by_height
         .put(&block_ctx.height, &block_hash)?;
+
+    //index block end
+    index_block_end(services, &block_ctx)?;
 
     Ok(())
 }
