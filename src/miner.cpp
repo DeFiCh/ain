@@ -1084,7 +1084,6 @@ namespace pos {
 
     std::vector<ThreadStaker::Args> stakersParams;
     std::mutex stakersParamsMutex;
-    static constexpr int64_t STAKING_MANAGER_THREAD_SLEEP = 60;
 
     Staker::Status Staker::init(const CChainParams &chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
@@ -1532,9 +1531,7 @@ namespace pos {
                 }
             }
 
-            std::unique_lock lock(shutdown_mutex);
-            shutdown_cv.wait_for(
-                lock, std::chrono::seconds(STAKING_MANAGER_THREAD_SLEEP), [] { return ShutdownRequested(); });
+            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 

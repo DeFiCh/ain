@@ -13,7 +13,4 @@ void StartShutdown();
 void AbortShutdown();
 bool ShutdownRequested();
 
-extern std::condition_variable shutdown_cv;
-extern std::mutex shutdown_mutex;
-
 #endif
