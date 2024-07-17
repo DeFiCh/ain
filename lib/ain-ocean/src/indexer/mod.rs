@@ -570,9 +570,22 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 }
 
 pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    let block_hash = block.hash;
+    let block_ctx = BlockContext {
+        height: block.height,
+        hash: block_hash,
+        time: block.time,
+        median_time: block.mediantime,
+    };
     invalidate_block_end(services, block.clone())?;
     for i in 0..block.tx.len() {
         let txn = &block.tx[i];
+        let ctx = Context {
+            block: block_ctx.clone(),
+            tx:txn.clone(),
+            tx_idx:i,
+        };
+
         for vout in &txn.vout {
             if !vout.script_pub_key.asm.starts_with("OP_RETURN 44665478") {
                 continue;
@@ -589,6 +602,30 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             };
             let raw_tx = &bytes[offset..];
             let _tx = deserialize::<Stack>(raw_tx)?;
+            match deserialize::<Stack>(raw_tx) {
+                Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
+                    println!("Discarding invalid marker");
+                }
+                Err(e) => return Err(e.into()),
+                Ok(Stack { dftx, .. }) => {
+                    match dftx {
+                        DfTx::CreateMasternode(data) => data.invalidate(services, &ctx)?,
+                        DfTx::UpdateMasternode(data) => data.invalidate(services, &ctx)?,
+                        DfTx::ResignMasternode(data) => data.invalidate(services, &ctx)?,
+                        DfTx::AppointOracle(data) => data.invalidate(services, &ctx)?,
+                        DfTx::RemoveOracle(data) => data.invalidate(services, &ctx)?,
+                        DfTx::UpdateOracle(data) => data.invalidate(services, &ctx)?,
+                        DfTx::SetOracleData(data) => data.invalidate(services, &ctx)?,
+                        DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?,
+                        DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
+                        DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
+                        DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
+                       
+                        _ => (),
+                    }
+                    
+                }
+            }
         }
     }
     invalidate_block_start(services, block)?;
