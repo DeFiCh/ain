@@ -577,13 +577,13 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         time: block.time,
         median_time: block.mediantime,
     };
-    invalidate_block_end(services, block.clone())?;
+
     for i in 0..block.tx.len() {
         let txn = &block.tx[i];
         let ctx = Context {
             block: block_ctx.clone(),
-            tx:txn.clone(),
-            tx_idx:i,
+            tx: txn.clone(),
+            tx_idx: i,
         };
 
         for vout in &txn.vout {
@@ -607,28 +607,26 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                     println!("Discarding invalid marker");
                 }
                 Err(e) => return Err(e.into()),
-                Ok(Stack { dftx, .. }) => {
-                    match dftx {
-                        DfTx::CreateMasternode(data) => data.invalidate(services, &ctx)?,
-                        DfTx::UpdateMasternode(data) => data.invalidate(services, &ctx)?,
-                        DfTx::ResignMasternode(data) => data.invalidate(services, &ctx)?,
-                        DfTx::AppointOracle(data) => data.invalidate(services, &ctx)?,
-                        DfTx::RemoveOracle(data) => data.invalidate(services, &ctx)?,
-                        DfTx::UpdateOracle(data) => data.invalidate(services, &ctx)?,
-                        DfTx::SetOracleData(data) => data.invalidate(services, &ctx)?,
-                        DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?,
-                        DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
-                        DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
-                        DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
-                       
-                        _ => (),
-                    }
-                    
-                }
+                Ok(Stack { dftx, .. }) => match dftx {
+                    DfTx::CreateMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::UpdateMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::ResignMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::AppointOracle(data) => data.invalidate(services, &ctx)?,
+                    DfTx::RemoveOracle(data) => data.invalidate(services, &ctx)?,
+                    DfTx::UpdateOracle(data) => data.invalidate(services, &ctx)?,
+                    DfTx::SetOracleData(data) => data.invalidate(services, &ctx)?,
+                    DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?,
+                    DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
+                    DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
+                    DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
+
+                    _ => (),
+                },
             }
         }
     }
-    invalidate_block_start(services, block)?;
+    invalidate_block_start(services, block.clone())?;
+    invalidate_block_end(services, block)?;
     Ok(())
 }
 
