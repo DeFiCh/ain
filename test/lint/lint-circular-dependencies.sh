@@ -43,6 +43,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/consensus/poolpairs -> dfi/mn_checks -> dfi/consensus/poolpairs"
     "dfi/consensus/proposals -> dfi/mn_checks -> dfi/consensus/proposals"
     "dfi/consensus/smartcontracts -> dfi/mn_checks -> dfi/consensus/smartcontracts"
+    "dfi/consensus/tokenlock -> dfi/mn_checks -> dfi/consensus/tokenlock"
     "dfi/consensus/tokens -> dfi/mn_checks -> dfi/consensus/tokens"
     "dfi/consensus/vaults -> dfi/mn_checks -> dfi/consensus/vaults"
     "dfi/consensus/xvm -> dfi/mn_checks -> dfi/consensus/xvm"

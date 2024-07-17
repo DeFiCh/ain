@@ -2701,7 +2701,6 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
 static Res PaybackLoanWithTokenOrDUSDCollateral(
     CCustomCSView &mnview,
     BlockContext &blockCtx,
-    const CScript &from,
     const CVaultId &vaultId,
     CAmount wantedPaybackAmount,  // in loanToken, or DUSD if useDUSDCollateral
     const DCT_ID &loanTokenId,
@@ -2827,7 +2826,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
     if (!res) {
         return res;
     }
-
+    const auto from = vault->ownerAddress;
     mnview.CalculateOwnerRewards(from, height);
 
     if (!useDUSDCollateral || loanTokenId == dusdToken->first) {
@@ -3117,7 +3116,7 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         LogPrintf("adding %s DUSD to vault %s\n", GetDecimalString(dusdResult.nValue), data.vaultId.ToString());
         for (const auto &loan : data.loansWithUSDValue) {
             PaybackLoanWithTokenOrDUSDCollateral(
-                cache, blockCtx, {}, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
+                cache, blockCtx, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
             dusdResult.nValue -= loan.second;
             if (dusdResult.nValue <= 0) {
                 break;
@@ -3131,14 +3130,6 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     }
     return true;
 }
-
-//implemented in loans.h but not included to prevent circular dependency
-//maybe we do not even need that, but use our own payback, since we have "payback loan with DUSD collateral" anyway
-Res PaybackWithCollateral(CCustomCSView &view,
-                          const CVaultData &vault,
-                          const CVaultId &vaultId,
-                          uint32_t height,
-                          uint64_t time);
 
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
@@ -3159,7 +3150,8 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
             // no dusd loan
             return true;
         }
-        auto res = PaybackWithCollateral(cache, vault, vaultId, pindex->nHeight, pindex->nTime);
+        auto res = PaybackLoanWithTokenOrDUSDCollateral(
+            cache, blockCtx, vaultId, collAmounts->balances.at(dUsdToken->first), dUsdToken->first, true);
         if (!res) {
             // FIXME: throw error?
             return false;
@@ -3170,23 +3162,23 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     // payback all loans: first owner balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
 
-    std::vector<std::tuple<CScript, CVaultId, CAmount, DCT_ID>> directPaybacks;
+    std::vector<std::tuple<CVaultId, CAmount, DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto owner = cache.GetVault(vaultId)->ownerAddress;
         for (const auto &[tokenId, amount] : balances.balances) {
             auto balance = cache.GetBalance(owner, tokenId);
             if (balance.nValue > 0) {
-                directPaybacks.emplace_back(std::make_tuple(owner, vaultId, balance.nValue, tokenId));
+                directPaybacks.emplace_back(std::make_tuple(vaultId, balance.nValue, tokenId));
             }
         }
         return true;
     });
-    for (const auto &[owner, vaultId, amount, tokenId] : directPaybacks) {
-        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, false);
+    for (const auto &[vaultId, amount, tokenId] : directPaybacks) {
+        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, false);
     }
 
     // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
-    std::vector<std::tuple<CScript, CVaultId, CAmount, DCT_ID>> dusdPaybacks;
+    std::vector<std::tuple<CVaultId, CAmount, DCT_ID>> dusdPaybacks;
     std::set<DCT_ID> allUsedCollaterals;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto colls = cache.GetVaultCollaterals(vaultId);
@@ -3194,17 +3186,15 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
             allUsedCollaterals.insert(collId);
         }
         if (colls->balances.count(dUsdToken->first)) {
-            auto owner = cache.GetVault(vaultId)->ownerAddress;
             for (const auto &[tokenId, amount] : balances.balances) {
-                dusdPaybacks.emplace_back(
-                    std::make_tuple(owner, vaultId, colls->balances.at(dUsdToken->first), tokenId));
+                dusdPaybacks.emplace_back(std::make_tuple(vaultId, colls->balances.at(dUsdToken->first), tokenId));
             }
         }
         return true;
     });
-    for (const auto &[owner, vaultId, amount, tokenId] : dusdPaybacks) {
+    for (const auto &[vaultId, amount, tokenId] : dusdPaybacks) {
         // for multiple loans, the method fails/reduces used amount if no more collateral left
-        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, owner, vaultId, amount, tokenId, true);
+        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, true);
     }
 
     // get possible collaterals from gateway pools
