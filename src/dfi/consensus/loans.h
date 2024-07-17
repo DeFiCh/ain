@@ -34,6 +34,5 @@ public:
     Res operator()(const CLoanPaybackLoanV2Message &obj) const;
     Res operator()(const CPaybackWithCollateralMessage &obj) const;
 };
-                                 
-#endif  // DEFI_DFI_CONSENSUS_LOANS_H
 
+#endif  // DEFI_DFI_CONSENSUS_LOANS_H

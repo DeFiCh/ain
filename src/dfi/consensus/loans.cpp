@@ -24,7 +24,7 @@ static bool IsPaybackWithCollateral(CCustomCSView &view, const std::map<DCT_ID, 
     return false;
 }
 
-Res PaybackWithCollateral(CCustomCSView &view,
+static Res PaybackWithCollateral(CCustomCSView &view,
                                  const CVaultData &vault,
                                  const CVaultId &vaultId,
                                  uint32_t height,

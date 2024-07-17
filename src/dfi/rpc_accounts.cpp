@@ -3478,8 +3478,8 @@ UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
 }
 
 static const CRPCCommand commands[] = {
-    //  category       name                     actor (function)        params
-    //  -------------  ------------------------ ----------------------  ----------
+  //  category       name                     actor (function)        params
+  //  -------------  ------------------------ ----------------------  ----------
     {"accounts", "listaccounts",           &listaccounts,           {"pagination", "verbose", "indexed_amounts", "is_mine_only"}},
     {"accounts", "getaccount",             &getaccount,             {"owner", "pagination", "indexed_amounts"}                  },
     {"accounts",
