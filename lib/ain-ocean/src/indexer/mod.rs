@@ -12,8 +12,6 @@ pub mod helper;
 
 use std::{collections::HashMap, sync::Arc, time::Instant};
 
-use std::{sync::Arc, time::Instant};
-
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
@@ -467,7 +465,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
     Ok(())
 }
 
-fn index_block_end(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
     loan_token::index_active_price(services, block)?;
     Ok(())
 }
@@ -574,7 +572,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         .put(&block_ctx.height, &block_hash)?;
 
     //index block end
-    index_block_end(services, &block)?;
+    index_block_end(services, &block_ctx)?;
 
     Ok(())
 }
