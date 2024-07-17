@@ -678,7 +678,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
-    gArgs.AddArg("-mintargetmultiplier", strprintf("The minimum target multiplier to stake (default: %d)", DEFAULT_MIN_TARGET_MULTIPLIER), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-minerstrategy", "Staking optimisation. Options are none, numeric value indicating the number of subnodes to stake (default: none)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);

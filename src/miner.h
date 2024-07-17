@@ -36,8 +36,6 @@ static const bool DEFAULT_GENERATE = false;
 
 static const bool DEFAULT_PRINTPRIORITY = false;
 
-static constexpr uint64_t DEFAULT_MIN_TARGET_MULTIPLIER = 1;
-
 extern TxOrderings txOrdering;
 
 struct CBlockTemplate {

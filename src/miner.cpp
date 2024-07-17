@@ -1414,7 +1414,7 @@ namespace pos {
     }
 
     void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> &wallets,
-                              const uint64_t minTargetMultiplier,
+                              const int subnodeCount,
                               const int blockHeight) {
         std::set<std::string> operatorsSet;
         auto operators = gArgs.GetArgs("-masternode_operator");
@@ -1429,6 +1429,8 @@ namespace pos {
                 LOCK(cs_main);
 
                 std::vector<ThreadStaker::Args> newStakersParams;
+                std::multimap<uint64_t, ThreadStaker::Args> targetMultiplierMap;
+
                 for (const auto &op : operators) {
                     // Do not process duplicate operator option
                     if (operatorsSet.count(op)) {
@@ -1515,13 +1517,38 @@ namespace pos {
                         const auto targetMultiplier =
                             CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).GetLow64();
 
-                        if (targetMultiplier < minTargetMultiplier) {
-                            continue;
-                        }
-
                         stakerParams.subNode = i;
 
-                        newStakersParams.push_back(std::move(stakerParams));
+                        targetMultiplierMap.emplace(targetMultiplier, stakerParams);
+                    }
+                }
+
+                auto remainingSubNodes = subnodeCount;
+                for (uint32_t key{57}; key > 0; --key) {
+                    if (targetMultiplierMap.count(key) < remainingSubNodes) {
+                        auto range = targetMultiplierMap.equal_range(key);
+                        for (auto it = range.first; it != range.second; ++it) {
+                            newStakersParams.push_back(it->second);
+                            --remainingSubNodes;
+                        }
+                    } else {
+                        // Store elements in a temporary vector
+                        std::vector<ThreadStaker::Args> temp;
+                        auto range = targetMultiplierMap.equal_range(key);
+                        for (auto it = range.first; it != range.second; ++it) {
+                            temp.push_back(it->second);
+                        }
+
+                        // Shuffle the elements
+                        std::random_device rd;
+                        std::default_random_engine rng(rd());
+                        std::shuffle(temp.begin(), temp.end(), rng);
+
+                        // Select the desired number of elements
+                        for (size_t i{}; i < remainingSubNodes; ++i) {
+                            newStakersParams.push_back(temp[i]);
+                        }
+                        break;
                     }
                 }
 
@@ -1542,16 +1569,16 @@ namespace pos {
             return false;
         }
 
-        const auto minTargetMultiplier = gArgs.GetArg("-mintargetmultiplier", DEFAULT_MIN_TARGET_MULTIPLIER);
-        if (minTargetMultiplier > 57) {
-            LogPrintf("Minimum target multiplier cannot be more than 57. -mintargetmultiplier set to %d\n",
-                      minTargetMultiplier);
-            return false;
+        const auto minerStrategy = gArgs.GetArg("-minerstrategy", "none");
+        std::size_t charsParsed;
+        auto subnodeCount = std::stoi(minerStrategy, &charsParsed);
+        if (charsParsed != minerStrategy.length()) {
+            subnodeCount = std::numeric_limits<int>::max();
         }
 
         // Run staking manager thread
         threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStakerManager", [&]() {
-            stakingManagerThread(wallets, minTargetMultiplier, blockHeight);
+            stakingManagerThread(wallets, subnodeCount, blockHeight);
         });
 
         // Mint proof-of-stake blocks in background
