@@ -420,7 +420,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         AddSplitEVMTxs(blockCtx, splitMap);
     }
 
-    if (nHeight == chainparams.GetConsensus().DF24Height) {
+    if (nHeight == chainparams.GetConsensus().DF25Height) {
         // Add token lock creations TXs: duplicate code from AddSplitDVMTxs.
         // TODO: refactor
 

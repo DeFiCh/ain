@@ -283,7 +283,7 @@ public:
         } else if constexpr (IsOneOf<T, CTransferDomainMessage, CEvmTxMessage>()) {
             return IsHardforkEnabled(consensus.DF22MetachainHeight);
         } else if constexpr (IsOneOf<T, CReleaseLockMessage>()) {
-            return IsHardforkEnabled(consensus.DF24Height);
+            return IsHardforkEnabled(consensus.DF25Height);
         } else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>()) {
             return Res::Ok();
         } else {

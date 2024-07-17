@@ -1783,7 +1783,7 @@ static Res PoolSplits(CCustomCSView &view,
 
             ConsolidateRewards(view, pindex->nHeight, balancesToMigrate, false, nWorkers);
 
-            bool isOptimizedSplitLogic = pindex->nHeight >= consensus.DF24Height;
+            bool isOptimizedSplitLogic = pindex->nHeight >= consensus.DF25Height;
             CAmount oldTotalLiquidityInShares = 0;
             CAmount newTotalLiquidityInShares = 0;
             if (isOptimizedSplitLogic) {
@@ -2575,7 +2575,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         });
 
         // convert lock values
-        if (pindex->nHeight >= consensus.DF24Height) {
+        if (pindex->nHeight >= consensus.DF25Height) {
             auto multi = multiplier;
             auto oldId = id;
             view.ForEachTokenLockUserValues([&](const auto &key, const auto &value) {
@@ -3580,7 +3580,7 @@ static void ProcessTokenLock(const CBlock &block,
                              CCustomCSView &cache,
                              BlockContext &blockCtx) {
     const auto &consensus = blockCtx.GetConsensus();
-    if (pindex->nHeight != consensus.DF24Height) {
+    if (pindex->nHeight != consensus.DF25Height) {
         return;
     }
 
@@ -4228,7 +4228,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     CCustomCSView cache(mnview);
 
     // one time upgrade to lock away 90% of dToken supply
-    if (pindex->nHeight == chainparams.GetConsensus().DF24Height) {
+    if (pindex->nHeight == chainparams.GetConsensus().DF25Height) {
         auto time = GetTimeMillis();
         LogPrintf("locking dToken oversupply ...\n");
         ProcessTokenLock(block, pindex, cache, blockCtx);
