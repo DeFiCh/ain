@@ -277,19 +277,13 @@ async fn get_loan_token(
     Ok(Response::new(token.unwrap()))
 }
 
-#[ocean_endpoint]
-async fn list_vaults(
-    Query(query): Query<PaginationQuery>,
-    Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<VaultResponse>> {
-    let option = ListVaultOptions {
-        verbose: Some(true),
-        owner_address: None,
-        loan_scheme_id: None,
-        state: None,
-    };
+pub async fn get_all_vaults(
+    ctx: &Arc<AppContext>,
+    options: ListVaultOptions,
+    query: &PaginationQuery,
+) -> Result<Vec<VaultResponse>> {
     let pagination = VaultPagination {
-        start: query.next,
+        start: query.next.to_owned(),
         including_start: None,
         limit: if query.size > 30 {
             Some(30)
@@ -297,19 +291,36 @@ async fn list_vaults(
             Some(query.size)
         },
     };
-    let vaults = ctx.client.list_vaults(option, pagination).await?;
+
+    let vaults = ctx.client.list_vaults(options, pagination).await?;
     let mut list = Vec::new();
     for vault in vaults {
         let each = match vault {
             VaultResult::VaultActive(vault) => {
-                VaultResponse::Active(map_vault_active(&ctx, vault).await?)
+                VaultResponse::Active(map_vault_active(ctx, vault).await?)
             }
             VaultResult::VaultLiquidation(vault) => {
-                VaultResponse::Liquidated(map_vault_liquidation(&ctx, vault).await?)
+                VaultResponse::Liquidated(map_vault_liquidation(ctx, vault).await?)
             }
         };
         list.push(each)
     }
+
+    Ok(list)
+}
+
+#[ocean_endpoint]
+async fn list_vaults(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<VaultResponse>> {
+    let options = ListVaultOptions {
+        verbose: Some(true),
+        owner_address: None,
+        loan_scheme_id: None,
+        state: None,
+    };
+    let list = get_all_vaults(&ctx, options, &query).await?;
 
     Ok(ApiPagedResponse::of(list, query.size, |each| match each {
         VaultResponse::Active(vault) => vault.vault_id.clone(),
@@ -327,8 +338,8 @@ struct LoanScheme {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct VaultActiveResponse {
-    vault_id: String,
+pub struct VaultActiveResponse {
+    pub vault_id: String,
     loan_scheme: LoanScheme,
     owner_address: String,
     #[serde(default = "VaultState::Active")]
@@ -389,7 +400,7 @@ async fn map_vault_liquidation(
     })
 }
 
-enum VaultResponse {
+pub enum VaultResponse {
     Active(VaultActiveResponse),
     Liquidated(VaultLiquidatedResponse),
 }
