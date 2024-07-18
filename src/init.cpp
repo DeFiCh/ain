@@ -540,6 +540,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-ethstartstate", strprintf("Initialise Ethereum state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-enablesnapshots", strprintf("Whether to enable snapshot on each block (default: %u)", DEFAULT_SNAPSHOT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-ascendingstaketime", strprintf("Test staking forward in time from the current block"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
@@ -2260,6 +2261,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
         block_notify_genesis_wait_connection.disconnect();
     }
+
+    // Set snapshot now chain has loaded
+    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB, pvaultHistoryDB);
+
 
     if (ShutdownRequested()) {
         return false;

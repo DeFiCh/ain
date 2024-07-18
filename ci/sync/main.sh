@@ -22,7 +22,7 @@ setup_vars() {
     REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${REF_LOG_DIR}/${REF_LOG}"
 
     # Commands
-    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
+    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -ethdebug=1 -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
     DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR}"
     FETCH="aria2c -x16 -s16"
     GREP="grep"
@@ -71,6 +71,8 @@ print_info() {
     ${DEFI_CLI_CMD} listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
     ${DEFI_CLI_CMD} listtokens '{\"limit\":1000000}'
     ${DEFI_CLI_CMD} getburninfo
+    ${DEFI_CLI_CMD} listgovs
+    ${DEFI_CLI_CMD} logevmaccountstates
 
   - defi.conf:
     $(cat "$CONF_FILE")
@@ -91,6 +93,10 @@ get_full_log() {
     $DEFI_CLI_CMD listtokens '{"limit":1000000}'
     echo "-- getburninfo --"
     $DEFI_CLI_CMD getburninfo
+    echo "-- listgovs --"
+    $DEFI_CLI_CMD listgovs
+    echo "-- logevmaccountstates --"
+    $DEFI_CLI_CMD logevmaccountstates
 }
 
 rollback_and_log() {
@@ -105,7 +111,7 @@ rollback_and_log() {
 
 create_pre_sync_rollback_log() {
     local DATADIR_ROLLBACK="${DATADIR}-rollback"
-    local DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR_ROLLBACK} -daemon -debug=accountchange -spv -rpcport=9999 -port=9998 -connect=0 -checkpoints=0 -interrupt-block=$((START_BLOCK + 1))"
+    local DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR_ROLLBACK} -daemon -debug=accountchange -ethdebug=1 -spv -rpcport=9999 -port=9998 -connect=0 -checkpoints=0 -interrupt-block=$((START_BLOCK + 1))"
     local DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR_ROLLBACK} -rpcport=9999"
     local DEBUG_FILE="${DATADIR_ROLLBACK}/debug.log"
 

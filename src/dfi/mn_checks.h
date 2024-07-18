@@ -221,7 +221,7 @@ public:
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
-Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &type, UniValue &results);
+Res RpcInfo(CCustomCSView &view, const CTransaction &tx, uint32_t height, CustomTxType &type, UniValue &results);
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,
                         const std::vector<unsigned char> &metadata,

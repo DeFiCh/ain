@@ -362,8 +362,12 @@ public:
         return new CDBIterator(*this, pdb->NewIterator(readOptions));
     }
 
-    [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetStorageSnapshot() const {
-        return std::make_shared<CStorageSnapshot>(pdb);
+    [[nodiscard]] const leveldb::Snapshot* CreateLevelDBSnapshot() const {
+        return pdb->GetSnapshot();
+    }
+
+    void ReleaseSnapshot(const leveldb::Snapshot* snapshot) const {
+        pdb->ReleaseSnapshot(snapshot);
     }
 
     /**

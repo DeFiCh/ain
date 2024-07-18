@@ -1,6 +1,7 @@
-#include <dfi/mn_rpc.h>
-
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
+#include <dfi/mn_rpc.h>
+#include <dfi/vaulthistory.h>
 
 #include <index/txindex.h>
 
@@ -138,6 +139,7 @@ UniValue createtoken(const JSONRPCRequest &request) {
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
+    auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(pwallet,
@@ -146,6 +148,7 @@ UniValue createtoken(const JSONRPCRequest &request) {
                                    metaObj["isDAT"].getBool(),
                                    optAuthTx,
                                    txInputs,
+                                   *view,
                                    request.metadata.coinSelectOpts);
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
@@ -259,11 +262,13 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     CTokenImplementation tokenImpl;
     CTxDestination ownerDest;
     CScript owner;
-    int targetHeight;
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     {
-        LOCK(cs_main);
         DCT_ID id;
-        auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
+        auto token = view->GetTokenGuessId(tokenStr, id);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
@@ -283,7 +288,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                                strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
         }
         owner = authCoin.out.scriptPubKey;
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     if (!metaObj["symbol"].isNull()) {
@@ -323,9 +327,9 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
         // before DF2BayfrontHeight it needs only founders auth
         rawTx.vin = GetAuthInputsSmart(
-            pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+            pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
     } else {  // post-bayfront auth
-        const auto attributes = pcustomcsview->GetAttributes();
+        const auto attributes = view->GetAttributes();
         std::set<CScript> databaseMembers;
         if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                                  false)) {
@@ -338,11 +342,11 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
         if (isFoundersToken) {  // need any founder's auth
             rawTx.vin = GetAuthInputsSmart(
-                pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+                pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
         } else {  // "common" auth
             auths.insert(owner);
             rawTx.vin = GetAuthInputsSmart(
-                pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+                pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
         }
     }
 
@@ -491,12 +495,12 @@ UniValue listtokens(const JSONRPCRequest &request) {
         }
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     UniValue ret(UniValue::VOBJ);
-    pcustomcsview->ForEachToken(
-        [&](DCT_ID const &id, CTokenImplementation token) {
-            ret.pushKVs(tokenToJSON(*pcustomcsview, id, token, verbose));
+    view->ForEachToken(
+        [&, &view = view](DCT_ID const &id, CTokenImplementation token) {
+            ret.pushKVs(tokenToJSON(*view, id, token, verbose));
 
             limit--;
             return limit != 0;
@@ -522,12 +526,12 @@ UniValue gettoken(const JSONRPCRequest &request) {
         return *res;
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     DCT_ID id;
-    auto token = pcustomcsview->GetTokenGuessId(request.params[0].getValStr(), id);
+    auto token = view->GetTokenGuessId(request.params[0].getValStr(), id);
     if (token) {
-        auto res = tokenToJSON(*pcustomcsview, id, *token, true);
+        auto res = tokenToJSON(*view, id, *token, true);
         return GetRPCResultCache().Set(request, res);
     }
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
@@ -617,22 +621,18 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         }
     }
 
-    int nHeight{0};
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto nHeight = view->GetLastHeight() + 1;
     bool actualHeight{false};
     CustomTxType guess;
     UniValue txResults(UniValue::VOBJ);
     Res res{};
 
     if (tx) {
-        LOCK(cs_main);
-
         // Found a block hash but no block index yet
         if (!hashBlock.IsNull() && !blockindex) {
             blockindex = LookupBlockIndex(hashBlock);
         }
-
-        // Default to next block height
-        nHeight = ::ChainActive().Height() + 1;
 
         // Get actual height if blockindex avaiable
         if (blockindex) {
@@ -645,7 +645,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
             return "Coinbase transaction. Not a custom transaction.";
         }
 
-        res = RpcInfo(*tx, nHeight, guess, txResults);
+        res = RpcInfo(*view, *tx, nHeight, guess, txResults);
         if (guess == CustomTxType::None) {
             return "Not a custom transaction";
         }
@@ -661,10 +661,10 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
     if (!actualHeight) {
         LOCK(cs_main);
         BlockContext blockCtx(nHeight, ::ChainActive().Tip()->nTime, Params().GetConsensus());
-        CCoinsViewCache view(&::ChainstateActive().CoinsTip());
+        CCoinsViewCache coins(&::ChainstateActive().CoinsTip());
 
         auto txCtx = TransactionContext{
-            view,
+            coins,
             *tx,
             blockCtx,
         };
@@ -687,13 +687,11 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
     }
 
     if (!hashBlock.IsNull()) {
-        LOCK(cs_main);
-
         result.pushKV("blockhash", hashBlock.GetHex());
         if (blockindex) {
             result.pushKV("blockHeight", blockindex->nHeight);
             result.pushKV("blockTime", blockindex->GetBlockTime());
-            result.pushKV("confirmations", 1 + ::ChainActive().Height() - blockindex->nHeight);
+            result.pushKV("confirmations", 1 + view->GetLastHeight() - blockindex->nHeight);
         } else {
             result.pushKV("confirmations", 0);
         }
@@ -791,13 +789,15 @@ UniValue minttokens(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
 
+    auto [view, accountView, vaultView] = GetSnapshots();
+
     // auth
     std::set<CScript> auths;
     auto needFoundersAuth{false};
     if (txInputs.isNull() || txInputs.empty()) {
         LOCK(cs_main);  // needed for coins tip
         for (const auto &[id, amount] : minted.balances) {
-            const auto token = pcustomcsview->GetToken(id);
+            const auto token = view->GetToken(id);
             if (!token) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", id.ToString()));
             }
@@ -815,7 +815,7 @@ UniValue minttokens(const JSONRPCRequest &request) {
     }
 
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, needFoundersAuth, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::MintToken) << mintTokensMessage;
@@ -917,6 +917,8 @@ UniValue burntokens(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, argument \"amounts\" must not be null");
     }
 
+    auto [view, accountView, vaultView] = GetSnapshots();
+
     if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
         if (burnedTokens.from.empty()) {
             throw JSONRPCError(
@@ -944,8 +946,8 @@ UniValue burntokens(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
 
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::BurnToken) << burnedTokens;
@@ -1019,7 +1021,7 @@ UniValue decodecustomtx(const JSONRPCRequest &request) {
     std::string warnings;
 
     if (tx) {
-        LOCK(cs_main);
+        auto [view, accountView, vaultView] = GetSnapshots();
 
         // Skip coinbase TXs except for genesis block
         if (tx->IsCoinBase()) {
@@ -1027,7 +1029,7 @@ UniValue decodecustomtx(const JSONRPCRequest &request) {
         }
         // get custom tx info. We pass nHeight INT_MAX,
         // just to get over hardfork validations. txResults are based on transaction metadata.
-        res = RpcInfo(*tx, std::numeric_limits<int>::max(), guess, txResults);
+        res = RpcInfo(*view, *tx, std::numeric_limits<int>::max(), guess, txResults);
         if (guess == CustomTxType::None) {
             return "Not a custom transaction";
         }

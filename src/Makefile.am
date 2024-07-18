@@ -204,6 +204,7 @@ DEFI_CORE_H = \
   dfi/oracles.h \
   dfi/poolpairs.h \
   dfi/proposals.h \
+  dfi/snapshotmanager.h \
   dfi/tokens.h \
   dfi/threadpool.h \
   dfi/coinselect.h \
@@ -461,6 +462,7 @@ libdefi_server_a_SOURCES = \
   dfi/rpc_tokens.cpp \
   dfi/rpc_vault.cpp \
   dfi/skipped_txs.cpp \
+  dfi/snapshotmanager.cpp \
   dfi/tokens.cpp \
   dfi/threadpool.cpp \
   dfi/undos.cpp \

@@ -79,6 +79,7 @@ static constexpr CAmount COIN = 100000000;
 static constexpr CAmount CENT = 1000000;
 static constexpr int64_t WEI_IN_GWEI    = 1000000000;
 static constexpr int64_t CAMOUNT_TO_GWEI = 10;
+static constexpr CAmount HIGH_PRECISION_SCALER = COIN * COIN;  // 1,0000,0000,0000,0000
 
 //Converts the given value to decimal format string with COIN precision.
 inline std::string GetDecimalString(CAmount nValue)
