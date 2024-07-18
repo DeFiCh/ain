@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -60,7 +60,7 @@ async fn list_prices(
                 .price_ticker
                 .by_id
                 .get(&id)?
-                .ok_or("Missing price ticker index")?;
+                .context("Missing price ticker index")?;
 
             let original_amount = price_ticker.price.aggregated.amount;
             let amount_decimal = Decimal::from_str(&original_amount).unwrap_or_default();

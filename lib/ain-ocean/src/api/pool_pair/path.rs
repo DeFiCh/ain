@@ -1,6 +1,6 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
-use anyhow::format_err;
+use anyhow::{format_err, Context};
 use defichain_rpc::json::poolpair::PoolPairInfo;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -431,14 +431,11 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
                 };
         } else {
             pool.token_a.id.clone_into(&mut from_token_id);
-            price_ratio =
-                Decimal::from_str(pool.price_ratio.ab.as_str()).map_err(|e| format_err!(e))?;
+            price_ratio = Decimal::from_str(pool.price_ratio.ab.as_str())?;
             (from_token_fee_pct, to_token_fee_pct) =
                 if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())
-                        .map_err(|e| format_err!(e))?;
-                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())
-                        .map_err(|e| format_err!(e))?;
+                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())?;
+                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())?;
                     (Some(ab), Some(ba))
                 } else {
                     (None, None)
@@ -447,41 +444,40 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
 
         estimated_return = estimated_return
             .checked_mul(price_ratio)
-            .ok_or_else(|| format_err!("estimated_return overflow"))?;
+            .context("estimated_return overflow")?;
 
         // less commission fee
-        let commission_fee_in_pct =
-            Decimal::from_str(pool.commission_fee_in_pct.as_str()).map_err(|e| format_err!(e))?;
+        let commission_fee_in_pct = Decimal::from_str(pool.commission_fee_in_pct.as_str())?;
         let commission_fee = estimated_return_less_dex_fees
             .checked_mul(commission_fee_in_pct)
-            .ok_or_else(|| format_err!("commission_fee overflow"))?;
+            .context("commission_fee overflow")?;
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(commission_fee)
-            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+            .context("estimated_return_less_dex_fees underflow")?;
 
         // less dex fee from_token
         let from_token_estimated_dex_fee = from_token_fee_pct
             .unwrap_or_default()
             .checked_mul(estimated_return_less_dex_fees)
-            .ok_or_else(|| format_err!("from_token_fee_pct overflow"))?;
+            .context("from_token_fee_pct overflow")?;
 
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(from_token_estimated_dex_fee)
-            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+            .context("estimated_return_less_dex_fees underflow")?;
 
         // convert to to_token
         let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees
             .checked_mul(price_ratio)
-            .ok_or_else(|| format_err!("from_token_estimated_return_less_dex_fee overflow"))?;
+            .context("from_token_estimated_return_less_dex_fee overflow")?;
         let to_token_estimated_dex_fee = to_token_fee_pct
             .unwrap_or_default()
             .checked_mul(from_token_estimated_return_less_dex_fee)
-            .ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?;
+            .context("to_token_estimated_dex_fee overflow")?;
 
         // less dex fee to_token
         estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee
             .checked_sub(to_token_estimated_dex_fee)
-            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+            .context("estimated_return_less_dex_fees underflow")?;
     }
 
     Ok(EstimatedLessDexFeeInfo {

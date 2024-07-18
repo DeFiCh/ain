@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{BlockHash, Txid};
 use rust_decimal::Decimal;
@@ -95,9 +95,7 @@ async fn list_blocks(
         .next
         .as_ref()
         .map(|q| {
-            let height = q
-                .parse::<u32>()
-                .map_err(|_| format_err!("Invalid height"))?;
+            let height = q.parse::<u32>().context("Invalid height")?;
             Ok::<u32, Error>(height)
         })
         .transpose()?;
@@ -142,9 +140,7 @@ async fn get_transactions(
     let next = query.next.as_ref().map_or(
         Ok(TransactionByBlockHashRepository::initial_key(hash)),
         |q| {
-            let height = q
-                .parse::<usize>()
-                .map_err(|_| format_err!("Invalid height"))?;
+            let height = q.parse::<usize>().context("Invalid height")?;
             Ok::<(BlockHash, usize), Error>((hash, height))
         },
     )?;

@@ -4,7 +4,7 @@ use std::{
 };
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     json::{
@@ -211,9 +211,10 @@ impl PoolPairResponse {
         apr: PoolPairAprResponse,
         volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
-        let parts = p.symbol.split('-').collect::<Vec<&str>>();
-        let [a, b] = <[&str; 2]>::try_from(parts)
-            .map_err(|_| format_err!("Invalid pool pair symbol structure"))?;
+        let mut parts = p.symbol.split('-');
+        let a = parts.next().context("Missing symbol a")?;
+        let b = parts.next().context("Missing symbol b")?;
+
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
 
@@ -302,7 +303,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_a)
                 .await?
-                .ok_or(format_err!("None is not valid"))?;
+                .context("None is not valid")?;
             let (
                 _,
                 TokenInfo {
@@ -310,7 +311,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_b)
                 .await?
-                .ok_or(format_err!("None is not valid"))?;
+                .context("None is not valid")?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let apr = get_apr(&ctx, &id, &p).await?;
@@ -351,7 +352,7 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_a)
             .await?
-            .ok_or(format_err!("None is not valid"))?;
+            .context("None is not valid")?;
         let (
             _,
             TokenInfo {
@@ -359,7 +360,7 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_b)
             .await?
-            .ok_or(format_err!("None is not valid"))?;
+            .context("None is not valid")?;
         let res = PoolPairResponse::from_with_id(
             id,
             pool,
