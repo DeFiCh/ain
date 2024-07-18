@@ -6,9 +6,6 @@
 #ifndef DEFI_SHUTDOWN_H
 #define DEFI_SHUTDOWN_H
 
-#include <condition_variable>
-#include <mutex>
-
 void StartShutdown();
 void AbortShutdown();
 bool ShutdownRequested();
