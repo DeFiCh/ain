@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::{format_err, Context};
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -130,7 +130,7 @@ async fn list_collateral_token(
         .map(|v| async {
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
-                .ok_or(format_err!("None is not valid"))?;
+                .context("None is not valid")?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info))
         })
         .collect::<Vec<_>>();
@@ -150,7 +150,7 @@ async fn get_collateral_token(
     let collateral_token = ctx.client.get_collateral_token(token_id).await?;
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
-        .ok_or(format_err!("None is not valid"))?;
+        .context("None is not valid")?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
@@ -203,9 +203,14 @@ async fn list_loan_token(
         })
         .map(|flatten_token| {
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
-            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
-            let [token, currency] = <[&str; 2]>::try_from(parts)
-                .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
+            let mut parts = fixed_interval_price_id.split('/');
+
+            let token = parts
+                .next()
+                .context("Invalid fixed interval price id structure")?;
+            let currency = parts
+                .next()
+                .context("Invalid fixed interval price id structure")?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -246,9 +251,13 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let parts = fixed_interval_price_id.split('/').collect::<Vec<&str>>();
-            let [token, currency] = <[&str; 2]>::try_from(parts)
-                .map_err(|_| format_err!("Invalid fixed interval price id structure"))?;
+            let mut parts = fixed_interval_price_id.split('/');
+            let token = parts
+                .next()
+                .context("Invalid fixed interval price id structure")?;
+            let currency = parts
+                .next()
+                .context("Invalid fixed interval price id structure")?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -604,10 +613,11 @@ async fn map_token_amounts(
         .into_iter()
         .map(|amount| {
             let amount = amount.to_owned();
-            let parts = amount.split('@').collect::<Vec<&str>>();
-            let [amount, token_symbol] = <[&str; 2]>::try_from(parts)
-                .map_err(|_| format_err!("Invalid amount structure"))?;
-            Ok([amount.to_string(), token_symbol.to_string()])
+            let mut parts = amount.split('@');
+
+            let amount = parts.next().context("Invalid amount structure")?;
+            let token_symbol = parts.next().context("Invalid amount structure")?;
+            Ok::<[String; 2], Error>([amount.to_string(), token_symbol.to_string()])
         })
         .collect::<Result<Vec<_>>>()?;
 

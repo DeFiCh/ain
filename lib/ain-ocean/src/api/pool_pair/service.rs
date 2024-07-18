@@ -148,9 +148,9 @@ async fn get_total_liquidity_usd_by_best_path(
 }
 
 pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
-    let parts = p.symbol.split('-').collect::<Vec<&str>>();
-    let [a, b] = <[&str; 2]>::try_from(parts)
-        .map_err(|_| format_err!("Invalid pool pair symbol structure"))?;
+    let mut parts = p.symbol.split('-');
+    let a = parts.next().context("Missing symbol a")?;
+    let b = parts.next().context("Missing symbol b")?;
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
@@ -194,11 +194,9 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
 
 fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Decimal> {
     let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
-        let parts = account.split('@').collect::<Vec<&str>>();
-        let [amount, token] = parts
-            .as_slice()
-            .try_into()
-            .context("Invalid amount structure")?;
+        let mut parts = account.split('@');
+        let amount = parts.next().context("Invalid amount structure")?;
+        let token = parts.next().context("Invalid amount structure")?;
 
         if token != "0" && token != "DFI" {
             return Ok(accumulate);
@@ -492,9 +490,8 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
 
     let dusd_pool = get_pool_pair(ctx, &info.symbol, "DUSD").await?;
     if let Some(p) = dusd_pool {
-        let parts = p.symbol.split('-').collect::<Vec<&str>>();
-        let [a, _] = <[&str; 2]>::try_from(parts)
-            .map_err(|_| format_err!("Invalid pool pair symbol structure"))?;
+        let mut parts = p.symbol.split('-');
+        let a = parts.next().context("Invalid pool pair symbol structure")?;
         let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).ok_or(Error::DecimalConversionError)?;
         if a == "DUSD" {

@@ -1,4 +1,4 @@
-use anyhow::format_err;
+use anyhow::Context;
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
@@ -56,7 +56,7 @@ pub fn to_script(address: &str, network: Network) -> crate::Result<ScriptBuf> {
 }
 
 pub fn address_to_hid(address: &str, network: Network) -> crate::Result<String> {
-    let script = to_script(address, network).map_err(|_| format_err!("InvalidDefiAddress"))?;
+    let script = to_script(address, network).context("InvalidDefiAddress")?;
     let bytes = script.to_bytes();
     Ok(as_sha256(bytes))
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use anyhow::format_err;
+use anyhow::Context;
 use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client,
@@ -133,9 +133,10 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
     let account_balance = if let AccountAmount::List(accounts) = accounts {
         for account in accounts {
-            let parts = account.split('@').collect::<Vec<&str>>();
-            let [amount, token_id] = <[&str; 2]>::try_from(parts)
-                .map_err(|_| format_err!("Invalid account structure"))?;
+            let mut parts = account.split('@');
+
+            let amount = parts.next().context("Missing amount")?;
+            let token_id = parts.next().context("Missing token_id")?;
 
             if token_id == "DFI" {
                 return Ok(Decimal::from_str(amount).unwrap_or_default());

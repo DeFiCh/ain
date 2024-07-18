@@ -138,10 +138,7 @@ async fn get_raw_tx(
             .client
             .get_raw_transaction_info(&tx_hash, None)
             .await
-            .map_err(|e| {
-                eprintln!("Failed to get raw transaction hex: {:?}", e);
-                Error::RpcError(e)
-            })?;
+            .map_err(Error::RpcError)?;
         let result = RawTransactionResult {
             in_active_chain: tx_info.in_active_chain,
             hex: tx_info.hex,

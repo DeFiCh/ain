@@ -3,7 +3,7 @@ use std::sync::Arc;
 mod state;
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
+use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -100,12 +100,8 @@ async fn list_masternodes(
         .next
         .as_ref()
         .map(|q| {
-            let height = q[0..8]
-                .parse::<u32>()
-                .map_err(|_| format_err!("Invalid height"))?;
-            let txid = q[8..]
-                .parse::<Txid>()
-                .map_err(|_| format_err!("Invalid txid"))?;
+            let height = q[0..8].parse::<u32>().context("Invalid height")?;
+            let txid = q[8..].parse::<Txid>().context("Invalid txid")?;
 
             Ok::<(u32, bitcoin::Txid), Error>((height, txid))
         })
