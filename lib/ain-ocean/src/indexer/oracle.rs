@@ -914,7 +914,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
         / (count_decimal + Decimal::from(1));
 
-    result.to_i32().unwrap_or_else(|| i32::MAX)
+    result.to_i32().unwrap_or(i32::MAX)
 }
 
 fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Decimal {
@@ -944,7 +944,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32
     let result = (last_value_decimal * count_decimal - new_value_decimal)
         / (count_decimal - Decimal::from(1));
 
-    result.to_i32().unwrap_or_else(|| 0)
+    result.to_i32().unwrap_or(0)
 }
 
 fn get_previous_oracle_history_list(
