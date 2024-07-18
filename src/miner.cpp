@@ -1585,7 +1585,15 @@ namespace pos {
         try {
             subnodeCount = std::stoi(minerStrategy);
         } catch (const std::invalid_argument &) {
+            // Expected for "none" value or other future non-numeric strategys
         } catch (const std::out_of_range &) {
+            LogPrintf("-minerstrategy out of range: too large to fit in an integer\n");
+            return false;
+        }
+
+        if (subnodeCount <= 0) {
+            LogPrintf("-minerstrategy must be set to more than 0\n");
+            return false;
         }
 
         // Run staking manager thread
