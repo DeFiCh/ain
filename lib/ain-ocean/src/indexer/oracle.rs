@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
+use anyhow::anyhow;
 use bitcoin::Txid;
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive, Zero},
@@ -140,18 +141,29 @@ impl Index for RemoveOracle {
             Ok(previous_oracle) => {
                 for oracle_history in &previous_oracle {
                     for price_feed_item in &oracle_history.price_feeds {
-                        let deletion_key = (
+                        let deletion_id = (
                             price_feed_item.token.to_owned(),
                             price_feed_item.currency.to_owned(),
                             oracle_history.oracle_id,
                         );
-                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                        let deletion_key = (
+                            price_feed_item.token.to_owned(),
+                            price_feed_item.currency.to_owned(),
+                            oracle_history.block.height,
+                        );
+                        match services.oracle_token_currency.by_id.delete(&deletion_id) {
                             Ok(_) => {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error: remove_oracle: {:?}", err);
-                                eprintln!("{}", error_message);
+                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
+                            }
+                        }
+                        match services.oracle_token_currency.by_key.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
                                 return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
@@ -159,9 +171,7 @@ impl Index for RemoveOracle {
                 }
             }
             Err(err) => {
-                let error_message = format!("Error: remove_oracle: {:?}", err);
-                eprintln!("{}", error_message);
-                return Err(Error::NotFound(NotFoundKind::Oracle));
+                return Err(Error::Other(anyhow!("remove oracle : {}", err)));
             }
         }
         Ok(())
@@ -169,7 +179,6 @@ impl Index for RemoveOracle {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
         let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-
         match previous_oracle_history_result {
             Ok(previous_oracle_history) => {
                 for previous_oracle in previous_oracle_history {
@@ -214,7 +223,6 @@ impl Index for RemoveOracle {
                 }
             }
             Err(err) => {
-                eprintln!("Error remove_oracle invalidate : {:?}", err);
                 return Err(Error::from(err));
             }
         }
@@ -260,8 +268,6 @@ impl Index for UpdateOracle {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error:update oracle: {:?}", err);
-                                eprintln!("{}", error_message);
                                 return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
@@ -275,8 +281,6 @@ impl Index for UpdateOracle {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error: update_oracle: {:?}", err);
-                                eprintln!("{}", error_message);
                                 return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
@@ -284,9 +288,7 @@ impl Index for UpdateOracle {
                 }
             }
             Err(err) => {
-                let error_message = format!("Error:update oracle: {:?}", err);
-                eprintln!("{}", error_message);
-                return Err(Error::NotFound(NotFoundKind::Oracle));
+                return Err(Error::Other(anyhow!("update oracle : {}", err)));
             }
         }
 
@@ -367,31 +369,47 @@ impl Index for UpdateOracle {
         match previous_oracle_history_result {
             Ok(previous_oracle_result) => {
                 for previous_oracle in previous_oracle_result {
-                    for price_feed_item in &previous_oracle.price_feeds {
-                        let deletion_key = (
-                            price_feed_item.token.clone(),
-                            price_feed_item.currency.clone(),
-                            previous_oracle.oracle_id,
-                        );
+                    let oracle = Oracle {
+                        id: previous_oracle.oracle_id,
+                        owner_address: previous_oracle.owner_address,
+                        weightage: previous_oracle.weightage,
+                        price_feeds: previous_oracle.price_feeds.clone(),
+                        block: previous_oracle.block.clone(),
+                    };
+                    services.oracle.by_id.put(&oracle.id, &oracle)?;
+                    for prev_token_currency in &previous_oracle.price_feeds {
+                        let oracle_token_currency = OracleTokenCurrency {
+                            id: (
+                                prev_token_currency.token.clone(),
+                                prev_token_currency.currency.clone(),
+                                oracle.id,
+                            ),
+                            key: (
+                                prev_token_currency.token.clone(),
+                                prev_token_currency.currency.clone(),
+                                context.block.height,
+                            ),
+                            token: prev_token_currency.token.clone(),
+                            currency: prev_token_currency.currency.to_owned(),
+                            oracle_id,
+                            weightage: oracle.weightage,
+                            block: oracle.block.clone(),
+                        };
 
-                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
-                            Ok(_) => {
-                                // Successfully deleted
-                            }
-                            Err(err) => {
-                                let error_message =
-                                    format!("Error updating oracle invalidate: {:?}", err);
-                                eprintln!("{}", error_message);
-                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
-                            }
-                        }
+                        services
+                            .oracle_token_currency
+                            .by_id
+                            .put(&oracle_token_currency.id, &oracle_token_currency)?;
+
+                        services
+                            .oracle_token_currency
+                            .by_key
+                            .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
                     }
                 }
             }
             Err(err) => {
-                let error_message = format!("Error updating oracle invalidate: {:?}", err);
-                eprintln!("{}", error_message);
-                return Err(Error::NotFound(NotFoundKind::Oracle));
+                return Err(Error::Other(anyhow!("update oracle invalidate : {}", err)));
             }
         }
         Ok(())
@@ -599,6 +617,7 @@ impl Index for SetOracleData {
 
         for (token, currency) in pairs.iter() {
             let aggreated_id = (token.to_owned(), currency.to_owned(), context.block.height);
+            let aggreated_key = (token.to_owned(), currency.to_owned());
             let aggregated_price = services.oracle_price_aggregated.by_id.get(&aggreated_id)?;
             if let Some(aggregated) = aggregated_price {
                 for interval in &intervals {
@@ -616,6 +635,10 @@ impl Index for SetOracleData {
                 .oracle_price_aggregated
                 .by_id
                 .delete(&aggreated_id)?;
+            services
+                .oracle_price_aggregated
+                .by_key
+                .delete(&aggreated_key)?;
         }
         Ok(())
     }
@@ -727,12 +750,9 @@ pub fn index_interval_mapper(
         let err = previous_aggrigated_interval.err();
         match err {
             Some(e) => {
-                let error_message = format!("Error updating oracle index interval mapper: {:?}", e);
-                eprintln!("{}", error_message);
-                return Err(Error::NotFound(NotFoundKind::Oracle));
+                return Err(Error::Other(anyhow!("oracle index mapper : {}", e)));
             }
             None => {
-                eprintln!("Unknown index interval mapper error ");
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
@@ -824,12 +844,9 @@ pub fn invalidate_oracle_interval(
         let err = previous_aggrigated_interval.err();
         match err {
             Some(e) => {
-                let error_message = format!("Error updating oracle  interval: {:?}", e);
-                eprintln!("{}", error_message);
-                return Err(Error::NotFound(NotFoundKind::Oracle));
+                return Err(Error::Other(anyhow!("oracle invalidate interval : {}", e)));
             }
             None => {
-                eprintln!("Unknown previous_aggrigated_interval error ");
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
@@ -897,10 +914,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
         / (count_decimal + Decimal::from(1));
 
-    result.to_i32().unwrap_or_else(|| {
-        eprintln!("Result is too large to fit into i32, returning 0");
-        i32::MAX
-    })
+    result.to_i32().unwrap_or_else(|| i32::MAX)
 }
 
 fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Decimal {
@@ -930,10 +944,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32
     let result = (last_value_decimal * count_decimal - new_value_decimal)
         / (count_decimal - Decimal::from(1));
 
-    result.to_i32().unwrap_or_else(|| {
-        eprintln!("Result is too large to fit into i32, returning 0");
-        0
-    })
+    result.to_i32().unwrap_or_else(|| 0)
 }
 
 fn get_previous_oracle_history_list(
