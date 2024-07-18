@@ -1598,7 +1598,7 @@ namespace pos {
 
         // Run staking manager thread
         threadGroup.emplace_back(
-            TraceThread<std::function<void()>>, "CoinStakerManager", [&, wallets = std::move(wallets)]() {
+            TraceThread<std::function<void()>>, "CoinStakerManager", [=, wallets = std::move(wallets)]() {
                 stakingManagerThread(std::move(wallets), subnodeCount, blockHeight);
             });
 
