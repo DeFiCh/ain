@@ -471,7 +471,9 @@ impl Index for SetOracleData {
                     }
                 }
             }
-            let result = total.checked_div(Decimal::from(weightage)).ok_or_else(|| Error::UnderflowError)?;
+            let result = total
+                .checked_div(Decimal::from(weightage))
+                .ok_or_else(|| Error::UnderflowError)?;
             let amount = format!("{:.8}", result);
             let aggregated_value = Some(OraclePriceAggregated {
                 id: (
@@ -890,7 +892,9 @@ fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Res
     let count_decimal = Decimal::from(count);
 
     let result = last_decimal * count_decimal + new_decimal;
-    result.checked_div(count_decimal + Decimal::from(1)).ok_or_else(|| Error::UnderflowError)
+    result
+        .checked_div(count_decimal + Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)
 }
 
 fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Result<Decimal> {
@@ -898,7 +902,9 @@ fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Re
     let new_value_decimal = Decimal::from_str(new_value)?;
     let count_decimal = Decimal::from(count);
 
-    (last_value_decimal * count_decimal - new_value_decimal).checked_div(count_decimal - Decimal::from(1)).ok_or_else(|| Error::UnderflowError)
+    (last_value_decimal * count_decimal - new_value_decimal)
+        .checked_div(count_decimal - Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)
 }
 
 fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Result<i32> {

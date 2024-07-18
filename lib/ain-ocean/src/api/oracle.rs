@@ -78,7 +78,9 @@ async fn get_feed(
         let (token, currency, oracle_id, _) = &feed.id;
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount_decimal = Decimal::new(feed.amount, 0);
-            let amount = amount_decimal.checked_div(dec!(100_000_000)).ok_or_else(|| Error::UnderflowError)?;
+            let amount = amount_decimal
+                .checked_div(dec!(100_000_000))
+                .ok_or_else(|| Error::UnderflowError)?;
             oracle_price_feeds.push(ApiResponseOraclePriceFeed {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),
