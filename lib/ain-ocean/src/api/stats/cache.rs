@@ -120,7 +120,9 @@ lazy_static::lazy_static! {
     convert = r#"{ format!("burned_total") }"#
 )]
 pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
-    let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).unwrap();
+    let burn_address = BURN_ADDRESS
+        .get(ctx.network.as_str())
+        .context("Missing burn address")?;
     let accounts = ctx
         .client
         .get_account(burn_address, None, Some(true))

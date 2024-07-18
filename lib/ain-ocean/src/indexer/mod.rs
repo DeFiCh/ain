@@ -172,17 +172,14 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
         }
 
         for vin in tx.vin.iter() {
-            let vin_standard = get_vin_standard(vin);
-            if vin_standard.is_none() {
+            let Some(vin) = get_vin_standard(vin) else {
                 continue;
-            }
-            let vin = vin_standard.unwrap();
-            let vout = find_tx_vout(services, block, &vin)?;
-            if vout.is_none() {
+            };
+
+            let Some(vout) = find_tx_vout(services, block, &vin)? else {
                 log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
                 continue;
-            }
-            let vout = vout.unwrap();
+            };
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
@@ -324,18 +321,14 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         }
 
         for vin in tx.vin.iter() {
-            let vin_standard = get_vin_standard(vin);
-            if vin_standard.is_none() {
+            let Some(vin) = get_vin_standard(vin) else {
                 continue;
-            }
-            let vin = vin_standard.unwrap();
+            };
 
-            let vout = find_tx_vout(services, block, &vin)?;
-            if vout.is_none() {
+            let Some(vout) = find_tx_vout(services, block, &vin)? else {
                 log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
                 continue;
-            }
-            let vout = vout.unwrap();
+            };
 
             // SPENT (REMOVE)
             let mut aggregation =
@@ -408,11 +401,10 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
         }
 
         for vin in tx.vin.iter() {
-            let vin_standard = get_vin_standard(vin);
-            if vin_standard.is_none() {
+            let Some(vin) = get_vin_standard(vin) else {
                 continue;
-            }
-            let vin = vin_standard.unwrap();
+            };
+
             let key = (block.height, vin.txid, vin.vout);
             let id = services.script_unspent.by_key.get(&key)?;
             if let Some(id) = id {

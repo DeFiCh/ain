@@ -38,8 +38,17 @@ impl Column for PriceTickerKey {
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        let total = i32::from_be_bytes(raw_key[0..4].try_into().unwrap());
-        let height = u32::from_be_bytes(raw_key[4..8].try_into().unwrap());
+        let total = i32::from_be_bytes(
+            raw_key[0..4]
+                .try_into()
+                .map_err(|_| DBError::WrongKeyLength)?,
+        );
+        let height = u32::from_be_bytes(
+            raw_key[4..8]
+                .try_into()
+                .map_err(|_| DBError::WrongKeyLength)?,
+        );
+
         let currency_n = raw_key.len() - 3; // 3 letters of currency code
         let token = std::str::from_utf8(&raw_key[8..currency_n])
             .map_err(|_| DBError::ParseKey)?

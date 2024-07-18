@@ -56,25 +56,20 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
 }
 
 fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActiveNext>) -> bool {
-    if active.is_none() {
+    let Some(active) = active else {
         return false;
-    }
-
-    if next.is_none() {
-        return false;
-    }
-
-    let active = active.unwrap();
-    let next = next.unwrap();
-
-    let active_price = match Decimal::from_str(&active.amount) {
-        Ok(num) => num,
-        Err(_) => return false,
     };
 
-    let next_price = match Decimal::from_str(&next.amount) {
-        Ok(num) => num,
-        Err(_) => return false,
+    let Some(next) = next else {
+        return false;
+    };
+
+    let Ok(active_price) = Decimal::from_str(&active.amount) else {
+        return false;
+    };
+
+    let Ok(next_price) = Decimal::from_str(&next.amount) else {
+        return false;
     };
 
     if active_price <= Decimal::zero() {
