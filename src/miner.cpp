@@ -1531,7 +1531,12 @@ namespace pos {
                 }
 
                 for (int key{maxMultiplier}; key > 0 && remainingSubNodes > 0; --key) {
-                    if (targetMultiplierMap.count(key) <= remainingSubNodes) {
+                    const auto keyCount = targetMultiplierMap.count(key);
+                    if (!keyCount) {
+                        continue;
+                    }
+
+                    if (keyCount <= remainingSubNodes) {
                         auto range = targetMultiplierMap.equal_range(key);
                         for (auto it = range.first; it != range.second; ++it) {
                             newStakersParams.push_back(it->second);
