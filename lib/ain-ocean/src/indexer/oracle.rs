@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context as _};
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
-    prelude::{FromPrimitive, ToPrimitive, Zero},
+    prelude::{ToPrimitive, Zero},
     Decimal,
 };
 
@@ -471,8 +471,10 @@ impl Index for SetOracleData {
                     }
                 }
             }
-            let result = (total / Decimal::from_i32(weightage).unwrap_or_default()).to_string();
-            let amount = format!("{:.8}", result.parse::<Decimal>().unwrap());
+            let result = total
+                .checked_div(Decimal::from(weightage))
+                .ok_or_else(|| Error::UnderflowError)?;
+            let amount = format!("{:.8}", result);
             let aggregated_value = Some(OraclePriceAggregated {
                 id: (
                     token.to_string(),
@@ -708,7 +710,7 @@ pub fn index_interval_mapper(
                 &oracle_price_aggregated_interval.id,
             )?;
         } else {
-            process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated);
+            process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated)?
         }
     } else {
         let err = previous_aggrigated_interval.err();
@@ -772,25 +774,25 @@ pub fn invalidate_oracle_interval(
                         lastprice.amount.as_str(),
                         &aggregated.aggregated.amount.to_string(),
                         count as u32,
-                    )
+                    )?
                     .to_string(),
                     weightage: backward_aggregate_number(
                         lastprice.weightage,
                         aggregated.aggregated.weightage,
                         count as u32,
-                    ),
+                    )?,
                     count,
                     oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                         active: backward_aggregate_number(
                             lastprice.oracles.active,
                             aggregated.aggregated.oracles.active,
                             lastprice.count as u32,
-                        ),
+                        )?,
                         total: backward_aggregate_number(
                             lastprice.oracles.total,
                             aggregated.aggregated.oracles.total,
                             lastprice.count as u32,
-                        ),
+                        )?,
                     },
                 },
                 block: oracle_price_aggreated[0].block.clone(),
@@ -822,7 +824,7 @@ fn process_inner_values(
     services: &Arc<Services>,
     previous_data: &OraclePriceAggregatedInterval,
     aggregated: &OraclePriceAggregated,
-) {
+) -> Result<()> {
     let lastprice = previous_data.aggregated.clone();
     let count = lastprice.count + 1;
 
@@ -837,25 +839,25 @@ fn process_inner_values(
                 lastprice.amount.as_str(),
                 aggregated.aggregated.amount.as_str(),
                 count,
-            )
+            )?
             .to_string(),
             weightage: forward_aggregate_number(
                 lastprice.weightage,
                 aggregated.aggregated.weightage,
                 count,
-            ),
+            )?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: forward_aggregate_number(
                     lastprice.oracles.active,
                     aggregated.aggregated.oracles.active,
                     lastprice.count,
-                ),
+                )?,
                 total: forward_aggregate_number(
                     lastprice.oracles.total,
                     aggregated.aggregated.oracles.total,
                     lastprice.count,
-                ),
+                )?,
             },
         },
         block: previous_data.block.clone(),
@@ -868,47 +870,53 @@ fn process_inner_values(
         .oracle_price_aggregated_interval
         .by_key
         .put(&aggregated_interval.key, &aggregated_interval.id);
+
+    Ok(())
 }
 
-fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 {
+fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Result<i32> {
     let count_decimal = Decimal::from(count);
     let last_value_decimal = Decimal::from(last_value);
     let new_value_decimal = Decimal::from(new_value);
 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
-        / (count_decimal + Decimal::from(1));
+        .checked_div(count_decimal + Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)?;
 
-    result.to_i32().unwrap_or(i32::MAX)
+    Ok(result.to_i32().unwrap_or(i32::MAX))
 }
 
-fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Decimal {
-    let last_decimal = Decimal::from_str(last_value).unwrap();
-    let new_decimal = Decimal::from_str(new_value).unwrap();
+fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Result<Decimal> {
+    let last_decimal = Decimal::from_str(last_value)?;
+    let new_decimal = Decimal::from_str(new_value)?;
     let count_decimal = Decimal::from(count);
 
     let result = last_decimal * count_decimal + new_decimal;
-    result / (count_decimal + Decimal::from(1))
+    result
+        .checked_div(count_decimal + Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)
 }
 
-fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Decimal {
-    let last_value_decimal = Decimal::from_str(last_value).unwrap_or_else(|_| Decimal::zero());
-    let new_value_decimal = Decimal::from_str(new_value).unwrap_or_else(|_| Decimal::zero());
+fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Result<Decimal> {
+    let last_value_decimal = Decimal::from_str(last_value)?;
+    let new_value_decimal = Decimal::from_str(new_value)?;
     let count_decimal = Decimal::from(count);
 
-    (last_value_decimal * count_decimal - new_value_decimal) / (count_decimal - Decimal::from(1))
+    (last_value_decimal * count_decimal - new_value_decimal)
+        .checked_div(count_decimal - Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)
 }
 
-fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32 {
-    let last_value_decimal =
-        Decimal::from_str(&last_value.to_string()).unwrap_or_else(|_| Decimal::zero());
-    let new_value_decimal =
-        Decimal::from_str(&new_value.to_string()).unwrap_or_else(|_| Decimal::zero());
+fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Result<i32> {
+    let last_value_decimal = Decimal::from(last_value);
+    let new_value_decimal = Decimal::from(new_value);
     let count_decimal = Decimal::from(count);
 
     let result = (last_value_decimal * count_decimal - new_value_decimal)
-        / (count_decimal - Decimal::from(1));
+        .checked_div(count_decimal - Decimal::from(1))
+        .ok_or_else(|| Error::UnderflowError)?;
 
-    result.to_i32().unwrap_or(0)
+    Ok(result.to_i32().unwrap_or(0))
 }
 
 fn get_previous_oracle_history_list(
