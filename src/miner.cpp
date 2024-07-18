@@ -1416,7 +1416,6 @@ namespace pos {
     void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets,
                               const int subnodeCount,
                               const int blockHeight) {
-        std::set<std::string> operatorsSet;
         auto operators = gArgs.GetArgs("-masternode_operator");
 
         if (fMockNetwork) {
@@ -1431,6 +1430,7 @@ namespace pos {
                 std::vector<ThreadStaker::Args> newStakersParams;
                 std::multimap<uint64_t, ThreadStaker::Args> targetMultiplierMap;
                 int totalSubnodes{};
+                std::set<std::string> operatorsSet;
 
                 for (const auto &op : operators) {
                     // Do not process duplicate operator
