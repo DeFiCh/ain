@@ -1413,7 +1413,7 @@ namespace pos {
         }
     }
 
-    void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> &wallets,
+    void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets,
                               const int subnodeCount,
                               const int blockHeight) {
         std::set<std::string> operatorsSet;
@@ -1430,9 +1430,10 @@ namespace pos {
 
                 std::vector<ThreadStaker::Args> newStakersParams;
                 std::multimap<uint64_t, ThreadStaker::Args> targetMultiplierMap;
+                int totalSubnodes{};
 
                 for (const auto &op : operators) {
-                    // Do not process duplicate operator option
+                    // Do not process duplicate operator
                     if (operatorsSet.count(op)) {
                         continue;
                     }
@@ -1441,7 +1442,6 @@ namespace pos {
                     ThreadStaker::Args stakerParams;
                     auto &operatorId = stakerParams.operatorID;
                     auto &coinbaseScript = stakerParams.coinbaseScript;
-                    auto &minterKey = stakerParams.minterKey;
 
                     CTxDestination destination = DecodeDestination(op);
                     operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
@@ -1449,10 +1449,10 @@ namespace pos {
                         continue;
                     }
 
-                    bool found = false;
+                    bool found{};
                     for (auto wallet : wallets) {
                         if ((::IsMine(*wallet, destination) & ISMINE_SPENDABLE) &&
-                            wallet->GetKey(operatorId, minterKey)) {
+                            wallet->GetKey(operatorId, stakerParams.minterKey)) {
                             found = true;
                             break;
                         }
@@ -1511,7 +1511,10 @@ namespace pos {
                     const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(
                         operatorId, blockHeight, int64_t(nodePtr->creationHeight), *timeLock);
 
-                    const auto loops = GetTimelockLoops(*timeLock);
+                    auto loops = GetTimelockLoops(*timeLock);
+                    if (blockHeight < Params().GetConsensus().DF10EunosPayaHeight) {
+                        loops = 1;
+                    }
 
                     for (uint8_t i{}; i < loops; ++i) {
                         const auto targetMultiplier =
@@ -1520,12 +1523,18 @@ namespace pos {
                         stakerParams.subNode = i;
 
                         targetMultiplierMap.emplace(targetMultiplier, stakerParams);
+
+                        ++totalSubnodes;
                     }
                 }
 
-                uint32_t maxMultiplier{57};
+                int maxMultiplier{57};
                 auto remainingSubNodes = subnodeCount;
-                for (uint32_t key{maxMultiplier}; key > 0 && remainingSubNodes > 0; --key) {
+                if (remainingSubNodes > totalSubnodes) {
+                    remainingSubNodes = totalSubnodes;
+                }
+
+                for (int key{maxMultiplier}; key > 0 && remainingSubNodes > 0; --key) {
                     if (targetMultiplierMap.count(key) <= remainingSubNodes) {
                         auto range = targetMultiplierMap.equal_range(key);
                         for (auto it = range.first; it != range.second; ++it) {
@@ -1571,16 +1580,19 @@ namespace pos {
         }
 
         const auto minerStrategy = gArgs.GetArg("-minerstrategy", "none");
-        std::size_t charsParsed;
-        auto subnodeCount = std::stoi(minerStrategy, &charsParsed);
-        if (charsParsed != minerStrategy.length()) {
-            subnodeCount = std::numeric_limits<int>::max();
+
+        auto subnodeCount{std::numeric_limits<int>::max()};
+        try {
+            subnodeCount = std::stoi(minerStrategy);
+        } catch (const std::invalid_argument &) {
+        } catch (const std::out_of_range &) {
         }
 
         // Run staking manager thread
-        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStakerManager", [&]() {
-            stakingManagerThread(wallets, subnodeCount, blockHeight);
-        });
+        threadGroup.emplace_back(
+            TraceThread<std::function<void()>>, "CoinStakerManager", [&, wallets = std::move(wallets)]() {
+                stakingManagerThread(std::move(wallets), subnodeCount, blockHeight);
+            });
 
         // Mint proof-of-stake blocks in background
         threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", []() {

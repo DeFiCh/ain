@@ -144,7 +144,7 @@ public:
 };
 
 inline uint8_t GetTimelockLoops(uint16_t timelock) {
-    return CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+    return timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
 }
 
 struct CCreateMasterNodeMessage {
