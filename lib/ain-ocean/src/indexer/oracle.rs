@@ -1,8 +1,9 @@
 use std::{str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context as _};
 use bitcoin::Txid;
+use log::debug;
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive, Zero},
     Decimal,
@@ -151,22 +152,11 @@ impl Index for RemoveOracle {
                             price_feed_item.currency.to_owned(),
                             oracle_history.block.height,
                         );
-                        match services.oracle_token_currency.by_id.delete(&deletion_id) {
-                            Ok(_) => {
-                                // Successfully deleted
-                            }
-                            Err(err) => {
-                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
-                            }
-                        }
-                        match services.oracle_token_currency.by_key.delete(&deletion_key) {
-                            Ok(_) => {
-                                // Successfully deleted
-                            }
-                            Err(err) => {
-                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
-                            }
-                        }
+                        services.oracle_token_currency.by_id.delete(&deletion_id)?;
+                        services
+                            .oracle_token_currency
+                            .by_key
+                            .delete(&deletion_key)?;
                     }
                 }
             }
@@ -179,51 +169,46 @@ impl Index for RemoveOracle {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
         let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-        match previous_oracle_history_result {
-            Ok(previous_oracle_history) => {
-                for previous_oracle in previous_oracle_history {
-                    let oracle = Oracle {
-                        id: previous_oracle.oracle_id,
-                        owner_address: previous_oracle.owner_address,
-                        weightage: previous_oracle.weightage,
-                        price_feeds: previous_oracle.price_feeds.clone(),
-                        block: previous_oracle.block,
-                    };
-                    services.oracle.by_id.put(&oracle.id, &oracle)?;
+        let previous_oracle_history = previous_oracle_history_result?;
 
-                    for prev_token_currency in previous_oracle.price_feeds {
-                        let oracle_token_currency = OracleTokenCurrency {
-                            id: (
-                                prev_token_currency.token.clone(),
-                                prev_token_currency.currency.clone(),
-                                oracle.id,
-                            ),
-                            key: (
-                                prev_token_currency.token.clone(),
-                                prev_token_currency.currency.clone(),
-                                context.block.height,
-                            ),
-                            token: prev_token_currency.token,
-                            currency: prev_token_currency.currency.to_owned(),
-                            oracle_id,
-                            weightage: oracle.weightage,
-                            block: oracle.block.clone(),
-                        };
+        for previous_oracle in previous_oracle_history {
+            let oracle = Oracle {
+                id: previous_oracle.oracle_id,
+                owner_address: previous_oracle.owner_address,
+                weightage: previous_oracle.weightage,
+                price_feeds: previous_oracle.price_feeds.clone(),
+                block: previous_oracle.block,
+            };
+            services.oracle.by_id.put(&oracle.id, &oracle)?;
 
-                        services
-                            .oracle_token_currency
-                            .by_id
-                            .put(&oracle_token_currency.id, &oracle_token_currency)?;
+            for prev_token_currency in previous_oracle.price_feeds {
+                let oracle_token_currency = OracleTokenCurrency {
+                    id: (
+                        prev_token_currency.token.clone(),
+                        prev_token_currency.currency.clone(),
+                        oracle.id,
+                    ),
+                    key: (
+                        prev_token_currency.token.clone(),
+                        prev_token_currency.currency.clone(),
+                        context.block.height,
+                    ),
+                    token: prev_token_currency.token,
+                    currency: prev_token_currency.currency.to_owned(),
+                    oracle_id,
+                    weightage: oracle.weightage,
+                    block: oracle.block.clone(),
+                };
 
-                        services
-                            .oracle_token_currency
-                            .by_key
-                            .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
-                    }
-                }
-            }
-            Err(err) => {
-                return Err(Error::from(err));
+                services
+                    .oracle_token_currency
+                    .by_id
+                    .put(&oracle_token_currency.id, &oracle_token_currency)?;
+
+                services
+                    .oracle_token_currency
+                    .by_key
+                    .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
             }
         }
 
@@ -254,41 +239,25 @@ impl Index for UpdateOracle {
         //save oracle
         services.oracle.by_id.put(&oracle.id, &oracle)?;
         let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-        match previous_oracle_history_result {
-            Ok(previous_oracle) => {
-                for oracle in previous_oracle {
-                    for price_feed_item in &oracle.price_feeds {
-                        let deletion_id = (
-                            price_feed_item.token.clone(),
-                            price_feed_item.currency.clone(),
-                            oracle_id,
-                        );
-                        match services.oracle_token_currency.by_id.delete(&deletion_id) {
-                            Ok(_) => {
-                                // Successfully deleted
-                            }
-                            Err(err) => {
-                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
-                            }
-                        }
-                        let deletion_key = (
-                            price_feed_item.token.clone(),
-                            price_feed_item.currency.clone(),
-                            ctx.block.height,
-                        );
-                        match services.oracle_token_currency.by_key.delete(&deletion_key) {
-                            Ok(_) => {
-                                // Successfully deleted
-                            }
-                            Err(err) => {
-                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
-                            }
-                        }
-                    }
-                }
-            }
-            Err(err) => {
-                return Err(Error::Other(anyhow!("update oracle : {}", err)));
+        let previous_oracle = previous_oracle_history_result?;
+
+        for oracle in previous_oracle {
+            for price_feed_item in &oracle.price_feeds {
+                let deletion_id = (
+                    price_feed_item.token.clone(),
+                    price_feed_item.currency.clone(),
+                    oracle_id,
+                );
+                services.oracle_token_currency.by_id.delete(&deletion_id)?;
+                let deletion_key = (
+                    price_feed_item.token.clone(),
+                    price_feed_item.currency.clone(),
+                    ctx.block.height,
+                );
+                services
+                    .oracle_token_currency
+                    .by_key
+                    .delete(&deletion_key)?;
             }
         }
 
@@ -366,50 +335,45 @@ impl Index for UpdateOracle {
             ))?;
         }
         let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-        match previous_oracle_history_result {
-            Ok(previous_oracle_result) => {
-                for previous_oracle in previous_oracle_result {
-                    let oracle = Oracle {
-                        id: previous_oracle.oracle_id,
-                        owner_address: previous_oracle.owner_address,
-                        weightage: previous_oracle.weightage,
-                        price_feeds: previous_oracle.price_feeds.clone(),
-                        block: previous_oracle.block.clone(),
-                    };
-                    services.oracle.by_id.put(&oracle.id, &oracle)?;
-                    for prev_token_currency in &previous_oracle.price_feeds {
-                        let oracle_token_currency = OracleTokenCurrency {
-                            id: (
-                                prev_token_currency.token.clone(),
-                                prev_token_currency.currency.clone(),
-                                oracle.id,
-                            ),
-                            key: (
-                                prev_token_currency.token.clone(),
-                                prev_token_currency.currency.clone(),
-                                context.block.height,
-                            ),
-                            token: prev_token_currency.token.clone(),
-                            currency: prev_token_currency.currency.to_owned(),
-                            oracle_id,
-                            weightage: oracle.weightage,
-                            block: oracle.block.clone(),
-                        };
+        let previous_oracle_result = previous_oracle_history_result?;
 
-                        services
-                            .oracle_token_currency
-                            .by_id
-                            .put(&oracle_token_currency.id, &oracle_token_currency)?;
+        for previous_oracle in previous_oracle_result {
+            let oracle = Oracle {
+                id: previous_oracle.oracle_id,
+                owner_address: previous_oracle.owner_address,
+                weightage: previous_oracle.weightage,
+                price_feeds: previous_oracle.price_feeds.clone(),
+                block: previous_oracle.block.clone(),
+            };
+            services.oracle.by_id.put(&oracle.id, &oracle)?;
+            for prev_token_currency in &previous_oracle.price_feeds {
+                let oracle_token_currency = OracleTokenCurrency {
+                    id: (
+                        prev_token_currency.token.clone(),
+                        prev_token_currency.currency.clone(),
+                        oracle.id,
+                    ),
+                    key: (
+                        prev_token_currency.token.clone(),
+                        prev_token_currency.currency.clone(),
+                        context.block.height,
+                    ),
+                    token: prev_token_currency.token.clone(),
+                    currency: prev_token_currency.currency.to_owned(),
+                    oracle_id,
+                    weightage: oracle.weightage,
+                    block: oracle.block.clone(),
+                };
 
-                        services
-                            .oracle_token_currency
-                            .by_key
-                            .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
-                    }
-                }
-            }
-            Err(err) => {
-                return Err(Error::Other(anyhow!("update oracle invalidate : {}", err)));
+                services
+                    .oracle_token_currency
+                    .by_id
+                    .put(&oracle_token_currency.id, &oracle_token_currency)?;
+
+                services
+                    .oracle_token_currency
+                    .by_key
+                    .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
             }
         }
         Ok(())
@@ -474,7 +438,7 @@ impl Index for SetOracleData {
 
             for oracle in oracle_entries {
                 if oracle.weightage == 0 {
-                    println!("Skipping oracle with zero weightage: {:?}", oracle);
+                    debug!("Skipping oracle with zero weightage: {:?}", oracle);
                     continue;
                 }
 
@@ -703,7 +667,7 @@ pub fn index_interval_mapper(
                 .oracle_price_aggregated_interval
                 .by_id
                 .get(&id)?
-                .ok_or("Missing oracle price aggregated interval index")?;
+                .context("Missing oracle price aggregated interval index")?;
             Ok(price_agrregated_interval)
         })
         .collect::<Result<Vec<_>>>();
@@ -783,7 +747,7 @@ pub fn invalidate_oracle_interval(
                 .oracle_price_aggregated_interval
                 .by_id
                 .get(&id)?
-                .ok_or("Missing oracle price aggregated interval index")?;
+                .context("Missing oracle price aggregated interval index")?;
             Ok(price_agrregated_interval)
         })
         .collect::<Result<Vec<_>>>();
@@ -950,7 +914,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32
 fn get_previous_oracle_history_list(
     services: &Arc<Services>,
     oracle_id: Txid,
-) -> std::result::Result<Vec<OracleHistory>, Box<dyn std::error::Error>> {
+) -> Result<Vec<OracleHistory>> {
     let history = services
         .oracle_history
         .by_key
@@ -961,10 +925,10 @@ fn get_previous_oracle_history_list(
                 .oracle_history
                 .by_id
                 .get(&id)?
-                .ok_or("Missing oracle previous history index")?;
+                .context("Missing oracle previous history index")?;
 
             Ok(b)
         })
-        .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+        .collect::<Result<Vec<_>>>()?;
     Ok(history)
 }
