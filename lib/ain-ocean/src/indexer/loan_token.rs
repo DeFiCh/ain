@@ -43,7 +43,6 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
     }
 
     if aggregate.aggregated.oracles.active < 2 {
-        // minimum live oracles
         return false;
     }
 
