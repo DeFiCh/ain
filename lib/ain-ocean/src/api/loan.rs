@@ -244,7 +244,7 @@ async fn get_loan_token(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanToken>> {
     let loan_token_result = ctx.client.get_loan_token(token_id.clone()).await?;
-    let token = loan_token_result
+    let Some(token) = loan_token_result
         .token
         .0
         .into_iter()
@@ -277,13 +277,12 @@ async fn get_loan_token(
                 active_price,
             })
         })
-        .transpose()?;
-
-    if token.is_none() {
+        .transpose()?
+    else {
         return Err(format_err!("Token {:?} does not exist!", token_id).into());
-    }
+    };
 
-    Ok(Response::new(token.unwrap()))
+    Ok(Response::new(token))
 }
 
 pub async fn get_all_vaults(
@@ -495,7 +494,7 @@ async fn list_vault_auction_history(
                 .auction
                 .by_id
                 .get(&id)?
-                .ok_or("Missing auction index")?;
+                .context("Missing auction index")?;
 
             Ok(auction)
         })
@@ -623,13 +622,12 @@ async fn map_token_amounts(
 
     let mut vault_token_amounts = Vec::new();
     for [amount, token_symbol] in amount_token_symbols {
-        let token = get_token_cached(ctx, &token_symbol).await?;
-        if token.is_none() {
+        let Some((id, token_info)) = get_token_cached(ctx, &token_symbol).await? else {
             log::error!("Token {token_symbol} not found");
             continue;
-        }
+        };
         let repo = &ctx.services.oracle_price_active;
-        let (id, token_info) = token.unwrap();
+
         let keys = repo
             .by_key
             .list(None, SortOrder::Descending)?

@@ -119,7 +119,7 @@ async fn list_masternodes(
         .paginate(&query)
         .map(|el| repository.retrieve_primary_value(el))
         .map(|v| {
-            let mn = v.unwrap();
+            let mn = v?;
             let state = MasternodeService::new(ctx.network).get_masternode_state(&mn, height);
             Ok(MasternodeData::from_with_state(mn, state))
         })

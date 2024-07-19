@@ -107,12 +107,9 @@ async fn get_total_liquidity_usd_by_best_path(
     ctx: &Arc<AppContext>,
     p: &PoolPairInfo,
 ) -> Result<Decimal> {
-    let usdt = get_token_cached(ctx, "USDT").await?;
-    if usdt.is_none() {
+    let Some((usdt_id, _)) = get_token_cached(ctx, "USDT").await? else {
         return Ok(dec!(0));
     };
-
-    let (usdt_id, _) = usdt.unwrap();
 
     let mut a_token_rate = dec!(1);
     let mut b_token_rate = dec!(1);
@@ -587,11 +584,9 @@ fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
 }
 
 fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<CompositeSwap>> {
-    let dftx = call_dftx(ctx, txid)?;
-    if dftx.is_none() {
+    let Some(dftx) = call_dftx(ctx, txid)? else {
         return Ok(None);
-    }
-    let dftx = dftx.unwrap();
+    };
 
     let composite_swap_dftx = match dftx {
         DfTx::CompositeSwap(data) => Some(data),
@@ -618,11 +613,9 @@ pub async fn find_swap_from(
     } = swap;
     let from_address = from_script(from, ctx.network.into())?;
 
-    let from_token = get_token_cached(ctx, &from_token_id.to_string()).await?;
-    if from_token.is_none() {
+    let Some((_, from_token)) = get_token_cached(ctx, &from_token_id.to_string()).await? else {
         return Ok(None);
-    }
-    let (_, from_token) = from_token.unwrap();
+    };
 
     Ok(Some(PoolSwapFromToData {
         address: from_address,
@@ -648,11 +641,9 @@ pub async fn find_swap_to(
 
     let to_address = from_script(to, ctx.network.into())?;
 
-    let to_token = get_token_cached(ctx, &to_token_id.to_string()).await?;
-    if to_token.is_none() {
+    let Some((_, to_token)) = get_token_cached(ctx, &to_token_id.to_string()).await? else {
         return Ok(None);
-    }
-    let (_, to_token) = to_token.unwrap();
+    };
 
     let display_symbol = parse_display_symbol(&to_token);
 
@@ -701,11 +692,11 @@ async fn get_pool_swap_type(
     ctx: &Arc<AppContext>,
     swap: crate::model::PoolSwap,
 ) -> Result<Option<SwapType>> {
-    let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
-    if pool_pair.is_none() {
+    let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?
+    else {
         return Ok(None);
-    }
-    let (_, pool_pair_info) = pool_pair.unwrap();
+    };
+
     let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
     let swap_type = if id_token_a == swap.from_token_id {
         SwapType::SELL
@@ -719,11 +710,9 @@ pub async fn check_swap_type(
     ctx: &Arc<AppContext>,
     swap: crate::model::PoolSwap,
 ) -> Result<Option<SwapType>> {
-    let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
-    if dftx.is_none() {
+    let Some(dftx) = find_composite_swap_dftx(ctx, swap.txid)? else {
         return get_pool_swap_type(ctx, swap).await;
-    }
-    let dftx = dftx.unwrap();
+    };
 
     if dftx.pools.iter().count() <= 1 {
         return get_pool_swap_type(ctx, swap).await;
@@ -732,11 +721,9 @@ pub async fn check_swap_type(
     let mut prev = swap.from_token_id.to_string();
     for pool in dftx.pools.iter() {
         let pool_id = pool.id.0.to_string();
-        let pool_pair = get_pool_pair_cached(ctx, pool_id.clone()).await?;
-        if pool_pair.is_none() {
+        let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, pool_id.clone()).await? else {
             break;
-        }
-        let (_, pool_pair_info) = pool_pair.unwrap();
+        };
 
         // if this is current pool pair, if previous token is primary token, indicator = sell
         if pool_id == swap.pool_id.to_string() {

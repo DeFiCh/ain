@@ -187,11 +187,10 @@ async fn get_balance(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<String>> {
     let hid = address_to_hid(&address, ctx.network.into())?;
-    let aggregation = get_latest_aggregation(&ctx, hid)?;
-    if aggregation.is_none() {
+    let Some(aggregation) = get_latest_aggregation(&ctx, hid)? else {
         return Ok(Response::new("0.00000000".to_string()));
-    }
-    let aggregation = aggregation.unwrap();
+    };
+
     Ok(Response::new(aggregation.amount.unspent))
 }
 
@@ -487,11 +486,10 @@ async fn list_tokens(
 
     let mut vec = Vec::new();
     for (k, v) in account {
-        let token = get_token_cached(&ctx, &k).await?;
-        if token.is_none() {
+        let Some((id, info)) = get_token_cached(&ctx, &k).await? else {
             continue;
-        }
-        let (id, info) = token.unwrap();
+        };
+
         let address_token = AddressToken {
             id,
             amount: format!("{:.8}", v),

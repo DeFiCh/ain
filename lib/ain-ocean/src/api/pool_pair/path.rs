@@ -361,12 +361,10 @@ pub async fn compute_paths_between_tokens(
                 })?
                 .to_string();
 
-            let pool = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
-            if pool.is_none() {
+            let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?
+            else {
                 return Err(format_err!("Pool pair by id {pool_pair_id} not found").into());
-            }
-
-            let (_, pool_pair_info) = pool.unwrap();
+            };
 
             let estimated_dex_fees_in_pct =
                 get_dex_fees_pct(pool_pair_info.clone(), from_token_id, to_token_id);

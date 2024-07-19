@@ -471,9 +471,11 @@ impl Index for SetOracleData {
                     }
                 }
             }
+
             let result = total
                 .checked_div(Decimal::from(weightage))
                 .ok_or_else(|| Error::UnderflowError)?;
+
             let amount = format!("{:.8}", result);
             let aggregated_value = Some(OraclePriceAggregated {
                 id: (
@@ -541,18 +543,19 @@ impl Index for SetOracleData {
                     .put(&price_ticker.id, &price_ticker)?;
 
                 //SetOracleInterval
-                let aggregated = services.oracle_price_aggregated.by_id.get(&(
-                    token.to_owned(),
-                    currency.to_owned(),
-                    context.block.height,
-                ))?;
+                let aggregated = services
+                    .oracle_price_aggregated
+                    .by_id
+                    .get(&(token.to_owned(), currency.to_owned(), context.block.height))?
+                    .context("Missing aggregate value")?;
+
                 for interval in intervals.clone() {
                     index_interval_mapper(
                         services,
                         &context.block,
                         token,
                         currency,
-                        aggregated.as_ref().unwrap(),
+                        &aggregated,
                         &interval,
                     )?;
                 }
@@ -710,7 +713,7 @@ pub fn index_interval_mapper(
                 &oracle_price_aggregated_interval.id,
             )?;
         } else {
-            process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated)?
+            process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated)?;
         }
     } else {
         let err = previous_aggrigated_interval.err();
@@ -862,15 +865,14 @@ fn process_inner_values(
         },
         block: previous_data.block.clone(),
     };
-    let _err = services
+    services
         .oracle_price_aggregated_interval
         .by_id
-        .put(&aggregated_interval.id, &aggregated_interval);
-    let _err = services
+        .put(&aggregated_interval.id, &aggregated_interval)?;
+    services
         .oracle_price_aggregated_interval
         .by_key
-        .put(&aggregated_interval.key, &aggregated_interval.id);
-
+        .put(&aggregated_interval.key, &aggregated_interval.id)?;
     Ok(())
 }
 
@@ -883,7 +885,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Resu
         .checked_div(count_decimal + Decimal::from(1))
         .ok_or_else(|| Error::UnderflowError)?;
 
-    Ok(result.to_i32().unwrap_or(i32::MAX))
+    Ok(result.to_i32().context("Error converting decimal to i32")?)
 }
 
 fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Result<Decimal> {
@@ -892,6 +894,7 @@ fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Res
     let count_decimal = Decimal::from(count);
 
     let result = last_decimal * count_decimal + new_decimal;
+
     result
         .checked_div(count_decimal + Decimal::from(1))
         .ok_or_else(|| Error::UnderflowError)
