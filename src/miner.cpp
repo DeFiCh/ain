@@ -1571,6 +1571,13 @@ namespace pos {
 
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
+
+        {
+            // Wipe the stakers params here which contains the wallet keys
+            // before the wallets are destroyed.
+            std::lock_guard lock(stakersParamsMutex);
+            stakersParams.clear();
+        }
     }
 
     bool StartStakingThreads(const int blockHeight, std::vector<std::thread> &threadGroup) {
