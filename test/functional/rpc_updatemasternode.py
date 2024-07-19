@@ -10,6 +10,7 @@ from test_framework.util import (
     create_address_utxo,
 )
 from decimal import Decimal
+import time
 
 
 class TestForcedRewardAddress(DefiTestFramework):
@@ -327,21 +328,32 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
+                "-eunospayaheight=50",
                 "-grandcentralheight=1",
             ],
         )
 
+        # Wait to allow -gen to create some blocks
+        time.sleep(3)
+
         # Mine blocks
         self.nodes[0].generate(101)
 
+        # Get number of blocks minted by new address
+        blocks_minted = len(
+            self.nodes[0].listunspent(addresses=[forced_reward_address])
+        )
+
+        # Check blocks minted
+        assert blocks_minted > 0
+
         # Check balance to new reward address
-        assert_equal(
-            len(self.nodes[0].listunspent(addresses=[forced_reward_address])), 1
-        )
-        assert_equal(
-            self.nodes[0].listunspent(addresses=[forced_reward_address])[0]["amount"],
-            Decimal("19.00000000"),
-        )
+        result = self.nodes[0].listunspent(addresses=[forced_reward_address])
+        for x in range(0, blocks_minted):
+            assert_equal(
+                result[x]["amount"],
+                Decimal("19.00000000"),
+            )
 
         self.nodes[0].updatemasternode(mn_id, {"rewardAddress": ""})
         self.nodes[0].generate(11)
@@ -357,6 +369,7 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
+                "-eunospayaheight=50",
                 "-grandcentralheight=1",
                 "-metachainheight=510",
             ],
