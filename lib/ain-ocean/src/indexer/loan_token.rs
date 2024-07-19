@@ -27,7 +27,7 @@ impl Index for SetLoanToken {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         invalidate_transaction(
             services,
-            context.block.height.clone(),
+            context.block.height,
             (
                 self.currency_pair.token.clone(),
                 self.currency_pair.currency.clone(),
