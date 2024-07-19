@@ -27,7 +27,7 @@ impl Index for SetLoanToken {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         invalidate_transaction(
             services,
-            context.block.height,
+            context.block.height.clone(),
             (
                 self.currency_pair.token.clone(),
                 self.currency_pair.currency.clone(),
@@ -126,7 +126,7 @@ pub fn perform_active_price_tick(
                 .oracle_price_aggregated
                 .by_id
                 .get(&id)?
-                .ok_or("Missing oracle previous history index")?;
+                .ok_or("aggregated price cannot be found")?;
 
             Ok(aggregated)
         })
@@ -140,7 +140,12 @@ pub fn perform_active_price_tick(
     if aggregated_prices.is_empty() {
         return Ok(());
     }
-    let aggregated_price = aggregated_prices.first().unwrap();
+
+    let aggregated_price = if let Some(price) = aggregated_prices.first() {
+        price
+    } else {
+        return Ok(());
+    };
 
     let previous_prices = services
         .oracle_price_active
@@ -153,35 +158,29 @@ pub fn perform_active_price_tick(
                 .oracle_price_active
                 .by_id
                 .get(&id)?
-                .ok_or("Missing oracle previous history index")?;
+                .ok_or("price_active id does not exist")?;
             Ok(price)
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let active_price = if previous_prices.first().is_some() {
-        if previous_prices[0].next.is_some() {
-            let price = previous_prices[0].next.clone().unwrap();
-            Some(OraclePriceActiveActive {
-                amount: price.amount,
-                weightage: price.weightage,
-                oracles: OraclePriceActiveActiveOracles {
-                    active: price.oracles.active,
-                    total: price.oracles.total,
-                },
-            })
-        } else if previous_prices[0].active.is_some() {
-            let price = previous_prices[0].active.clone().unwrap();
-            Some(OraclePriceActiveActive {
-                amount: price.amount,
-                weightage: price.weightage,
-                oracles: OraclePriceActiveActiveOracles {
-                    active: price.oracles.active,
-                    total: price.oracles.total,
-                },
-            })
-        } else {
-            None
-        }
+    let active_price = if let Some(price) = previous_prices.first().and_then(|p| p.next.clone()) {
+        Some(OraclePriceActiveActive {
+            amount: price.amount,
+            weightage: price.weightage,
+            oracles: OraclePriceActiveActiveOracles {
+                active: price.oracles.active,
+                total: price.oracles.total,
+            },
+        })
+    } else if let Some(price) = previous_prices.first().and_then(|p| p.active.clone()) {
+        Some(OraclePriceActiveActive {
+            amount: price.amount,
+            weightage: price.weightage,
+            oracles: OraclePriceActiveActiveOracles {
+                active: price.oracles.active,
+                total: price.oracles.total,
+            },
+        })
     } else {
         None
     };
