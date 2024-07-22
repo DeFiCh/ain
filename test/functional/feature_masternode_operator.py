@@ -6,8 +6,8 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    connect_nodes_bi,
 )
+import time
 
 
 class TestMasternodeOperator(DefiTestFramework):
@@ -22,42 +22,61 @@ class TestMasternodeOperator(DefiTestFramework):
         node0_keys = self.nodes[0].get_genesis_keys()
         node1_keys = self.nodes[1].get_genesis_keys()
 
-        self.log.info("Import private keys...")
-        self.nodes[0].importprivkey(node0_keys.operatorPrivKey)
-        self.nodes[1].importprivkey(node0_keys.operatorPrivKey)
-        self.nodes[1].importprivkey(node1_keys.operatorPrivKey)
+        # Import private key
+        self.nodes[0].importprivkey(node1_keys.operatorPrivKey)
 
         operators = [node0_keys.operatorAuthAddress, node1_keys.operatorAuthAddress]
 
-        self.log.info("Restart nodes...")
+        # Get start height
+        start_height = self.nodes[0].getblockcount() + 1
+
+        # Test single minter masternode
         self.restart_node(0, ["-gen", "-masternode_operator=" + operators[0]])
-        self.restart_node(
-            1,
-            ["-gen", "-rewardaddress=" + operators[1]]
-            + ["-masternode_operator=" + x for x in operators],
-        )
 
-        connect_nodes_bi(self.nodes, 0, 1)
+        # Wait to allow -gen to create some blocks
+        time.sleep(1)
 
-        self.log.info("Mining blocks ...")
-        startNode0 = self.nodes[0].getblockcount() + 1
-        self.nodes[0].generate(10)
-        self.sync_blocks()
-        self.nodes[1].generate(10)
-        self.sync_blocks()
+        # Test single minter masternode
+        self.restart_node(0)
+
+        # Get end height
+        end_height = self.nodes[0].getblockcount() + 1
+
+        # Make sure block was minted
+        assert end_height > start_height
 
         minters = set()
-        for x in range(startNode0, startNode0 + 10):
+        for x in range(start_height, end_height):
             blockhash = self.nodes[0].getblockhash(x)
             minters.add(self.nodes[0].getblock(blockhash)["minter"])
 
+        # Only one minter should be present
         assert_equal(len(minters), 1)
 
+        # Get start height
+        start_height = end_height
+
+        # Test multiple minter masternode
+        self.restart_node(
+            0,
+            ["-gen"] + ["-masternode_operator=" + x for x in operators],
+        )
+
+        # Wait to allow -gen to create some blocks
+        time.sleep(3)
+
+        # Get end height
+        end_height = self.nodes[0].getblockcount() + 1
+
+        # Make sure block was minted
+        assert end_height > start_height
+
         minters.clear()
-        for x in range(11, 21):
+        for x in range(start_height, end_height):
             blockhash = self.nodes[0].getblockhash(x)
             minters.add(self.nodes[0].getblock(blockhash)["minter"])
 
+        # Both minters should be present
         assert_equal(len(minters), 2)
 
 
