@@ -1129,11 +1129,14 @@ namespace pos {
                 return Status::initWaiting;
             }
             tip = ::ChainActive().Tip();
+            blockHeight = tip->nHeight + 1;
             masternodeID = *optMasternodeID;
             const auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+            if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+                return Status::stakeWaiting;
+            }
             mintedBlocks = nodePtr->mintedBlocks;
 
-            blockHeight = tip->nHeight + 1;
             creationHeight = int64_t(nodePtr->creationHeight);
             blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
             const auto timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);

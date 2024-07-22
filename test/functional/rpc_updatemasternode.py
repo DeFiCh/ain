@@ -328,13 +328,12 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
-                "-eunospayaheight=50",
                 "-grandcentralheight=1",
             ],
         )
 
         # Wait to allow -gen to create some blocks
-        time.sleep(3)
+        time.sleep(1)
 
         # Mine blocks
         self.nodes[0].generate(101)
@@ -369,7 +368,6 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
-                "-eunospayaheight=50",
                 "-grandcentralheight=1",
                 "-metachainheight=510",
             ],
