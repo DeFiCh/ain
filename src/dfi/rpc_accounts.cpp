@@ -3252,11 +3252,13 @@ UniValue releaselockedtokens(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
+    auto [view, accountView, vaultView] = GetSnapshots();
+
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -3294,31 +3296,32 @@ UniValue listlockedtokens(const JSONRPCRequest &request) {
     }
     UniValue listLockedTokens{UniValue::VARR};
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    pcustomcsview->ForEachTokenLockUserValues([&](const CTokenLockUserKey &key, const CTokenLockUserValue &lockValues) {
-        CTxDestination dest;
-        ExtractDestination(key.owner, dest);
-        if (!IsValidDestination(dest)) {
-            return true;
-        }
-
-        UniValue value{UniValue::VOBJ};
-        value.pushKV("owner", EncodeDestination(dest));
-        UniValue balances{UniValue::VARR};
-        for (const auto tokenAmount : lockValues.balances) {
-            const auto source = pcustomcsview->GetToken(tokenAmount.first);
-            if (!source) {
-                continue;
+    view->ForEachTokenLockUserValues(
+        [&, &view = view](const CTokenLockUserKey &key, const CTokenLockUserValue &lockValues) {
+            CTxDestination dest;
+            ExtractDestination(key.owner, dest);
+            if (!IsValidDestination(dest)) {
+                return true;
             }
-            balances.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
-        }
-        value.pushKV("values", balances);
 
-        listLockedTokens.push_back(value);
+            UniValue value{UniValue::VOBJ};
+            value.pushKV("owner", EncodeDestination(dest));
+            UniValue balances{UniValue::VARR};
+            for (const auto tokenAmount : lockValues.balances) {
+                const auto source = view->GetToken(tokenAmount.first);
+                if (!source) {
+                    continue;
+                }
+                balances.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
+            }
+            value.pushKV("values", balances);
 
-        return true;
-    });
+            listLockedTokens.push_back(value);
+
+            return true;
+        });
 
     return GetRPCResultCache().Set(request, listLockedTokens);
 }
@@ -3341,14 +3344,14 @@ UniValue getlockedtokens(const JSONRPCRequest &request) {
 
     const auto owner = DecodeScript(request.params[0].get_str());
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CTokenLockUserKey key{owner};
-    const auto &value = pcustomcsview->GetTokenLockUserValue(key);
+    const auto &value = view->GetTokenLockUserValue(key);
 
     UniValue obj{UniValue::VARR};
     for (const auto tokenAmount : value.balances) {
-        const auto source = pcustomcsview->GetToken(tokenAmount.first);
+        const auto source = view->GetToken(tokenAmount.first);
         if (!source) {
             continue;
         }
