@@ -1,3 +1,5 @@
+#![feature(error_generic_member_access)]
+
 pub mod error;
 pub mod hex_encoder;
 mod indexer;
