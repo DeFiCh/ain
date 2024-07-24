@@ -8,6 +8,7 @@ use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
 };
+use rust_decimal_macros::dec;
 
 use crate::{
     error::NotFoundKind,
@@ -882,7 +883,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Resu
     let new_value_decimal = Decimal::from(new_value);
 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
-        .checked_div(count_decimal + Decimal::from(1))
+        .checked_div(count_decimal + dec!(1))
         .ok_or_else(|| Error::UnderflowError)?;
 
     Ok(result.to_i32().context("Error converting decimal to i32")?)
@@ -896,7 +897,7 @@ fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Res
     let result = last_decimal * count_decimal + new_decimal;
 
     result
-        .checked_div(count_decimal + Decimal::from(1))
+        .checked_div(count_decimal + dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
@@ -906,7 +907,7 @@ fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Re
     let count_decimal = Decimal::from(count);
 
     (last_value_decimal * count_decimal - new_value_decimal)
-        .checked_div(count_decimal - Decimal::from(1))
+        .checked_div(count_decimal - dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
@@ -916,7 +917,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Res
     let count_decimal = Decimal::from(count);
 
     let result = (last_value_decimal * count_decimal - new_value_decimal)
-        .checked_div(count_decimal - Decimal::from(1))
+        .checked_div(count_decimal - dec!(1))
         .ok_or_else(|| Error::UnderflowError)?;
 
     Ok(result.to_i32().unwrap_or(0))
