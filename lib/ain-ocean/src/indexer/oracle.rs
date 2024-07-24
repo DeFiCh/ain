@@ -475,7 +475,7 @@ impl Index for SetOracleData {
 
             let result = total
                 .checked_div(Decimal::from(weightage))
-                .ok_or_else(|| Error::UnderflowError)?;
+                .unwrap_or(dec!(1));
 
             let amount = format!("{:.8}", result);
             let aggregated_value = Some(OraclePriceAggregated {
