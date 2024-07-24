@@ -881,7 +881,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Resu
 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
         .checked_div(count_decimal + dec!(1))
-        .ok_or_else(|| Error::UnderflowError)?;
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
 
     Ok(result.to_i32().context("Error converting decimal to i32")?)
 }
@@ -895,7 +895,7 @@ fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Res
 
     result
         .checked_div(count_decimal + dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))
 }
 
 fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Result<Decimal> {
@@ -905,7 +905,7 @@ fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Re
 
     (last_value_decimal * count_decimal - new_value_decimal)
         .checked_div(count_decimal - dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))
 }
 
 fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Result<i32> {
@@ -915,7 +915,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Res
 
     let result = (last_value_decimal * count_decimal - new_value_decimal)
         .checked_div(count_decimal - dec!(1))
-        .ok_or_else(|| Error::UnderflowError)?;
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
 
     Ok(result.to_i32().unwrap_or(0))
 }

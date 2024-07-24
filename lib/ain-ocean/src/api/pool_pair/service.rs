@@ -96,7 +96,7 @@ async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     if !total_usd.is_zero() {
         let res = total_usd
             .checked_div(total_dfi)
-            .ok_or_else(|| Error::UnderflowError)?;
+            .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
         return Ok(res);
     };
 
@@ -276,9 +276,9 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
         let reduction_amount = dec!(0.01658); // 1.658%
         let mut reductions = height
             .checked_sub(eunos_height)
-            .ok_or_else(|| Error::UnderflowError)?
+            .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?
             .checked_div(dec!(32690))
-            .ok_or_else(|| Error::UnderflowError)?
+            .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?
             .floor();
 
         while reductions >= dec!(0) {
@@ -290,10 +290,10 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
             };
             block_subsidy = block_subsidy
                 .checked_sub(amount)
-                .ok_or_else(|| Error::UnderflowError)?;
+                .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
             reductions = reductions
                 .checked_sub(dec!(1))
-                .ok_or_else(|| Error::UnderflowError)?;
+                .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
         }
     };
 
@@ -444,12 +444,12 @@ pub async fn get_apr(
     // 1 == 100%, 0.1 = 10%
     let reward = yearly_usd
         .checked_div(total_liquidity_usd)
-        .ok_or_else(|| Error::UnderflowError)?;
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
 
     let yearly_commission = get_yearly_commission_estimate(ctx, id, p).await?;
     let commission = yearly_commission
         .checked_div(total_liquidity_usd)
-        .ok_or_else(|| Error::UnderflowError)?;
+        .ok_or_else(|| Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
 
     let total = reward
         .checked_add(commission)
@@ -494,11 +494,11 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         if a == "DUSD" {
             return reserve_a
                 .checked_div(reserve_b)
-                .ok_or(Error::UnderflowError);
+                .ok_or(Error::UnderflowError(std::backtrace::Backtrace::capture()));
         };
         return reserve_b
             .checked_div(reserve_a)
-            .ok_or(Error::UnderflowError);
+            .ok_or(Error::UnderflowError(std::backtrace::Backtrace::capture()));
     }
 
     let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;
@@ -509,13 +509,13 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         if p.id_token_a == *"0" {
             return reserve_a
                 .checked_div(reserve_b)
-                .ok_or(Error::UnderflowError)?
+                .ok_or(Error::UnderflowError(std::backtrace::Backtrace::capture()))?
                 .checked_mul(usd_per_dfi)
                 .ok_or(Error::OverflowError);
         }
         return reserve_b
             .checked_div(reserve_a)
-            .ok_or(Error::UnderflowError)?
+            .ok_or(Error::UnderflowError(std::backtrace::Backtrace::capture()))?
             .checked_mul(usd_per_dfi)
             .ok_or(Error::OverflowError);
     }

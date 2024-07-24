@@ -138,7 +138,7 @@ fn invalidate_swap_aggregated(
 
             let aggregated_amount = amount
                 .checked_sub(Decimal::from(from_amount / COIN))
-                .ok_or(Error::UnderflowError)?;
+                .ok_or(Error::UnderflowError(std::backtrace::Backtrace::capture()))?;
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),

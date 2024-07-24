@@ -1,4 +1,5 @@
 use std::{
+    backtrace::Backtrace,
     fmt,
     num::{ParseFloatError, ParseIntError},
 };
@@ -85,7 +86,7 @@ pub enum Error {
     #[error("Ocean: Overflow error")]
     OverflowError,
     #[error("Ocean: Underflow error")]
-    UnderflowError,
+    UnderflowError(Backtrace),
     #[error("Error fetching primary value")]
     SecondaryIndex,
     #[error("Token {0:?} is invalid as it is not tradeable")]
