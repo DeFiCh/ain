@@ -155,7 +155,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         CrossBoundaryResult result;
         evm_try_unsafe_rename_dst20(result,
                                     evmTemplate->GetTemplate(),
-                                    hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                    hash.GetByteArray(),
                                     DST20TokenInfo{
                                         id,
                                         oldToken->name,
@@ -184,7 +184,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             tokenSymbol = "USDD";
             evm_try_unsafe_rename_dst20(result,
                                         evmTemplate->GetTemplate(),
-                                        hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                        hash.GetByteArray(),
                                         DST20TokenInfo{
                                             newId.v,
                                             oldToken->name,
