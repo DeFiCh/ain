@@ -1,6 +1,6 @@
-use std::{ops::Div, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::pool::*;
+use ain_dftx::{COIN, pool::*};
 use anyhow::format_err;
 use bitcoin::{BlockHash, Txid};
 // use bitcoin::Address;
@@ -74,7 +74,7 @@ fn index_swap_aggregated(
                 .unwrap_or(dec!(0));
 
             let aggregated_amount = amount
-                .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
+                .checked_add(Decimal::from(from_amount / COIN))
                 .ok_or(Error::OverflowError)?;
 
             aggregated.aggregated.amounts.insert(
@@ -137,7 +137,7 @@ fn invalidate_swap_aggregated(
                 .unwrap_or(dec!(0));
 
             let aggregated_amount = amount
-                .checked_sub(Decimal::from(from_amount).div(dec!(100_000_000)))
+                .checked_sub(Decimal::from(from_amount / COIN))
                 .ok_or(Error::UnderflowError)?;
 
             aggregated.aggregated.amounts.insert(

@@ -40,5 +40,5 @@ pub fn get_block_reward_distribution(subsidy: Decimal) -> BlockRewardDistributio
 }
 
 fn calculate_reward(amount: Decimal, percent: Decimal) -> Decimal {
-    (amount * percent) / dec!(10000) / COIN
+    (amount * percent) / dec!(10000) / Decimal::from(COIN)
 }

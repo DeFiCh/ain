@@ -5,13 +5,13 @@ mod subsidy;
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
+use ain_dftx::COIN;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     defichain_rpc_json::{account::BurnInfo, GetNetworkInfoResult},
     AccountRPC, RpcApi,
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use self::{
@@ -27,8 +27,6 @@ use crate::{
     error::{ApiError, Error},
     Result,
 };
-
-const COIN: Decimal = dec!(100_000_000);
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct StatsData {
@@ -163,8 +161,7 @@ async fn get_supply(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respon
 
     let total = Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height))
         .ok_or(Error::DecimalConversionError)?
-        .checked_div(COIN)
-        .ok_or(Error::UnderflowError)?;
+        / Decimal::from(COIN);
 
     let burned = get_burned_total(&ctx).await?;
     let circulating = total - burned;

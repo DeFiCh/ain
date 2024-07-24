@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
+use ain_dftx::COIN;
 use anyhow::anyhow;
 use axum::{
     extract::{Path, Query},
@@ -9,7 +10,6 @@ use axum::{
 };
 use bitcoin::Txid;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 
 use super::{
     common::split_key,
@@ -77,10 +77,7 @@ async fn get_feed(
     for (_, feed) in &price_feed_list {
         let (token, currency, oracle_id, _) = &feed.id;
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
-            let amount_decimal = Decimal::new(feed.amount, 0);
-            let amount = amount_decimal
-                .checked_div(dec!(100_000_000))
-                .ok_or_else(|| Error::UnderflowError)?;
+            let amount = Decimal::from(feed.amount / COIN);
             oracle_price_feeds.push(ApiResponseOraclePriceFeed {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),
