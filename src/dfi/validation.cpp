@@ -1852,7 +1852,7 @@ static Res PoolSplits(CCustomCSView &view,
                     refundBalances();
                     continue;
                 }
-                
+
                 CAmount liquidity{0};
                 if (newPoolPair.totalLiquidity == 0) {
                     liquidity = (arith_uint256(amountA) * amountB).sqrt().GetLow64();
@@ -1903,7 +1903,6 @@ static Res PoolSplits(CCustomCSView &view,
                          newPoolLogStr);
                 view.SetShare(newPoolId, owner, pindex->nHeight);
             }
-
 
             DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
             if (tokenMap.count(oldPoolPair->idTokenA.v)) {
@@ -1975,7 +1974,7 @@ static Res PoolSplits(CCustomCSView &view,
                       pindex->nHeight,
                       GetTimeMillis() - loopTime);
         }
-        
+
     } catch (const std::runtime_error &e) {
         return Res::Err(e.what());
     }
