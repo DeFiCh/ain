@@ -130,10 +130,6 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         },
         newId);
 
-    if (newId == CTokensView::DCT_ID_START) {
-        newId = mnview.IncrementLastDctId();
-    }
-
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
 
@@ -148,6 +144,10 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             continue;
         }
 
+        if (newId == CTokensView::DCT_ID_START) {
+            newId = mnview.IncrementLastDctId();
+        }
+
         auto tokenSymbol = oldToken->symbol;
         oldToken->symbol += newTokenSuffix;
 
@@ -155,7 +155,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         CrossBoundaryResult result;
         evm_try_unsafe_rename_dst20(result,
                                     evmTemplate->GetTemplate(),
-                                    hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                    hash.GetByteArray(),
                                     DST20TokenInfo{
                                         id,
                                         oldToken->name,
@@ -184,22 +184,19 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             tokenSymbol = "USDD";
             evm_try_unsafe_rename_dst20(result,
                                         evmTemplate->GetTemplate(),
-                                        hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                        hash.GetByteArray(),
                                         DST20TokenInfo{
                                             newId.v,
                                             oldToken->name,
                                             tokenSymbol,
                                         });
             if (!result.ok) {
-                LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 error: %s\n", result.reason.c_str());
+                LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 DUSD error: %s\n", result.reason.c_str());
                 continue;
             }
         }
 
         newId.v++;
-        if (newId == CTokensView::DCT_ID_START) {
-            newId = mnview.IncrementLastDctId();
-        }
     }
 }
 
