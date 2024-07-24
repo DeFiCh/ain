@@ -120,6 +120,20 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
+    DCT_ID newId{};
+    mnview.ForEachToken(
+        [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
+            if (currentId < CTokensView::DCT_ID_START) {
+                newId.v = currentId.v + 1;
+            }
+            return currentId < CTokensView::DCT_ID_START;
+        },
+        newId);
+
+    if (newId == CTokensView::DCT_ID_START) {
+        newId = mnview.IncrementLastDctId();
+    }
+
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
 
@@ -128,27 +142,13 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             continue;
         }
 
-        DCT_ID newId{};
-        mnview.ForEachToken(
-            [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
-                if (currentId < CTokensView::DCT_ID_START) {
-                    newId.v = currentId.v + 1;
-                }
-                return currentId < CTokensView::DCT_ID_START;
-            },
-            newId);
-
-        if (newId == CTokensView::DCT_ID_START) {
-            newId = mnview.IncrementLastDctId();
-        }
-
         std::string newTokenSuffix = "/v";
         auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
         if (!res) {
             continue;
         }
 
-        const auto tokenSymbol = oldToken->symbol;
+        auto tokenSymbol = oldToken->symbol;
         oldToken->symbol += newTokenSuffix;
 
         uint256 hash{};
@@ -162,6 +162,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
                                         oldToken->symbol,
                                     });
         if (!result.ok) {
+            LogPrintf("AddSplitEVMTxs evm_try_unsafe_rename_dst20 error: %s\n", result.reason.c_str());
             continue;
         }
 
@@ -174,7 +175,30 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
                                         tokenSymbol,
                                     });
         if (!result.ok) {
+            LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 error: %s\n", result.reason.c_str());
             continue;
+        }
+
+        // Ad-hoc logic for dToken restart
+        if (tokenSymbol == "DUSD") {
+            tokenSymbol = "USDD";
+            evm_try_unsafe_rename_dst20(result,
+                                        evmTemplate->GetTemplate(),
+                                        hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                        DST20TokenInfo{
+                                            newId.v,
+                                            oldToken->name,
+                                            tokenSymbol,
+                                        });
+            if (!result.ok) {
+                LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 error: %s\n", result.reason.c_str());
+                continue;
+            }
+        }
+
+        newId.v++;
+        if (newId == CTokensView::DCT_ID_START) {
+            newId = mnview.IncrementLastDctId();
         }
     }
 }
@@ -426,7 +450,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
         SplitMap lockSplitMapEVM;
         auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
-            LogPrintf("add creation Tx %d %d\n", id, isToken);
             CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
             int64_t multiplier = COIN;
             metadata << (isToken ? 0 : 1) << id << multiplier;
@@ -445,6 +468,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             pblock->vtx.push_back(tx);
             pblocktemplate->vTxFees.push_back(0);
             pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+            LogPrintf("Add creation TX ID: %d isToken: %d Hash: %s\n", id, isToken, tx->GetHash().GetHex());
         };
         ForEachLockTokenAndPool(
             [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
