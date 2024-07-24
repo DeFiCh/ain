@@ -4,8 +4,8 @@ mod subsidy;
 
 use std::sync::Arc;
 
-use ain_macros::ocean_endpoint;
 use ain_dftx::COIN;
+use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     defichain_rpc_json::{account::BurnInfo, GetNetworkInfoResult},

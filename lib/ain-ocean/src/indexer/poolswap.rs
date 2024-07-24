@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::{COIN, pool::*};
+use ain_dftx::{pool::*, COIN};
 use anyhow::format_err;
 use bitcoin::{BlockHash, Txid};
 // use bitcoin::Address;

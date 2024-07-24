@@ -1,6 +1,6 @@
 use std::{result::Result as StdResult, str::FromStr, sync::Arc};
 
-use ain_dftx::{deserialize, COIN, DfTx};
+use ain_dftx::{deserialize, DfTx, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Json, Path},
