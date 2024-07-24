@@ -130,10 +130,6 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         },
         newId);
 
-    if (newId == CTokensView::DCT_ID_START) {
-        newId = mnview.IncrementLastDctId();
-    }
-
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
 
@@ -146,6 +142,10 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
         if (!res) {
             continue;
+        }
+
+        if (newId == CTokensView::DCT_ID_START) {
+            newId = mnview.IncrementLastDctId();
         }
 
         auto tokenSymbol = oldToken->symbol;
@@ -191,15 +191,12 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
                                             tokenSymbol,
                                         });
             if (!result.ok) {
-                LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 error: %s\n", result.reason.c_str());
+                LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 DUSD error: %s\n", result.reason.c_str());
                 continue;
             }
         }
 
         newId.v++;
-        if (newId == CTokensView::DCT_ID_START) {
-            newId = mnview.IncrementLastDctId();
-        }
     }
 }
 
