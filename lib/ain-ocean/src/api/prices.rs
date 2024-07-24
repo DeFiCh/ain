@@ -1,5 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
+use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
 use anyhow::{anyhow, Context};
 use axum::{
@@ -9,7 +10,6 @@ use axum::{
 };
 use indexmap::IndexSet;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 
 use super::{
     common::split_key,
@@ -63,10 +63,8 @@ async fn list_prices(
                 .get(&id)?
                 .context("Missing price ticker index")?;
 
-            let amount_decimal = Decimal::from_str(&price_ticker.price.aggregated.amount)?;
-            let amount = amount_decimal
-                .checked_div(dec!(100_000_000))
-                .ok_or_else(|| Error::UnderflowError)?;
+            let amount =
+                Decimal::from_str(&price_ticker.price.aggregated.amount)? / Decimal::from(COIN);
             Ok(PriceTickerApi {
                 id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
                 sort: price_ticker.sort,
@@ -108,10 +106,8 @@ async fn get_price(
         if price_ticker.price.token.eq(&price_ticker_id.0)
             && price_ticker.price.currency.eq(&price_ticker_id.1)
         {
-            let amount_decimal = Decimal::from_str(&price_ticker.price.aggregated.amount)?;
-            let amount = amount_decimal
-                .checked_div(dec!(100_000_000))
-                .ok_or_else(|| Error::UnderflowError)?;
+            let amount =
+                Decimal::from_str(&price_ticker.price.aggregated.amount)? / Decimal::from(COIN);
             let ticker = PriceTickerApi {
                 id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
                 sort: price_ticker.sort,

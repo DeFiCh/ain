@@ -8,6 +8,7 @@ use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
 };
+use rust_decimal_macros::dec;
 
 use crate::{
     error::NotFoundKind,
@@ -388,7 +389,7 @@ impl Index for SetOracleData {
             token_prices: self.token_prices,
         };
         let feeds = map_price_feeds(&set_oracle_data, context)?;
-        let mut pairs: Vec<(String, String, Txid)> = Vec::new();
+        let mut pairs = Vec::new();
         for feed in &feeds {
             pairs.push((feed.token.clone(), feed.currency.clone(), feed.oracle_id));
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
@@ -400,8 +401,7 @@ impl Index for SetOracleData {
             OracleIntervalSeconds::OneDay,
         ];
         for (token, currency, oracle) in pairs.iter() {
-            let oracle_token_id: (String, String, Txid) =
-                (token.to_string(), currency.to_string(), *oracle);
+            let oracle_token_id = (token.to_string(), currency.to_string(), *oracle);
             let oracle_entries = services
                 .oracle_token_currency
                 .by_key
@@ -460,8 +460,7 @@ impl Index for SetOracleData {
                             if (oracle_price.time - context.block.time as i32) < 3600 {
                                 count += 1;
                                 weightage += oracle.weightage as i32;
-                                let amount = oracle_price.amount;
-                                let weighted_amount = amount * oracle.weightage as i64;
+                                let weighted_amount = oracle_price.amount * oracle.weightage as i64;
                                 total += Decimal::from(weighted_amount);
                             }
                         }
@@ -472,11 +471,10 @@ impl Index for SetOracleData {
                 }
             }
 
-            let result = total
+            let amount = total
                 .checked_div(Decimal::from(weightage))
-                .ok_or_else(|| Error::UnderflowError)?;
+                .unwrap_or(dec!(1));
 
-            let amount = format!("{:.8}", result);
             let aggregated_value = Some(OraclePriceAggregated {
                 id: (
                     token.to_string(),
@@ -492,7 +490,7 @@ impl Index for SetOracleData {
                 token: token.to_string(),
                 currency: currency.to_string(),
                 aggregated: OraclePriceAggregatedAggregated {
-                    amount,
+                    amount: format!("{:.8}", amount),
                     weightage,
                     oracles: OraclePriceAggregatedAggregatedOracles {
                         active: count,
@@ -882,7 +880,7 @@ fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Resu
     let new_value_decimal = Decimal::from(new_value);
 
     let result = (last_value_decimal * count_decimal + new_value_decimal)
-        .checked_div(count_decimal + Decimal::from(1))
+        .checked_div(count_decimal + dec!(1))
         .ok_or_else(|| Error::UnderflowError)?;
 
     Ok(result.to_i32().context("Error converting decimal to i32")?)
@@ -896,7 +894,7 @@ fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Res
     let result = last_decimal * count_decimal + new_decimal;
 
     result
-        .checked_div(count_decimal + Decimal::from(1))
+        .checked_div(count_decimal + dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
@@ -906,7 +904,7 @@ fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Re
     let count_decimal = Decimal::from(count);
 
     (last_value_decimal * count_decimal - new_value_decimal)
-        .checked_div(count_decimal - Decimal::from(1))
+        .checked_div(count_decimal - dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
@@ -916,7 +914,7 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> Res
     let count_decimal = Decimal::from(count);
 
     let result = (last_value_decimal * count_decimal - new_value_decimal)
-        .checked_div(count_decimal - Decimal::from(1))
+        .checked_div(count_decimal - dec!(1))
         .ok_or_else(|| Error::UnderflowError)?;
 
     Ok(result.to_i32().unwrap_or(0))

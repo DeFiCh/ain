@@ -177,9 +177,7 @@ pub fn get_emission(height: u32) -> Result<Emission> {
     let dex = distribution.liquidity;
     let community = distribution.community;
     let anchor = distribution.anchor;
-    let total = subsidy
-        .checked_div(COIN)
-        .ok_or_else(|| Error::UnderflowError)?;
+    let total = subsidy / Decimal::from(COIN);
     let burned = total - (masternode + dex + community + anchor);
 
     Ok(Emission {

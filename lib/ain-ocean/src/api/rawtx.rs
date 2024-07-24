@@ -1,6 +1,6 @@
 use std::{result::Result as StdResult, str::FromStr, sync::Arc};
 
-use ain_dftx::{deserialize, DfTx};
+use ain_dftx::{deserialize, DfTx, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Json, Path},
@@ -10,7 +10,6 @@ use axum::{
 use bitcoin::{Transaction, Txid};
 use defichain_rpc::{PoolPairRPC, RpcApi};
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize, Serializer};
 
 use super::{query::Query, response::Response, AppContext};
@@ -38,8 +37,7 @@ async fn send_raw_tx(
     validate(ctx.clone(), raw_tx_dto.hex.clone()).await?;
     let max_fee = match raw_tx_dto.max_fee_rate {
         Some(fee_rate) => {
-            let sat_per_bitcoin = dec!(100_000_000);
-            let fee_in_satoshis = fee_rate.checked_mul(sat_per_bitcoin);
+            let fee_in_satoshis = fee_rate.checked_mul(COIN.into());
             match fee_in_satoshis {
                 Some(value) => Some(value.to_u64().unwrap_or_default()),
                 None => Some(default_max_fee_rate().to_sat()),
@@ -71,8 +69,7 @@ async fn test_raw_tx(
     let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
     let max_fee = match raw_tx_dto.max_fee_rate {
         Some(fee_rate) => {
-            let sat_per_bitcoin = dec!(100_000_000);
-            let fee_in_satoshis = fee_rate.checked_mul(sat_per_bitcoin);
+            let fee_in_satoshis = fee_rate.checked_mul(COIN.into());
             match fee_in_satoshis {
                 Some(value) => Some(value.to_u64().unwrap_or_default()),
                 None => Some(default_max_fee_rate().to_sat()),
