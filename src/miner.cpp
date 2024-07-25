@@ -130,9 +130,6 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
         },
         newId);
 
-    uint32_t dusdID{};
-    std::string dusdTokenName;
-
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
 
@@ -182,30 +179,7 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             continue;
         }
 
-        if (tokenSymbol == "DUSD") {
-            dusdID = newId.v;
-            dusdTokenName = oldToken->name;
-        }
-
         newId.v++;
-    }
-
-    // Ad-hoc logic for dToken restart
-    if (dusdID && !dusdTokenName.empty()) {
-        uint256 hash{};
-        CrossBoundaryResult result;
-        const auto tokenSymbol{"USDD"};
-        evm_try_unsafe_rename_dst20(result,
-                                    evmTemplate->GetTemplate(),
-                                    hash.GetByteArray(),
-                                    DST20TokenInfo{
-                                        dusdID,
-                                        dusdTokenName,
-                                        tokenSymbol,
-                                    });
-        if (!result.ok) {
-            LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 DUSD error: %s\n", result.reason.c_str());
-        }
     }
 }
 

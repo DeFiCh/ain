@@ -3321,23 +3321,6 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx);
     LogPrintf("executed token 'splits' for locks\n");
 
-    // rename DUSD -> USDD (before updating pools to get correct pool token names)
-    auto dusdToken = cache.GetToken("DUSD");
-    if (!dusdToken) {
-        LogPrintf("Token lock failed. DUSD not found\n");
-        return;
-    }
-    // update new DUSD to USDD
-    dusdToken->second->symbol = "USDD";
-    UpdateTokenContext ctx{*(dusdToken->second), blockCtx, true, true, true, pindex->GetBlockHash()};
-    auto res = cache.UpdateToken(ctx);
-    if (!res) {
-        LogPrintf("Updating DUSD -> USDD failed %s\n", res.msg);
-        return;
-    }
-
-    // TODO: should we rename the oracle? DUSD/USD -> USDD/USD
-
     // get map oldTokenId->newTokenId
     std::map<uint32_t, DCT_ID> oldTokenToNewToken;
     std::map<uint32_t, CAmount> totalBalanceMap;
@@ -3352,7 +3335,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
 
     // convert pools, based on tokenMap (needed change in existing code)
 
-    res = PoolSplits(
+    auto res = PoolSplits(
         cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, consensus, creationTxPerPoolId, COIN);
     if (!res) {
         LogPrintf("Pool splits failed %s\n", res.msg);
@@ -3366,6 +3349,13 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
             // TODO: error handling
         }
     }
+
+    // Unlock new token. Automatically locked as part of vault split.
+    for (auto [oldToken, newToken] : oldTokenToNewToken) {
+        attributes->EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newToken.v});
+    }
+    cache.SetVariable(*attributes);
+
     LogPrintf("poolsplit done\n");
 }
 

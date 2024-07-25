@@ -136,34 +136,34 @@ class RestartdTokensTest(DefiTestFramework):
         # 99% directly transfered, only 1% still locked
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.99000000@SPY", "9.90000000@USDD"],
+            ["0.99000000@SPY", "9.90000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address1)),
-            ["1.98000000@SPY", "143.41617441@USDD"],
+            ["1.98000000@SPY", "143.41617441@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
             [
                 {
                     "owner": self.newaddress,
-                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
+                    "values": ["0.10000000@DUSD", "0.01000000@SPY"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
+                    "values": ["0.20001733@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["1.60018174@USDD", "0.02000000@SPY"],
+                    "values": ["1.60018174@DUSD", "0.02000000@SPY"],
                 },
                 {
                     "owner": self.address3,
-                    "values": ["2.00033467@USDD", "0.19999990@SPY"],
+                    "values": ["2.00033467@DUSD", "0.19999990@SPY"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["43.39904655@USDD", "0.60000020@SPY"],
+                    "values": ["43.39904655@DUSD", "0.60000020@SPY"],
                 },
             ],
         )
@@ -184,34 +184,34 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["1.00000000@SPY", "10.00000000@USDD"],
+            ["1.00000000@SPY", "10.00000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
-                "127.27205534@USDD-DFI",
+                "127.27205534@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "3.16226765@SPY-USDD",
-                "3967.91418928@USDD",
+                "3.16226765@SPY-DUSD",
+                "3967.91418928@DUSD",
                 "39847.82153626@DFI",
                 "59.00001170@SPY",
                 "854.81190985@USDT",
-                "94.86637327@USDT-USDD",
+                "94.86637327@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address1)),
-            ["145.01635615@USDD", "2.00000000@SPY"],
+            ["145.01635615@DUSD", "2.00000000@SPY"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address2)),
-            ["18.00155935@USDD"],
+            ["18.00155935@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            ["18.99998570@SPY", "190.03348924@USDD", "3.16230611@SPY-USDD"],
+            ["18.99998570@SPY", "190.03348924@DUSD", "3.16230611@SPY-DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
@@ -262,49 +262,49 @@ class RestartdTokensTest(DefiTestFramework):
                 {"8": ["USDT-DFI", False, False, 0.0]},
                 {"9": ["USDT-DUSD/v1", False, False, 0.0]},
                 {"10": ["SPY/v2", False, False, 0.0]},
-                {"11": ["USDD", True, True, 4970.0804783]},
-                {"12": ["SPY-USDD/v1", False, False, 0.0]},
-                {"13": ["USDD-DFI", False, False, 0.0]},
-                {"14": ["USDT-USDD", False, False, 0.0]},
+                {"11": ["DUSD", True, True, 4970.0804783]},
+                {"12": ["SPY-DUSD/v2", False, False, 0.0]},
+                {"13": ["DUSD-DFI", False, False, 0.0]},
+                {"14": ["USDT-DUSD", False, False, 0.0]},
                 {"15": ["SPY", True, True, 81.0000091]},
-                {"16": ["SPY-USDD", False, False, 0.0]},
+                {"16": ["SPY-DUSD", False, False, 0.0]},
             ],
         )
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.99000000@SPY", "9.90000000@USDD"],
+            ["0.99000000@SPY", "9.90000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
-                "127.27205534@USDD-DFI",
+                "127.27205534@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "3.16226765@SPY-USDD",
-                "3924.51514273@USDD",
+                "3.16226765@SPY-DUSD",
+                "3924.51514273@DUSD",
                 "39847.82153626@DFI",
                 "58.40001150@SPY",
                 "854.81190985@USDT",
-                "94.86637327@USDT-USDD",
+                "94.86637327@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address1)),
-            ["133.51617441@USDD"],
+            ["133.51617441@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address2)),
-            ["17.80154202@USDD"],
+            ["17.80154202@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            ["18.79998580@SPY", "188.03315457@USDD", "3.16230611@SPY-USDD"],
+            ["18.79998580@SPY", "188.03315457@DUSD", "3.16230611@SPY-DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.81000010@SPY", "47.19958029@USDD"],
+            ["0.81000010@SPY", "47.19958029@DUSD"],
         )
 
         assert_equal(
@@ -312,23 +312,23 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "owner": self.newaddress,
-                    "values": ["0.10000000@USDD", "0.01000000@SPY"],
+                    "values": ["0.10000000@DUSD", "0.01000000@SPY"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
+                    "values": ["0.20001733@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["1.50018174@USDD"],
+                    "values": ["1.50018174@DUSD"],
                 },
                 {
                     "owner": self.address3,
-                    "values": ["2.00033467@USDD", "0.19999990@SPY"],
+                    "values": ["2.00033467@DUSD", "0.19999990@SPY"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["43.39904655@USDD", "0.60000020@SPY"],
+                    "values": ["43.39904655@DUSD", "0.60000020@SPY"],
                 },
             ],
         )
@@ -347,61 +347,61 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "owner": self.newaddress,
-                    "values": ["0.00100000@SPY", "0.10000000@USDD"],
+                    "values": ["0.00100000@SPY", "0.10000000@DUSD"],
                 },
                 {
                     "owner": self.address3,
-                    "values": ["0.01999999@SPY", "2.00033467@USDD"],
+                    "values": ["0.01999999@SPY", "2.00033467@DUSD"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["0.06000002@SPY", "43.39904655@USDD"],
+                    "values": ["0.06000002@SPY", "43.39904655@DUSD"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["0.20001733@USDD"],
+                    "values": ["0.20001733@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["1.50018174@USDD"],
+                    "values": ["1.50018174@DUSD"],
                 },
             ],
         )
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.09900000@SPY", "9.90000000@USDD"],
+            ["0.09900000@SPY", "9.90000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
-                "1.00000000@SPY-USDD",
-                "127.27205534@USDD-DFI",
+                "1.00000000@SPY-DUSD",
+                "127.27205534@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "3924.51514273@USDD",
+                "3924.51514273@DUSD",
                 "39847.82153626@DFI",
                 "5.84000115@SPY",
                 "854.81190985@USDT",
-                "94.86637327@USDT-USDD",
+                "94.86637327@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address1)),
-            ["133.51617441@USDD"],
+            ["133.51617441@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address2)),
-            ["17.80154202@USDD"],
+            ["17.80154202@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            ["0.99999900@SPY-USDD", "1.87999858@SPY", "188.03315457@USDD"],
+            ["0.99999900@SPY-DUSD", "1.87999858@SPY", "188.03315457@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.08100001@SPY", "47.19958029@USDD"],
+            ["0.08100001@SPY", "47.19958029@DUSD"],
         )
 
     def check_td(self):
@@ -464,12 +464,12 @@ class RestartdTokensTest(DefiTestFramework):
                 {
                     "src": {
                         "address": self.newaddress,
-                        "amount": "1@USDD",
+                        "amount": "1@DUSD",
                         "domain": 2,
                     },
                     "dst": {
                         "address": self.evmaddress,
-                        "amount": "1@USDD",
+                        "amount": "1@DUSD",
                         "domain": 3,
                     },
                     "singlekeycheck": False,
@@ -486,12 +486,12 @@ class RestartdTokensTest(DefiTestFramework):
                 {
                     "src": {
                         "address": self.evmaddress,
-                        "amount": "1@USDD",
+                        "amount": "1@DUSD",
                         "domain": 3,
                     },
                     "dst": {
                         "address": self.newaddress,
-                        "amount": "1@USDD",
+                        "amount": "1@DUSD",
                         "domain": 2,
                     },
                     "singlekeycheck": False,
@@ -502,30 +502,30 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.01000000@SPY", "1.00000000@USDD"],
+            ["0.01000000@SPY", "1.00000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].listlockedtokens(), key=lambda a: a["values"][0]),
             [
                 {
                     "owner": self.newaddress,
-                    "values": ["0.09000000@SPY", "9.00000000@USDD"],
+                    "values": ["0.09000000@SPY", "9.00000000@DUSD"],
                 },
                 {
                     "owner": self.address3,
-                    "values": ["1.79999874@SPY", "180.03011956@USDD"],
+                    "values": ["1.79999874@SPY", "180.03011956@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["135.01635615@USDD"],
+                    "values": ["135.01635615@DUSD"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["18.00155935@USDD"],
+                    "values": ["18.00155935@DUSD"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.40000117@SPY", "3905.91418928@USDD"],
+                    "values": ["5.40000117@SPY", "3905.91418928@DUSD"],
                 },
             ],
         )
@@ -545,65 +545,65 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "owner": self.newaddress,
-                    "values": ["0.08900000@SPY", "8.90000000@USDD"],
+                    "values": ["0.08900000@SPY", "8.90000000@DUSD"],
                 },
                 {
                     "owner": self.address3,
-                    "values": ["1.77999876@SPY", "178.02978490@USDD"],
+                    "values": ["1.77999876@SPY", "178.02978490@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["133.51617442@USDD"],
+                    "values": ["133.51617442@DUSD"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["17.80154203@USDD"],
+                    "values": ["17.80154203@DUSD"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.34000116@SPY", "3862.51514274@USDD"],
+                    "values": ["5.34000116@SPY", "3862.51514274@DUSD"],
                 },
             ],
         )
 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.newaddress)),
-            ["0.01100000@SPY", "1.10000000@USDD"],
+            ["0.01100000@SPY", "1.10000000@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.56000001@SPY",
                 "0.96000000@BTC",
-                "1.00000000@SPY-USDD",
-                "105.39904654@USDD",
-                "127.27205534@USDD-DFI",
+                "1.00000000@SPY-DUSD",
+                "105.39904654@DUSD",
+                "127.27205534@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "39847.82153626@DFI",
                 "854.81190985@USDT",
-                "94.86637327@USDT-USDD",
+                "94.86637327@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address1)),
-            ["1.50018173@USDD"],
+            ["1.50018173@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address2)),
-            ["0.20001732@USDD"],
+            ["0.20001732@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            ["0.11999981@SPY", "0.99999900@SPY-USDD", "12.00370434@USDD"],
+            ["0.11999981@SPY", "0.99999900@SPY-DUSD", "12.00370434@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["4200.76264409@USDD", "7.20899992@SPY"],
+            ["4200.76264409@DUSD", "7.20899992@SPY"],
         )
 
     def check_token_lock(self):
-        self.usddId = int(list(self.nodes[0].gettoken("USDD").keys())[0])
+        self.usddId = int(list(self.nodes[0].gettoken("DUSD").keys())[0])
 
         self.usdd_contract = self.nodes[0].w3.eth.contract(
             address=self.nodes[0].w3.to_checksum_address(
@@ -637,10 +637,10 @@ class RestartdTokensTest(DefiTestFramework):
                 {"8": ["USDT-DFI", False, False, 0.0]},
                 {"9": ["USDT-DUSD/v1", False, False, 0.0]},
                 {"10": ["SPY", True, True, 8.0000009]},
-                {"11": ["USDD", True, True, 4960.0804783]},
-                {"12": ["SPY-USDD", False, False, 0.0]},
-                {"13": ["USDD-DFI", False, False, 0.0]},
-                {"14": ["USDT-USDD", False, False, 0.0]},
+                {"11": ["DUSD", True, True, 4960.0804783]},
+                {"12": ["SPY-DUSD", False, False, 0.0]},
+                {"13": ["DUSD-DFI", False, False, 0.0]},
+                {"14": ["USDT-DUSD", False, False, 0.0]},
             ],
         )
 
@@ -675,7 +675,7 @@ class RestartdTokensTest(DefiTestFramework):
                 {"9": ["USDT-DUSD/v1", "2", "4", 0, 0, 0]},
                 {  # why is DUSD reserve not lower? interest payment swapped SPY->DUSD
                     "12": [
-                        "SPY-USDD",
+                        "SPY-DUSD",
                         "10",
                         "11",
                         Decimal("0.20000117"),
@@ -685,7 +685,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "13": [
-                        "USDD-DFI",
+                        "DUSD-DFI",
                         "11",
                         "0",
                         Decimal("266.11512406"),
@@ -695,7 +695,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "14": [
-                        "USDT-USDD",
+                        "USDT-DUSD",
                         "2",
                         "11",
                         Decimal("93.86799988"),
@@ -711,19 +711,19 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "owner": self.address3,
-                    "values": ["1.79999874@SPY", "180.03011956@USDD"],
+                    "values": ["1.79999874@SPY", "180.03011956@DUSD"],
                 },
                 {
                     "owner": self.address1,
-                    "values": ["135.01635615@USDD"],
+                    "values": ["135.01635615@DUSD"],
                 },
                 {
                     "owner": self.address2,
-                    "values": ["18.00155935@USDD"],
+                    "values": ["18.00155935@DUSD"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.40000117@SPY", "3905.91418928@USDD"],
+                    "values": ["5.40000117@SPY", "3905.91418928@DUSD"],
                 },
             ],
         )
@@ -735,16 +735,17 @@ class RestartdTokensTest(DefiTestFramework):
                 "loanSchemeId": "LOAN0001",
                 "ownerAddress": self.address1,
                 "state": "active",
-                "collateralAmounts": ["15.00181736@USDD"],
+                "collateralAmounts": ["15.00181736@DUSD"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": -1,
-                "loanValue": -1,
-                "interestValue": -1,
+                "collateralValue": Decimal("15.00181736"),
+                "loanValue": 0,
+                "interestValue": 0,
                 "informativeRatio": -1,
                 "collateralRatio": -1,
             },
         )
+
         # DFI and DUSD used completely to payback, parts of USDT used too (shows that higher liq pool DUSD-DFI was used first)
         assert_equal(
             self.nodes[0].getvault(self.vault_id1),
@@ -787,12 +788,12 @@ class RestartdTokensTest(DefiTestFramework):
                 "loanSchemeId": "LOAN0001",
                 "ownerAddress": self.address2,
                 "state": "active",
-                "collateralAmounts": ["2.00017327@USDD"],
+                "collateralAmounts": ["2.00017327@DUSD"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": -1,
-                "loanValue": -1,
-                "interestValue": -1,
+                "collateralValue": Decimal("2.00017327"),
+                "loanValue": 0,
+                "interestValue": 0,
                 "informativeRatio": -1,
                 "collateralRatio": -1,
             },
@@ -839,13 +840,13 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 "0.50000000@SPY",
                 "0.96000000@BTC",
-                "1.00000000@SPY-USDD",
-                "127.27205534@USDD-DFI",
+                "1.00000000@SPY-DUSD",
+                "127.27205534@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "39847.82153626@DFI",
-                "62.00000000@USDD",
+                "62.00000000@DUSD",
                 "854.81190985@USDT",
-                "94.86637327@USDT-USDD",
+                "94.86637327@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -859,17 +860,16 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
-            ["0.09999983@SPY", "0.99999900@SPY-USDD", "10.00336968@USDD"],
+            ["0.09999983@SPY", "0.99999900@SPY-DUSD", "10.00336968@DUSD"],
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["4238.96222434@USDD", "7.19999991@SPY"],
+            ["4238.96222434@DUSD", "7.19999991@SPY"],
         )
 
     def check_upgrade_fail(self):
         # Call upgradeToken on pre-lock must fail
         amount = Web3.to_wei(10, "ether")
-        print(f"{amount}")
 
         upgrade_txn = self.dusd_contract.functions.upgradeToken(
             amount
