@@ -3517,25 +3517,34 @@ static void ProcessTokenLock(const CBlock &block,
         return;
     }
 
-    // FIXME: is this correct?
+    std::map<uint256, uint32_t> auctionsToErase;
+
     cache.ForEachVaultAuction(
         [&](const auto &vaultId, const auto &auctionData) {
             auto vault = cache.GetVault(vaultId);
+            if (!vault) {
+                throw std::runtime_error(strprintf("Failed to get vault: %s", vaultId.ToString()));
+            }
             vault->isUnderLiquidation = false;
             cache.StoreVault(vaultId, *vault);
             for (uint32_t i = 0; i < auctionData.batchCount; i++) {
-                auto bid = cache.GetAuctionBid({vaultId, i});
-                // repay bid
-                cache.AddBalance(bid->first, bid->second);
+                if (auto bid = cache.GetAuctionBid({vaultId, i})) {
+                    cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                    // repay bid
+                    cache.AddBalance(bid->first, bid->second);
+                }
             }
-            cache.EraseAuction(vaultId, auctionData.liquidationHeight);
+            auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
 
             // Store state in vault DB
             cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
             return true;
         },
-        pindex->nHeight,
-        {});
+        pindex->nHeight);
+
+    for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
+        cache.EraseAuction(vaultId, liquidationHeight);
+    }
 
     ForceCloseAllLoans(pindex, cache, blockCtx);
 
