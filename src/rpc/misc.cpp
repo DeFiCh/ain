@@ -608,10 +608,10 @@ static UniValue setinterruptblock(const JSONRPCRequest& request)
     {
         LOCK(cs_main);
         currentHeight = ::ChainActive().Height();
+        fInterruptBlockHeight = height;
+        fInterrupt = true;
     }
 
-    fInterruptBlockHeight = height;
-    fInterrupt = true;
 
     // Checks if node has already hit the previous interrupt height.
     // If true, resets the invalid blocks to prevent node from being stuck as
