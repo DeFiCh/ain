@@ -3615,6 +3615,11 @@ static void ProcessTokenLock(const CBlock &block,
     }
 
     const auto attributes = cache.GetAttributes();
+    CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+    const auto lockedTokens = attributes->GetValue(lockedTokenKey, CBalances{});
+    if (!lockedTokens.balances.empty()) {
+        return;  // can't lock after already locked
+    }
 
     CDataStructureV0 heightKey{AttributeTypes::Param, ParamIDs::dTokenRestart, DFIPKeys::BlockHeight};
     const auto restartHeight = attributes->GetValue(heightKey, CAmount{});
