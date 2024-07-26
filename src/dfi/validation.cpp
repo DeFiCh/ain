@@ -2361,7 +2361,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
                                const T &splits,
-                               BlockContext &blockCtx) {
+                               BlockContext &blockCtx,
+                               bool &splitSuccess) {
     const std::string wantedSuffix = "/v";
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
@@ -2369,6 +2370,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
 
         if (!cache.AreTokensLocked({id})) {
             LogPrintf("Token split failed. No locks.\n");
+            splitSuccess = false;
             continue;
         }
 
@@ -2378,6 +2380,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         auto res = attributes.RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
         if (!res) {
             LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
@@ -2386,12 +2389,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         auto token = view.GetToken(oldTokenId);
         if (!token) {
             LogPrintf("Token split failed. Token %d not found\n", oldTokenId.v);
+            splitSuccess = false;
             continue;
         }
         std::string newTokenSuffix = wantedSuffix;
         res = GetTokenSuffix(cache, attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
@@ -2411,6 +2416,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         res = view.SubMintedTokens(oldTokenId, token->minted);
         if (!res) {
             LogPrintf("Token split failed on SubMintedTokens %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
@@ -2418,12 +2424,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
         auto resVal = view.CreateToken(newToken, blockCtx);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
+            splitSuccess = false;
             continue;
         }
 
@@ -2489,6 +2497,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                              multiplier);
             if (!res) {
                 LogPrintf("Pool splits failed %s\n", res.msg);
+                splitSuccess = false;
                 continue;
             }
         }
@@ -2575,18 +2584,21 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             }
         } catch (const std::runtime_error &e) {
             LogPrintf("Token split failed. %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
         res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier, totalBalance);
         if (!res) {
             LogPrintf("Token splits failed: %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
         res = view.AddMintedTokens(newTokenId, totalBalance);
         if (!res) {
             LogPrintf("Token split failed on AddMintedTokens %s\n", res.msg);
+            splitSuccess = false;
             continue;
         }
 
@@ -2902,8 +2914,7 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
                 if (rate) {
                     neededAmount += TotalInterest(*rate, blockCtx.GetHeight());
                 }
-                collToLoans.back().loansWithUSDValue.emplace_back(std::make_pair<CTokenAmount, CAmount>(
-                    {tokenId, neededAmount}, MultiplyAmounts(neededAmount, usdPrices.at(tokenId))));
+                collToLoans.back().loansWithUSDValue.emplace_back(CTokenAmount{tokenId, neededAmount}, MultiplyAmounts(neededAmount, usdPrices.at(tokenId)));
             }
         }
         return true;
@@ -3074,14 +3085,16 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     return true;
 }
 
-static void ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
+static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
     std::map<uint256, uint32_t> auctionsToErase;
 
+    auto res = Res::Ok();
     cache.ForEachVaultAuction(
         [&](const auto &vaultId, const auto &auctionData) {
             auto vault = cache.GetVault(vaultId);
             if (!vault) {
-                throw std::runtime_error(strprintf("Failed to get vault: %s", vaultId.ToString()));
+                res = Res::Err("Vault not found");
+                return false;
             }
             vault->isUnderLiquidation = false;
             cache.StoreVault(vaultId, *vault);
@@ -3089,7 +3102,10 @@ static void ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cach
                 if (auto bid = cache.GetAuctionBid({vaultId, i})) {
                     cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
                     // repay bid
-                    cache.AddBalance(bid->first, bid->second);
+                    res = cache.AddBalance(bid->first, bid->second);
+                    if (!res) {
+                        return false;
+                    }
                 }
             }
             auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
@@ -3100,19 +3116,25 @@ static void ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cach
         },
         pindex->nHeight);
 
+    if (!res) {
+        return res;
+    }
+
     for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
         cache.EraseAuction(vaultId, liquidationHeight);
     }
+
+    return res;
 }
 
-static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
+static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
     if (!dUsdToken) {
-        //_FIXME: throw error?
-        return;
+        return Res::Err("DUSD token not found");
     }
 
     // unloop all DUSD vaults
+    auto res = Res::Ok();
     cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
         const auto collAmounts = cache.GetVaultCollaterals(vaultId);
         if (!collAmounts || !collAmounts->balances.count(dUsdToken->first)) {
@@ -3124,14 +3146,17 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
             // no dusd loan
             return true;
         }
-        auto res = PaybackLoanWithTokenOrDUSDCollateral(
+        res = PaybackLoanWithTokenOrDUSDCollateral(
             cache, blockCtx, vaultId, collAmounts->balances.at(dUsdToken->first), dUsdToken->first, true);
         if (!res) {
-            // FIXME: throw error?
             return false;
         }
         return true;
     });
+
+    if (!res) {
+        return res;
+    }
 
     // payback all loans: first owner balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
@@ -3142,13 +3167,16 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         for (const auto &[tokenId, amount] : balances.balances) {
             auto balance = cache.GetBalance(owner, tokenId);
             if (balance.nValue > 0) {
-                directPaybacks.emplace_back(std::make_tuple(vaultId, balance.nValue, tokenId));
+                directPaybacks.emplace_back(vaultId, balance.nValue, tokenId);
             }
         }
         return true;
     });
     for (const auto &[vaultId, amount, tokenId] : directPaybacks) {
-        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, false);
+        res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, false);
+        if (!res) {
+            return res;
+        }
     }
 
     // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
@@ -3161,14 +3189,17 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
         }
         if (colls->balances.count(dUsdToken->first)) {
             for (const auto &[tokenId, amount] : balances.balances) {
-                dusdPaybacks.emplace_back(std::make_tuple(vaultId, colls->balances.at(dUsdToken->first), tokenId));
+                dusdPaybacks.emplace_back(vaultId, colls->balances.at(dUsdToken->first), tokenId);
             }
         }
         return true;
     });
     for (const auto &[vaultId, amount, tokenId] : dusdPaybacks) {
         // for multiple loans, the method fails/reduces used amount if no more collateral left
-        PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, true);
+        res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, true);
+        if (!res) {
+            return res;
+        }
     }
 
     // get possible collaterals from gateway pools
@@ -3180,9 +3211,11 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
             const CTokenCurrencyPair dTokenUsdPair{token.symbol, "USD"};
             bool useNextPrice{false}, requireLivePrice{true};
             const auto resVal = cache.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
-            if (resVal) {
-                usdPrices.emplace(id, *resVal.val);
+            if (!resVal) {
+                res = Res::Err(resVal.msg);
+                return false;
             }
+            usdPrices.emplace(id, *resVal.val);
 
             return true;
         },
@@ -3242,6 +3275,8 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
             break;
         }
     }
+
+    return res;
 }
 
 // iterates over all locked tokens and affected pools
@@ -3273,10 +3308,10 @@ void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLo
     }
 }
 
-static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
-                                            const CBlockIndex *pindex,
-                                            CCustomCSView &cache,
-                                            BlockContext &blockCtx) {
+static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
+                                           const CBlockIndex *pindex,
+                                           CCustomCSView &cache,
+                                           BlockContext &blockCtx) {
     const auto &consensus = blockCtx.GetConsensus();
     // get creation txs
     bool opcodes{false};
@@ -3334,7 +3369,7 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
                 LogPrintf("missing creationTx for Pool %d\n", id.v);
                 return true;
             }
-            creationTxPerPoolId.emplace_back(std::make_pair(id, creationTxPerId[id.v]));
+            creationTxPerPoolId.emplace_back(id, creationTxPerId[id.v]);
             return true;
         },
         cache);
@@ -3349,7 +3384,12 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
 
     // Execute Splits on tokens (without pools)
-    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx);
+    bool splitSuccess = true;
+    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx, splitSuccess);
+    if (!splitSuccess) {
+        return Res::Err("Token split failed");
+    }
+
     LogPrintf("executed token 'splits' for locks\n");
 
     // get map oldTokenId->newTokenId
@@ -3369,15 +3409,15 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     auto res = PoolSplits(
         cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, consensus, creationTxPerPoolId, COIN);
     if (!res) {
-        LogPrintf("Pool splits failed %s\n", res.msg);
-        // TODO: handle error
+        LogPrintf("Pool splits failed\n");
+        return res;
     }
     // add balances to minted amount (pools where ignored in split)
     for (const auto &[id, amount] : totalBalanceMap) {
         res = cache.AddMintedTokens(DCT_ID{id}, amount);
         if (!res) {
-            LogPrintf("TokenLock failed on AddMintedTokens: %s\n", res.msg);
-            // TODO: error handling
+            LogPrintf("TokenLock failed on AddMintedTokens\n");
+            return res;
         }
     }
 
@@ -3388,13 +3428,15 @@ static void ConvertAllLoanTokenForTokenLock(const CBlock &block,
     cache.SetVariable(*attributes);
 
     LogPrintf("poolsplit done\n");
+
+    return res;
 }
 
-static void LockToken(CCustomCSView &cache,
-                      const int height,
-                      const uint256 refHash,
-                      const CScript &owner,
-                      const CTokenAmount &tokenAmount) {
+static Res LockToken(CCustomCSView &cache,
+                     const int height,
+                     const uint256 refHash,
+                     const CScript &owner,
+                     const CTokenAmount &tokenAmount) {
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
 
     LogPrintf(
@@ -3406,15 +3448,13 @@ static void LockToken(CCustomCSView &cache,
 
     auto currentLock = cache.GetTokenLockUserValue({owner});
     currentLock.Add(tokenAmount);
-    if (auto res = cache.StoreTokenLockUserValues({owner}, currentLock); !res) {
-        // TODO: handle error
-    }
+    return cache.StoreTokenLockUserValues({owner}, currentLock);
 }
 
-static void LockTokensOfBalancesCollAndPools(const CBlock &block,
-                                             const CBlockIndex *pindex,
-                                             CCustomCSView &cache,
-                                             BlockContext &blockCtx) {
+static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
+                                            const CBlockIndex *pindex,
+                                            CCustomCSView &cache,
+                                            BlockContext &blockCtx) {
     // TODO: make use of save calculations
     // Note: if not 90%, only need to change here
     auto lockRatio = COIN * 90 / 100;
@@ -3437,6 +3477,7 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
     // from balances
 
     const auto contractAddressValue = blockCtx.GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
+    auto res = Res::Ok();
     cache.ForEachBalance([&](const CScript &owner, const CTokenAmount &amount) {
         if (owner == blockCtx.GetConsensus().burnAddress || owner == contractAddressValue) {
             return true;  // no lock from burn or lock address
@@ -3448,19 +3489,26 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
             CAccountsHistoryWriter subView(
                 cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
 
-            auto res = subView.SubBalance(owner, CTokenAmount{amount.nTokenId, amountToLock});
-            if (!res.ok) {
-                throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
+            res = subView.SubBalance(owner, CTokenAmount{amount.nTokenId, amountToLock});
+            if (!res) {
+                return false;
             }
             subView.Flush();
 
-            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {amount.nTokenId, amountToLock});
+            res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {amount.nTokenId, amountToLock});
+            if (!res) {
+                return false;
+            }
         }
         if (affectedPools.count(amount.nTokenId.v) && amount.nValue > 0) {
             poolBalanceToProcess.emplace_back(owner, amount);
         }
         return true;
     });
+
+    if (!res) {
+        return res;
+    }
 
     // from pools
     for (auto &[owner, lpAmount] : poolBalanceToProcess) {
@@ -3469,9 +3517,9 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
         CAccountsHistoryWriter subView(
             cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
 
-        auto res = subView.SubBalance(owner, CTokenAmount{lpAmount.nTokenId, amountToLock});
-        if (!res.ok) {
-            throw std::runtime_error(strprintf("SubBalance failed: %s", res.msg));
+        res = subView.SubBalance(owner, CTokenAmount{lpAmount.nTokenId, amountToLock});
+        if (!res) {
+            return res;
         }
         subView.Flush();
 
@@ -3491,23 +3539,32 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
 
         if (tokensToBeLocked.count(poolPair->idTokenA.v)) {
             LogPrintf("locking from pool %d@%d\n", resAmountA, poolPair->idTokenA.v);
-            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenA, resAmountA});
+            res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenA, resAmountA});
+            if (!res) {
+                return res;
+            }
         } else {
             addView.AddBalance(owner, {poolPair->idTokenA, resAmountA});
         }
 
         if (tokensToBeLocked.count(poolPair->idTokenB.v)) {
             LogPrintf("locking from pool %d@%d\n", resAmountB, poolPair->idTokenB.v);
-            LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenB, resAmountB});
+            res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenB, resAmountB});
+            if (!res) {
+                return res;
+            }
         } else {
-            addView.AddBalance(owner, {poolPair->idTokenB, resAmountB});
+            res = addView.AddBalance(owner, {poolPair->idTokenB, resAmountB});
+            if (!res) {
+                return res;
+            }
         }
         addView.Flush();
 
         // TODO: keep affected pools in memory and update all at the end
         res = cache.SetPoolPair(lpAmount.nTokenId, pindex->nHeight, *poolPair);
         if (!res) {
-            throw std::runtime_error(strprintf("SetPoolPair on pool pair: %s", res.msg));
+            return res;
         }
         cache.SetShare(lpAmount.nTokenId, owner, pindex->nHeight);
     }
@@ -3521,22 +3578,30 @@ static void LockTokensOfBalancesCollAndPools(const CBlock &block,
                 const auto amountToLock = lockedAmount(amount);
 
                 LogPrintf("locking from collateral %d@%d\n", amountToLock, tokenId.v);
-                const auto res = cache.SubVaultCollateral(vaultId, {tokenId, amountToLock});
+                res = cache.SubVaultCollateral(vaultId, {tokenId, amountToLock});
                 if (!res) {
-                    // TODO: errorhandling ?
                     return false;
                 }
-                LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {tokenId, amountToLock});
+                res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {tokenId, amountToLock});
+                if (!res) {
+                    return false;
+                }
             }
         }
         return true;
     });
+
+    if (!res) {
+        return res;
+    }
 
     CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
     auto attributes = cache.GetAttributes();
     attributes->SetValue(releaseKey, lockRatio);
     cache.SetVariable(*attributes);
     cache.Flush();
+
+    return res;
 }
 
 static void ProcessTokenLock(const CBlock &block,
@@ -3560,20 +3625,40 @@ static void ProcessTokenLock(const CBlock &block,
     auto time = GetTimeMillis();
     LogPrintf("locking dToken oversupply ...\n");
 
-    ForceCloseAllAuctions(pindex, cache);
+    auto view(cache);
 
-    ForceCloseAllLoans(pindex, cache, blockCtx);
+    auto res = ForceCloseAllAuctions(pindex, view);
+    if (!res) {
+        LogPrintf("Closing all auctions failed: %s\n", res.msg);
+        return;
+    }
+
+    res = ForceCloseAllLoans(pindex, view, blockCtx);
+    if (!res) {
+        LogPrintf("dToken restart failed: %s\n", res.msg);
+        return;
+    }
 
     // create DB entries for locked tokens and lock ratio
     // create new tokens for all active loan tokens
     // convert all pools
     // no locking up yet
-    ConvertAllLoanTokenForTokenLock(block, pindex, cache, blockCtx);
+    res = ConvertAllLoanTokenForTokenLock(block, pindex, view, blockCtx);
+    if (!res) {
+        LogPrintf("Convert all loans tokens for token lock failed: %s\n", res.msg);
+        return;
+    }
 
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
     // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools
     // go to address lock (1-<lockRatio>)% of balances for new tokens
-    LockTokensOfBalancesCollAndPools(block, pindex, cache, blockCtx);
+    res = LockTokensOfBalancesCollAndPools(block, pindex, view, blockCtx);
+    if (!res) {
+        LogPrintf("Lock token balances failed: %s\n", res.msg);
+        return;
+    }
+
+    view.Flush();
 
     LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
 }
@@ -3589,15 +3674,16 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     const auto attributes = cache.GetAttributes();
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+    bool splitSuccess = true;
 
     if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx, splitSuccess);
     } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx, splitSuccess);
     }
 }
 
@@ -4401,7 +4487,9 @@ Res ExecuteLockTransferDomain(CCustomCSView &view,
 
     if (lockRatio > 0) {
         const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
-        LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount});
+        if (auto res = LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount}); !res) {
+            return res;
+        }
         amount.nValue -= lockedAmount;
     }
     return Res::Ok();
