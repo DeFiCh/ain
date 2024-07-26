@@ -583,15 +583,20 @@ static UniValue echo(const JSONRPCRequest& request)
     return request.params;
 }
 
-static UniValue interruptblock(const JSONRPCRequest& request)
+static UniValue setinterruptblock(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"interruptblock",
+    RPCHelpMan{"setinterruptblock",
         "\nSet or update interrupt-block value\n",
         {
             {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "block height"},
         },
         RPCResults{},
-        RPCExamples{""},
+        RPCExamples{
+            HelpExampleCli("setinterruptblock", "5000")
+            + HelpExampleCli("setinterruptblock", "-1")
+            + HelpExampleRpc("setinterruptblock", "5000")
+            + HelpExampleRpc("setinterruptblock", "-1")
+        },
     }.Check(request);
 
     RPCTypeCheck(request.params, {UniValue::VNUM});
@@ -653,7 +658,7 @@ static const CRPCCommand commands[] =
     { "hidden",             "setmockcheckpoint",      &setmockcheckpoint,      {"height","blockhash"}},
     { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "echojson",               &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
-    { "hidden",             "interruptblock",         &interruptblock,         {"height"}}
+    { "hidden",             "setinterruptblock",      &setinterruptblock,      {"height"}}
 };
 // clang-format on
 
