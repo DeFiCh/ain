@@ -264,6 +264,8 @@ public:
 
     static Res GovVarValidateDF23Height() { return Res::Err("Cannot be set before DF23Height"); }
 
+    static Res GovVarValidateDF25Height() { return Res::Err("Cannot be set before DF25Height"); }
+
     static Res GovVarValidateToken(const uint32_t token) { return Res::Err("No such token (%d)", token); }
 
     static Res GovVarValidateTokenExist(const uint32_t token) { return Res::Err("Token (%d) does not exist", token); }
@@ -291,6 +293,12 @@ public:
     static Res GovVarUnsupportedValue() { return Res::Err("Unsupported value"); }
 
     static Res GovVarValidateBlockPeriod() { return Res::Err("Block period must be more than sampling period"); }
+
+    static Res GovVarValidateBlockHeight() { return Res::Err("Block height must be more than current height"); }
+
+    static Res GovVarValidateRestartExecuted() {
+        return Res::Err("dToken restart has already been executed and cannot be set again");
+    }
 
     static Res GovVarValidateUnsupportedKey() { return Res::Err("Unsupported key"); }
 

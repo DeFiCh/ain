@@ -44,6 +44,7 @@ enum ParamIDs : uint8_t {
     Auction = 'i',
     Foundation = 'j',
     DFIP2211F = 'k',
+    dTokenRestart = 'l',
 };
 
 enum OracleIDs : uint8_t {
@@ -126,6 +127,7 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
+    BlockHeight = 'z',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -529,6 +531,7 @@ private:
     friend class CGovView;
     bool futureUpdated{};
     bool futureDUSDUpdated{};
+    bool dTokenRestartUpdated{};
     std::set<uint32_t> tokenSplits{};
     std::set<uint32_t> interestTokens{};
     std::set<CAttributeType> changed;

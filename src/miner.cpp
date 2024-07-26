@@ -424,43 +424,49 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         AddSplitEVMTxs(blockCtx, splitMap);
     }
 
-    if (nHeight == chainparams.GetConsensus().DF25Height) {
+    if (nHeight >= chainparams.GetConsensus().DF25Height) {
         // Add token lock creations TXs: duplicate code from AddSplitDVMTxs.
         // TODO: refactor
 
-        SplitMap lockSplitMapEVM;
-        auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
-            CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-            int64_t multiplier = COIN;
-            metadata << (isToken ? 0 : 1) << id << multiplier;
+        CDataStructureV0 heightKey{AttributeTypes::Param, ParamIDs::dTokenRestart, DFIPKeys::BlockHeight};
+        const auto restartHeight = attributes->GetValue(heightKey, CAmount{});
 
-            CMutableTransaction mTx(txVersion);
-            mTx.vin.resize(1);
-            mTx.vin[0].prevout.SetNull();
-            mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-            mTx.vout.resize(1);
-            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-            mTx.vout[0].nValue = 0;
-            auto tx = MakeTransactionRef(std::move(mTx));
-            if (isToken) {
-                lockSplitMapEVM[id] = std::make_pair(multiplier, tx->GetHash());
-            }
-            pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(0);
-            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
-            LogPrintf("Add creation TX ID: %d isToken: %d Hash: %s\n", id, isToken, tx->GetHash().GetHex());
-        };
-        ForEachLockTokenAndPool(
-            [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
-                createTokenLockSplitTx(id.v, true);
-                return true;
-            },
-            [&](const DCT_ID &id, const CPoolPair &token) {
-                createTokenLockSplitTx(id.v, false);
-                return true;
-            },
-            mnview);
-        AddSplitEVMTxs(blockCtx, lockSplitMapEVM);
+        if (nHeight == restartHeight) {
+            SplitMap lockSplitMapEVM;
+            auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
+                CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+                int64_t multiplier = COIN;
+                metadata << (isToken ? 0 : 1) << id << multiplier;
+
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(1);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                auto tx = MakeTransactionRef(std::move(mTx));
+                if (isToken) {
+                    lockSplitMapEVM[id] = std::make_pair(multiplier, tx->GetHash());
+                }
+                pblock->vtx.push_back(tx);
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
+                                                        GetLegacySigOpCount(*pblock->vtx.back()));
+                LogPrintf("Add creation TX ID: %d isToken: %d Hash: %s\n", id, isToken, tx->GetHash().GetHex());
+            };
+            ForEachLockTokenAndPool(
+                [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+                    createTokenLockSplitTx(id.v, true);
+                    return true;
+                },
+                [&](const DCT_ID &id, const CPoolPair &token) {
+                    createTokenLockSplitTx(id.v, false);
+                    return true;
+                },
+                mnview);
+            AddSplitEVMTxs(blockCtx, lockSplitMapEVM);
+        }
     }
 
     XVM xvm{};

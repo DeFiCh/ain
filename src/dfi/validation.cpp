@@ -3074,6 +3074,37 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     return true;
 }
 
+static void ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
+    std::map<uint256, uint32_t> auctionsToErase;
+
+    cache.ForEachVaultAuction(
+        [&](const auto &vaultId, const auto &auctionData) {
+            auto vault = cache.GetVault(vaultId);
+            if (!vault) {
+                throw std::runtime_error(strprintf("Failed to get vault: %s", vaultId.ToString()));
+            }
+            vault->isUnderLiquidation = false;
+            cache.StoreVault(vaultId, *vault);
+            for (uint32_t i = 0; i < auctionData.batchCount; i++) {
+                if (auto bid = cache.GetAuctionBid({vaultId, i})) {
+                    cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                    // repay bid
+                    cache.AddBalance(bid->first, bid->second);
+                }
+            }
+            auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
+
+            // Store state in vault DB
+            cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
+            return true;
+        },
+        pindex->nHeight);
+
+    for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
+        cache.EraseAuction(vaultId, liquidationHeight);
+    }
+}
+
 static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
     if (!dUsdToken) {
@@ -3513,38 +3544,23 @@ static void ProcessTokenLock(const CBlock &block,
                              CCustomCSView &cache,
                              BlockContext &blockCtx) {
     const auto &consensus = blockCtx.GetConsensus();
-    if (pindex->nHeight != consensus.DF25Height) {
+    if (pindex->nHeight < consensus.DF25Height) {
         return;
     }
 
-    std::map<uint256, uint32_t> auctionsToErase;
+    const auto attributes = cache.GetAttributes();
 
-    cache.ForEachVaultAuction(
-        [&](const auto &vaultId, const auto &auctionData) {
-            auto vault = cache.GetVault(vaultId);
-            if (!vault) {
-                throw std::runtime_error(strprintf("Failed to get vault: %s", vaultId.ToString()));
-            }
-            vault->isUnderLiquidation = false;
-            cache.StoreVault(vaultId, *vault);
-            for (uint32_t i = 0; i < auctionData.batchCount; i++) {
-                if (auto bid = cache.GetAuctionBid({vaultId, i})) {
-                    cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
-                    // repay bid
-                    cache.AddBalance(bid->first, bid->second);
-                }
-            }
-            auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
+    CDataStructureV0 heightKey{AttributeTypes::Param, ParamIDs::dTokenRestart, DFIPKeys::BlockHeight};
+    const auto restartHeight = attributes->GetValue(heightKey, CAmount{});
 
-            // Store state in vault DB
-            cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
-            return true;
-        },
-        pindex->nHeight);
-
-    for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
-        cache.EraseAuction(vaultId, liquidationHeight);
+    if (restartHeight != pindex->nHeight) {
+        return;
     }
+
+    auto time = GetTimeMillis();
+    LogPrintf("locking dToken oversupply ...\n");
+
+    ForceCloseAllAuctions(pindex, cache);
 
     ForceCloseAllLoans(pindex, cache, blockCtx);
 
@@ -3558,6 +3574,8 @@ static void ProcessTokenLock(const CBlock &block,
     // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools
     // go to address lock (1-<lockRatio>)% of balances for new tokens
     LockTokensOfBalancesCollAndPools(block, pindex, cache, blockCtx);
+
+    LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
 }
 
 static void ProcessTokenSplits(const CBlockIndex *pindex,
@@ -4169,13 +4187,9 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
 
-    // one time upgrade to lock away 90% of dToken supply
-    if (pindex->nHeight == chainparams.GetConsensus().DF25Height) {
-        auto time = GetTimeMillis();
-        LogPrintf("locking dToken oversupply ...\n");
-        ProcessTokenLock(block, pindex, cache, blockCtx);
-        LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
-    }
+    // One time upgrade to lock away 90% of dToken supply.
+    // Needs to execute before ProcessEVMQueue to avoid block hash mismatch.
+    ProcessTokenLock(block, pindex, cache, blockCtx);
 
     // Loan splits
     ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);

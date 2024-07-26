@@ -97,28 +97,30 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
-        {"dfip2201",   ParamIDs::DFIP2201  },
-        {"dfip2203",   ParamIDs::DFIP2203  },
-        {"dfip2206a",  ParamIDs::DFIP2206A },
+        {"dfip2201",       ParamIDs::DFIP2201     },
+        {"dfip2203",       ParamIDs::DFIP2203     },
+        {"dfip2206a",      ParamIDs::DFIP2206A    },
  // Note: DFIP2206F is currently in beta testing
   // for testnet. May not be enabled on mainnet until testing is complete.
-        {"dfip2206f",  ParamIDs::DFIP2206F },
-        {"dfip2211f",  ParamIDs::DFIP2211F },
-        {"feature",    ParamIDs::Feature   },
-        {"foundation", ParamIDs::Foundation},
+        {"dfip2206f",      ParamIDs::DFIP2206F    },
+        {"dfip2211f",      ParamIDs::DFIP2211F    },
+        {"feature",        ParamIDs::Feature      },
+        {"foundation",     ParamIDs::Foundation   },
+        {"dtoken_restart", ParamIDs::dTokenRestart},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-        {ParamIDs::DFIP2201,   "dfip2201"  },
-        {ParamIDs::DFIP2203,   "dfip2203"  },
-        {ParamIDs::DFIP2206A,  "dfip2206a" },
-        {ParamIDs::DFIP2206F,  "dfip2206f" },
-        {ParamIDs::DFIP2211F,  "dfip2211f" },
-        {ParamIDs::Feature,    "feature"   },
-        {ParamIDs::Foundation, "foundation"},
+        {ParamIDs::DFIP2201,      "dfip2201"      },
+        {ParamIDs::DFIP2203,      "dfip2203"      },
+        {ParamIDs::DFIP2206A,     "dfip2206a"     },
+        {ParamIDs::DFIP2206F,     "dfip2206f"     },
+        {ParamIDs::DFIP2211F,     "dfip2211f"     },
+        {ParamIDs::Feature,       "feature"       },
+        {ParamIDs::Foundation,    "foundation"    },
+        {ParamIDs::dTokenRestart, "dtoken_restart"},
     };
     return params;
 }
@@ -283,6 +285,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"transferdomain", DFIPKeys::TransferDomain},
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
+             {"block_height", DFIPKeys::BlockHeight},
          }},
         {AttributeTypes::EVMType,
          {
@@ -388,6 +391,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TransferDomain, "transferdomain"},
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
+             {DFIPKeys::BlockHeight, "block_height"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -819,6 +823,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TransferDomain, VerifyBool},
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
+                 {DFIPKeys::BlockHeight, VerifyMoreThenZeroInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -994,6 +999,10 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             }
         } else if (typeId == ParamIDs::Foundation) {
             if (typeKey != DFIPKeys::Members) {
+                return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
+            }
+        } else if (typeId == ParamIDs::dTokenRestart) {
+            if (typeKey != DFIPKeys::BlockHeight) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
         } else {
@@ -1205,13 +1214,17 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return res;
         }
 
-        if (type == AttributeTypes::Param && (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F)) {
-            if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
-                if (typeId == ParamIDs::DFIP2203) {
-                    futureUpdated = true;
-                } else {
-                    futureDUSDUpdated = true;
+        if (type == AttributeTypes::Param) {
+            if (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F) {
+                if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
+                    if (typeId == ParamIDs::DFIP2203) {
+                        futureUpdated = true;
+                    } else {
+                        futureDUSDUpdated = true;
+                    }
                 }
+            } else if (typeId == ParamIDs::dTokenRestart && typeKey == DFIPKeys::BlockHeight) {
+                dTokenRestartUpdated = true;
             }
         }
 
@@ -1672,11 +1685,15 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto number = std::get_if<uint64_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if (attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F || attrV0->typeId == DFIP2211F) &&
-                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
-                    ret.pushKV(key, KeyBuilder(*amount));
+                if (attrV0->type == AttributeTypes::Param) {
+                    if (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
+                        attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) {
+                        if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
+                            attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod ||
+                            attrV0->key == DFIPKeys::BlockHeight) {
+                            ret.pushKV(key, KeyBuilder(*amount));
+                        }
+                    }
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
                     ret.pushKV(key, decimalStr);
@@ -2083,6 +2100,28 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         if (*blockPeriod < samplingPeriod) {
                             return DeFiErrors::GovVarValidateBlockPeriod();
+                        }
+                    }
+                } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF25Height) {
+                        return DeFiErrors::GovVarValidateDF25Height();
+                    }
+                    if (attrV0->key == DFIPKeys::BlockHeight) {
+                        const auto blockHeight = std::get_if<CAmount>(&value);
+                        if (!blockHeight) {
+                            return DeFiErrors::GovVarUnsupportedValue();
+                        }
+                        // Only perform following checks when block height has been imported.
+                        if (!dTokenRestartUpdated) {
+                            continue;
+                        }
+                        if (*blockHeight <= view.GetLastHeight()) {
+                            return DeFiErrors::GovVarValidateBlockHeight();
+                        }
+                        CDataStructureV0 tokenLock{
+                            AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+                        if (const auto checkKey = CheckKey(tokenLock)) {
+                            return DeFiErrors::GovVarValidateRestartExecuted();
                         }
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {

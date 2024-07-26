@@ -9,7 +9,11 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, get_solc_artifact_path
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    get_solc_artifact_path,
+)
 
 from decimal import Decimal
 import time
@@ -39,7 +43,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "-metachainheight=105",
                 "-df23height=150",  # must have 50 diff to metachain start, no idea why
                 "-df24height=200",
-                "-df25height=1000",
+                "-df25height=990",
             ],
         ]
 
@@ -51,9 +55,32 @@ class RestartdTokensTest(DefiTestFramework):
         # ensure expected initial state
         self.check_initial_state()
 
-        # do restart and check funds
-        self.nodes[0].generate(1000 - self.nodes[0].getblockcount())
+        # Try and set dToken restart before fork height
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF25Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1010"}},
+        )
 
+        # Move to fork height
+        self.nodes[0].generate(990 - self.nodes[0].getblockcount())
+
+        # Try and set dToken restart on current height
+        assert_raises_rpc_error(
+            -32600,
+            "Block height must be more than current height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "990"}},
+        )
+
+        # Set dToken restart and move to execution block
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1000"}}
+        )
+        self.nodes[0].generate(10)
+
+        # Check economy keys have been set
         assert_equal(
             self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
             [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
@@ -74,6 +101,15 @@ class RestartdTokensTest(DefiTestFramework):
                 ]
             ],
         )
+
+        # Try and set dToken restart after it has already been executed
+        assert_raises_rpc_error(
+            -32600,
+            "dToken restart has already been executed and cannot be set again",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1020"}},
+        )
+
         self.check_token_lock()
 
         self.check_upgrade_fail()
