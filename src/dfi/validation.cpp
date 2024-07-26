@@ -2914,7 +2914,8 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
                 if (rate) {
                     neededAmount += TotalInterest(*rate, blockCtx.GetHeight());
                 }
-                collToLoans.back().loansWithUSDValue.emplace_back(CTokenAmount{tokenId, neededAmount}, MultiplyAmounts(neededAmount, usdPrices.at(tokenId)));
+                collToLoans.back().loansWithUSDValue.emplace_back(CTokenAmount{tokenId, neededAmount},
+                                                                  MultiplyAmounts(neededAmount, usdPrices.at(tokenId)));
             }
         }
         return true;
