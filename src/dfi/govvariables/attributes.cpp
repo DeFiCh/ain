@@ -1685,15 +1685,12 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto number = std::get_if<uint64_t>(&attribute.second)) {
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
-                if (attrV0->type == AttributeTypes::Param) {
-                    if (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
-                        attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) {
-                        if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                            attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod ||
-                            attrV0->key == DFIPKeys::BlockHeight) {
-                            ret.pushKV(key, KeyBuilder(*amount));
-                        }
-                    }
+                if (attrV0->type == AttributeTypes::Param &&
+                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
+                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) &&
+                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::BlockHeight)) {
+                    ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
                     ret.pushKV(key, decimalStr);
