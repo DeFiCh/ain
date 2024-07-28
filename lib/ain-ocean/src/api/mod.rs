@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use axum::{extract::Request, http::StatusCode, middleware::{from_fn, Next}, response::{Response, IntoResponse}, Json, Router};
+use axum::{extract::Request, http::{HeaderValue, StatusCode}, middleware::{from_fn, Next}, response::{IntoResponse, Response}, Json, Router};
 
 mod address;
 mod block;
@@ -55,16 +55,17 @@ pub struct AppContext {
     network: Network,
 }
 
-// manual create cors since CorsLayer + axum can only be supported in `tower-http 0.5`
+// NOTE(canonbrother): manually scratch cors since CorsLayer + Axum can only be supported in `tower-http 0.5`
 async fn cors(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
 
-    let headers = response.headers_mut();
-    headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
-    headers.insert("Access-Control-Allow-Methods", "GET".parse().unwrap());
-    headers.insert("Access-Control-Allow-Methods", "POST".parse().unwrap());
-    headers.insert("Access-Control-Allow-Headers", "Content-Type".parse().unwrap());
-    headers.insert("Access-Control-Max-Age", "10080".parse().unwrap()); // 60 * 24 * 7
+    response.headers_mut().append("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
+    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("GET"));
+    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("POST"));
+    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("PUT"));
+    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("DELETE"));
+    response.headers_mut().append("Access-Control-Allow-Headers", HeaderValue::from_static("Content-Type"));
+    response.headers_mut().append("Access-Control-Max-Age", HeaderValue::from_static("10080")); // 60 * 24 * 7
 
     response
 }
@@ -83,7 +84,7 @@ pub async fn ocean_router(
     let context_cloned = context.clone();
     tokio::spawn(async move { pool_pair::path::sync_token_graph(&context_cloned).await });
 
-    Ok(Router::new().layer(from_fn(cors)).nest(
+    Ok(Router::new().nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()
             .nest("/address/", address::router(Arc::clone(&context)))
@@ -99,6 +100,7 @@ pub async fn ocean_router(
             .nest("/tokens", tokens::router(Arc::clone(&context)))
             .nest("/transactions", transactions::router(Arc::clone(&context)))
             .nest("/blocks", block::router(Arc::clone(&context)))
-            .fallback(not_found),
+            .fallback(not_found)
+            .layer(from_fn(cors)), // NOTE(canonbrother): the flow is from bottom to top, hence cors layer must be at bottom
     ))
 }
