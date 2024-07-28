@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
+use axum::{extract::Request, http::StatusCode, middleware::{from_fn, Next}, response::{Response, IntoResponse}, Json, Router};
 
 mod address;
 mod block;
@@ -55,6 +55,20 @@ pub struct AppContext {
     network: Network,
 }
 
+// manual create cors since CorsLayer + axum can only be supported in `tower-http 0.5`
+async fn cors(request: Request, next: Next) -> Response {
+    let mut response = next.run(request).await;
+
+    let headers = response.headers_mut();
+    headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
+    headers.insert("Access-Control-Allow-Methods", "GET".parse().unwrap());
+    headers.insert("Access-Control-Allow-Methods", "POST".parse().unwrap());
+    headers.insert("Access-Control-Allow-Headers", "Content-Type".parse().unwrap());
+    headers.insert("Access-Control-Max-Age", "10080".parse().unwrap()); // 60 * 24 * 7
+
+    response
+}
+
 pub async fn ocean_router(
     services: &Arc<Services>,
     client: Arc<Client>,
@@ -65,12 +79,11 @@ pub async fn ocean_router(
         services: services.clone(),
         network: Network::from_str(&network)?,
     });
-    println!("{:?}", context.network);
 
     let context_cloned = context.clone();
     tokio::spawn(async move { pool_pair::path::sync_token_graph(&context_cloned).await });
 
-    Ok(Router::new().nest(
+    Ok(Router::new().layer(from_fn(cors)).nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()
             .nest("/address/", address::router(Arc::clone(&context)))
