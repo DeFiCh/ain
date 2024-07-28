@@ -2896,11 +2896,11 @@ namespace {
     };
 }  // namespace
 
-static bool paybackWithSwappedCollateral(const DCT_ID &collId,
-                                         const std::map<DCT_ID, CAmount> &usdPrices,
-                                         const CTokensView::TokenIDPair &dUsdToken,
-                                         CCustomCSView &cache,
-                                         BlockContext &blockCtx) {
+static Res paybackWithSwappedCollateral(const DCT_ID &collId,
+                                        const std::map<DCT_ID, CAmount> &usdPrices,
+                                        const CTokensView::TokenIDPair &dUsdToken,
+                                        CCustomCSView &cache,
+                                        BlockContext &blockCtx) {
     std::vector<CollToLoan> collToLoans;
     // collect all loanValues (in USD) of vaults which contain this collateral
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
@@ -2931,7 +2931,7 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     }
     if (totalUSD == 0) {
         // no loans, nothing to swap
-        return false;
+        return Res::Ok();
     }
     LogPrintf("Swapping collateral %d, needing %d DUSD\n", collId.v, totalUSD.GetLow64());
 
@@ -2975,8 +2975,8 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         const auto &toDfi = cache.GetPoolPair(collId, DCT_ID{0});
         const auto &DFItoDUSD = cache.GetPoolPair(DCT_ID{0}, dUsdToken.first);
         if (!toDfi || !DFItoDUSD) {
-            // FIXME: no path via DFI?!?
-            return true;  // true cause there would have been something to swap
+            // FIXME: better Error message?
+            return Res::Err("No Path between collateral (%d) and DUSD", collId.v);
         }
         swapInfos.emplace_back(swapInfoFromPool(toDfi->first, toDfi->second, collId));
         swapInfos.emplace_back(swapInfoFromPool(DFItoDUSD->first, DFItoDUSD->second, DCT_ID{0}));
@@ -2989,6 +2989,9 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
     for (auto rit = swapInfos.rbegin(); rit != swapInfos.rend(); ++rit) {
         const auto swap = *rit;
         auto swapOutput = (arith_uint256(output) * COIN) / swap.feeFactorOut;
+        if (swap.reserveOut <= swapOutput) {
+            return Res::Err("impossible to get needed swap output for DUSD payback");
+        }
         auto swapInput = ((swap.reserveOut * swap.reserveIn) / (swap.reserveOut - swapOutput)) - swap.reserveIn;
         // resulting needed input= next wanted output
         output = swapInput * swap.feeFactorIn / swap.commission;
@@ -3052,6 +3055,9 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
         totalCollToSwap += moved.nValue;
         LogPrintf("swapping %d from vault %s\n", moved.nValue, data.vaultId.ToString());
     }
+    if (totalCollToSwap == 0) {
+        return Res::Ok();  // nothing to swap.
+    }
     swapMessage.amountFrom = totalCollToSwap;
 
     std::vector<DCT_ID> poolIds;
@@ -3083,7 +3089,7 @@ static bool paybackWithSwappedCollateral(const DCT_ID &collId,
             cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, dusdResult.nValue});
         }
     }
-    return true;
+    return Res::Ok();
 }
 
 static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
@@ -3246,8 +3252,8 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
 
     for (const auto &pool : gatewaypools) {
         auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
-        if (!paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx)) {
-            break;
+        if (res = paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
+            return res;
         }
     }
 
@@ -3272,8 +3278,8 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     });
 
     for (const auto &collId : allUsedCollaterals) {
-        if (!paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx)) {
-            break;
+        if (res = paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
+            return res;
         }
     }
 
