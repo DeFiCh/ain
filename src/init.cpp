@@ -2386,7 +2386,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
             // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
             auto port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
-            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, strprintf("127.0.0.1:%s", port)))
+            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, strprintf("0.0.0.0:%s", port)))
             if (!res) {
                 // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
                 return false;
