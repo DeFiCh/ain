@@ -1,6 +1,12 @@
 use std::{str::FromStr, sync::Arc};
 
-use axum::{extract::Request, http::{HeaderValue, StatusCode}, middleware::{from_fn, Next}, response::{IntoResponse, Response}, Json, Router};
+use axum::{
+    extract::Request,
+    http::{HeaderValue, StatusCode},
+    middleware::{from_fn, Next},
+    response::{IntoResponse, Response},
+    Json, Router,
+};
 
 mod address;
 mod block;
@@ -59,13 +65,32 @@ pub struct AppContext {
 async fn cors(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
 
-    response.headers_mut().append("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
-    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("GET"));
-    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("POST"));
-    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("PUT"));
-    response.headers_mut().append("Access-Control-Allow-Methods", HeaderValue::from_static("DELETE"));
-    response.headers_mut().append("Access-Control-Allow-Headers", HeaderValue::from_static("Content-Type"));
-    response.headers_mut().append("Access-Control-Max-Age", HeaderValue::from_static("10080")); // 60 * 24 * 7
+    response
+        .headers_mut()
+        .append("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("GET"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("POST"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("PUT"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("DELETE"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Headers",
+        HeaderValue::from_static("Content-Type"),
+    );
+    response
+        .headers_mut()
+        .append("Access-Control-Max-Age", HeaderValue::from_static("10080")); // 60 * 24 * 7
 
     response
 }
