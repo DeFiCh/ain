@@ -2764,31 +2764,27 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         TrackDUSDSub(mnview, {loanTokenId, subLoan});
     }
 
-    Res res = mnview.SubLoanToken(vaultId, CTokenAmount{loanTokenId, subLoan});
-    if (!res) {
-        return res;
-    }
-
     // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
     // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
     // then IPB will be updated and ITH will be wiped.
-    res = mnview.DecreaseInterest(height,
-                                  vaultId,
-                                  vault->schemeId,
-                                  loanTokenId,
-                                  subLoan,
-                                  subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
-                                      ? std::numeric_limits<CAmount>::max()
-                                      : subInterest);
+    auto res =
+        mnview.DecreaseInterest(height,
+                                vaultId,
+                                vault->schemeId,
+                                loanTokenId,
+                                subLoan,
+                                subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
+                                    ? std::numeric_limits<CAmount>::max()
+                                    : subInterest);
     if (!res) {
         return res;
     }
     const auto from = vault->ownerAddress;
     mnview.CalculateOwnerRewards(from, height);
 
-    if (!useDUSDCollateral || loanTokenId == dusdToken->first) {
-        const auto subMintedAmount = subInterest > 0 ? subLoan : subLoan + subInterest;
+    auto subLoanAmount = subInterest > 0 ? subLoan : subLoan + subInterest;
 
+    if (!useDUSDCollateral || loanTokenId == dusdToken->first) {
         // If interest was negative remove it from sub amount
         if (subInterest < 0) {
             subLoan += subInterest;
@@ -2811,32 +2807,27 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                     if (!res) {
                         return res;
                     }
-                    res = mnview.SubMintedTokens(loanTokenId, subMintedAmount);
+                    res = mnview.SubMintedTokens(loanTokenId, subLoanAmount);
                     if (!res) {
                         return res;
-                    }
-                } else if (subInterest > 0) {
-                    if (balance.nValue >= subInterest) {
-                        LogPrintf("Sub loan from balance %s\n", GetDecimalString(balance.nValue - subInterest));
-                        res = mnview.SubBalance(from, CTokenAmount{loanTokenId, balance.nValue - subInterest});
-                        if (!res) {
-                            return res;
-                        }
-                        res = mnview.SubMintedTokens(loanTokenId, balance.nValue - subInterest);
-                        if (!res) {
-                            return res;
-                        }
-                    } else {
-                        // Not enough to pay interest, return here to try another payback method.
-                        return Res::Ok();
                     }
                 } else {
-                    LogPrintf("Sub loan from balance %s\n", GetDecimalString(balance.nValue));
-                    res = mnview.SubBalance(from, CTokenAmount{loanTokenId, balance.nValue});
+                    if (subInterest > 0) {
+                        if (balance.nValue >= subInterest) {
+                            subLoanAmount = balance.nValue - subInterest;
+                        } else {
+                            // Not enough to pay interest, return here to try another payback method.
+                            return Res::Ok();
+                        }
+                    } else {
+                        subLoanAmount = balance.nValue;
+                    }
+                    LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoanAmount));
+                    res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoanAmount});
                     if (!res) {
                         return res;
                     }
-                    res = mnview.SubMintedTokens(loanTokenId, balance.nValue);
+                    res = mnview.SubMintedTokens(loanTokenId, subLoanAmount);
                     if (!res) {
                         return res;
                     }
@@ -2848,12 +2839,18 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                 if (!res) {
                     return res;
                 }
-                res = mnview.SubMintedTokens(loanTokenId, subMintedAmount);
+                res = mnview.SubMintedTokens(loanTokenId, subLoanAmount);
                 if (!res) {
                     return res;
                 }
             }
         }
+
+        res = mnview.SubLoanToken(vaultId, CTokenAmount{loanTokenId, subLoanAmount});
+        if (!res) {
+            return res;
+        }
+
         if (subInterest > 0) {
             if (!useDUSDCollateral) {
                 // burn interest Token->USD->DFI->burnAddress
@@ -2914,10 +2911,6 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         if (!res) {
             return res;
         }
-
-        mnview.Flush();
-
-        return Res::Ok();
     }
 
     mnview.Flush();
