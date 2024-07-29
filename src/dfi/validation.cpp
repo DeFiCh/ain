@@ -2805,7 +2805,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                LogPrint(BCLog::LOAN, "Sub loan from balance - %lld, height - %d\n", subLoan, height);
+                LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoan));
                 res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
             } else {
                 LogPrintf("taking %lld DUSD collateral\n", subLoan);
