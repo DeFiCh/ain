@@ -2818,7 +2818,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoan));
+                LogPrintf("Sub loan from balance %s@%d\n", GetDecimalString(subLoan),loanTokenId.v);
                 res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
             } else {
                 LogPrintf("taking %lld DUSD collateral\n", subLoan);
@@ -3062,7 +3062,10 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     swapMessage.amountFrom = 0;
     swapMessage.maxPrice = PoolPrice::getMaxValid();
 
+    LogPrintf("preparing swap from %d from vaults\n", collToLoans.size());
     CAmount totalCollToSwap = 0;
+    uint64_t reportedTs= 0;
+    uint64_t done= 0;
     for (auto &data : collToLoans) {
         const auto &neededColl = MultiplyAmounts(estimatedCollPerDUSD, data.totalUSDNeeded);
         if (neededColl < data.useableCollateralAmount) {
@@ -3074,7 +3077,14 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
         cache.SubVaultCollateral(data.vaultId, moved);
         cache.AddBalance(contractAddressValue, moved);
         totalCollToSwap += moved.nValue;
-        LogPrintf("swapping %d from vault %s\n", moved.nValue, data.vaultId.ToString());
+        ++done;
+        if (GetTimeMillis() - reportedTs > 3000) {
+            LogPrintf("payback with swapped collateral: %.2f%% completed (%d/%d)\n",
+                      (done * 1.f / collToLoans.size()) * 100.0,
+                      done,
+                      collToLoans.size());
+            reportedTs = GetTimeMillis();
+        }
     }
     if (totalCollToSwap == 0) {
         return Res::Ok();  // nothing to swap.
@@ -3090,12 +3100,12 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     poolSwap.ExecuteSwap(cache, poolIds, blockCtx.GetConsensus());
     auto availableDUSD = cache.GetBalance(contractAddressValue, dUsdToken.first);
 
+    LogPrintf("moving DUSD to vaults and paying back via collateral\n");
     for (const auto &data : collToLoans) {
         CTokenAmount dusdResult = {
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
-        LogPrintf("adding %s DUSD to vault %s\n", GetDecimalString(dusdResult.nValue), data.vaultId.ToString());
         for (const auto &loan : data.loansWithUSDValue) {
             auto res = PaybackLoanWithTokenOrDUSDCollateral(
                 cache, blockCtx, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
@@ -3113,6 +3123,8 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
             cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, dusdResult.nValue});
         }
     }
+
+    LogPrintf("done paying back with collateral %d\n",collId.v);
     return Res::Ok();
 }
 
@@ -3164,6 +3176,8 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         return Res::Err("DUSD token not found");
     }
 
+    LogPrintf("starting forced payback of loans.\n");
+    LogPrintf("unlooping DUSD vaults\n");
     // unloop all DUSD vaults
     auto res = Res::Ok();
     cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
@@ -3192,6 +3206,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     // payback all loans: first owner balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
 
+    LogPrintf("preparing payback with owner balance\n");
     std::vector<std::tuple<CVaultId, CAmount, DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto owner = cache.GetVault(vaultId)->ownerAddress;
@@ -3203,13 +3218,25 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         }
         return true;
     });
+    LogPrintf("paying back %d loans with owner balance\n", directPaybacks.size());
+    uint64_t reportedTs = 0;
+    uint64_t done = 0;
     for (const auto &[vaultId, amount, tokenId] : directPaybacks) {
         res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, false);
         if (!res) {
             return res;
         }
+        ++done;
+        if (GetTimeMillis() - reportedTs > 5000) {
+            LogPrintf("payback with owner balance: %.2f%% completed (%d/%d)\n",
+                      (done * 1.f / directPaybacks.size()) * 100.0,
+                      done,
+                      directPaybacks.size());
+            reportedTs = GetTimeMillis();
+        }
     }
 
+    LogPrintf("preparing payback with DUSD collateral\n");
     // any remaining loans? use collateral, first DUSD directly. TODO: can we optimize this?
     std::vector<std::tuple<CVaultId, CAmount, DCT_ID>> dusdPaybacks;
     std::set<DCT_ID> allUsedCollaterals;
@@ -3225,14 +3252,26 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         }
         return true;
     });
+    LogPrintf("paying back %d loans with dusd collateral\n", dusdPaybacks.size());
+    reportedTs = 0;
+    done = 0;
     for (const auto &[vaultId, amount, tokenId] : dusdPaybacks) {
         // for multiple loans, the method fails/reduces used amount if no more collateral left
         res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, true);
         if (!res) {
             return res;
         }
+        ++done;
+        if (GetTimeMillis() - reportedTs > 5000) {
+            LogPrintf("payback with DUSD collateral: %.2f%% completed (%d/%d)\n",
+                      (done * 1.f / dusdPaybacks.size()) * 100.0,
+                      done,
+                      dusdPaybacks.size());
+            reportedTs = GetTimeMillis();
+        }
     }
 
+    LogPrintf("preparing payback with swapped collaterals\n");
     // get possible collaterals from gateway pools
     std::map<DCT_ID, CAmount> usdPrices;
     std::vector<CPoolPair> gatewaypools;
@@ -3307,6 +3346,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         }
     }
 
+    LogPrintf("forced paybacks done\n");
     return res;
 }
 
@@ -3599,6 +3639,8 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
     }
 
     // from vault collaterals (only USDD)
+    LogPrintf("locking %s%% of loan tokens in collaterals\n", GetDecimalString(lockRatio));
+
     cache.ForEachVaultCollateral([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
             if (tokensToBeLocked.count(tokenId.v)) {
@@ -3606,7 +3648,6 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
 
                 const auto amountToLock = lockedAmount(amount);
 
-                LogPrintf("locking from collateral %d@%d\n", amountToLock, tokenId.v);
                 res = cache.SubVaultCollateral(vaultId, {tokenId, amountToLock});
                 if (!res) {
                     return false;
@@ -3629,6 +3670,7 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
     attributes->SetValue(releaseKey, lockRatio);
     cache.SetVariable(*attributes);
     cache.Flush();
+    LogPrintf("locking done\n");
 
     return res;
 }
