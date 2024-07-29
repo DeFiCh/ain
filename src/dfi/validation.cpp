@@ -2691,7 +2691,8 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             return DeFiErrors::LoanInvalidVault(vaultId);
         }
         if (!collaterals->balances.count(dusdToken->first)) {
-            return DeFiErrors::LoanInvalidTokenForSymbol("DUSD");
+            // no more DUSD collateral, just return cause nothing to do
+            return Res::Ok();
         }
 
         const auto &currentCollAmount = collaterals->balances.at(dusdToken->first);
