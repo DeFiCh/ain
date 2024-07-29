@@ -414,6 +414,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "eth_getTransactionByBlockNumberAndIndex", 0, "tag"},
     { "eth_getTransactionByBlockNumberAndIndex", 1, "txIndex"},
     { "debug_feeEstimate", 0, "tx"},
+
+    { "setinterruptblock", 0, "height" },
 };
 
 /**
