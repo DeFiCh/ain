@@ -52,6 +52,7 @@ class RestartdTokensTest(DefiTestFramework):
         # setup tokens, vaults, pools etc.
         self.setup()
 
+        pre_check_height = self.nodes[0].getblockcount()
         # ensure expected initial state
         self.check_initial_state()
 
@@ -65,6 +66,231 @@ class RestartdTokensTest(DefiTestFramework):
 
         # Move to fork height
         self.nodes[0].generate(990 - self.nodes[0].getblockcount())
+
+        self.check_failing_restart()
+
+        self.check_second_vault_case()
+
+        # rollback and check if state is correct again
+        self.rollback_to(pre_check_height)
+        self.check_initial_state()
+        self.nodes[0].generate(990 - self.nodes[0].getblockcount())
+
+        self.do_and_check_restart()
+
+        self.check_token_lock()
+
+        self.check_upgrade_fail()
+
+        self.check_td()
+
+        self.release_first_1()
+
+        # release all but 1%
+        self.release_88()
+
+        self.check_token_split()
+
+        # TD with lock again (check correct lock ratio)
+
+        self.check_td_99()
+
+        # last tranche
+        self.release_final_1()
+
+    def check_second_vault_case(self):
+
+        # add second vault with SPY and DUSD loan
+        self.vault_id3_2 = self.nodes[0].createvault(self.address3, "")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].deposittovault(self.vault_id3_2, self.address, f"1000@DFI")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].takeloan(
+            {
+                "vaultId": self.vault_id3_2,
+                "to": self.address,
+                "amounts": ["200@DUSD", "2@SPY"],
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # check initial
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id3),
+            {
+                "vaultId": self.vault_id3,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address3,
+                "state": "active",
+                "collateralAmounts": ["80.00000000@DFI", "0.01000000@BTC"],
+                "loanAmounts": ["2.00000158@SPY", "199.96857497@DUSD"],
+                "interestAmounts": ["0.00000158@SPY", "-0.03142503@DUSD"],
+                "collateralValue": Decimal("900.00000000"),
+                "loanValue": Decimal("399.96873297"),
+                "interestValue": Decimal("-0.03126703"),
+                "informativeRatio": Decimal("225.01758907"),
+                "collateralRatio": 225,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id3_2),
+            {
+                "vaultId": self.vault_id3_2,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address3,
+                "state": "active",
+                "collateralAmounts": ["1000.00000000@DFI"],
+                "loanAmounts": ["2.00000002@SPY", "199.99962139@DUSD"],
+                "interestAmounts": ["0.00000002@SPY", "-0.00037861@DUSD"],
+                "collateralValue": Decimal("5000.00000000"),
+                "loanValue": Decimal("399.99962339"),
+                "interestValue": Decimal("-0.00037661"),
+                "informativeRatio": Decimal("1250.00117690"),
+                "collateralRatio": 1250,
+            },
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            ["10.00000000@SPY-DUSD", "3.00000000@SPY", "300.00000000@DUSD"],
+        )
+
+        # Set dToken restart and move to execution block
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.5"}})
+        self.nodes[0].generate(10)
+
+        # Check economy keys have been set
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.5"}}]],
+        )
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/locked_tokens"),
+            [
+                [
+                    {
+                        "ATTRIBUTES": {
+                            "v0/live/economy/locked_tokens": [
+                                "1.00000000@SPY/v1",
+                                "1.00000000@DUSD/v1",
+                            ]
+                        }
+                    }
+                ]
+            ],
+        )
+
+        # check token lock and vaults
+
+        sort = [self.address, self.address1, self.address2, self.address3]
+
+        assert_equal(
+            sorted(
+                self.nodes[0].listlockedtokens(), key=lambda a: sort.index(a["owner"])
+            ),
+            [
+                {
+                    "owner": self.address,
+                    "values": ["4.00000068@SPY", "2169.88003736@DUSD"],
+                },
+                {
+                    "owner": self.address1,
+                    "values": ["75.00908675@DUSD"],
+                },
+                {
+                    "owner": self.address2,
+                    "values": ["10.00086631@DUSD"],
+                },
+                {
+                    "owner": self.address3,
+                    "values": ["0.50000018@SPY", "49.99988120@DUSD"],
+                },
+            ],
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id3),
+            {
+                "vaultId": self.vault_id3,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address3,
+                "state": "active",
+                "collateralAmounts": ["80.00000000@DFI", "0.01000000@BTC"],
+                "loanAmounts": [],
+                "interestAmounts": [],
+                "collateralValue": Decimal("900.00000000"),
+                "loanValue": Decimal("0E-8"),
+                "interestValue": 0,
+                "informativeRatio": Decimal("-1.00000000"),
+                "collateralRatio": -1,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id3_2),
+            {
+                "vaultId": self.vault_id3_2,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": self.address3,
+                "state": "active",
+                "collateralAmounts": ["956.36930652@DFI"],
+                "loanAmounts": [],
+                "interestAmounts": [],
+                "collateralValue": Decimal("4781.84653260"),
+                "loanValue": Decimal("0E-8"),
+                "interestValue": 0,
+                "informativeRatio": Decimal("-1.00000000"),
+                "collateralRatio": -1,
+            },
+        )
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address3)),
+            [
+                "4.99999499@SPY-DUSD",
+            ],
+        )
+
+    def do_and_check_restart(self):
+
+        # Set dToken restart and move to execution block
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.9"}})
+        self.nodes[0].generate(10)
+
+        # Check economy keys have been set
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
+            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
+        )
+
+        assert_equal(
+            self.nodes[0].listgovs("v0/live/economy/locked_tokens"),
+            [
+                [
+                    {
+                        "ATTRIBUTES": {
+                            "v0/live/economy/locked_tokens": [
+                                "1.00000000@SPY/v1",
+                                "1.00000000@DUSD/v1",
+                            ]
+                        }
+                    }
+                ]
+            ],
+        )
+
+        # Try and set dToken restart after it has already been executed
+        assert_raises_rpc_error(
+            -32600,
+            "dToken restart has already been executed and cannot be set again",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1020": "0.9"}},
+        )
+
+    def check_failing_restart(self):
 
         # Try and set dToken restart on current height
         assert_raises_rpc_error(
@@ -104,60 +330,6 @@ class RestartdTokensTest(DefiTestFramework):
             self.nodes[0].setgov,
             {"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.0"}},
         )
-
-        # Set dToken restart and move to execution block
-        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.9"}})
-        self.nodes[0].generate(10)
-
-        # Check economy keys have been set
-        assert_equal(
-            self.nodes[0].listgovs("v0/live/economy/token_lock_ratio"),
-            [[{"ATTRIBUTES": {"v0/live/economy/token_lock_ratio": "0.9"}}]],
-        )
-
-        assert_equal(
-            self.nodes[0].listgovs("v0/live/economy/locked_tokens"),
-            [
-                [
-                    {
-                        "ATTRIBUTES": {
-                            "v0/live/economy/locked_tokens": [
-                                "1.00000000@SPY/v1",
-                                "1.00000000@DUSD/v1",
-                            ]
-                        }
-                    }
-                ]
-            ],
-        )
-
-        # Try and set dToken restart after it has already been executed
-        assert_raises_rpc_error(
-            -32600,
-            "dToken restart has already been executed and cannot be set again",
-            self.nodes[0].setgov,
-            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1020": "0.9"}},
-        )
-
-        self.check_token_lock()
-
-        self.check_upgrade_fail()
-
-        self.check_td()
-
-        self.release_first_1()
-
-        # release all but 1%
-        self.release_88()
-
-        self.check_token_split()
-
-        # TD with lock again (check correct lock ratio)
-
-        self.check_td_99()
-
-        # last tranche
-        self.release_final_1()
 
     def check_td_99(self):
 

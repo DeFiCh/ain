@@ -2684,6 +2684,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         return DeFiErrors::VaultInvalid(vaultId);
     }
 
+    const auto owner = vault->ownerAddress;
     if (useDUSDCollateral) {
         const auto collaterals = mnview.GetVaultCollaterals(vaultId);
         if (!collaterals) {
@@ -2698,13 +2699,12 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             wantedPaybackAmount = currentCollAmount;
         }
     } else {
-        //update and check if owner has balance
-        const auto from = vault->ownerAddress;
-        mnview.CalculateOwnerRewards(from, height);
+        // update and check if owner has balance
+        mnview.CalculateOwnerRewards(owner, height);
 
-        const auto balance = mnview.GetBalance(from, loanTokenId);
-        if(balance < wantedPaybackAmount) {
-            wantedPaybackAmount= balance;
+        const auto balance = mnview.GetBalance(owner, loanTokenId);
+        if (balance.nValue < wantedPaybackAmount) {
+            wantedPaybackAmount = balance.nValue;
         }
     }
     if (wantedPaybackAmount == 0) {
@@ -2759,7 +2759,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             mnview, {loanTokenId, currentLoanAmount > std::abs(subInterest) ? std::abs(subInterest) : subInterest});
     }
 
-    //prepare numbers what to do (how much loan to substract, how much interest to reduce, etc)
+    // prepare numbers what to do (how much loan to substract, how much interest to reduce, etc)
 
     // In the case of negative subInterest the amount ends up being added to paybackAmount
     auto subLoan = paybackAmountInLoanToken - subInterest;
@@ -2777,7 +2777,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
     // reduce loan, interest. afterwards "pay" for it
 
-    res = mnview.SubLoanToken(vaultId, CTokenAmount{loanTokenId, subLoan});
+    auto res = mnview.SubLoanToken(vaultId, CTokenAmount{loanTokenId, subLoan});
     if (!res) {
         return res;
     }
@@ -2785,15 +2785,14 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
     // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
     // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
     // then IPB will be updated and ITH will be wiped.
-    auto res =
-        mnview.DecreaseInterest(height,
-                                vaultId,
-                                vault->schemeId,
-                                loanTokenId,
-                                subLoan,
-                                subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
-                                    ? std::numeric_limits<CAmount>::max()
-                                    : subInterest);
+    res = mnview.DecreaseInterest(height,
+                                  vaultId,
+                                  vault->schemeId,
+                                  loanTokenId,
+                                  subLoan,
+                                  subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
+                                      ? std::numeric_limits<CAmount>::max()
+                                      : subInterest);
     if (!res) {
         return res;
     }
@@ -2820,7 +2819,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
                 LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoan));
-                res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+                res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
             } else {
                 LogPrintf("taking %lld DUSD collateral\n", subLoan);
                 // paying back DUSD loan with DUSD collateral -> no need to multiply
@@ -2839,7 +2838,8 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
                          loanToken->symbol,
                          subInterest,
                          height);
-                res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, from, consensus.burnAddress, height, consensus);
+                res =
+                    SwapToDFIorDUSD(mnview, loanTokenId, subInterest, owner, consensus.burnAddress, height, consensus);
                 if (!res) {
                     return res;
                 }
