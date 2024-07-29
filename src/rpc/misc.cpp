@@ -15,6 +15,9 @@
 #include <util/strencodings.h>
 #include <util/validation.h>
 
+#include <consensus/validation.h>
+#include <validation.h>
+
 #include <stdint.h>
 #include <tuple>
 #ifdef HAVE_MALLOC_INFO
@@ -580,6 +583,63 @@ static UniValue echo(const JSONRPCRequest& request)
     return request.params;
 }
 
+static UniValue setinterruptblock(const JSONRPCRequest& request)
+{
+    RPCHelpMan{"setinterruptblock",
+        "\nSet or update interrupt-block value\n",
+        {
+            {"height", RPCArg::Type::NUM, RPCArg::Optional::NO, "block height"},
+        },
+        RPCResults{},
+        RPCExamples{
+            HelpExampleCli("setinterruptblock", "5000")
+            + HelpExampleCli("setinterruptblock", "-1")
+            + HelpExampleRpc("setinterruptblock", "5000")
+            + HelpExampleRpc("setinterruptblock", "-1")
+        },
+    }.Check(request);
+
+    RPCTypeCheck(request.params, {UniValue::VNUM});
+
+    int height = request.params[0].get_int();
+    auto previousInterruptHeight = fInterruptBlockHeight;
+
+    uint64_t currentHeight;
+    {
+        LOCK(cs_main);
+        currentHeight = ::ChainActive().Height();
+        fInterruptBlockHeight = height;
+        fInterrupt = true;
+    }
+
+
+    // Checks if node has already hit the previous interrupt height.
+    // If true, resets the invalid blocks to prevent node from being stuck as
+    // the blocks above would be considered invalid by the previous interrupt height
+    if (currentHeight + 1 == previousInterruptHeight) {
+        {
+            LOCK(cs_main);
+
+            const auto hash = ::ChainActive().Tip()->GetBlockHash();
+            CBlockIndex* pblockindex = LookupBlockIndex(hash);
+            if (!pblockindex) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+            }
+
+            ResetBlockFailureFlags(pblockindex);
+        }
+
+        CValidationState state;
+        ActivateBestChain(state, Params());
+
+        if (!state.IsValid()) {
+            throw JSONRPCError(RPC_DATABASE_ERROR, FormatStateMessage(state));
+        }
+    }
+
+    return NullUniValue;;
+}
+
 // clang-format off
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
@@ -598,6 +658,7 @@ static const CRPCCommand commands[] =
     { "hidden",             "setmockcheckpoint",      &setmockcheckpoint,      {"height","blockhash"}},
     { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "echojson",               &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
+    { "hidden",             "setinterruptblock",      &setinterruptblock,      {"height"}}
 };
 // clang-format on
 
