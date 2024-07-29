@@ -471,6 +471,8 @@ impl Index for SetOracleData {
                 }
             }
 
+            // asdf
+
             let amount = total
                 .checked_div(Decimal::from(weightage))
                 .unwrap_or(dec!(1));
