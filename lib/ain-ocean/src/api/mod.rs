@@ -1,6 +1,12 @@
 use std::{str::FromStr, sync::Arc};
 
-use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
+use axum::{
+    extract::Request,
+    http::{HeaderValue, StatusCode},
+    middleware::{from_fn, Next},
+    response::{IntoResponse, Response},
+    Json, Router,
+};
 
 mod address;
 mod block;
@@ -55,6 +61,40 @@ pub struct AppContext {
     network: Network,
 }
 
+// NOTE(canonbrother): manually scratch cors since CorsLayer + Axum can only be supported in `tower-http 0.5`
+async fn cors(request: Request, next: Next) -> Response {
+    let mut response = next.run(request).await;
+
+    response
+        .headers_mut()
+        .append("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("GET"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("POST"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("PUT"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Methods",
+        HeaderValue::from_static("DELETE"),
+    );
+    response.headers_mut().append(
+        "Access-Control-Allow-Headers",
+        HeaderValue::from_static("Content-Type"),
+    );
+    response
+        .headers_mut()
+        .append("Access-Control-Max-Age", HeaderValue::from_static("10080")); // 60 * 24 * 7
+
+    response
+}
+
 pub async fn ocean_router(
     services: &Arc<Services>,
     client: Arc<Client>,
@@ -65,7 +105,6 @@ pub async fn ocean_router(
         services: services.clone(),
         network: Network::from_str(&network)?,
     });
-    println!("{:?}", context.network);
 
     let context_cloned = context.clone();
     tokio::spawn(async move { pool_pair::path::sync_token_graph(&context_cloned).await });
@@ -86,6 +125,7 @@ pub async fn ocean_router(
             .nest("/tokens", tokens::router(Arc::clone(&context)))
             .nest("/transactions", transactions::router(Arc::clone(&context)))
             .nest("/blocks", block::router(Arc::clone(&context)))
-            .fallback(not_found),
+            .fallback(not_found)
+            .layer(from_fn(cors)), // NOTE(canonbrother): the `layer()` calls work in reverse order, hence cors layer must be at bottom
     ))
 }
