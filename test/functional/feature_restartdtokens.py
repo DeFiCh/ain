@@ -212,41 +212,82 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
-        assert_equal(
-            self.nodes[0].getvault(self.vault_id3),
-            {
-                "vaultId": self.vault_id3,
-                "loanSchemeId": "LOAN0001",
-                "ownerAddress": self.address3,
-                "state": "active",
-                "collateralAmounts": ["80.00000000@DFI", "0.01000000@BTC"],
-                "loanAmounts": [],
-                "interestAmounts": [],
-                "collateralValue": Decimal("900.00000000"),
-                "loanValue": Decimal("0E-8"),
-                "interestValue": 0,
-                "informativeRatio": Decimal("-1.00000000"),
-                "collateralRatio": -1,
-            },
-        )
+        # can't know how its sorted internally, and depending on which vault is used first,
+        # one gets the full payback with balance, other needs swap of collateral
+        v = self.nodes[0].getvault(self.vault_id3_2)
+        if v["collateralAmounts"] != ["1000.00000000@DFI"]:
+            assert_equal(
+                self.nodes[0].getvault(self.vault_id3),
+                {
+                    "vaultId": self.vault_id3,
+                    "loanSchemeId": "LOAN0001",
+                    "ownerAddress": self.address3,
+                    "state": "active",
+                    "collateralAmounts": ["80.00000000@DFI", "0.01000000@BTC"],
+                    "loanAmounts": [],
+                    "interestAmounts": [],
+                    "collateralValue": Decimal("900.00000000"),
+                    "loanValue": Decimal("0E-8"),
+                    "interestValue": 0,
+                    "informativeRatio": Decimal("-1.00000000"),
+                    "collateralRatio": -1,
+                },
+            )
 
-        assert_equal(
-            self.nodes[0].getvault(self.vault_id3_2),
-            {
-                "vaultId": self.vault_id3_2,
-                "loanSchemeId": "LOAN0001",
-                "ownerAddress": self.address3,
-                "state": "active",
-                "collateralAmounts": ["956.36930652@DFI"],
-                "loanAmounts": [],
-                "interestAmounts": [],
-                "collateralValue": Decimal("4781.84653260"),
-                "loanValue": Decimal("0E-8"),
-                "interestValue": 0,
-                "informativeRatio": Decimal("-1.00000000"),
-                "collateralRatio": -1,
-            },
-        )
+            assert_equal(
+                self.nodes[0].getvault(self.vault_id3_2),
+                {
+                    "vaultId": self.vault_id3_2,
+                    "loanSchemeId": "LOAN0001",
+                    "ownerAddress": self.address3,
+                    "state": "active",
+                    "collateralAmounts": ["956.36930652@DFI"],
+                    "loanAmounts": [],
+                    "interestAmounts": [],
+                    "collateralValue": Decimal("4781.84653260"),
+                    "loanValue": Decimal("0E-8"),
+                    "interestValue": 0,
+                    "informativeRatio": Decimal("-1.00000000"),
+                    "collateralRatio": -1,
+                },
+            )
+        else:
+            assert_equal(
+                self.nodes[0].getvault(self.vault_id3),
+                {
+                    "vaultId": self.vault_id3,
+                    "loanSchemeId": "LOAN0001",
+                    "ownerAddress": self.address3,
+                    "state": "active",
+                    "collateralAmounts": ["36.36930652@DFI", "0.01000000@BTC"],
+                    "loanAmounts": [],
+                    "interestAmounts": [],
+                    "collateralValue": Decimal("681.84653260"),
+                    "loanValue": Decimal("0E-8"),
+                    "interestValue": 0,
+                    "informativeRatio": Decimal("-1.00000000"),
+                    "collateralRatio": -1,
+                },
+            )
+
+            assert_equal(
+                self.nodes[0].getvault(self.vault_id3_2),
+                {
+                    "vaultId": self.vault_id3_2,
+                    "loanSchemeId": "LOAN0001",
+                    "ownerAddress": self.address3,
+                    "state": "active",
+                    "collateralAmounts": ["1000.00000000@DFI"],
+                    "loanAmounts": [],
+                    "interestAmounts": [],
+                    "collateralValue": Decimal("5000.00000000"),
+                    "loanValue": Decimal("0E-8"),
+                    "interestValue": 0,
+                    "informativeRatio": Decimal("-1.00000000"),
+                    "collateralRatio": -1,
+                },
+            )
+
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address3)),
             [
