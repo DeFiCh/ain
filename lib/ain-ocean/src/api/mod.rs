@@ -126,6 +126,6 @@ pub async fn ocean_router(
             .nest("/transactions", transactions::router(Arc::clone(&context)))
             .nest("/blocks", block::router(Arc::clone(&context)))
             .fallback(not_found)
-            .layer(from_fn(cors)), // NOTE(canonbrother): the flow is from bottom to top, hence cors layer must be at bottom
+            .layer(from_fn(cors)), // NOTE(canonbrother): the `layer()` calls work in reverse order, hence cors layer must be at bottom
     ))
 }
