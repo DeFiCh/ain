@@ -1312,12 +1312,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         if (!attribValue) {
             return std::move(attribValue);
         }
-        auto value= std::get<CAmount>(*attribValue.val);
+        auto value = std::get<CAmount>(*attribValue.val);
         if (value <= 0 || value >= COIN) {
             return Res::Err("Can't lock none nor all dTokens");
         }
         return applyVariable(attrV0, *attribValue);
-        
+
     } else {
         if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");

@@ -2863,6 +2863,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
         balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
         attributes->SetValue(liveKey, balances);
+        mnview.SetVariable(*attributes);
 
         CTokenAmount collAmount{dusdToken->first, subInDUSD};
 
