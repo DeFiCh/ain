@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
-use anyhow::{anyhow, Context as _};
+use anyhow::{anyhow, Context as AnyhowContext};
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
@@ -460,8 +460,10 @@ impl Index for SetOracleData {
                             if (oracle_price.time - context.block.time as i32) < 3600 {
                                 count += 1;
                                 weightage += oracle.weightage as i32;
-                                let weighted_amount = oracle_price.amount * oracle.weightage as i64;
-                                total += Decimal::from(weighted_amount);
+                                let weighted_amount = Decimal::from(oracle_price.amount)
+                                    .checked_mul(Decimal::from(oracle.weightage))
+                                    .context("weighted_amount overflow")?;
+                                total += weighted_amount;
                             }
                         }
                     }
@@ -470,8 +472,6 @@ impl Index for SetOracleData {
                     }
                 }
             }
-
-            // asdf
 
             let amount = total
                 .checked_div(Decimal::from(weightage))
