@@ -2654,12 +2654,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
 
 // extracted logic for DUSD only from loans.cpp
 static Res PaybackLoanWithTokenOrDUSDCollateral(
-    CCustomCSView &mnview,
+    CCustomCSView &cache,
     BlockContext &blockCtx,
     const CVaultId &vaultId,
     CAmount wantedPaybackAmount,  // in loanToken, or DUSD if useDUSDCollateral
     const DCT_ID &loanTokenId,
     bool useDUSDCollateral) {
+    auto mnview(cache);
+
     const auto height = blockCtx.GetHeight();
     const auto &consensus = blockCtx.GetConsensus();
     auto attributes = mnview.GetAttributes();
@@ -2785,10 +2787,7 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
     mnview.CalculateOwnerRewards(from, height);
 
     if (!useDUSDCollateral || loanTokenId == dusdToken->first) {
-        res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
-        if (!res) {
-            return res;
-        }
+        const auto subMintedAmount = subInterest > 0 ? subLoan : subLoan + subInterest;
 
         // If interest was negative remove it from sub amount
         if (subInterest < 0) {
@@ -2805,16 +2804,54 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoan));
-                res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+                const auto balance = mnview.GetBalance(from, loanTokenId);
+                if (balance.nValue >= subLoan) {
+                    LogPrintf("Sub loan from balance %s\n", GetDecimalString(subLoan));
+                    res = mnview.SubBalance(from, CTokenAmount{loanTokenId, subLoan});
+                    if (!res) {
+                        return res;
+                    }
+                    res = mnview.SubMintedTokens(loanTokenId, subMintedAmount);
+                    if (!res) {
+                        return res;
+                    }
+                } else if (subInterest > 0) {
+                    if (balance.nValue >= subInterest) {
+                        LogPrintf("Sub loan from balance %s\n", GetDecimalString(balance.nValue - subInterest));
+                        res = mnview.SubBalance(from, CTokenAmount{loanTokenId, balance.nValue - subInterest});
+                        if (!res) {
+                            return res;
+                        }
+                        res = mnview.SubMintedTokens(loanTokenId, balance.nValue - subInterest);
+                        if (!res) {
+                            return res;
+                        }
+                    } else {
+                        // Not enough to pay interest, return here to try another payback method.
+                        return Res::Ok();
+                    }
+                } else {
+                    LogPrintf("Sub loan from balance %s\n", GetDecimalString(balance.nValue));
+                    res = mnview.SubBalance(from, CTokenAmount{loanTokenId, balance.nValue});
+                    if (!res) {
+                        return res;
+                    }
+                    res = mnview.SubMintedTokens(loanTokenId, balance.nValue);
+                    if (!res) {
+                        return res;
+                    }
+                }
             } else {
                 LogPrintf("taking %lld DUSD collateral\n", subLoan);
                 // paying back DUSD loan with DUSD collateral -> no need to multiply
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
-            }
-            if (!res) {
-                LogPrintf("error taking value for loanpayback %s\n", res.dbgMsg);
-                return res;
+                if (!res) {
+                    return res;
+                }
+                res = mnview.SubMintedTokens(loanTokenId, subMintedAmount);
+                if (!res) {
+                    return res;
+                }
             }
         }
         if (subInterest > 0) {
@@ -2873,8 +2910,18 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
             return res;
         }
 
-        return mnview.AddBalance(consensus.burnAddress, collAmount);
+        res = mnview.AddBalance(consensus.burnAddress, collAmount);
+        if (!res) {
+            return res;
+        }
+
+        mnview.Flush();
+
+        return Res::Ok();
     }
+
+    mnview.Flush();
+
     return Res::Ok();
 }
 
@@ -2897,7 +2944,7 @@ namespace {
     };
 }  // namespace
 
-static Res paybackWithSwappedCollateral(const DCT_ID &collId,
+static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
                                         const std::map<DCT_ID, CAmount> &usdPrices,
                                         const CTokensView::TokenIDPair &dUsdToken,
                                         CCustomCSView &cache,
@@ -3077,8 +3124,11 @@ static Res paybackWithSwappedCollateral(const DCT_ID &collId,
         cache.SubBalance(contractAddressValue, dusdResult);
         LogPrintf("adding %s DUSD to vault %s\n", GetDecimalString(dusdResult.nValue), data.vaultId.ToString());
         for (const auto &loan : data.loansWithUSDValue) {
-            PaybackLoanWithTokenOrDUSDCollateral(
+            auto res = PaybackLoanWithTokenOrDUSDCollateral(
                 cache, blockCtx, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
+            if (!res) {
+                return res;
+            }
             dusdResult.nValue -= loan.second;
             if (dusdResult.nValue <= 0) {
                 break;
@@ -3253,7 +3303,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
 
     for (const auto &pool : gatewaypools) {
         auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
-        if (res = paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
+        if (res = PaybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
             return res;
         }
     }
@@ -3279,7 +3329,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     });
 
     for (const auto &collId : allUsedCollaterals) {
-        if (res = paybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
+        if (res = PaybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
             return res;
         }
     }
