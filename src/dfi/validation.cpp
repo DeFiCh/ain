@@ -3463,8 +3463,6 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                                             CCustomCSView &cache,
                                             BlockContext &blockCtx,
                                             const CAmount lockRatio) {
-    // TODO: make use of save calculations
-    // Note: if not 90%, only need to change here
     auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
 
     std::unordered_set<uint32_t> tokensToBeLocked;
@@ -3637,7 +3635,7 @@ static void ProcessTokenLock(const CBlock &block,
     cache.SetVariable(*attributes);
 
     auto time = GetTimeMillis();
-    LogPrintf("locking dToken oversupply ...\n");
+    LogPrintf("locking %s%% of dToken oversupply ...\n", GetDecimalString(lockRatio * 100));
 
     auto view(cache);
 

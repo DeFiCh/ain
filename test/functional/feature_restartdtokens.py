@@ -73,6 +73,37 @@ class RestartdTokensTest(DefiTestFramework):
             self.nodes[0].setgov,
             {"ATTRIBUTES": {f"v0/params/dtoken_restart/990": "0.9"}},
         )
+        # Try and set dToken restart below current height
+        assert_raises_rpc_error(
+            -32600,
+            "Block height must be more than current height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/900": "0.9"}},
+        )
+
+        # Try and set dToken restart above 1
+        assert_raises_rpc_error(
+            -5,
+            "Percentage exceeds 100%",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "1.01"}},
+        )
+
+        # Try and set dToken restart above 1
+        assert_raises_rpc_error(
+            -5,
+            "Can't lock none nor all dTokens",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "1"}},
+        )
+
+        # no lock, no valid
+        assert_raises_rpc_error(
+            -5,
+            "Can't lock none nor all dTokens",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.0"}},
+        )
 
         # Set dToken restart and move to execution block
         self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.9"}})
