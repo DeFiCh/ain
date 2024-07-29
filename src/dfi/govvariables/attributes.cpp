@@ -285,7 +285,6 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"transferdomain", DFIPKeys::TransferDomain},
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
-             {"block_height", DFIPKeys::BlockHeight},
          }},
         {AttributeTypes::EVMType,
          {
@@ -391,7 +390,6 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TransferDomain, "transferdomain"},
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
-             {DFIPKeys::BlockHeight, "block_height"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -823,7 +821,6 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TransferDomain, VerifyBool},
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
-                 {DFIPKeys::BlockHeight, VerifyMoreThenZeroInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -1001,11 +998,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             if (typeKey != DFIPKeys::Members) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
-        } else if (typeId == ParamIDs::dTokenRestart) {
-            if (typeKey != DFIPKeys::BlockHeight) {
-                return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
-            }
-        } else {
+        } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
         }
     } else if (type == AttributeTypes::EVMType) {
@@ -1191,6 +1184,13 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
             attrV0 = CDataStructureV0{type, typeId, typeKey};
         }
+    } else if (type == AttributeTypes::Param && typeId == ParamIDs::dTokenRestart) {
+        if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
+            attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedType(type);
+        }
+        dTokenRestartUpdated = true;
     } else {
         auto ikey = allowedKeys().find(type);
         if (ikey == allowedKeys().end()) {
@@ -1223,8 +1223,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                         futureDUSDUpdated = true;
                     }
                 }
-            } else if (typeId == ParamIDs::dTokenRestart && typeKey == DFIPKeys::BlockHeight) {
-                dTokenRestartUpdated = true;
             }
         }
 
@@ -1305,6 +1303,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
     } else if (attrV0.type == AttributeTypes::Oracles && attrV0.typeId == OracleIDs::Splits &&
                attrV0.key != OracleKeys::FractionalSplits) {
         auto attribValue = VerifySplit(value->getValStr());
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        return applyVariable(attrV0, *attribValue);
+    } else if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::dTokenRestart) {
+        auto attribValue = VerifyPctInt64(value->getValStr());
         if (!attribValue) {
             return std::move(attribValue);
         }
@@ -1658,11 +1662,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = KeyBuilder(attrV0->typeId);
             }
 
-            const auto v0Key =
-                (attrV0->type == AttributeTypes::Oracles && attrV0->key != OracleKeys::FractionalSplits) ||
-                        attrV0->type == AttributeTypes::Locks
-                    ? KeyBuilder(attrV0->key)
-                    : displayKeys().at(attrV0->type).at(attrV0->key);
+            std::string v0Key;
+            if (((attrV0->type == AttributeTypes::Oracles && attrV0->key != OracleKeys::FractionalSplits) ||
+                 attrV0->type == AttributeTypes::Locks) ||
+                (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::dTokenRestart)) {
+                v0Key = KeyBuilder(attrV0->key);
+            } else {
+                v0Key = displayKeys().at(attrV0->type).at(attrV0->key);
+            }
 
             auto key = KeyBuilder(displayVersions().at(VersionTypes::v0), displayTypes().at(attrV0->type), id, v0Key);
 
@@ -1689,7 +1696,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
                      attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::BlockHeight)) {
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
@@ -2103,23 +2110,16 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     if (view.GetLastHeight() < Params().GetConsensus().DF25Height) {
                         return DeFiErrors::GovVarValidateDF25Height();
                     }
-                    if (attrV0->key == DFIPKeys::BlockHeight) {
-                        const auto blockHeight = std::get_if<CAmount>(&value);
-                        if (!blockHeight) {
-                            return DeFiErrors::GovVarUnsupportedValue();
-                        }
-                        // Only perform following checks when block height has been imported.
-                        if (!dTokenRestartUpdated) {
-                            continue;
-                        }
-                        if (*blockHeight <= view.GetLastHeight()) {
-                            return DeFiErrors::GovVarValidateBlockHeight();
-                        }
-                        CDataStructureV0 tokenLock{
-                            AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
-                        if (const auto checkKey = CheckKey(tokenLock)) {
-                            return DeFiErrors::GovVarValidateRestartExecuted();
-                        }
+                    // Only perform following checks when block height has been imported.
+                    if (!dTokenRestartUpdated) {
+                        continue;
+                    }
+                    if (attrV0->key <= view.GetLastHeight()) {
+                        return DeFiErrors::GovVarValidateBlockHeight();
+                    }
+                    CDataStructureV0 tokenLock{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+                    if (const auto checkKey = CheckKey(tokenLock)) {
+                        return DeFiErrors::GovVarValidateRestartExecuted();
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");

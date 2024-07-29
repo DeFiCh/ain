@@ -60,7 +60,7 @@ class RestartdTokensTest(DefiTestFramework):
             -32600,
             "Cannot be set before DF25Height",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1010"}},
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1010": "0.9"}},
         )
 
         # Move to fork height
@@ -71,13 +71,11 @@ class RestartdTokensTest(DefiTestFramework):
             -32600,
             "Block height must be more than current height",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "990"}},
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/990": "0.9"}},
         )
 
         # Set dToken restart and move to execution block
-        self.nodes[0].setgov(
-            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1000"}}
-        )
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.9"}})
         self.nodes[0].generate(10)
 
         # Check economy keys have been set
@@ -107,7 +105,7 @@ class RestartdTokensTest(DefiTestFramework):
             -32600,
             "dToken restart has already been executed and cannot be set again",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {f"v0/params/dtoken_restart/block_height": "1020"}},
+            {"ATTRIBUTES": {f"v0/params/dtoken_restart/1020": "0.9"}},
         )
 
         self.check_token_lock()

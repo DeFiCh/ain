@@ -3461,10 +3461,10 @@ static Res LockToken(CCustomCSView &cache,
 static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                                             const CBlockIndex *pindex,
                                             CCustomCSView &cache,
-                                            BlockContext &blockCtx) {
+                                            BlockContext &blockCtx,
+                                            const CAmount lockRatio) {
     // TODO: make use of save calculations
     // Note: if not 90%, only need to change here
-    auto lockRatio = COIN * 90 / 100;
     auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
 
     std::unordered_set<uint32_t> tokensToBeLocked;
@@ -3627,12 +3627,14 @@ static void ProcessTokenLock(const CBlock &block,
         return;  // can't lock after already locked
     }
 
-    CDataStructureV0 heightKey{AttributeTypes::Param, ParamIDs::dTokenRestart, DFIPKeys::BlockHeight};
-    const auto restartHeight = attributes->GetValue(heightKey, CAmount{});
-
-    if (restartHeight != pindex->nHeight) {
+    CDataStructureV0 lockKey{AttributeTypes::Param, ParamIDs::dTokenRestart, static_cast<uint32_t>(pindex->nHeight)};
+    const auto lockRatio = attributes->GetValue(lockKey, CAmount{});
+    if (!lockRatio) {
         return;
     }
+
+    attributes->EraseKey(lockKey);
+    cache.SetVariable(*attributes);
 
     auto time = GetTimeMillis();
     LogPrintf("locking dToken oversupply ...\n");
@@ -3664,7 +3666,7 @@ static void ProcessTokenLock(const CBlock &block,
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
     // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools
     // go to address lock (1-<lockRatio>)% of balances for new tokens
-    res = LockTokensOfBalancesCollAndPools(block, pindex, view, blockCtx);
+    res = LockTokensOfBalancesCollAndPools(block, pindex, view, blockCtx, lockRatio);
     if (!res) {
         LogPrintf("Lock token balances failed: %s\n", res.msg);
         return;

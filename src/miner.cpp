@@ -428,10 +428,12 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         // Add token lock creations TXs: duplicate code from AddSplitDVMTxs.
         // TODO: refactor
 
-        CDataStructureV0 heightKey{AttributeTypes::Param, ParamIDs::dTokenRestart, DFIPKeys::BlockHeight};
-        const auto restartHeight = attributes->GetValue(heightKey, CAmount{});
+        CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+        CDataStructureV0 lockKey{AttributeTypes::Param, ParamIDs::dTokenRestart, static_cast<uint32_t>(nHeight)};
+        const auto lockedTokens = attributes->GetValue(lockedTokenKey, CBalances{});
+        const auto lockRatio = attributes->GetValue(lockKey, CAmount{});
 
-        if (nHeight == restartHeight) {
+        if (lockedTokens.balances.empty() && lockRatio) {
             SplitMap lockSplitMapEVM;
             auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
                 CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
