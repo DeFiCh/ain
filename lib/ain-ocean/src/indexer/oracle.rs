@@ -460,7 +460,11 @@ impl Index for SetOracleData {
                             if (oracle_price.time - context.block.time as i32) < 3600 {
                                 count += 1;
                                 weightage += oracle.weightage as i32;
-                                log::debug!("SetOracleData weightage: {:?} * oracle_price.amount: {:?}", weightage, oracle_price.amount);
+                                log::debug!(
+                                    "SetOracleData weightage: {:?} * oracle_price.amount: {:?}",
+                                    weightage,
+                                    oracle_price.amount
+                                );
                                 let weighted_amount = Decimal::from(oracle_price.amount)
                                     .checked_mul(Decimal::from(oracle.weightage))
                                     .context("weighted_amount overflow")?;
