@@ -2438,7 +2438,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 15: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
-        if (!pos::StartStakingThreads(chain_active_height + 1, threadGroup)) {
+        if (!pos::StartStakingThreads(threadGroup)) {
             return false;
         }
     }

@@ -242,6 +242,13 @@ namespace pos {
             CKey minterKey = CKey();
             CKeyID operatorID = {};
             uint8_t subNode = 0;
+            int64_t subNodeBlockTime = 0;
+            int32_t creationHeight = 0;
+            uint32_t mintedBlocks = 0;
+            uint256 masternode = {};
+            CBlockIndex *tip = nullptr;
+            int64_t blockTime = {};
+            int64_t blockHeight = {};
         };
 
         /// always forward by value to avoid dangling pointers
@@ -276,7 +283,7 @@ namespace pos {
         void withSearchInterval(F &&f, int64_t height);
     };
 
-    bool StartStakingThreads(const int blockHeight, std::vector<std::thread> &threadGroup);
+    bool StartStakingThreads(std::vector<std::thread> &threadGroup);
 }  // namespace pos
 
 #endif  // DEFI_MINER_H

@@ -1084,6 +1084,7 @@ namespace pos {
 
     std::vector<ThreadStaker::Args> stakersParams;
     std::mutex stakersParamsMutex;
+    std::condition_variable cv;
 
     Staker::Status Staker::init(const CChainParams &chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
@@ -1110,44 +1111,15 @@ namespace pos {
     Staker::Status Staker::stake(const CChainParams &chainparams, const ThreadStaker::Args &args) {
         bool found = false;
 
-        // this part of code stay valid until tip got changed
-
-        uint32_t mintedBlocks(0);
-        uint256 masternodeID{};
-        int64_t creationHeight{};
+        const auto mintedBlocks = args.mintedBlocks;
+        const auto &masternodeID = args.masternode;
+        const auto creationHeight = args.creationHeight;
         const auto &scriptPubKey = args.coinbaseScript;
-        int64_t blockTime{};
-        CBlockIndex *tip{};
-        int64_t blockHeight{};
-        uint8_t subNode = args.subNode;
-        int64_t subNodeBlockTime{};
-
-        {
-            LOCK(cs_main);
-            const auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(args.operatorID);
-            if (!optMasternodeID) {
-                return Status::initWaiting;
-            }
-            tip = ::ChainActive().Tip();
-            blockHeight = tip->nHeight + 1;
-            masternodeID = *optMasternodeID;
-            const auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-            if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
-                return Status::stakeWaiting;
-            }
-            mintedBlocks = nodePtr->mintedBlocks;
-
-            creationHeight = int64_t(nodePtr->creationHeight);
-            blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
-            const auto timelock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
-            if (!timelock) {
-                return Status::stakeWaiting;
-            }
-
-            // Get block time for subnode
-            subNodeBlockTime =
-                pcustomcsview->GetBlockTimes(args.operatorID, blockHeight, creationHeight, *timelock)[subNode];
-        }
+        auto blockTime = args.blockTime;
+        const auto tip = args.tip;
+        const auto blockHeight = args.blockHeight;
+        const auto subNode = args.subNode;
+        const auto subNodeBlockTime = args.subNodeBlockTime;
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
@@ -1327,6 +1299,7 @@ namespace pos {
         uint32_t nPastFailures{};
         std::map<CKeyID, int32_t> nMinted;
         std::map<CKeyID, int32_t> nTried;
+        std::unique_lock<std::mutex> lock(stakersParamsMutex);
 
         auto wallets = GetWallets();
 
@@ -1341,11 +1314,9 @@ namespace pos {
                 std::this_thread::sleep_for(std::chrono::milliseconds(900));
             }
 
-            std::vector<ThreadStaker::Args> localStakersParams;
-            {
-                std::lock_guard lock(stakersParamsMutex);
-                localStakersParams = stakersParams;
-            }
+            cv.wait(lock, [] { return ShutdownRequested(); });
+            std::vector<ThreadStaker::Args> localStakersParams = stakersParams;
+            lock.unlock();
 
             for (auto it = localStakersParams.begin(); it != localStakersParams.end();) {
                 if (ShutdownRequested()) {
@@ -1411,14 +1382,10 @@ namespace pos {
 
             // Set search period to last time set
             Staker::nLastCoinStakeSearchTime = Staker::nFutureTime;
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
     }
 
-    void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets,
-                              const int subnodeCount,
-                              const int blockHeight) {
+    void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets, const int subnodeCount) {
         auto operators = gArgs.GetArgs("-masternode_operator");
 
         if (fMockNetwork) {
@@ -1445,6 +1412,13 @@ namespace pos {
                     ThreadStaker::Args stakerParams;
                     auto &operatorId = stakerParams.operatorID;
                     auto &coinbaseScript = stakerParams.coinbaseScript;
+                    auto &subNodeBlockTime = stakerParams.subNodeBlockTime;
+                    auto &creationHeight = stakerParams.creationHeight;
+                    auto &mintedBlocks = stakerParams.mintedBlocks;
+                    auto &masternode = stakerParams.masternode;
+                    auto &blockTime = stakerParams.blockTime;
+                    auto &blockHeight = stakerParams.blockHeight;
+                    auto &tip = stakerParams.tip;
 
                     CTxDestination destination = DecodeDestination(op);
                     operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
@@ -1470,7 +1444,12 @@ namespace pos {
                         continue;
                     }
 
-                    const auto nodePtr = pcustomcsview->GetMasternode(*masternodeID);
+                    masternode = *masternodeID;
+                    tip = ::ChainActive().Tip();
+                    blockHeight = tip->nHeight + 1;
+                    blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+
+                    const auto nodePtr = pcustomcsview->GetMasternode(masternode);
                     if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
                         continue;
                     }
@@ -1501,14 +1480,17 @@ namespace pos {
                         continue;
                     }
 
-                    const auto timeLock = pcustomcsview->GetTimelock(*masternodeID, *nodePtr, blockHeight);
+                    const auto timeLock = pcustomcsview->GetTimelock(masternode, *nodePtr, blockHeight);
                     if (!timeLock) {
                         continue;
                     }
 
+                    creationHeight = nodePtr->creationHeight;
+                    mintedBlocks = nodePtr->mintedBlocks;
+
                     // Get sub node block times
-                    const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(
-                        operatorId, blockHeight, int64_t(nodePtr->creationHeight), *timeLock);
+                    const auto subNodesBlockTimes =
+                        pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock);
 
                     auto loops = GetTimelockLoops(*timeLock);
                     if (blockHeight < Params().GetConsensus().DF10EunosPayaHeight) {
@@ -1517,9 +1499,10 @@ namespace pos {
 
                     for (uint8_t i{}; i < loops; ++i) {
                         const auto targetMultiplier =
-                            CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).GetLow64();
+                            CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTimes[i]).GetLow64();
 
                         stakerParams.subNode = i;
+                        subNodeBlockTime = subNodesBlockTimes[i];
 
                         targetMultiplierMap.emplace(targetMultiplier, stakerParams);
 
@@ -1569,10 +1552,11 @@ namespace pos {
                 {
                     std::lock_guard lock(stakersParamsMutex);
                     stakersParams = newStakersParams;
+                    cv.notify_all();
                 }
             }
 
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::milliseconds(900));
         }
 
         {
@@ -1583,7 +1567,7 @@ namespace pos {
         }
     }
 
-    bool StartStakingThreads(const int blockHeight, std::vector<std::thread> &threadGroup) {
+    bool StartStakingThreads(std::vector<std::thread> &threadGroup) {
         auto wallets = GetWallets();
         if (wallets.size() == 0) {
             LogPrintf("Warning! wallets not found\n");
@@ -1610,7 +1594,7 @@ namespace pos {
         // Run staking manager thread
         threadGroup.emplace_back(
             TraceThread<std::function<void()>>, "CoinStakerManager", [=, wallets = std::move(wallets)]() {
-                stakingManagerThread(std::move(wallets), subnodeCount, blockHeight);
+                stakingManagerThread(std::move(wallets), subnodeCount);
             });
 
         // Mint proof-of-stake blocks in background
