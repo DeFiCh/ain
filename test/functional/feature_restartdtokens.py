@@ -173,7 +173,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "4.49999499@SPY-DUSD",
                 "455.25657402@USDT",
                 "469.34163902@USDT-DUSD",
-                "60.49605000@DUSD",
+                "60.00000000@DUSD",
                 "631.31846070@DUSD-DFI",
                 "99.99999000@BTC-DFI",
             ],
@@ -181,7 +181,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(lmaddress)),
             [
-                "0.00390000@DUSD",
+                "",  # FIXME: this only appears with DF24 set, without DF24 we get DUSD commission
                 "0.50000000@SPY",
                 "0.50000500@SPY-DUSD",
                 "2.05654192@DFI",

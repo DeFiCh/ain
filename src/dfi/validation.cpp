@@ -3270,24 +3270,35 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     //                  then swap other collateral to DUSD and burn for loan
 
     LogPrintf("preparing payback with owner balance\n");
-    std::vector<std::tuple<CVaultId, CAmount, DCT_ID>> directPaybacks;
+    // need to consolidate before payback to have all tokens for payback
+    std::vector<std::pair<CScript, CAmount>> ownersToMigrate;
+    std::vector<std::tuple<CVaultId, DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto owner = cache.GetVault(vaultId)->ownerAddress;
         for (const auto &[tokenId, amount] : balances.balances) {
-            auto balance = cache.GetBalance(owner, tokenId);
-            if (balance.nValue > 0) {
-                directPaybacks.emplace_back(vaultId, balance.nValue, tokenId);
-            }
+            directPaybacks.emplace_back(vaultId, tokenId);
+            ownersToMigrate.emplace_back(owner, CAmount{});
         }
         return true;
     });
+
+    auto nWorkers = RewardConsolidationWorkersCount();
+    LogPrintf("Token Lock: Consolidating rewards before payback. total: %d, concurrency: %d..\n",
+              ownersToMigrate.size(),
+              nWorkers);
+    ConsolidateRewards(cache, pindex->nHeight, ownersToMigrate, false, nWorkers);
+
     LogPrintf("paying back %d loans with owner balance\n", directPaybacks.size());
     uint64_t reportedTs = 0;
     uint64_t done = 0;
-    for (const auto &[vaultId, amount, tokenId] : directPaybacks) {
-        res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount, tokenId, false);
-        if (!res) {
-            return res;
+    for (const auto &[vaultId, tokenId] : directPaybacks) {
+        auto owner = cache.GetVault(vaultId)->ownerAddress;
+        auto amount = cache.GetBalance(owner, tokenId);
+        if (amount.nValue > 0) {
+            res = PaybackLoanWithTokenOrDUSDCollateral(cache, blockCtx, vaultId, amount.nValue, tokenId, false);
+            if (!res) {
+                return res;
+            }
         }
         ++done;
         if (GetTimeMillis() - reportedTs > 5000) {
