@@ -191,22 +191,35 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
-    CKeyID operatorID{};
-    uint256 masternodeID{};
-    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+    auto [operatorID, masternodeID] = *myAllMNs.begin();
 
-    // check mnForPassedID is in myAllMNs
+    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+    std::optional<CMasternode> nodePtr;
+
+    // Check mnForPassedID is in myAllMNs
     if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
-        operatorID = passedID;
-        masternodeID = *mnForPassedID;
+        nodePtr = pcustomcsview->GetMasternode(masternodeID);
+        if (nodePtr && nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+            operatorID = passedID;
+            masternodeID = *mnForPassedID;
+        }
     } else {
-        operatorID = myAllMNs.begin()->first;
-        masternodeID = myAllMNs.begin()->second;
+        // Look up masternode by owner address
+        mnForPassedID = pcustomcsview->GetMasternodeIdByOwner(passedID);
+        if (mnForPassedID) {
+            nodePtr = pcustomcsview->GetMasternode(*mnForPassedID);
+            if (nodePtr && nodePtr->IsActive(blockHeight, *pcustomcsview) && myAllMNs.count(std::make_pair(nodePtr->operatorAuthAddress, *mnForPassedID))) {
+                operatorID = nodePtr->operatorAuthAddress;
+                masternodeID = *mnForPassedID;
+            }
+        }
     }
 
-    const auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
-    if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
+    if (!nodePtr) {
+        nodePtr = pcustomcsview->GetMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
+        }
     }
 
     const auto timeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);

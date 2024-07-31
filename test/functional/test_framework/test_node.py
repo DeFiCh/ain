@@ -306,7 +306,7 @@ class TestNode:
 
     def generate(self, nblocks, maxtries=1000000, address=None):
         if address is None:
-            address = self.get_genesis_keys().operatorAuthAddress
+            address = self.get_genesis_keys().ownerAuthAddress
 
         # height = self.getblockcount()
         minted = 0
