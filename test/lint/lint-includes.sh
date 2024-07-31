@@ -56,6 +56,7 @@ EXPECTED_BOOST_INCLUDES=(
     boost/asio.hpp
     boost/circular_buffer.hpp
     boost/date_time/posix_time/posix_time.hpp
+    boost/lockfree/queue.hpp
     boost/multiprecision/cpp_int.hpp
     boost/multi_index/hashed_index.hpp
     boost/multi_index/ordered_index.hpp
