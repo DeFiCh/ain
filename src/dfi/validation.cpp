@@ -3380,13 +3380,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         auto dusd2reserve = p2.idTokenA == dUsdToken->first ? p2.reserveA : p2.reserveB;
         return dusd1reserve > dusd2reserve;
     });
-    std::stringstream log;
-    for (const auto &pool : gatewaypools) {
-        log << pool.idTokenA.v << "-" << pool.idTokenB.v << " reserves: " << pool.reserveA << "-" << pool.reserveB
-            << std::endl;
-    }
-    LogPrintf("Got gateway pools:\n %s", log.str());
-
+  
     for (const auto &pool : gatewaypools) {
         auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
         if (res = PaybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
