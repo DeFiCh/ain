@@ -2728,11 +2728,6 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         loanUsdPrice = *resVal.val;
         paybackAmountInLoanToken = DivideAmounts(wantedPaybackAmount, loanUsdPrice);
     }
-    LogPrintf("paying back %d for token %d %s DUSD collateral to vault %s\n",
-              paybackAmountInLoanToken,
-              loanTokenId.v,
-              useDUSDCollateral ? "with" : "without",
-              vaultId.ToString());
     // get needed DUSD to payback
     // if not enough: pay only interest, then part of loan
 
@@ -2819,10 +2814,8 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                LogPrintf("Sub loan from balance %s@%d\n", GetDecimalString(subLoan), loanTokenId.v);
                 res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
             } else {
-                LogPrintf("taking %lld DUSD collateral\n", subLoan);
                 // paying back DUSD loan with DUSD collateral -> no need to multiply
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
             }
@@ -2834,19 +2827,12 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         if (subInterest > 0) {
             if (!useDUSDCollateral) {
                 // burn interest Token->USD->DFI->burnAddress
-                LogPrint(BCLog::LOAN,
-                         "Swapping %s interest to DFI - %lld, height - %d\n",
-                         loanToken->symbol,
-                         subInterest,
-                         height);
                 res =
                     SwapToDFIorDUSD(mnview, loanTokenId, subInterest, owner, consensus.burnAddress, height, consensus);
                 if (!res) {
                     return res;
                 }
             } else {
-                LogPrintf("burn  %lld DUSD for interest directly\n", subInterest);
-
                 // direct burn
                 CTokenAmount dUSD{dusdToken->first, subInterest};
 
@@ -2882,7 +2868,6 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
         CTokenAmount collAmount{dusdToken->first, subInDUSD};
 
-        LogPrintf("burning %d DUSD collateral", subInDUSD);
         if (auto res = mnview.SubVaultCollateral(vaultId, collAmount); !res) {
             LogPrintf("Error removing collateral %s\n", res);
             return res;
@@ -2936,8 +2921,13 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
                 if (rate) {
                     neededAmount += TotalInterest(*rate, blockCtx.GetHeight());
                 }
-                collToLoans.back().loansWithUSDValue.emplace_back(CTokenAmount{tokenId, neededAmount},
-                                                                  MultiplyAmounts(neededAmount, usdPrices.at(tokenId)));
+                // if divide leads to underpay of loantoken, we would not remove the loan completely with this DUSD
+                // amount -> increase needed loanAmount by 1 fi to be safe.
+                auto neededUSD = MultiplyAmounts(neededAmount, usdPrices.at(tokenId));
+                if (DivideAmounts(neededUSD, usdPrices.at(tokenId)) < neededAmount) {
+                    neededUSD = MultiplyAmounts(neededAmount + 1, usdPrices.at(tokenId));
+                }
+                collToLoans.back().loansWithUSDValue.emplace_back(CTokenAmount{tokenId, neededAmount}, neededUSD);
             }
         }
         return true;
@@ -2955,7 +2945,7 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
         // no loans, nothing to swap
         return Res::Ok();
     }
-    LogPrintf("Swapping collateral %d, needing %d DUSD\n", collId.v, totalUSD.GetLow64());
+    LogPrintf("Swapping collateral %d, needing %s DUSD\n", collId.v, GetDecimalString(totalUSD.GetLow64()));
 
     const auto attributes = cache.GetAttributes();
     std::vector<SwapInfo> swapInfos;
@@ -3019,39 +3009,63 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
         output = swapInput * swap.feeFactorIn / swap.commission;
     }
     // this is the estimated price if all needed USD are swapped ->  max slipage
-    auto estimatedCollPerDUSD = output * COIN / totalUSD;
+    // estimatedCollPerDUSD is a pair coll -> dUSD to prevent floating errors
+    auto estimatedCollPerDUSD = std::make_pair(output.GetLow64(), totalUSD.GetLow64());
     // now see how much collateral is acutally useable per vault
-    LogPrintf("first esimate (based on wanted DUSD output): %.8f\n", (double)estimatedCollPerDUSD.GetLow64() / COIN);
+    LogPrintf("first esimate (based on wanted DUSD output): %s (%s@%d -> %s@DUSD)\n",
+              GetDecimalString(estimatedCollPerDUSD.first / estimatedCollPerDUSD.second),
+              GetDecimalString(output.GetLow64()),
+              collId.v,
+              GetDecimalString(totalUSD.GetLow64()));
 
-    auto nextEstimate = [&](const arith_uint256 &lastEstimateCollPerDUSD) {
-        arith_uint256 totalCollateralUsed = 0;
+    auto nextEstimate = [&](const std::pair<CAmount, CAmount> &lastEstimateCollPerDUSD) {
+        CAmount totalCollateralUsed = 0;
         for (auto &data : collToLoans) {
-            const auto &neededColl = MultiplyAmounts(lastEstimateCollPerDUSD, data.totalUSDNeeded);
+            // multiply by estimate
+            const auto &neededColl = MultiplyDivideAmounts(
+                data.totalUSDNeeded, lastEstimateCollPerDUSD.first, lastEstimateCollPerDUSD.second);
             if (neededColl < data.useableCollateralAmount) {
-                totalCollateralUsed += neededColl.GetLow64();
+                // divide by estimate
+                if (MultiplyDivideAmounts(data.usedCollateralAmount,
+                                          lastEstimateCollPerDUSD.second,
+                                          lastEstimateCollPerDUSD.first) != data.totalUSDNeeded) {
+                    // floating error, make sure its at least 1 fi extra DUSD (
+                    //  if 1 fi collId is bigger than 1 fi DUSD: add 1 fi collId,
+                    //  otherwise add coll for 1 fi DUSD)
+                    if (lastEstimateCollPerDUSD.first > lastEstimateCollPerDUSD.second) {
+                        data.usedCollateralAmount += (lastEstimateCollPerDUSD.first / lastEstimateCollPerDUSD.second);
+                    } else {
+                        data.usedCollateralAmount += 1;
+                    }
+                }
+                totalCollateralUsed += neededColl;
             } else {
                 totalCollateralUsed += data.useableCollateralAmount;
             }
         }
-        LogPrintf("estimating for %d coll used\n", totalCollateralUsed.GetLow64());
 
-        auto input = totalCollateralUsed;
+        arith_uint256 input = totalCollateralUsed;
         for (const auto &swap : swapInfos) {
-            auto swapInput = ((input * swap.feeFactorIn / COIN) * swap.commission) / COIN;
+            auto swapInput = (((input * swap.feeFactorIn) / COIN) * swap.commission) / COIN;
             auto swapOutput = swap.reserveOut - ((swap.reserveIn * swap.reserveOut) / (swap.reserveIn + swapInput));
             input = swapOutput * swap.feeFactorOut / COIN;
         }
-        return totalCollateralUsed * COIN / input;
+        LogPrintf("estimating for coll used: %s@%d -> %s@DUSD\n",
+                  GetDecimalString(totalCollateralUsed),
+                  collId.v,
+                  GetDecimalString(input.GetLow64()));
+        return std::make_pair(totalCollateralUsed, input.GetLow64());
     };
 
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
-    LogPrintf("second estimate (based on av. coll) collPerDUSD: %.8f\n",
-              GetDecimalString(estimatedCollPerDUSD.GetLow64()));
+    LogPrintf("second estimate (based on av. coll) collPerDUSD: %s\n",
+              GetDecimalString(DivideAmounts(estimatedCollPerDUSD.first, estimatedCollPerDUSD.second)));
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
-    LogPrintf("third estimate (based on av. coll) collPerDUSD: %.8f\n",
-              GetDecimalString(estimatedCollPerDUSD.GetLow64()));
+    LogPrintf("third estimate (based on av. coll) collPerDUSD: %s\n",
+              GetDecimalString(DivideAmounts(estimatedCollPerDUSD.first, estimatedCollPerDUSD.second)));
     estimatedCollPerDUSD = nextEstimate(estimatedCollPerDUSD);
-    LogPrintf("final estimate collPerDUSD: %.8f\n", GetDecimalString(estimatedCollPerDUSD.GetLow64()));
+    LogPrintf("final estimate collPerDUSD: %s\n",
+              GetDecimalString(DivideAmounts(estimatedCollPerDUSD.first, estimatedCollPerDUSD.second)));
 
     // move to contract and swap there
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
@@ -3067,12 +3081,31 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     CAmount totalCollToSwap = 0;
     uint64_t reportedTs = 0;
     uint64_t done = 0;
+    CAmount totalExpectedDUSD = 0;
     for (auto &data : collToLoans) {
-        const auto &neededColl = MultiplyAmounts(estimatedCollPerDUSD, data.totalUSDNeeded);
+        const auto &neededColl =
+            MultiplyDivideAmounts(data.totalUSDNeeded, estimatedCollPerDUSD.first, estimatedCollPerDUSD.second);
         if (neededColl < data.useableCollateralAmount) {
-            data.usedCollateralAmount = neededColl.GetLow64();
+            data.usedCollateralAmount = neededColl;
+            // divide by estimate
+            if (MultiplyDivideAmounts(data.usedCollateralAmount,
+                                      estimatedCollPerDUSD.second,
+                                      estimatedCollPerDUSD.first) != data.totalUSDNeeded) {
+                // floating error, make sure its at least 1 fi extra DUSD (if 1 fi collId is worth less than 1 fi DUSD:
+                // add coll for 1 fi DUSD, otherwise add 1 fi collId)
+                if (estimatedCollPerDUSD.first > estimatedCollPerDUSD.second) {
+                    // TODO: do we need an extra +1 here?
+                    data.usedCollateralAmount += (estimatedCollPerDUSD.first / estimatedCollPerDUSD.second) + 1;
+                } else {
+                    data.usedCollateralAmount += 1;
+                }
+            }
+            totalExpectedDUSD += data.totalUSDNeeded;
         } else {
             data.usedCollateralAmount = data.useableCollateralAmount;
+            // divide by estimate
+            totalExpectedDUSD += MultiplyDivideAmounts(
+                data.usedCollateralAmount, estimatedCollPerDUSD.second, estimatedCollPerDUSD.first);
         }
         CTokenAmount moved = {collId, data.usedCollateralAmount};
         cache.SubVaultCollateral(data.vaultId, moved);
@@ -3096,36 +3129,65 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     for (const auto &info : swapInfos) {
         poolIds.emplace_back(info.poolId);
     }
-    LogPrintf("swapping %s@%d to DUSD\n", GetDecimalString(totalCollToSwap), collId.v);
+    LogPrintf("swapping %s@%d to (expected) %s@DUSD\n",
+              GetDecimalString(totalCollToSwap),
+              collId.v,
+              GetDecimalString(totalExpectedDUSD));
     auto poolSwap = CPoolSwap(swapMessage, blockCtx.GetHeight());
     poolSwap.ExecuteSwap(cache, poolIds, blockCtx.GetConsensus());
     auto availableDUSD = cache.GetBalance(contractAddressValue, dUsdToken.first);
 
-    LogPrintf("moving DUSD to vaults and paying back via collateral\n");
+    LogPrintf("moving %s DUSD to vaults and paying back via collateral\n", GetDecimalString(availableDUSD.nValue));
+    CAmount totalBurnedExcessDUSD = 0;
     for (const auto &data : collToLoans) {
         CTokenAmount dusdResult = {
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
+        if (data.usedCollateralAmount < data.useableCollateralAmount && dusdResult.nValue < data.totalUSDNeeded) {
+            LogPrintf(
+                "didn't use full collateral, but did not get all needed USD. usedColl: %s, availableColl: %s, "
+                "neededUSD: %s, resultDUSD: %s\n",
+                GetDecimalString(data.usedCollateralAmount),
+                GetDecimalString(data.useableCollateralAmount),
+                GetDecimalString(data.totalUSDNeeded),
+                GetDecimalString(dusdResult.nValue));
+        }
         for (const auto &loan : data.loansWithUSDValue) {
             auto res = PaybackLoanWithTokenOrDUSDCollateral(
                 cache, blockCtx, data.vaultId, dusdResult.nValue, loan.first.nTokenId, true);
             if (!res) {
                 return res;
             }
-            dusdResult.nValue -= loan.second;
-            if (dusdResult.nValue <= 0) {
+            if (loan.second < dusdResult.nValue) {
+                // check if loan is gone
+                const auto loanAmounts = cache.GetLoanTokens(data.vaultId);
+                if (loanAmounts && loanAmounts->balances.count(loan.first.nTokenId)) {
+                    LogPrintf("expected loan to be paid back completely, but still %s@%d left in vault %s\n",
+                              GetDecimalString(loanAmounts->balances.at(loan.first.nTokenId)),
+                              loan.first.nTokenId.v,
+                              data.vaultId.ToString());
+                }
+                dusdResult.nValue -= loan.second;
+            } else {
+                dusdResult.nValue = 0;
                 break;
             }
         }
-        if (dusdResult.nValue > 0) {
+
+        const auto collAmounts = cache.GetVaultCollaterals(data.vaultId);
+        if (collAmounts && collAmounts->balances.count(dUsdToken.first)) {
+            auto excessDUSD = collAmounts->balances.at(dUsdToken.first);
             // burn excess DUSD from swap
-            cache.SubVaultCollateral(data.vaultId, {dUsdToken.first, dusdResult.nValue});
-            cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, dusdResult.nValue});
+            totalBurnedExcessDUSD += excessDUSD;
+            cache.SubVaultCollateral(data.vaultId, {dUsdToken.first, excessDUSD});
+            cache.AddBalance(blockCtx.GetConsensus().burnAddress, {dUsdToken.first, excessDUSD});
         }
     }
 
-    LogPrintf("done paying back with collateral %d\n", collId.v);
+    LogPrintf("done paying back with collateral %d, burned %s excess DUSD\n",
+              collId.v,
+              GetDecimalString(totalBurnedExcessDUSD));
     return Res::Ok();
 }
 
@@ -3347,6 +3409,27 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         }
     }
 
+    LogPrintf("forced paybacks done checking remaining vaults\n");
+
+    // check if all are gone
+
+    cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
+        const auto loanAmounts = cache.GetLoanTokens(vaultId);
+        if (loanAmounts && loanAmounts->balances.size() > 0) {
+            LogPrintf("got loans left after payback: vault %s, %d loans: \n",
+                      vaultId.ToString(),
+                      loanAmounts->balances.size());
+            for (const auto &loan : loanAmounts->balances) {
+                LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+            }
+            const auto collAmounts = cache.GetVaultCollaterals(vaultId);
+            LogPrintf("%d collaterals: \n", collAmounts->balances.size());
+            for (const auto &loan : collAmounts->balances) {
+                LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+            }
+        }
+        return true;
+    });
     LogPrintf("forced paybacks done\n");
     return res;
 }
@@ -3511,9 +3594,6 @@ static Res LockToken(CCustomCSView &cache,
                      const CScript &owner,
                      const CTokenAmount &tokenAmount) {
     const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
-
-    LogPrintf(
-        "locking %s %d@%d\n", ScriptToString(owner), GetDecimalString(tokenAmount.nValue), tokenAmount.nTokenId.v);
 
     CAccountsHistoryWriter addView(cache, height, GetNextAccPosition(), refHash, uint8_t(CustomTxType::TokenLock));
     addView.AddBalance(contractAddressValue, tokenAmount);
@@ -3760,7 +3840,7 @@ static void ProcessTokenLock(const CBlock &block,
 
     view.Flush();
 
-    LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
+    LogPrintf("    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
 }
 
 static void ProcessTokenSplits(const CBlockIndex *pindex,
