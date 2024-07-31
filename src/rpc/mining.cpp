@@ -102,15 +102,10 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, const CKey & minterKey, const CKeyID & operatorID, int nGenerate, int64_t nMaxTries)
+static UniValue generateBlocks(const pos::ThreadStaker::Args &stakerParams, const int nGenerate, const int64_t nMaxTries)
 {
     using namespace pos;
     UniValue nMintedBlocksCount(UniValue::VNUM);
-
-    ThreadStaker::Args stakerParams{};
-    stakerParams.coinbaseScript = coinbase_script;
-    stakerParams.minterKey = minterKey;
-    stakerParams.operatorID = operatorID;
 
     pos::Staker staker{};
     int32_t nMinted = 0;
@@ -183,29 +178,56 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
+    LOCK(cs_main);
+
+    const uint8_t subNode{};
+    const auto tip = ::ChainActive().Tip();
+    const auto blockHeight = tip->nHeight + 1;
+    const auto blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+
     CKeyID passedID = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
     auto myAllMNs = pcustomcsview->GetOperatorsMulti();
     if (myAllMNs.empty()) {
-      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
-    CKeyID operatorID;
+    CKeyID operatorID{};
+    uint256 masternodeID{};
     auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+
     // check mnForPassedID is in myAllMNs
     if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
-      operatorID = passedID;
+        operatorID = passedID;
+        masternodeID = *mnForPassedID;
     } else {
-      operatorID = myAllMNs.begin()->first;
+        operatorID = myAllMNs.begin()->first;
+        masternodeID = myAllMNs.begin()->second;
     }
+
+    const auto nodePtr = pcustomcsview->GetMasternode(masternodeID);
+    if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
+    }
+
+    const auto timeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+    if (!timeLock) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: could not get timelock for masternode");
+    }
+
+    const auto creationHeight = nodePtr->creationHeight;
+    const auto mintedBlocks = nodePtr->mintedBlocks;
+
+    const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(operatorID, blockHeight, creationHeight, *timeLock)[subNode];
 
     CScript coinbase_script = GetScriptForDestination(destination);
     CKey minterKey;
     {
         std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-        if (wallets.size() == 0)
+        if (wallets.size() == 0) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: wallets not found");
+        }
 
-        bool found =false;
+        bool found = false;
         for (auto&& wallet : wallets) {
             if (wallet->GetKey(operatorID, minterKey)) {
                 found = true;
@@ -216,7 +238,22 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, operatorID, nGenerate, nMaxTries);
+
+    pos::ThreadStaker::Args stakerParams{
+        coinbase_script,
+        minterKey,
+        operatorID,
+        subNode,
+        subNodesBlockTime,
+        creationHeight,
+        mintedBlocks,
+        masternodeID,
+        tip,
+        blockTime,
+        blockHeight,
+    };
+
+    return generateBlocks(stakerParams, nGenerate, nMaxTries);
 }
 
 // Returns the mining information of all local masternodes
