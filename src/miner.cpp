@@ -1312,7 +1312,7 @@ namespace pos {
                 std::this_thread::sleep_for(std::chrono::milliseconds(900));
             }
 
-            while (stakersParamsQueue.empty()) {
+            while (stakersParamsQueue.empty() && !ShutdownRequested()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 
@@ -1547,7 +1547,7 @@ namespace pos {
                 stakersParamsQueue.push(newStakersParams);
             }
 
-            while (!stakersParamsQueue.empty()) {
+            while (!stakersParamsQueue.empty() && !ShutdownRequested()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(900));
             }
         }
