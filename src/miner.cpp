@@ -1386,6 +1386,11 @@ namespace pos {
     void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets, const int subnodeCount) {
         auto operators = gArgs.GetArgs("-masternode_operator");
 
+        // Hack for functional tests. Allows manually added operators to be processed first.
+        if (Params().NetworkIDString() == CBaseChainParams::REGTEST) {
+            std::reverse(operators.begin(), operators.end());
+        }
+
         if (fMockNetwork) {
             auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
             operators.push_back(mocknet_operator);
