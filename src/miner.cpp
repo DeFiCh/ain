@@ -1306,13 +1306,16 @@ namespace pos {
         while (!ShutdownRequested()) {
             while (fImporting || fReindex) {
                 if (ShutdownRequested()) {
-                    break;
+                    return;
                 }
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(900));
             }
 
-            while (stakersParamsQueue.empty() && !ShutdownRequested()) {
+            while (stakersParamsQueue.empty()) {
+                if (ShutdownRequested()) {
+                    return;
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 
@@ -1324,7 +1327,8 @@ namespace pos {
 
             for (auto arg : *localStakersParams) {
                 if (ShutdownRequested()) {
-                    break;
+                    delete localStakersParams;
+                    return;
                 }
 
                 const auto operatorName = arg.operatorID.GetHex();
@@ -1371,7 +1375,7 @@ namespace pos {
                 }
             }
 
-            // Lock free queue does not work with smart pointers. Ned to delete manually.
+            // Lock free queue does not work with smart pointers. Need to delete manually.
             delete localStakersParams;
 
             // Set search period to last time set
