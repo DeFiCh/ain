@@ -236,8 +236,6 @@ namespace pos {
     class ThreadStaker {
     public:
         struct Args {
-            int32_t nMint = -1;
-            int64_t nMaxTries = -1;
             CScript coinbaseScript = CScript();
             CKey minterKey = CKey();
             CKeyID operatorID = {};

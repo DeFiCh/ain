@@ -1298,8 +1298,6 @@ namespace pos {
 
     void ThreadStaker::operator()(CChainParams chainparams) {
         uint32_t nPastFailures{};
-        std::map<CKeyID, int32_t> nMinted;
-        std::map<CKeyID, int32_t> nTried;
 
         auto wallets = GetWallets();
 
@@ -1324,12 +1322,11 @@ namespace pos {
                 continue;
             }
 
-            for (auto it = localStakersParams->begin(); it != localStakersParams->end();) {
+            for (auto arg : *localStakersParams) {
                 if (ShutdownRequested()) {
                     break;
                 }
 
-                const auto &arg = *it;
                 const auto operatorName = arg.operatorID.GetHex();
 
                 pos::Staker staker;
@@ -1341,7 +1338,6 @@ namespace pos {
                     }
                     if (status == Staker::Status::minted) {
                         LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
-                        nMinted[arg.operatorID]++;
                         nPastFailures = 0;
                     } else if (status == Staker::Status::initWaiting) {
                         LogPrintCategoryOrThreadThrottled(BCLog::STAKING,
@@ -1373,17 +1369,6 @@ namespace pos {
 
                     ++nPastFailures;
                 }
-
-                auto &tried = nTried[arg.operatorID];
-                tried++;
-
-                if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries) ||
-                    (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
-                    it = localStakersParams->erase(it);
-                    continue;
-                }
-
-                ++it;
             }
 
             // Lock free queue does not work with smart pointers. Ned to delete manually.

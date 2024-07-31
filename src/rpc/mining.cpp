@@ -108,8 +108,6 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
     UniValue nMintedBlocksCount(UniValue::VNUM);
 
     ThreadStaker::Args stakerParams{};
-    stakerParams.nMint = nGenerate;
-    stakerParams.nMaxTries = nMaxTries;
     stakerParams.coinbaseScript = coinbase_script;
     stakerParams.minterKey = minterKey;
     stakerParams.operatorID = operatorID;
