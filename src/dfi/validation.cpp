@@ -3412,10 +3412,11 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     LogPrintf("forced paybacks done checking remaining vaults\n");
 
     // check if all are gone
-
+    bool loansLeft = false;
     cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
         const auto loanAmounts = cache.GetLoanTokens(vaultId);
         if (loanAmounts && loanAmounts->balances.size() > 0) {
+            loansLeft = true;
             LogPrintf("got loans left after payback: vault %s, %d loans: \n",
                       vaultId.ToString(),
                       loanAmounts->balances.size());
@@ -3430,6 +3431,9 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         }
         return true;
     });
+    if (loansLeft) {
+        return Res::Err("Error in Loan payback, still open loans left");
+    }
     LogPrintf("forced paybacks done\n");
     return res;
 }
