@@ -3329,7 +3329,7 @@ UniValue listlockedtokens(const JSONRPCRequest &request) {
 UniValue getlockedtokens(const JSONRPCRequest &request) {
     RPCHelpMan{
         "getlockedtokens",
-        "Get specific locked tokens.\n",
+        "\nGet specific locked tokens.\n",
         {
           {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all locked tokens"},
           },

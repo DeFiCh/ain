@@ -3509,6 +3509,7 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
 
     CBalances lockedTokens;
     std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
+    std::set<DCT_ID> poolsForConsolidation;
     ForEachLockTokenAndPool(
         [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
             if (!creationTxPerId.count(id.v)) {
@@ -3530,6 +3531,7 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
                 return true;
             }
             creationTxPerPoolId.emplace_back(id, creationTxPerId[id.v]);
+            poolsForConsolidation.emplace(id);
             return true;
         },
         cache);
@@ -3542,6 +3544,19 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
     cache.SetVariable(*attributes);
 
     LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
+
+    // need to consolidate all before token split, otherwise commission might not be converted
+    std::vector<std::pair<CScript, CAmount>> poolOwnersToMigrate;
+    cache.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
+        if (poolsForConsolidation.count(balance.nTokenId) > 0 && balance.nValue > 0) {
+            poolOwnersToMigrate.emplace_back(owner, balance.nValue);
+        }
+        return true;
+    });
+    auto nWorkers = RewardConsolidationWorkersCount();
+    LogPrintf(
+        "Token Lock: Consolidating rewards. total: %d, concurrency: %d..\n", poolOwnersToMigrate.size(), nWorkers);
+    ConsolidateRewards(cache, pindex->nHeight, poolOwnersToMigrate, false, nWorkers);
 
     // Execute Splits on tokens (without pools)
     bool splitSuccess = true;
@@ -3629,7 +3644,7 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
         cache);
 
     // from balances
-    LogPrintf("locking %s%% of loan tokens in balances and pools\n", GetDecimalString(lockRatio));
+    LogPrintf("locking %.2f%% of loan tokens in balances and pools\n", lockRatio * 100.0 / COIN);
     const auto contractAddressValue = blockCtx.GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
     auto res = Res::Ok();
     std::vector<std::pair<CScript, DCT_ID>> ownersWithTokens;
@@ -3651,7 +3666,6 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
     uint64_t done = 0;
     std::map<DCT_ID, CPoolPair> poolsCache;
     for (const auto &[owner, tokenId] : ownersWithTokens) {
-        cache.CalculateOwnerRewards(owner, pindex->nHeight);
         const auto amount = cache.GetBalance(owner, tokenId);
 
         if (tokensToBeLocked.count(amount.nTokenId.v) && amount.nValue > 0) {
@@ -3745,7 +3759,7 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
     }
 
     // from vault collaterals (only USDD)
-    LogPrintf("locking %s%% of loan tokens in collaterals\n", GetDecimalString(lockRatio));
+    LogPrintf("locking %.2f%% of loan tokens in collaterals\n", lockRatio * 100.0 / COIN);
 
     cache.ForEachVaultCollateral([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
