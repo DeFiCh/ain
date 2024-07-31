@@ -28,14 +28,14 @@ use crate::{
 impl Index for AppointOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-        let price_feeds_items: Vec<PriceFeedsItem> = self
+        let price_feeds_items = self
             .price_feeds
             .iter()
             .map(|pair| PriceFeedsItem {
                 token: pair.token.clone(),
                 currency: pair.currency.clone(),
             })
-            .collect();
+            .collect::<Vec<PriceFeedsItem>>();
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
@@ -220,7 +220,7 @@ impl Index for RemoveOracle {
 impl Index for UpdateOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-        let price_feeds_items: Vec<PriceFeedsItem> = self
+        let price_feeds_items = self
             .price_feeds
             .iter()
             .map(|pair| PriceFeedsItem {
@@ -395,7 +395,7 @@ impl Index for SetOracleData {
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, feed)?;
         }
-        let intervals: Vec<OracleIntervalSeconds> = vec![
+        let intervals = vec![
             OracleIntervalSeconds::FifteenMinutes,
             OracleIntervalSeconds::OneHour,
             OracleIntervalSeconds::OneDay,
@@ -569,7 +569,7 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: CompactVec::from(Vec::new()),
         };
-        let intervals: Vec<OracleIntervalSeconds> = vec![
+        let intervals = vec![
             OracleIntervalSeconds::FifteenMinutes,
             OracleIntervalSeconds::OneHour,
             OracleIntervalSeconds::OneDay,
@@ -615,7 +615,7 @@ fn map_price_feeds(
     set_oracle_data: &SetOracleData,
     context: &Context,
 ) -> Result<Vec<OraclePriceFeed>> {
-    let mut result: Vec<OraclePriceFeed> = Vec::new();
+    let mut result = Vec::new();
     let token_prices = set_oracle_data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {
