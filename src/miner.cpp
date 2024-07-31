@@ -41,6 +41,8 @@
 #include <random>
 #include <utility>
 
+#include <boost/lockfree/queue.hpp>
+
 using SplitMap = std::map<uint32_t, std::pair<int32_t, uint256>>;
 
 struct EvmTxPreApplyContext {
@@ -1082,9 +1084,8 @@ namespace pos {
     int64_t Staker::nFutureTime{0};
     uint256 Staker::lastBlockSeen{};
 
-    std::vector<ThreadStaker::Args> stakersParams;
-    std::mutex stakersParamsMutex;
-    std::condition_variable cv;
+    // Only using one item a time to avoid outdata block data
+    boost::lockfree::queue<std::vector<ThreadStaker::Args> *> stakersParamsQueue(1);
 
     Staker::Status Staker::init(const CChainParams &chainparams) {
         if (!chainparams.GetConsensus().pos.allowMintingWithoutPeers) {
@@ -1299,7 +1300,6 @@ namespace pos {
         uint32_t nPastFailures{};
         std::map<CKeyID, int32_t> nMinted;
         std::map<CKeyID, int32_t> nTried;
-        std::unique_lock<std::mutex> lock(stakersParamsMutex);
 
         auto wallets = GetWallets();
 
@@ -1314,11 +1314,17 @@ namespace pos {
                 std::this_thread::sleep_for(std::chrono::milliseconds(900));
             }
 
-            cv.wait(lock, [] { return ShutdownRequested(); });
-            std::vector<ThreadStaker::Args> localStakersParams = stakersParams;
-            lock.unlock();
+            while (stakersParamsQueue.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
-            for (auto it = localStakersParams.begin(); it != localStakersParams.end();) {
+            std::vector<ThreadStaker::Args> *localStakersParams{};
+            stakersParamsQueue.pop(localStakersParams);
+            if (!localStakersParams) {
+                continue;
+            }
+
+            for (auto it = localStakersParams->begin(); it != localStakersParams->end();) {
                 if (ShutdownRequested()) {
                     break;
                 }
@@ -1373,12 +1379,15 @@ namespace pos {
 
                 if ((arg.nMaxTries != -1 && tried >= arg.nMaxTries) ||
                     (arg.nMint != -1 && nMinted[arg.operatorID] >= arg.nMint)) {
-                    it = localStakersParams.erase(it);
+                    it = localStakersParams->erase(it);
                     continue;
                 }
 
                 ++it;
             }
+
+            // Lock free queue does not work with smart pointers. Ned to delete manually.
+            delete localStakersParams;
 
             // Set search period to last time set
             Staker::nLastCoinStakeSearchTime = Staker::nFutureTime;
@@ -1397,7 +1406,7 @@ namespace pos {
             {
                 LOCK(cs_main);
 
-                std::vector<ThreadStaker::Args> newStakersParams;
+                auto newStakersParams = new std::vector<ThreadStaker::Args>;
                 std::multimap<uint64_t, ThreadStaker::Args> targetMultiplierMap;
                 int totalSubnodes{};
                 std::set<std::string> operatorsSet;
@@ -1525,7 +1534,7 @@ namespace pos {
                     if (keyCount <= remainingSubNodes) {
                         auto range = targetMultiplierMap.equal_range(key);
                         for (auto it = range.first; it != range.second; ++it) {
-                            newStakersParams.push_back(it->second);
+                            newStakersParams->push_back(it->second);
                             --remainingSubNodes;
                         }
                     } else {
@@ -1543,27 +1552,19 @@ namespace pos {
 
                         // Select the desired number of elements
                         for (size_t i{}; i < remainingSubNodes; ++i) {
-                            newStakersParams.push_back(temp[i]);
+                            newStakersParams->push_back(temp[i]);
                         }
                         break;
                     }
                 }
 
-                {
-                    std::lock_guard lock(stakersParamsMutex);
-                    stakersParams = newStakersParams;
-                    cv.notify_all();
-                }
+                // Push the new stakersParams onto the queue
+                stakersParamsQueue.push(newStakersParams);
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(900));
-        }
-
-        {
-            // Wipe the stakers params here which contains the wallet keys
-            // before the wallets are destroyed.
-            std::lock_guard lock(stakersParamsMutex);
-            stakersParams.clear();
+            while (!stakersParamsQueue.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(900));
+            }
         }
     }
 
