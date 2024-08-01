@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use ain_evm::{backend::Overlay, bytes::Bytes, executor::AccessListInfo};
+use ain_evm::{backend::Overlay, bytes::Bytes, trace::service::AccessListInfo};
 use ethereum::{AccessList, AccessListItem, Account};
 use ethereum_types::{H160, H256, U256};
 use jsonrpsee::core::Error;

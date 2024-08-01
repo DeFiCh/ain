@@ -509,6 +509,7 @@ void SetupServerArgs()
     gArgs.AddArg("-spv_resync", "Flag to reset spv database and resync from zero block (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-amkheight", "AMK fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bayfrontheight", "Bayfront fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-bayfrontmarinaheight", "Bayfront Marina fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bayfrontgardensheight", "Bayfront Gardens fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-clarkequayheight", "ClarkeQuay fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-dakotaheight", "Dakota fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
@@ -538,6 +539,8 @@ void SetupServerArgs()
     gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-ethstartstate", strprintf("Initialise Ethereum state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-enablesnapshots", strprintf("Whether to enable snapshot on each block (default: %u)", DEFAULT_SNAPSHOT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-ascendingstaketime", strprintf("Test staking forward in time from the current block"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -618,6 +621,7 @@ void SetupServerArgs()
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-tdsinglekeycheck", "Set the single key check flag for transferdomain RPC. If enabled, transfers between domain are only allowed if the addresses specified corresponds to the same key (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-dvmownerskipcheck", "If enabled, utxostoaccount, sendtokenstoaddress and accounttoaccount APIs enforce a check to only allow to owned addresses (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-evmtxpriorityfeepercentile", strprintf("Set the suggested priority fee for EVM transactions (default: %u)", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-evmestimategaserrorratio", strprintf("Set the gas estimation error ratio for eth_estimateGas RPC (default: %u)", DEFAULT_ESTIMATE_GAS_ERROR_RATIO), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
@@ -2259,6 +2263,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         block_notify_genesis_wait_connection.disconnect();
     }
 
+    // Set snapshot now chain has loaded
+    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview, paccountHistoryDB, pvaultHistoryDB);
+
+
     if (ShutdownRequested()) {
         return false;
     }
@@ -2423,7 +2431,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Create masternode
         CMasternode node;
-        node.creationHeight = chain_active_height - Params().GetConsensus().mn.newActivationDelay;
+        node.creationHeight = chain_active_height - GetMnActivationDelay(chain_active_height);
         node.ownerType = WitV0KeyHashType;
         node.ownerAuthAddress = keyID;
         node.operatorType = WitV0KeyHashType;
@@ -2457,7 +2465,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             tip = ::ChainActive().Tip();
         }
 
-        const UniValue b = blockToJSON(block, tip, pblockindex, true, 2);
+        const UniValue b = blockToJSON(*pcustomcsview, block, tip, pblockindex, true, 2);
 
         CrossBoundaryResult result;
         ocean_index_block(result, b.write());

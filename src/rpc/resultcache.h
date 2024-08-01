@@ -2,14 +2,15 @@
 #define DEFI_RPC_RESULTCACHE_H
 
 #include <atomic>
-#include <string>
+#include <dfi/balances.h>
 #include <map>
-#include <set>
-#include <optional>
 #include <memory>
-#include <univalue.h>
-#include <dfi/mn_rpc.h>
+#include <optional>
 #include <rpc/request.h>
+#include <string>
+#include <set>
+#include <uint256.h>
+#include <univalue.h>
 
 struct CGetBurnInfoResult {
     CAmount burntDFI{};

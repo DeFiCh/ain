@@ -692,7 +692,7 @@ public:
     void operator()(const CCustomTxMessageNone &) const {}
 };
 
-Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniValue &results) {
+Res RpcInfo(CCustomCSView &view, const CTransaction &tx, uint32_t height, CustomTxType &txType, UniValue &results) {
     std::vector<unsigned char> metadata;
     txType = GuessCustomTxType(tx, metadata);
     if (txType == CustomTxType::None) {
@@ -702,8 +702,7 @@ Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniVa
     auto consensus = Params().GetConsensus();
     auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
     if (res) {
-        CCustomCSView mnview(*pcustomcsview);
-        std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);
+        std::visit(CCustomTxRpcVisitor(tx, height, view, results), txMessage);
     }
     return res;
 }

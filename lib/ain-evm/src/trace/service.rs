@@ -1,18 +1,17 @@
 use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
-use ethereum::BlockAny;
+use anyhow::format_err;
+use ethereum::{AccessList, BlockAny};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
-
-use anyhow::format_err;
 use parking_lot::Mutex;
 
 use crate::{
     backend::{EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     core::EthCallArgs,
-    executor::{AccessListInfo, AinExecutor, ExecutorContext},
+    executor::{AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
     trace::{
         formatters::{
@@ -35,6 +34,10 @@ use crate::{
 const TRACER_TX_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
 const TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE: usize = 1_000;
 
+pub struct AccessListInfo {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
 pub struct TraceCache {
     tx_cache: LruCache<(H256, TracerInput), TransactionTrace>,
     block_cache: LruCache<(H256, TracerInput), Vec<(H256, TransactionTrace)>>,
@@ -117,6 +120,37 @@ impl TracerService {
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
     }
 
+    pub fn trace_call(
+        &self,
+        arguments: EthCallArgs,
+        overlay: Option<Overlay>,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<TransactionTrace> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), overlay)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let ctx = ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        };
+        self.call_with_tracer(&mut backend, ctx, tracer_params, raw_max_memory_usage)
+    }
+
     pub fn trace_block(
         &self,
         trace_block: BlockAny,
@@ -186,13 +220,33 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
+        let ctx = ExecutorContext {
             caller,
             to,
             value,
             data,
             gas_limit,
             access_list,
+        };
+        let al = self.call_with_access_list_tracer(&mut backend, ctx);
+
+        // Re-execute call to get gas usage
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let gas_used = AinExecutor::new(&mut backend)
+            .call(ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list: al.clone(),
+            })
+            .used_gas;
+        Ok(AccessListInfo {
+            access_list: al,
+            gas_used: U256::from(gas_used),
         })
     }
 }
@@ -265,6 +319,70 @@ impl TracerService {
             })) => get_dst20_system_tx_trace(address, tracer_params),
             _ => Ok(res),
         }
+    }
+
+    /// Wraps eth read-only call with tracer
+    fn call_with_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        ctx: ExecutorContext,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<TransactionTrace> {
+        let f = move || AinExecutor::new(backend).call(ctx);
+        let res = match tracer_params.1 {
+            TraceType::Raw {
+                disable_storage,
+                disable_memory,
+                disable_stack,
+            } => {
+                let listener = Rc::new(RefCell::new(listeners::Raw::new(
+                    disable_storage,
+                    disable_memory,
+                    disable_stack,
+                    raw_max_memory_usage,
+                )));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                let tx_res = tracer.trace(f);
+                listener
+                    .borrow_mut()
+                    .finish_transaction(!tx_res.exit_reason.is_succeed(), tx_res.used_gas);
+                RawFormatter::format(listener, false).ok_or_else(|| {
+                    format_err!(
+                        "replayed transaction generated too much data. \
+                        try disabling memory or storage?"
+                    )
+                })?
+            }
+            TraceType::CallList => {
+                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f);
+                listener.borrow_mut().finish_transaction();
+                match tracer_params.0 {
+                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, false),
+                    TracerInput::CallTracer => CallTracerFormatter::format(listener, false)
+                        .and_then(|mut response| response.pop()),
+                    _ => return Err(format_err!("failed to resolve tracer format").into()),
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?
+            }
+        };
+        Ok(res)
+    }
+
+    /// Wraps eth read-only call with access list tracer
+    fn call_with_access_list_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        ctx: ExecutorContext,
+    ) -> AccessList {
+        let f = move || AinExecutor::new(backend).call(ctx);
+        let listener = Rc::new(RefCell::new(listeners::AccessList::default()));
+        let tracer = EvmTracer::new(Rc::clone(&listener));
+        tracer.trace(f);
+        let res = listener.borrow_mut().finish_transaction();
+        res
     }
 
     fn get_backend_from_block(

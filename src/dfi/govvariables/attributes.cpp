@@ -27,7 +27,9 @@ enum class EVMAttributesTypes : uint32_t {
     RbfIncrementMinPct = 4,
 };
 
-extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
+extern UniValue AmountsToJSON(const CCustomCSView &view,
+                              const TAmounts &diffs,
+                              AmountFormat format = AmountFormat::Symbol);
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
@@ -1605,7 +1607,7 @@ static void ExportOracleSplit(UniValue &ret, const std::string &key, const bool 
     ret.pushKV(key, keyValue);
 }
 
-UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
+UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix, CCustomCSView *view) const {
     UniValue ret(UniValue::VOBJ);
     for (const auto &attribute : attributes) {
         const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
@@ -1685,11 +1687,17 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     }
                 }
             } else if (const auto balances = std::get_if<CBalances>(&attribute.second)) {
-                ret.pushKV(key, AmountsToJSON(balances->balances));
+                // Related to the economy keys shown in listgovs/getgov
+                if (view) {
+                    ret.pushKV(key, AmountsToJSON(*view, balances->balances));
+                }
             } else if (const auto paybacks = std::get_if<CTokenPayback>(&attribute.second)) {
+                // Related to the economy keys shown in listgovs/getgov
                 UniValue result(UniValue::VOBJ);
-                result.pushKV("paybackfees", AmountsToJSON(paybacks->tokensFee.balances));
-                result.pushKV("paybacktokens", AmountsToJSON(paybacks->tokensPayback.balances));
+                if (view) {
+                    result.pushKV("paybackfees", AmountsToJSON(*view, paybacks->tokensFee.balances));
+                    result.pushKV("paybacktokens", AmountsToJSON(*view, paybacks->tokensPayback.balances));
+                }
                 ret.pushKV(key, result);
             } else if (const auto balances = std::get_if<CDexBalances>(&attribute.second)) {
                 for (const auto &pool : *balances) {

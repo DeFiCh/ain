@@ -22,7 +22,9 @@ env:
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
+    container:
+      image: defi/ain-builder:latest
+      options: --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.default.disable_ipv6=0
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
       TESTS_FAILFAST: 0

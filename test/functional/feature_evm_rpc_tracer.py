@@ -37,7 +37,7 @@ class EvmTracerTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
-                "-df23height=105",
+                "-df23height=150",
                 "-subsidytest=1",
                 "-ethmaxresponsesize=100",
             ],
@@ -135,6 +135,7 @@ class EvmTracerTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
+        self.nodes[0].generate(50)
         self.start_height = self.nodes[0].getblockcount()
         self.load_test_data()
 
@@ -156,6 +157,27 @@ class EvmTracerTest(DefiTestFramework):
             self.dst20_td_out_data = json.load(f)
         with open(contract_creation_tx_f, "r", encoding="utf8") as f:
             self.contract_creation_tx_data = json.load(f)
+
+    def test_tracer_on_trace_call(self):
+        self.rollback_to(self.start_height)
+
+        # Test tracer with eth call for transfer tx
+        call = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x5209",
+            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+        }
+        assert_equal(
+            self.nodes[0].debug_traceCall(call, "latest"),
+            {
+                "gas": "0x5208",
+                "failed": False,
+                "returnValue": "",
+                "structLogs": [],
+            },
+        )
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
@@ -302,7 +324,18 @@ class EvmTracerTest(DefiTestFramework):
                 "collateralAddress": self.address,
             }
         )
+
         self.nodes[0].generate(1)
+
+        # These seemingly benign read-only calls are failing up to commit ffe007f86826cad654cec8ddfeb6e9436206ed08.
+        # Tracing of new contract creation on EVM was overwriting the contract
+        # state trie and corrupted the underlying backend.
+        # Fixed in https://github.com/DeFiCh/ain/pull/2941 by adding new contract state trie creation to overlay.
+        self.nodes[0].debug_traceBlockByNumber("latest")
+        self.nodes[0].eth_getStorageAt(
+            "0xff00000000000000000000000000000000000001", "0x0"
+        )
+
         self.nodes[0].minttokens("100@BTC")
         self.nodes[0].generate(1)
         self.nodes[0].transferdomain(
@@ -674,6 +707,8 @@ class EvmTracerTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
+
+        self.test_tracer_on_trace_call()
 
         self.test_tracer_on_transfer_tx()
 

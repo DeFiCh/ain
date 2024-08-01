@@ -21,6 +21,7 @@ import collections
 import shlex
 import sys
 
+from test_framework.tokenamount import TokenAmount
 from web3 import Web3
 
 from .authproxy import JSONRPCException
@@ -279,6 +280,7 @@ class TestNode:
         # net
         "net_version",
         # debug
+        "debug_traceCall",
         "debug_traceTransaction",
         "debug_traceBlockByNumber",
         "debug_traceBlockByHash",
@@ -757,6 +759,8 @@ class TestNodeCLIAttr:
 
 
 def arg_to_cli(arg):
+    if isinstance(arg, TokenAmount):
+        return str(arg)
     if isinstance(arg, bool):
         return str(arg).lower()
     elif isinstance(arg, dict) or isinstance(arg, list):

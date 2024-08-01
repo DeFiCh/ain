@@ -41,9 +41,12 @@ public:
 
 class CAccountHistoryStorage : public CAccountsHistoryView, public CAuctionHistoryView {
 public:
-    CAccountHistoryStorage(CAccountHistoryStorage &accountHistory)
-        : CStorageView(new CFlushableStorageKV(accountHistory.DB())) {}
     CAccountHistoryStorage(const fs::path &dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false);
+
+    explicit CAccountHistoryStorage(std::shared_ptr<CDBWrapper> &db,
+                                    std::unique_ptr<CCheckedOutSnapshot> &otherSnapshot);
+
+    CStorageLevelDB &GetStorage() { return static_cast<CStorageLevelDB &>(DB()); }
 };
 
 class CBurnHistoryStorage : public CAccountsHistoryView {
@@ -75,5 +78,6 @@ extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
 extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
+static constexpr bool DEFAULT_SNAPSHOT = false;
 
 #endif  // DEFI_DFI_ACCOUNTSHISTORY_H

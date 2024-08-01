@@ -27,6 +27,7 @@ class LoanTakeLoanTest(DefiTestFramework):
                 "-bayfrontgardensheight=1",
                 "-fortcanningheight=50",
                 "-eunosheight=50",
+                "-eunospayaheight=50",
                 "-fortcanninghillheight=220",
             ],
             [
@@ -36,6 +37,7 @@ class LoanTakeLoanTest(DefiTestFramework):
                 "-bayfrontgardensheight=1",
                 "-fortcanningheight=50",
                 "-eunosheight=50",
+                "-eunospayaheight=50",
             ],
         ]
 
@@ -114,6 +116,8 @@ class LoanTakeLoanTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        utxos_before = self.nodes[0].listunspent()
+
         setLoanTokenTSLA = self.nodes[0].setloantoken(
             {
                 "symbol": symbolTSLA,
@@ -146,6 +150,9 @@ class LoanTakeLoanTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_blocks()
+
+        # Make sure UTXO count is same before and after
+        assert_equal(len(utxos_before), len(self.nodes[0].listunspent()))
 
         self.nodes[0].createloanscheme(150, 5, "LOAN150")
 

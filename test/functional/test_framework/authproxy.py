@@ -44,6 +44,8 @@ import socket
 import time
 import urllib.parse
 
+from test_framework.tokenamount import TokenAmount
+
 HTTP_TIMEOUT = 30
 USER_AGENT = "AuthServiceProxy/0.1"
 
@@ -62,6 +64,8 @@ class JSONRPCException(Exception):
 
 
 def EncodeDecimal(o):
+    if isinstance(o, TokenAmount):
+        return str(o)
     if isinstance(o, decimal.Decimal):
         return str(o)
     raise TypeError(repr(o) + " is not JSON serializable")

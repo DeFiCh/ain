@@ -74,7 +74,8 @@
 #define MICRO 0.000001
 #define MILLI 0.001
 
-UniValue blockToJSON(const CBlock &block,
+UniValue blockToJSON(CCustomCSView &view,
+                     const CBlock &block,
                      const CBlockIndex *tip,
                      const CBlockIndex *blockindex,
                      bool txDetails,
@@ -2185,7 +2186,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock &block,
     auto prevHeight = pindex->pprev->nHeight;
 
     mnview.SetLastHeight(prevHeight);
-    SetLastValidatedHeight(prevHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -3412,7 +3412,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
-    SetLastValidatedHeight(pindex->nHeight);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3708,19 +3707,23 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams &chainPar
     auto currentTime = GetSystemTimeInSeconds();
     if (!warningMessages.empty() || !::ChainstateActive().IsInitialBlockDownload() || lastTipTime < currentTime - 20) {
         lastTipTime = currentTime;
-        LogPrintf("%s: height=%d hash=%s p=%f d=%.8g tx=%lu date='%s'",
+        LogPrintf("%s: height=%d hash=%s date='%s' tx=%lu log2_work=%#.8g progress=%f",
                   __func__, /* Continued */
                   pindexNew->nHeight,
                   pindexNew->GetBlockHash().ToString(),
-                  GuessVerificationProgress(chainParams.TxData(), pindexNew),
-                  log(pindexNew->nChainWork.getdouble()) / log(2.0),
+                  FormatISO8601DateTime(pindexNew->GetBlockTime()),
                   (unsigned long)pindexNew->nChainTx,
-                  FormatISO8601DateTime(pindexNew->GetBlockTime()));
+                  log(pindexNew->nChainWork.getdouble()) / log(2.0),
+                  GuessVerificationProgress(chainParams.TxData(), pindexNew));
         if (!warningMessages.empty()) {
             LogPrintf(" warning='%s'", warningMessages); /* Continued */
         }
         LogPrintf("\n");
     }
+}
+
+static bool BlockchainNearTip(const int64_t blockTime) {
+    return blockTime > (GetTime() - nMaxTipAge);
 }
 
 /** Disconnect m_chain's tip.
@@ -3766,8 +3769,6 @@ bool CChainState::DisconnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
-
         if (!disconnectedConfirms.empty()) {
             for (const auto &confirm : disconnectedConfirms) {
                 panchorAwaitingConfirms->Add(confirm);
@@ -3802,6 +3803,19 @@ bool CChainState::DisconnectTip(CValidationState &state,
     m_chain.SetTip(pindexDelete->pprev);
 
     UpdateTip(pindexDelete->pprev, chainparams);
+
+    SetLastValidatedHeight(pindexDelete->pprev->nHeight);
+
+    // DisconnectTip might be called before psnapshotManager has been initialised
+    // as part of start-up so check psnapshotManager before using it.
+    if (psnapshotManager) {
+        psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
+                                            paccountHistoryDB.get(),
+                                            pvaultHistoryDB.get(),
+                                            pindexDelete->pprev,
+                                            BlockchainNearTip(pindexDelete->pprev->GetBlockTime()));
+    }
+
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
@@ -3944,8 +3958,6 @@ bool CChainState::ConnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
-
         // Delete all other confirms from memory
         if (rewardedAnchors) {
             std::vector<uint256> oldConfirms;
@@ -3998,6 +4010,18 @@ bool CChainState::ConnectTip(CValidationState &state,
         }
     }
 
+    SetLastValidatedHeight(pindexNew->nHeight);
+
+    // ConnectTip might be called before psnapshotManager has been initialised
+    // as part of start-up so check psnapshotManager before using it.
+    if (psnapshotManager) {
+        psnapshotManager->SetBlockSnapshots(pcustomcsview->GetStorage(),
+                                            paccountHistoryDB.get(),
+                                            pvaultHistoryDB.get(),
+                                            pindexNew,
+                                            BlockchainNearTip(pindexNew->GetBlockTime()));
+    }
+
     int64_t nTime6 = GetTimeMicros();
     nTimePostConnect += nTime6 - nTime5;
     nTimeTotal += nTime6 - nTime1;
@@ -4013,7 +4037,7 @@ bool CChainState::ConnectTip(CValidationState &state,
              nTimeTotal * MILLI / nBlocksTotal);
 
     if (LogAcceptCategory(BCLog::CONNECT)) {
-        LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
+        LogPrintf("ConnectTip: %s\n", blockToJSON(*pcustomcsview, *pthisBlock, pindexNew, pindexNew, true, 4).write(2));
     }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
     return true;
@@ -5047,13 +5071,22 @@ static bool ContextualCheckBlockHeader(const CBlockHeader &block,
     }
 
     // Check timestamp against prev
-    if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
-        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
-                             false,
-                             "time-too-old",
-                             strprintf("block's timestamp is too early. Block time: %d Min time: %d",
-                                       block.GetBlockTime(),
-                                       pindexPrev->GetMedianTimePast()));
+    if (nHeight >= consensusParams.DF24Height) {
+        if (block.GetBlockTime() <= pindexPrev->GetBlockTime()) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
+                                 false,
+                                 "time-before-prev",
+                                 "block's timestamp cannot be the same or before previous block's timestamp");
+        }
+    } else {
+        if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
+                                 false,
+                                 "time-too-old",
+                                 strprintf("block's timestamp is too early. Block time: %d Min time: %d",
+                                           block.GetBlockTime(),
+                                           pindexPrev->GetMedianTimePast()));
+        }
     }
 
     // Check timestamp

@@ -87,16 +87,16 @@ std::vector<CTxIn> GetAuthInputsSmart(
     bool needFounderAuth,
     CTransactionRef &optAuthTx,
     const UniValue &explicitInputs,
+    CCustomCSView &mnview,
     const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 std::string ScriptToString(const CScript &script);
-CAccounts GetAllMineAccounts(CWallet *const pwallet);
+CAccounts GetAllMineAccounts(CWallet *const pwallet, CCustomCSView &mnview);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,
                                          const CBalances &targetBalances,
                                          AccountSelectionMode selectionMode);
 void execTestTx(const CTransaction &tx, const uint32_t height, const CTransactionRef &optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest &request, uint32_t &blocks, std::vector<unsigned char> &image);
 CPubKey PublickeyFromString(const std::string &pubkey);
-std::optional<CScript> AmIFounder(CWallet *const pwallet);
-std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
+std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId, CCustomCSView &mnview);
 std::string CTransferDomainToString(const VMDomain domain);
 #endif  // DEFI_DFI_MN_RPC_H

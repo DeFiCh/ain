@@ -141,7 +141,7 @@ Res CCustomTxVisitor::CheckCustomTx() const {
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     const auto &tx = txCtx.GetTransaction();
-    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
+    if (!IsRegtestNetwork() && static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
         if (tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
         }
