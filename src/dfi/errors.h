@@ -264,7 +264,7 @@ public:
 
     static Res GovVarValidateDF23Height() { return Res::Err("Cannot be set before DF23Height"); }
 
-    static Res GovVarValidateDF25Height() { return Res::Err("Cannot be set before DF25Height"); }
+    static Res GovVarValidateDF24Height() { return Res::Err("Cannot be set before DF24Height"); }
 
     static Res GovVarValidateToken(const uint32_t token) { return Res::Err("No such token (%d)", token); }
 

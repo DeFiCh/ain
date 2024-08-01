@@ -2527,7 +2527,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         });
 
         // convert lock values
-        if (pindex->nHeight >= consensus.DF25Height) {
+        if (pindex->nHeight >= consensus.DF24Height) {
             auto multi = multiplier;
             auto oldId = id;
             view.ForEachTokenLockUserValues([&](const auto &key, const auto &value) {
@@ -3380,7 +3380,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         auto dusd2reserve = p2.idTokenA == dUsdToken->first ? p2.reserveA : p2.reserveB;
         return dusd1reserve > dusd2reserve;
     });
-  
+
     for (const auto &pool : gatewaypools) {
         auto collId = pool.idTokenA == dUsdToken->first ? pool.idTokenB : pool.idTokenA;
         if (res = PaybackWithSwappedCollateral(collId, usdPrices, *dUsdToken, cache, blockCtx); !res) {
@@ -3805,7 +3805,7 @@ static void ProcessTokenLock(const CBlock &block,
                              CCustomCSView &cache,
                              BlockContext &blockCtx) {
     const auto &consensus = blockCtx.GetConsensus();
-    if (pindex->nHeight < consensus.DF25Height) {
+    if (pindex->nHeight < consensus.DF24Height) {
         return;
     }
 

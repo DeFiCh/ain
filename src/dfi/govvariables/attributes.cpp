@@ -2112,8 +2112,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
-                    if (view.GetLastHeight() < Params().GetConsensus().DF25Height) {
-                        return DeFiErrors::GovVarValidateDF25Height();
+                    if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                        return DeFiErrors::GovVarValidateDF24Height();
                     }
                     // Only perform following checks when block height has been imported.
                     if (!dTokenRestartUpdated) {

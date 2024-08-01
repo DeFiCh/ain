@@ -104,7 +104,6 @@ struct Params {
     int DF22MetachainHeight;
     int DF23Height;
     int DF24Height;
-    int DF25Height;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;

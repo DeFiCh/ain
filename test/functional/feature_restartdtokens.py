@@ -42,8 +42,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "-grandcentralheight=1",
                 "-metachainheight=105",
                 "-df23height=150",  # must have 50 diff to metachain start, no idea why
-                "-df24height=200",
-                "-df25height=990",
+                "-df24height=990",
             ],
         ]
 
@@ -59,7 +58,7 @@ class RestartdTokensTest(DefiTestFramework):
         # Try and set dToken restart before fork height
         assert_raises_rpc_error(
             -32600,
-            "Cannot be set before DF25Height",
+            "Cannot be set before DF24Height",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {f"v0/params/dtoken_restart/1010": "0.9"}},
         )

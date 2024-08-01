@@ -393,7 +393,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                     return res;
                 }
                 // Process TokenLock
-                if (needToLock && height >= consensus.DF25Height) {
+                if (needToLock && height >= consensus.DF24Height) {
                     res = ExecuteLockTransferDomain(mnview, height, tx.GetHash(), dst.address, destAmount);
                     if (!res) {
                         return res;
