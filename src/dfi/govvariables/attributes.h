@@ -419,7 +419,7 @@ public:
     bool IsEmpty() const override;
     Res Import(const UniValue &val) override;
     UniValue Export() const override;
-    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
+    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix, CCustomCSView *view = nullptr) const;
     Res CheckKeys() const;
 
     Res Validate(const CCustomCSView &mnview) const override;

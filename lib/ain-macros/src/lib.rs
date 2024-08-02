@@ -45,8 +45,15 @@ pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     cross_boundary_success_return(result, success_value)
                 }
                 Err(err_msg) => {
-                    cross_boundary_error_return(result, err_msg.to_string())
-                }
+                        #[cfg(debug_assertions)]
+                        {
+                            cross_boundary_error_return(result, format!("{err_msg:?}"))
+                        }
+                        #[cfg(not(debug_assertions))]
+                        {
+                            cross_boundary_error_return(result, err_msg.to_string())
+                        }
+                    }
             }
         }
     };

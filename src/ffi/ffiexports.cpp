@@ -1,8 +1,10 @@
 #include <clientversion.h>
+#include <dfi/accountshistory.h>
 #include <dfi/customtx.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/validation.h>
+#include <dfi/vaulthistory.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <httprpc.h>
@@ -40,11 +42,8 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -218,11 +217,8 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    int targetHeight;
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-    }
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
@@ -265,13 +261,14 @@ rust::string getClientVersion() {
 }
 
 std::array<int64_t, 2> getEthSyncStatus() {
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto currentHeight = ::ChainActive().Height() ? (int)::ChainActive().Height() : -1;
-    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
-                                         : (int)::ChainActive().Height();  // return current block count if no peers
+    const auto viewHeight = view->GetLastHeight();
+    auto currentHeight = viewHeight ? viewHeight : -1;
+    auto highestBlock =
+        pindexBestHeader ? pindexBestHeader->nHeight : viewHeight;  // return current block count if no peers
 
-    return std::array<int64_t, 2>{currentHeight, highestBlock};
+    return {currentHeight, highestBlock};
 }
 
 Attributes getAttributeValues(std::size_t mnview_ptr) {
