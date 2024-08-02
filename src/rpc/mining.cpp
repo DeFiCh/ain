@@ -10,7 +10,9 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <dfi/accountshistory.h>
 #include <dfi/masternodes.h>
+#include <dfi/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -178,37 +180,35 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const uint8_t subNode{};
-    const auto tip = ::ChainActive().Tip();
-    const auto blockHeight = tip->nHeight + 1;
-    const auto blockTime = std::max(tip->GetMedianTimePast() + 1, GetAdjustedTime());
+    const int blockHeight = view->GetLastHeight() + 1;
 
     CKeyID passedID = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
-    auto myAllMNs = pcustomcsview->GetOperatorsMulti();
+    auto myAllMNs = view->GetOperatorsMulti();
     if (myAllMNs.empty()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
     auto [operatorID, masternodeID] = *myAllMNs.begin();
 
-    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
+    auto mnForPassedID = view->GetMasternodeIdByOperator(passedID);
     std::optional<CMasternode> nodePtr;
 
     // Check mnForPassedID is in myAllMNs
     if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
-        nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (nodePtr && nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+        nodePtr = view->GetMasternode(masternodeID);
+        if (nodePtr && nodePtr->IsActive(blockHeight, *view)) {
             operatorID = passedID;
             masternodeID = *mnForPassedID;
         }
     } else {
         // Look up masternode by owner address
-        mnForPassedID = pcustomcsview->GetMasternodeIdByOwner(passedID);
+        mnForPassedID = view->GetMasternodeIdByOwner(passedID);
         if (mnForPassedID) {
-            nodePtr = pcustomcsview->GetMasternode(*mnForPassedID);
-            if (nodePtr && nodePtr->IsActive(blockHeight, *pcustomcsview) && myAllMNs.count(std::make_pair(nodePtr->operatorAuthAddress, *mnForPassedID))) {
+            nodePtr = view->GetMasternode(*mnForPassedID);
+            if (nodePtr && nodePtr->IsActive(blockHeight, *view) && myAllMNs.count(std::make_pair(nodePtr->operatorAuthAddress, *mnForPassedID))) {
                 operatorID = nodePtr->operatorAuthAddress;
                 masternodeID = *mnForPassedID;
             }
@@ -216,21 +216,18 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     }
 
     if (!nodePtr) {
-        nodePtr = pcustomcsview->GetMasternode(masternodeID);
-        if (!nodePtr || !nodePtr->IsActive(blockHeight, *pcustomcsview)) {
+        nodePtr = view->GetMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(blockHeight, *view)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
         }
     }
 
-    const auto timeLock = pcustomcsview->GetTimelock(masternodeID, *nodePtr, blockHeight);
+    const auto timeLock = view->GetTimelock(masternodeID, *nodePtr, blockHeight);
     if (!timeLock) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: could not get timelock for masternode");
     }
 
     const auto creationHeight = nodePtr->creationHeight;
-    const auto mintedBlocks = nodePtr->mintedBlocks;
-
-    const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(operatorID, blockHeight, creationHeight, *timeLock)[subNode];
 
     CScript coinbase_script = GetScriptForDestination(destination);
     CKey minterKey;
@@ -257,13 +254,8 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         minterKey,
         operatorID,
         subNode,
-        subNodesBlockTime,
         creationHeight,
-        mintedBlocks,
         masternodeID,
-        tip,
-        blockTime,
-        blockHeight,
     };
 
     return generateBlocks(stakerParams, nGenerate, nMaxTries);
