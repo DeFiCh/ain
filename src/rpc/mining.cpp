@@ -183,7 +183,7 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     auto [view, accountView, vaultView] = GetSnapshots();
 
     const uint8_t subNode{};
-    const int blockHeight = view->GetLastHeight() + 1;
+    const auto blockHeight = view->GetLastHeight() + 1;
 
     CKeyID passedID = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
     auto myAllMNs = view->GetOperatorsMulti();
@@ -220,11 +220,6 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         if (!nodePtr || !nodePtr->IsActive(blockHeight, *view)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
         }
-    }
-
-    const auto timeLock = view->GetTimelock(masternodeID, *nodePtr, blockHeight);
-    if (!timeLock) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: could not get timelock for masternode");
     }
 
     const auto creationHeight = nodePtr->creationHeight;
