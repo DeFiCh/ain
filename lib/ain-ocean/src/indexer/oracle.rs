@@ -31,7 +31,6 @@ pub const AGGREGATED_INTERVALS: [OracleIntervalSeconds; 3] = [
     OracleIntervalSeconds::OneHour,
 ];
 
-
 impl Index for AppointOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
@@ -388,7 +387,11 @@ impl Index for UpdateOracle {
     }
 }
 
-fn map_price_aggregated(services: &Arc<Services>, context: &Context, pair: (String, String)) -> Result<Option<OraclePriceAggregated>> {
+fn map_price_aggregated(
+    services: &Arc<Services>,
+    context: &Context,
+    pair: (String, String),
+) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
     let oracle_repo = &services.oracle_token_currency;
     let feed_repo = &services.oracle_price_feed;
@@ -408,12 +411,8 @@ fn map_price_aggregated(services: &Arc<Services>, context: &Context, pair: (Stri
 
     let mut oracles = Vec::new();
     for (_, id) in keys_ids {
-        let oracle = oracle_repo
-            .by_id
-            .get(&id)?;
-        let Some(oracle) = oracle else {
-            continue
-        };
+        let oracle = oracle_repo.by_id.get(&id)?;
+        let Some(oracle) = oracle else { continue };
         oracles.push(oracle);
     }
 
@@ -432,17 +431,11 @@ fn map_price_aggregated(services: &Arc<Services>, context: &Context, pair: (Stri
             .by_key
             .get(&(oracle.token, oracle.currency, oracle.oracle_id))?;
 
-        let Some(feed_id) = feed_id else {
-            continue
-        };
+        let Some(feed_id) = feed_id else { continue };
 
-        let feed = feed_repo
-            .by_id
-            .get(&feed_id)?;
+        let feed = feed_repo.by_id.get(&feed_id)?;
 
-        let Some(feed) = feed else {
-            continue
-        };
+        let Some(feed) = feed else { continue };
 
         let time_diff = Decimal::from(feed.time) - Decimal::from(context.block.time);
         if Decimal::abs(&time_diff) < dec!(3600) {
@@ -461,7 +454,7 @@ fn map_price_aggregated(services: &Arc<Services>, context: &Context, pair: (Stri
     }
 
     if aggregated_count == 0 {
-        return Ok(None)
+        return Ok(None);
     }
 
     let aggregated_amount = aggregated_total
@@ -491,7 +484,11 @@ fn map_price_aggregated(services: &Arc<Services>, context: &Context, pair: (Stri
     }))
 }
 
-fn index_set_oracle_data(services: &Arc<Services>, context: &Context, pairs: HashSet<(String, String)>) -> Result<()> {
+fn index_set_oracle_data(
+    services: &Arc<Services>,
+    context: &Context,
+    pairs: HashSet<(String, String)>,
+) -> Result<()> {
     let oracle_repo = &services.oracle_price_aggregated;
     let ticker_repo = &services.price_ticker;
 
@@ -499,21 +496,20 @@ fn index_set_oracle_data(services: &Arc<Services>, context: &Context, pairs: Has
         let price_aggregated = map_price_aggregated(services, context, pair)?;
 
         let Some(price_aggregated) = price_aggregated else {
-            continue
+            continue;
         };
 
-        let key = (price_aggregated.token.clone(), price_aggregated.currency.clone());
+        let key = (
+            price_aggregated.token.clone(),
+            price_aggregated.currency.clone(),
+        );
         let id = (key.0.clone(), key.1.clone(), price_aggregated.block.height);
-        oracle_repo
-            .by_key
-            .put(&key, &id)?;
-        oracle_repo
-            .by_id
-            .put(&id, &price_aggregated)?;
+        oracle_repo.by_key.put(&key, &id)?;
+        oracle_repo.by_id.put(&id, &price_aggregated)?;
 
-        ticker_repo
-            .by_id
-            .put(&key.clone(), &PriceTicker {
+        ticker_repo.by_id.put(
+            &key.clone(),
+            &PriceTicker {
                 sort: format!(
                     "{}{}{}{}",
                     hex::encode(price_aggregated.aggregated.oracles.total.to_be_bytes()),
@@ -523,20 +519,26 @@ fn index_set_oracle_data(services: &Arc<Services>, context: &Context, pairs: Has
                 ),
                 id: key,
                 price: price_aggregated,
-            })?;
+            },
+        )?;
     }
     Ok(())
 }
 
-fn index_set_oracle_data_interval(services: &Arc<Services>, context: &Context, pairs: HashSet<(String, String)>) -> Result<()> {
+fn index_set_oracle_data_interval(
+    services: &Arc<Services>,
+    context: &Context,
+    pairs: HashSet<(String, String)>,
+) -> Result<()> {
     for (token, currency) in pairs.into_iter() {
-        let aggregated = services
-            .oracle_price_aggregated
-            .by_id
-            .get(&(token.clone(), currency.clone(), context.block.height))?;
+        let aggregated = services.oracle_price_aggregated.by_id.get(&(
+            token.clone(),
+            currency.clone(),
+            context.block.height,
+        ))?;
 
         let Some(aggregated) = aggregated else {
-           continue
+            continue;
         };
 
         for interval in AGGREGATED_INTERVALS {
@@ -589,13 +591,10 @@ impl Index for SetOracleData {
             let key = (token.clone(), currency.clone());
             let id = (key.0.clone(), key.1.clone(), context.block.height);
 
-            let aggregated = services
-                .oracle_price_aggregated
-                .by_id
-                .get(&id)?;
+            let aggregated = services.oracle_price_aggregated.by_id.get(&id)?;
 
             let Some(aggregated) = aggregated else {
-                continue
+                continue;
             };
 
             for interval in AGGREGATED_INTERVALS {
@@ -617,10 +616,7 @@ impl Index for SetOracleData {
     }
 }
 
-fn map_price_feeds(
-    data: &SetOracleData,
-    ctx: &Context,
-) -> Vec<OraclePriceFeed> {
+fn map_price_feeds(data: &SetOracleData, ctx: &Context) -> Vec<OraclePriceFeed> {
     let mut feeds = Vec::new();
     let token_prices = data.token_prices.as_ref();
     for token_price in token_prices {
@@ -658,9 +654,7 @@ fn start_new_bucket(
     let key = (token.clone(), currency.clone(), interval);
     let id = (key.0.clone(), key.1.clone(), key.2.clone(), block.height);
     let repo = &services.oracle_price_aggregated_interval;
-    repo
-        .by_id
-        .put(
+    repo.by_id.put(
         &id,
         &OraclePriceAggregatedInterval {
             id: id.clone(),
@@ -680,9 +674,7 @@ fn start_new_bucket(
             block: block.clone(),
         },
     )?;
-    repo
-        .by_key
-        .put(&key, &id)?;
+    repo.by_key.put(&key, &id)?;
 
     Ok(())
 }
@@ -714,13 +706,11 @@ pub fn index_interval_mapper(
             currency.clone(),
             aggregated,
             interval,
-        )
+        );
     }
 
     for (_, id) in previous {
-        let aggregated_interval = repo
-            .by_id
-            .get(&id)?;
+        let aggregated_interval = repo.by_id.get(&id)?;
         if let Some(aggregated_interval) = aggregated_interval {
             if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
                 return start_new_bucket(
@@ -730,7 +720,7 @@ pub fn index_interval_mapper(
                     currency.clone(),
                     aggregated,
                     interval,
-                )
+                );
             }
 
             forward_aggregate(services, &aggregated_interval, aggregated)?;
@@ -770,9 +760,7 @@ pub fn invalidate_oracle_interval(
     let previous = &previous[0];
 
     if previous.aggregated.count == 1 {
-        return repo
-            .by_id
-            .delete(&previous.id)
+        return repo.by_id.delete(&previous.id);
     }
 
     let last_price = previous.aggregated.clone();
@@ -810,27 +798,23 @@ pub fn invalidate_oracle_interval(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_i32().context("Err: Decimal.to_i32()")?,
+            weightage: aggregated_weightage
+                .to_i32()
+                .context("Err: Decimal.to_i32()")?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context("Err: Decimal.to_i32()")?,
+                active: aggregated_active
+                    .to_i32()
+                    .context("Err: Decimal.to_i32()")?,
                 total: aggregated_total.to_i32().context("Err: Decimal.to_i32()")?,
             },
         },
         block: previous.block.clone(),
     };
-    repo
-        .by_id
-        .put(
-        &aggregated_interval.id,
-        &aggregated_interval,
-        )?;
-    repo
-        .by_key
-        .put(
-        &aggregated_interval.key,
-        &aggregated_interval.id,
-        )?;
+    repo.by_id
+        .put(&aggregated_interval.id, &aggregated_interval)?;
+    repo.by_key
+        .put(&aggregated_interval.key, &aggregated_interval.id)?;
     Ok(())
 }
 
@@ -874,10 +858,14 @@ fn forward_aggregate(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_i32().context("Err: Decimal.to_i32()")?,
+            weightage: aggregated_weightage
+                .to_i32()
+                .context("Err: Decimal.to_i32()")?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context("Err: Decimal.to_i32()")?,
+                active: aggregated_active
+                    .to_i32()
+                    .context("Err: Decimal.to_i32()")?,
                 total: aggregated_total.to_i32().context("Err: Decimal.to_i32()")?,
             },
         },
@@ -894,13 +882,21 @@ fn forward_aggregate(
     Ok(())
 }
 
-fn forward_aggregate_value(last_value: Decimal, new_value: Decimal, count: Decimal) -> Result<Decimal> {
+fn forward_aggregate_value(
+    last_value: Decimal,
+    new_value: Decimal,
+    count: Decimal,
+) -> Result<Decimal> {
     (last_value * count + new_value)
         .checked_div(count + dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
-fn backward_aggregate_value(last_value: Decimal, new_value: Decimal, count: Decimal) -> Result<Decimal> {
+fn backward_aggregate_value(
+    last_value: Decimal,
+    new_value: Decimal,
+    count: Decimal,
+) -> Result<Decimal> {
     (last_value * count - new_value)
         .checked_div(count - dec!(1))
         .ok_or_else(|| Error::UnderflowError)
