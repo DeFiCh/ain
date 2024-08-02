@@ -736,8 +736,7 @@ pub fn index_interval_mapper(
                 )
             }
 
-            // forward aggregate
-            process_inner_values(services, &aggregated_interval, aggregated)?;
+            forward_aggregate(services, &aggregated_interval, aggregated)?;
         }
     }
 
@@ -752,7 +751,7 @@ pub fn invalidate_oracle_interval(
     aggregated: &OraclePriceAggregated,
     interval: &OracleIntervalSeconds,
 ) -> Result<()> {
-    let previous_aggrigated_interval = services
+    let previous = services
         .oracle_price_aggregated_interval
         .by_key
         .list(
@@ -771,7 +770,7 @@ pub fn invalidate_oracle_interval(
         })
         .collect::<Result<Vec<_>>>();
 
-    if let Ok(oracle_price_aggreated) = previous_aggrigated_interval {
+    if let Ok(oracle_price_aggreated) = previous {
         if oracle_price_aggreated[0].aggregated.count != 1 {
             let _err = services
                 .oracle_price_aggregated_interval
@@ -824,7 +823,7 @@ pub fn invalidate_oracle_interval(
             );
         }
     } else {
-        let err = previous_aggrigated_interval.err();
+        let err = previous.err();
         match err {
             Some(e) => {
                 return Err(Error::Other(anyhow!("oracle invalidate interval : {}", e)));
@@ -837,47 +836,54 @@ pub fn invalidate_oracle_interval(
     Ok(())
 }
 
-fn process_inner_values(
+fn forward_aggregate(
     services: &Arc<Services>,
-    previous_data: &OraclePriceAggregatedInterval,
+    previous: &OraclePriceAggregatedInterval,
     aggregated: &OraclePriceAggregated,
 ) -> Result<()> {
-    let lastprice = previous_data.aggregated.clone();
-    let count = lastprice.count + 1;
+    let last_price = previous.aggregated.clone();
+    let count = last_price.count + 1;
+
+    let aggregated_amount = forward_aggregate_value(
+        Decimal::from_str(&last_price.amount)?,
+        Decimal::from_str(&aggregated.aggregated.amount)?,
+        Decimal::from(count),
+    )?;
+
+    let aggregated_weightage = forward_aggregate_value(
+        Decimal::from(last_price.weightage),
+        Decimal::from(aggregated.aggregated.weightage),
+        Decimal::from(count),
+    )?;
+
+    let aggregated_active = forward_aggregate_value(
+        Decimal::from(last_price.oracles.active),
+        Decimal::from(aggregated.aggregated.oracles.active),
+        Decimal::from(last_price.count),
+    )?;
+
+    let aggregated_total = forward_aggregate_value(
+        Decimal::from(last_price.oracles.total),
+        Decimal::from(aggregated.aggregated.oracles.total),
+        Decimal::from(last_price.count),
+    )?;
 
     let aggregated_interval = OraclePriceAggregatedInterval {
-        id: previous_data.id.clone(),
-        key: previous_data.key.clone(),
-        sort: previous_data.sort.clone(),
-        token: previous_data.token.clone(),
-        currency: previous_data.currency.clone(),
+        id: previous.id.clone(),
+        key: previous.key.clone(),
+        sort: previous.sort.clone(),
+        token: previous.token.clone(),
+        currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
-            amount: forward_aggregate_value(
-                lastprice.amount.as_str(),
-                aggregated.aggregated.amount.as_str(),
-                count,
-            )?
-            .to_string(),
-            weightage: forward_aggregate_number(
-                lastprice.weightage,
-                aggregated.aggregated.weightage,
-                count,
-            )?,
+            amount: aggregated_amount.to_string(),
+            weightage: aggregated_weightage.to_i32().context("Err: Decimal.to_i32()")?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: forward_aggregate_number(
-                    lastprice.oracles.active,
-                    aggregated.aggregated.oracles.active,
-                    lastprice.count,
-                )?,
-                total: forward_aggregate_number(
-                    lastprice.oracles.total,
-                    aggregated.aggregated.oracles.total,
-                    lastprice.count,
-                )?,
+                active: aggregated_active.to_i32().context("Err: Decimal.to_i32()")?,
+                total: aggregated_total.to_i32().context("Err: Decimal.to_i32()")?,
             },
         },
-        block: previous_data.block.clone(),
+        block: previous.block.clone(),
     };
     services
         .oracle_price_aggregated_interval
@@ -890,27 +896,9 @@ fn process_inner_values(
     Ok(())
 }
 
-fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> Result<i32> {
-    let count_decimal = Decimal::from(count);
-    let last_value_decimal = Decimal::from(last_value);
-    let new_value_decimal = Decimal::from(new_value);
-
-    let result = (last_value_decimal * count_decimal + new_value_decimal)
-        .checked_div(count_decimal + dec!(1))
-        .ok_or_else(|| Error::UnderflowError)?;
-
-    Ok(result.to_i32().context("Error converting decimal to i32")?)
-}
-
-fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Result<Decimal> {
-    let last_decimal = Decimal::from_str(last_value)?;
-    let new_decimal = Decimal::from_str(new_value)?;
-    let count_decimal = Decimal::from(count);
-
-    let result = last_decimal * count_decimal + new_decimal;
-
-    result
-        .checked_div(count_decimal + dec!(1))
+fn forward_aggregate_value(last_value: Decimal, new_value: Decimal, count: Decimal) -> Result<Decimal> {
+    (last_value * count + new_value)
+        .checked_div(count + dec!(1))
         .ok_or_else(|| Error::UnderflowError)
 }
 
