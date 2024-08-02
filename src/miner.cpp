@@ -1360,7 +1360,6 @@ namespace pos {
                     if (status == Staker::Status::minted) {
                         LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                         nPastFailures = 0;
-                        break;
                     } else if (status == Staker::Status::initWaiting) {
                         LogPrintCategoryOrThreadThrottled(BCLog::STAKING,
                                                           "init_waiting",
