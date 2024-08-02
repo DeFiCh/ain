@@ -1,6 +1,6 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
-use ain_dftx::{common::CompactVec, oracles::*};
+use ain_dftx::oracles::*;
 use anyhow::{anyhow, Context as _};
 use bitcoin::Txid;
 use log::debug;
@@ -11,7 +11,6 @@ use rust_decimal::{
 use rust_decimal_macros::dec;
 
 use crate::{
-    error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
