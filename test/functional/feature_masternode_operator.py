@@ -65,9 +65,6 @@ class TestMasternodeOperator(DefiTestFramework):
         # Wait to allow -gen to create some blocks
         time.sleep(1)
 
-        # Mine blocks
-        self.nodes[0].generate(101)
-
         # Get end height
         end_height = self.nodes[0].getblockcount() + 1
 
