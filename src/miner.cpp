@@ -1137,7 +1137,8 @@ namespace pos {
             if (!timeLock) {
                 return Status::initWaiting;
             }
-            subNodeBlockTime = pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
+            subNodeBlockTime =
+                pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
@@ -1475,8 +1476,8 @@ namespace pos {
                     // determine coinbase script for minting thread
                     const auto customRewardAddressStr = gArgs.GetArg("-rewardaddress", "");
                     const auto customRewardDest = customRewardAddressStr.empty()
-                                                        ? CNoDestination{}
-                                                        : DecodeDestination(customRewardAddressStr, Params());
+                                                      ? CNoDestination{}
+                                                      : DecodeDestination(customRewardAddressStr, Params());
 
                     CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(
                         nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType);
@@ -1484,8 +1485,8 @@ namespace pos {
                     CTxDestination rewardDest;
                     if (nodePtr->rewardAddressType != 0) {
                         rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress,
-                                                                        TxDestTypeToKeyType(nodePtr->rewardAddressType),
-                                                                        KeyType::MNRewardKeyType);
+                                                                     TxDestTypeToKeyType(nodePtr->rewardAddressType),
+                                                                     KeyType::MNRewardKeyType);
                     }
 
                     if (IsValidDestination(rewardDest)) {
