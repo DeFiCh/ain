@@ -457,9 +457,10 @@ fn map_price_aggregated(
         return Ok(None);
     }
 
+    // NOTE(canonbrother): default by zero since it has not executed within the bucket yet
     let aggregated_amount = aggregated_total
         .checked_div(Decimal::from(aggregated_weightage))
-        .context("aggregated_amount underflow")?;
+        .unwrap_or_default();
 
     let key = (token.clone(), currency.clone());
     Ok(Some(OraclePriceAggregated {
