@@ -2515,7 +2515,10 @@ bool AppInitMain(InitInterfaces& interfaces)
         ocean_index_block(result, b.write());
         if (!result.ok) {
             LogPrintf("Error indexing genesis block: %s\n", result.reason);
-            return false;
+            ocean_invalidate_block(result, b.write());
+            if (!result.ok) {
+                return false;
+            }
         }
     }
 
