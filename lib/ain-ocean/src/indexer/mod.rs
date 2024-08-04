@@ -10,7 +10,7 @@ pub mod tx_result;
 
 pub mod helper;
 
-use std::{collections::HashMap, sync::Arc, time::Instant};
+use std::{collections::{HashMap, HashSet}, sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
@@ -23,7 +23,7 @@ use snafu::OptionExt;
 use crate::{
     error::{DecimalConversionSnafu, IndexAction},
     hex_encoder::as_sha256,
-    index_transaction,
+    index_transaction, invalidate_transaction,
     model::{
         Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
         ScriptActivity, ScriptActivityScript, ScriptActivityType, ScriptActivityTypeHex,
@@ -60,20 +60,7 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 }
 
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = services
-        .poolpair
-        .by_height
-        .list(None, SortOrder::Descending)?
-        .map(|el| {
-            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
-            Ok(PoolCreationHeight {
-                id: pool_id,
-                id_token_a,
-                id_token_b,
-                creation_height: k,
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let pool_pairs = list_pool_pairs_by_height(services)?;
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
@@ -123,6 +110,47 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
             repository
                 .by_id
                 .put(&pool_swap_aggregated_id, &aggregated)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn list_pool_pairs_by_height(services: &Arc<Services>) -> Result<Vec<PoolCreationHeight>> {
+    services
+        .poolpair
+        .by_height
+        .list(None, SortOrder::Descending)?
+        .map(|el| {
+            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
+            Ok(PoolCreationHeight {
+                id: pool_id,
+                id_token_a,
+                id_token_b,
+                creation_height: k,
+            })
+        })
+        .collect::<Result<Vec<_>>>()
+}
+
+fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    let repository = &services.pool_swap_aggregated;
+
+    let pool_pairs = list_pool_pairs_by_height(services)?;
+
+    for interval in AGGREGATED_INTERVALS {
+        for pool_pair in &pool_pairs {
+            let bucket = get_bucket(block, interval as i64);
+            let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
+            let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+
+            repository
+                .by_id
+                .delete(&pool_swap_aggregated_id)?;
+
+            repository
+                .by_key
+                .delete(&pool_swap_aggregated_key)?
         }
     }
 
@@ -273,6 +301,57 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
     Ok(())
 }
 
+fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    for tx in block.tx.iter() {
+        let is_evm_tx = check_if_evm_tx(tx);
+
+        for vin in tx.vin.iter() {
+            if is_evm_tx { continue }
+
+            let Some(vin) = get_vin_standard(vin) else {
+                continue;
+            };
+
+            let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
+                continue;
+            };
+
+            let id = (
+                as_sha256(vout.script.hex.clone()),
+                block.height, // hex::encode(block.height.to_be_bytes()),
+                ScriptActivityTypeHex::Vin,
+                vin.txid,
+                vin.vout,
+            );
+            services
+                .script_activity
+                .by_id
+                .delete(&id)?
+        }
+
+        for vout in tx.vout.iter() {
+            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
+                continue;
+            }
+
+            let id = (
+                as_sha256(vout.script_pub_key.hex.clone()),
+                block.height,
+                ScriptActivityTypeHex::Vout,
+                tx.txid,
+                vout.n,
+            );
+            services
+                .script_activity
+                .by_id
+                .delete(&id)?
+        }
+    }
+
+    Ok(())
+}
+
 fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     let mut record: HashMap<String, ScriptAggregation> = HashMap::new();
 
@@ -398,6 +477,45 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
     Ok(())
 }
 
+fn invalidate_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    let mut hid_set = HashSet::new();
+
+    for tx in block.tx.iter() {
+        let is_evm_tx = check_if_evm_tx(tx);
+
+        for vin in tx.vin.iter() {
+            if is_evm_tx { continue }
+
+            let Some(vin) = get_vin_standard(vin) else {
+                continue;
+            };
+
+            let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Invalidate, vin.txid, vin.vout);
+                continue;
+            };
+
+            hid_set.insert(as_sha256(vout.script.hex));
+        }
+
+        for vout in tx.vout.iter() {
+            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
+                continue;
+            }
+            hid_set.insert(as_sha256(vout.script_pub_key.hex.clone()));
+        }
+    }
+
+    for hid in hid_set.into_iter() {
+        services
+            .script_aggregation
+            .by_id
+            .delete(&(hid, block.height))?
+    }
+
+    Ok(())
+}
+
 fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in &block.tx {
         let is_evm_tx = check_if_evm_tx(tx);
@@ -463,8 +581,93 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
     Ok(())
 }
 
+fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    for tx in block.tx.iter() {
+        let is_evm_tx = check_if_evm_tx(tx);
+
+        for vin in tx.vin.iter() {
+            if is_evm_tx { continue }
+
+            let Some(vin) = get_vin_standard(vin) else {
+                continue;
+            };
+
+            let transaction = services.transaction.by_id.get(&vin.txid)?;
+            if transaction.is_none() {
+                return Err(Error::NotFoundIndex(IndexAction::Invalidate, "Transaction".to_string(), vin.txid.to_string()))
+            }
+            let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
+            if vout.is_none() {
+                return Err(Error::NotFoundIndex(IndexAction::Invalidate, "TransactionVout".to_string(), format!("{}{}", vin.txid, vin.vout)))
+            }
+            let transaction = transaction.unwrap();
+            let vout = vout.unwrap();
+
+            let hid = as_sha256(vout.script.hex.clone());
+
+            let script_unspent = ScriptUnspent {
+                id: format!("{}{}", vout.txid, hex::encode(vout.n.to_be_bytes())),
+                hid: hid.clone(),
+                sort: format!(
+                    "{}{}{}",
+                    hex::encode(transaction.block.height.to_be_bytes()),
+                    transaction.txid,
+                    hex::encode(vout.n.to_be_bytes())
+                ),
+                block: BlockContext {
+                    hash: transaction.block.hash,
+                    height: transaction.block.height,
+                    median_time: transaction.block.median_time,
+                    time: transaction.block.time,
+                },
+                script: ScriptUnspentScript {
+                    r#type: vout.script.r#type.clone(),
+                    hex: vout.script.hex.clone(),
+                },
+                vout: ScriptUnspentVout {
+                    txid: tx.txid,
+                    n: vout.n,
+                    value: vout.value.parse::<f64>()?,
+                    token_id: vout.token_id,
+                },
+            };
+
+            let id = (
+                hid.clone(),
+                hex::encode(transaction.block.height.to_be_bytes()),
+                transaction.txid,
+                hex::encode(vout.n.to_be_bytes()),
+            );
+            let key = (transaction.block.height, transaction.txid, vout.n);
+
+            services.script_unspent.by_key.put(&key, &id)?;
+            services.script_unspent.by_id.put(&id, &script_unspent)?
+        }
+
+        for vout in tx.vout.iter() {
+            let hid = as_sha256(vout.script_pub_key.hex.clone());
+            let id = (
+                hid,
+                hex::encode(block.height.to_be_bytes()),
+                tx.txid,
+                hex::encode(vout.n.to_be_bytes()),
+            );
+            let key = (block.height, tx.txid, vout.n);
+            services.script_unspent.by_id.delete(&id)?;
+            services.script_unspent.by_key.delete(&key)?
+        }
+    }
+
+    Ok(())
+}
+
 fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
     loan_token::index_active_price(services, block)?;
+    Ok(())
+}
+
+fn invalidate_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    loan_token::invalidate_active_price(services, block)?;
     Ok(())
 }
 
@@ -573,6 +776,79 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(_block: Block<Transaction>) -> Result<()> {
+pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+    let block_ctx = BlockContext {
+        height: block.height,
+        hash: block.hash,
+        time: block.time,
+        median_time: block.mediantime,
+    };
+
+    // invalidate_block
+    services.block.by_height.delete(&block.height)?;
+    services.block.by_id.delete(&block.hash)?;
+
+    invalidate_block_end(services, &block_ctx)?;
+
+    // invalidate_dftx
+    for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
+        if is_skipped_tx(&tx.txid) {
+            continue;
+        }
+        let start = Instant::now();
+        let ctx = Context {
+            block: block_ctx.clone(),
+            tx,
+            tx_idx,
+        };
+
+        let bytes = &ctx.tx.vout[0].script_pub_key.hex;
+        if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
+            continue;
+        }
+
+        let offset = 1 + match bytes[1] {
+            0x4c => 2,
+            0x4d => 3,
+            0x4e => 4,
+            _ => 1,
+        };
+        let raw_tx = &bytes[offset..];
+        match deserialize::<Stack>(raw_tx) {
+            Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
+                println!("Discarding invalid marker");
+            }
+            Err(e) => return Err(e.into()),
+            Ok(Stack { dftx, .. }) => {
+                match dftx {
+                    DfTx::CreateMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::UpdateMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::ResignMasternode(data) => data.invalidate(services, &ctx)?,
+                    DfTx::AppointOracle(data) => data.invalidate(services, &ctx)?,
+                    DfTx::RemoveOracle(data) => data.invalidate(services, &ctx)?, // check
+                    DfTx::UpdateOracle(data) => data.invalidate(services, &ctx)?, // check
+                    DfTx::SetOracleData(data) => data.invalidate(services, &ctx)?,
+                    DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?, // check
+                    DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
+                    DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
+                    DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
+                    DfTx::PlaceAuctionBid(data) => data.invalidate(services, &ctx)?,
+                    _ => (),
+                }
+                log_elapsed(start, "Indexed dftx");
+            }
+        }
+
+        invalidate_transaction(services, &ctx)?;
+    }
+
+    invalidate_block_start(services, &block)?;
+
+    invalidate_script_unspent(services, &block)?;
+
+    invalidate_script_aggregation(services, &block)?;
+
+    invalidate_script_activity(services, &block)?;
+
     Ok(())
 }
