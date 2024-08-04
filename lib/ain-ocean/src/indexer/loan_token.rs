@@ -3,6 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use ain_dftx::loans::SetLoanToken;
 use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
+use log::debug;
 
 use crate::{
     indexer::{Context, Index, Result},
@@ -21,6 +22,7 @@ impl Index for SetLoanToken {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        debug!("[SetLoanToken] Invalidating...");
         let ticker_id = (
             self.currency_pair.token.clone(),
             self.currency_pair.currency.clone(),

@@ -106,6 +106,7 @@ impl Index for AppointOracle {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        debug!("[AppointOracle] Invalidating...");
         let oracle_id = context.tx.txid;
         services.oracle.by_id.delete(&oracle_id)?;
         services.oracle_history.by_id.delete(&(
@@ -171,7 +172,9 @@ impl Index for RemoveOracle {
         }
         Ok(())
     }
+
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        debug!("[RemoveOracle] Invalidating...");
         let oracle_id = context.tx.txid;
         let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
         let previous_oracle_history = previous_oracle_history_result?;
@@ -323,6 +326,7 @@ impl Index for UpdateOracle {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        debug!("[UpdateOracle] Invalidating...");
         let oracle_id = context.tx.txid;
         services.oracle_history.by_key.delete(&oracle_id)?;
         services.oracle_history.by_id.delete(&(

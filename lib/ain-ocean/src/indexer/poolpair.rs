@@ -35,6 +35,7 @@ impl Index for CreatePoolPair {
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+        debug!("[CreatePoolPair] Invalidating...");
         if let Some((_, id_a, id_b)) = services
             .poolpair
             .by_height
