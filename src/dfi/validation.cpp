@@ -3138,7 +3138,10 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
         ocean_index_block(result, b.write());
         if (!result.ok) {
-            return Res::Err(result.reason.c_str());
+            ocean_invalidate_block(result, b.write());
+            if (!result.ok) {
+                return Res::Err(result.reason.c_str());
+            }
         }
     }
 
