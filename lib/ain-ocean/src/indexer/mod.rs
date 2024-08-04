@@ -10,7 +10,11 @@ pub mod tx_result;
 
 pub mod helper;
 
-use std::{collections::{HashMap, HashSet}, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
@@ -144,13 +148,9 @@ fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) 
             let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
             let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
 
-            repository
-                .by_id
-                .delete(&pool_swap_aggregated_id)?;
+            repository.by_id.delete(&pool_swap_aggregated_id)?;
 
-            repository
-                .by_key
-                .delete(&pool_swap_aggregated_key)?
+            repository.by_key.delete(&pool_swap_aggregated_key)?
         }
     }
 
@@ -306,7 +306,9 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
@@ -324,10 +326,7 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
                 vin.txid,
                 vin.vout,
             );
-            services
-                .script_activity
-                .by_id
-                .delete(&id)?
+            services.script_activity.by_id.delete(&id)?
         }
 
         for vout in tx.vout.iter() {
@@ -342,10 +341,7 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
                 tx.txid,
                 vout.n,
             );
-            services
-                .script_activity
-                .by_id
-                .delete(&id)?
+            services.script_activity.by_id.delete(&id)?
         }
     }
 
@@ -477,14 +473,19 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
     Ok(())
 }
 
-fn invalidate_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+fn invalidate_script_aggregation(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+) -> Result<()> {
     let mut hid_set = HashSet::new();
 
     for tx in block.tx.iter() {
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
@@ -586,7 +587,9 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
@@ -594,11 +597,19 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
 
             let transaction = services.transaction.by_id.get(&vin.txid)?;
             if transaction.is_none() {
-                return Err(Error::NotFoundIndex(IndexAction::Invalidate, "Transaction".to_string(), vin.txid.to_string()))
+                return Err(Error::NotFoundIndex(
+                    IndexAction::Invalidate,
+                    "Transaction".to_string(),
+                    vin.txid.to_string(),
+                ));
             }
             let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
             if vout.is_none() {
-                return Err(Error::NotFoundIndex(IndexAction::Invalidate, "TransactionVout".to_string(), format!("{}{}", vin.txid, vin.vout)))
+                return Err(Error::NotFoundIndex(
+                    IndexAction::Invalidate,
+                    "TransactionVout".to_string(),
+                    format!("{}{}", vin.txid, vin.vout),
+                ));
             }
             let transaction = transaction.unwrap();
             let vout = vout.unwrap();

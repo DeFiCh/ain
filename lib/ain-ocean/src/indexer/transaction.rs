@@ -89,19 +89,22 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
 }
 
 pub fn invalidate_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
-    services.transaction.by_block_hash.delete(&(ctx.block.hash, ctx.tx_idx))?;
+    services
+        .transaction
+        .by_block_hash
+        .delete(&(ctx.block.hash, ctx.tx_idx))?;
     services.transaction.by_id.delete(&ctx.tx.txid)?;
 
     let is_evm = check_if_evm_tx(&ctx.tx);
     for vin in ctx.tx.vin.clone().into_iter() {
         if is_evm {
-            continue
+            continue;
         }
         match vin {
             Vin::Coinbase(_) => {
                 let vin_id = format!("{}00", ctx.tx.txid);
                 services.transaction.vin_by_id.delete(&vin_id)?
-            },
+            }
             Vin::Standard(vin) => {
                 let vin_id = format!("{}{}{:x}", ctx.tx.txid, vin.txid, vin.vout);
                 services.transaction.vin_by_id.delete(&vin_id)?
