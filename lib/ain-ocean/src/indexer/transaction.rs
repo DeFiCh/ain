@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use log::trace;
+use defichain_rpc::json::blockchain::Vin;
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
@@ -84,6 +85,37 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         .transaction
         .by_block_hash
         .put(&(ctx.block.hash, order), &txid)?;
+
+    Ok(())
+}
+
+pub fn invalidate_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    services.transaction.by_block_hash.delete(&(ctx.block.hash, ctx.tx_idx))?;
+    services.transaction.by_id.delete(&ctx.tx.txid)?;
+
+    let is_evm = check_if_evm_tx(&ctx.tx);
+    for vin in ctx.tx.vin.clone().into_iter() {
+        if is_evm {
+            continue
+        }
+        match vin {
+            Vin::Coinbase(_) => {
+                let vin_id = format!("{}00", ctx.tx.txid);
+                services.transaction.vin_by_id.delete(&vin_id)?
+            },
+            Vin::Standard(vin) => {
+                let vin_id = format!("{}{}{:x}", ctx.tx.txid, vin.txid, vin.vout);
+                services.transaction.vin_by_id.delete(&vin_id)?
+            }
+        }
+    }
+
+    for vout in ctx.tx.vout.clone().into_iter() {
+        services
+            .transaction
+            .vout_by_id
+            .delete(&(ctx.tx.txid, vout.n))?
+    }
 
     Ok(())
 }
