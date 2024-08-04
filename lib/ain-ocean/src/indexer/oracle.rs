@@ -511,7 +511,7 @@ fn index_set_oracle_data(
             &key.clone(),
             &PriceTicker {
                 sort: format!(
-                    "{}{}{}{}",
+                    "{}{}{}-{}",
                     hex::encode(price_aggregated.aggregated.oracles.total.to_be_bytes()),
                     hex::encode(price_aggregated.block.height.to_be_bytes()),
                     key.0.clone(),
