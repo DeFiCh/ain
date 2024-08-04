@@ -195,10 +195,8 @@ fn find_tx_vout(
 
 fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
@@ -303,10 +301,8 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 
 fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
@@ -393,10 +389,8 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
     }
 
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
@@ -480,10 +474,8 @@ fn invalidate_script_aggregation(
     let mut hid_set = HashSet::new();
 
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
@@ -519,10 +511,8 @@ fn invalidate_script_aggregation(
 
 fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
@@ -584,10 +574,8 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
 
 fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
         for vin in tx.vin.iter() {
-            if is_evm_tx {
+            if check_if_evm_tx(tx) {
                 continue;
             }
 
