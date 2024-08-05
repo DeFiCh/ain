@@ -77,7 +77,7 @@ async fn get_feed(
     for (_, feed) in &price_feed_list {
         let (token, currency, oracle_id, _) = &feed.id;
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
-            let amount = Decimal::from(feed.amount / COIN);
+            let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
             oracle_price_feeds.push(ApiResponseOraclePriceFeed {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),
