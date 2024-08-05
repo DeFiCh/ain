@@ -78,6 +78,6 @@ extern std::unique_ptr<CAccountHistoryStorage> paccountHistoryDB;
 extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
-static constexpr bool DEFAULT_SNAPSHOT = false;
+static constexpr bool DEFAULT_SNAPSHOT = true;
 
 #endif  // DEFI_DFI_ACCOUNTSHISTORY_H
