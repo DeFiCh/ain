@@ -74,7 +74,7 @@ fn index_swap_aggregated(
                 .unwrap_or(dec!(0));
 
             let aggregated_amount = amount
-                .checked_add(Decimal::from(from_amount / COIN))
+                .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
                 .ok_or(Error::OverflowError)?;
 
             aggregated.aggregated.amounts.insert(
@@ -137,7 +137,7 @@ fn invalidate_swap_aggregated(
                 .unwrap_or(dec!(0));
 
             let aggregated_amount = amount
-                .checked_sub(Decimal::from(from_amount / COIN))
+                .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
                 .ok_or(Error::UnderflowError)?;
 
             aggregated.aggregated.amounts.insert(
