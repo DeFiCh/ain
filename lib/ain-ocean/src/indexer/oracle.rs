@@ -507,17 +507,25 @@ fn index_set_oracle_data(
         oracle_repo.by_key.put(&key, &id)?;
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
+        let id = (price_aggregated.token.clone(), price_aggregated.currency.clone());
+        let key = (
+            price_aggregated.aggregated.oracles.total,
+            price_aggregated.block.height,
+            price_aggregated.token.clone(),
+            price_aggregated.currency.clone(),
+        );
+        ticker_repo.by_key.put(&key, &id)?;
         ticker_repo.by_id.put(
-            &key.clone(),
+            &id.clone(),
             &PriceTicker {
                 sort: format!(
                     "{}{}{}-{}",
                     hex::encode(price_aggregated.aggregated.oracles.total.to_be_bytes()),
                     hex::encode(price_aggregated.block.height.to_be_bytes()),
-                    key.0.clone(),
-                    key.1.clone(),
+                    id.0.clone(),
+                    id.1.clone(),
                 ),
-                id: key,
+                id,
                 price: price_aggregated,
             },
         )?;
