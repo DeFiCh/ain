@@ -15,9 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
-    api::{cache::list_pool_pairs_cached, common::find_token_balance, pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi}, stats::get_block_reward_distribution, AppContext},
-    model::MasternodeStatsData,
-    Error, Result, Services,
+    api::{cache::list_pool_pairs_cached, common::find_token_balance, pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi}, stats::get_block_reward_distribution, AppContext}, model::MasternodeStatsData, repository::RepositoryOps, storage::SortOrder, Error, Result, Services
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -64,7 +62,7 @@ pub async fn get_burned(client: &Client) -> Result<Burned> {
 pub struct Count {
     pub blocks: u32,
     pub tokens: usize,
-    pub prices: u64,
+    pub prices: usize,
     pub masternodes: u32,
 }
 
@@ -93,12 +91,18 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
         .get_latest()?
         .map_or(0, |mn| mn.stats.count);
 
+    let prices = ctx
+        .services
+        .price_ticker
+        .by_id
+        .list(None, SortOrder::Descending)?
+        .collect::<Vec<_>>();
+
     Ok(Count {
+        blocks: 0,
         tokens: tokens.0.len(),
         masternodes,
-        // TODO handle prices
-        // prices: <prices>
-        ..Default::default()
+        prices: prices.len(),
     })
 }
 
