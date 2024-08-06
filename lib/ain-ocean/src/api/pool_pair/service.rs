@@ -52,7 +52,7 @@ pub struct PoolSwapFromTo {
     pub to: Option<PoolSwapFromToData>,
 }
 
-async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
+pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
 
     let usdc = get_pool_pair_cached(ctx, "USDC-DFI".to_string()).await?;
