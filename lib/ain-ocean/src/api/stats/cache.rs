@@ -15,7 +15,17 @@ use serde::{Deserialize, Serialize};
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
-    api::{cache::list_pool_pairs_cached, common::find_token_balance, pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi}, stats::get_block_reward_distribution, AppContext}, model::MasternodeStatsData, repository::RepositoryOps, storage::SortOrder, Error, Result, Services
+    api::{
+        cache::list_pool_pairs_cached,
+        common::find_token_balance,
+        pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi},
+        stats::get_block_reward_distribution,
+        AppContext,
+    },
+    model::MasternodeStatsData,
+    repository::RepositoryOps,
+    storage::SortOrder,
+    Error, Result, Services,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -321,7 +331,7 @@ pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
         loan,
         masternodes,
         dex,
-        total: dex + masternodes + loan
+        total: dex + masternodes + loan,
     })
 }
 
@@ -340,8 +350,5 @@ pub struct Price {
 )]
 pub async fn get_price(ctx: &Arc<AppContext>) -> Result<Price> {
     let usd = get_usd_per_dfi(ctx).await?;
-    Ok(Price {
-        usd,
-        usdt: usd,
-    })
+    Ok(Price { usd, usdt: usd })
 }

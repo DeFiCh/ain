@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 
 use self::{
     cache::{
-        get_burned, get_count, get_emission, get_loan, get_masternodes, get_price, get_tvl, Burned, Count,
-        Emission, Loan, Masternodes, Price, Tvl,
+        get_burned, get_count, get_emission, get_loan, get_masternodes, get_price, get_tvl, Burned,
+        Count, Emission, Loan, Masternodes, Price, Tvl,
     },
     distribution::get_block_reward_distribution,
 };
