@@ -25,7 +25,7 @@ use crate::{
     model::MasternodeStatsData,
     repository::RepositoryOps,
     storage::SortOrder,
-    Error, Result, Services,
+    Error, Result,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -350,5 +350,6 @@ pub struct Price {
 )]
 pub async fn get_price(ctx: &Arc<AppContext>) -> Result<Price> {
     let usd = get_usd_per_dfi(ctx).await?;
+    #[allow(deprecated)]
     Ok(Price { usd, usdt: usd })
 }
