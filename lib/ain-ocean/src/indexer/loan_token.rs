@@ -48,7 +48,7 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
         return false;
     }
 
-    if aggregate.aggregated.weightage <= 0 {
+    if aggregate.aggregated.weightage == 0 {
         return false;
     }
 

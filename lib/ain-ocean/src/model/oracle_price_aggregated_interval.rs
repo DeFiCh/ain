@@ -31,7 +31,7 @@ pub struct OraclePriceAggregatedInterval {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
-    pub weightage: i32,
+    pub weightage: u8,
     pub count: i32,
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }

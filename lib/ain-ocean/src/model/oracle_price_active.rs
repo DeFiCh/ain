@@ -20,7 +20,7 @@ pub struct OraclePriceActive {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveActive {
     pub amount: String,
-    pub weightage: i32,
+    pub weightage: u8,
     pub oracles: OraclePriceActiveActiveOracles,
 }
 
@@ -28,7 +28,7 @@ pub struct OraclePriceActiveActive {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNext {
     pub amount: String,
-    pub weightage: i32,
+    pub weightage: u8,
     pub oracles: OraclePriceActiveNextOracles,
 }
 
