@@ -30,6 +30,7 @@ use super::{
     AppContext,
 };
 use crate::{
+    api::prices::PriceTickerResponse,
     error::{ApiError, Error},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
     repository::{RepositoryOps, SecondaryIndex},
@@ -96,20 +97,43 @@ pub struct CollateralToken {
     factor: String,
     activate_after_block: u32,
     fixed_interval_price_id: String,
-    // TODO when indexing price
-    // activePrice?: ActivePrice
+    active_price: Option<PriceTickerResponse>
 }
 
 impl CollateralToken {
-    fn from_with_id(id: String, detail: CollateralTokenDetail, info: TokenInfo) -> Self {
+    fn from_with_id(id: String, detail: CollateralTokenDetail, info: TokenInfo, active_price: Option<PriceTickerResponse>) -> Self {
         Self {
             token_id: detail.token_id,
             factor: format!("{}", detail.factor),
             activate_after_block: 0,
             fixed_interval_price_id: detail.fixed_interval_price_id,
             token: TokenData::from_with_id(id, info),
+            active_price,
         }
     }
+}
+
+async fn get_active_price(ctx: &Arc<AppContext>, fixed_interval_price_id: String) -> Result<Option<PriceTickerResponse>> {
+    let mut parts = fixed_interval_price_id.split('/');
+    let token = parts
+        .next()
+        .context("Invalid fixed interval price id structure")?
+        .to_string();
+    let currency = parts
+        .next()
+        .context("Invalid fixed interval price id structure")?
+        .to_string();
+    let price = ctx
+        .services
+        .price_ticker
+        .by_id
+        .get(&(token, currency))?;
+
+    let Some(active_price) = price else {
+        return Ok(None)
+    };
+
+    Ok(Some(PriceTickerResponse::from(active_price)))
 }
 
 #[ocean_endpoint]
@@ -131,7 +155,8 @@ async fn list_collateral_token(
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
                 .context("None is not valid")?;
-            Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info))
+            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
+            Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
         .collect::<Vec<_>>();
 
@@ -151,11 +176,13 @@ async fn get_collateral_token(
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
         .context("None is not valid")?;
+    let active_price = get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
         collateral_token,
         info,
+        active_price,
     )))
 }
 

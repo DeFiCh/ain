@@ -673,7 +673,7 @@ fn start_new_bucket(
             token,
             currency,
             aggregated: OraclePriceAggregatedIntervalAggregated {
-                amount: aggregated.aggregated.amount.clone(),
+                amount: aggregated.aggregated.amount.to_string(),
                 weightage: aggregated.aggregated.weightage,
                 count: 1,
                 oracles: OraclePriceAggregatedIntervalAggregatedOracles {
@@ -778,7 +778,7 @@ pub fn invalidate_oracle_interval(
 
     let aggregated_amount = backward_aggregate_value(
         Decimal::from_str(&last_price.amount)?,
-        Decimal::from_str(&aggregated.aggregated.amount)?,
+        aggregated.aggregated.amount,
         Decimal::from(count),
     )?;
 
@@ -838,7 +838,7 @@ fn forward_aggregate(
 
     let aggregated_amount = forward_aggregate_value(
         Decimal::from_str(&last_price.amount)?,
-        Decimal::from_str(&aggregated.aggregated.amount)?,
+        aggregated.aggregated.amount,
         Decimal::from(count),
     )?;
 

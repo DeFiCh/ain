@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use rust_decimal::Decimal;
 
 use super::{BlockContext, OraclePriceActiveNext};
 
@@ -10,18 +11,6 @@ pub type OraclePriceAggregatedKey = (String, String); //token-currency
 pub struct OraclePriceAggregated {
     pub id: OraclePriceAggregatedId,
     pub key: OraclePriceAggregatedKey,
-    pub sort: String,
-    pub token: String,
-    pub currency: String,
-    pub aggregated: OraclePriceActiveNext,
-    pub block: BlockContext,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceAggregatedApi {
-    pub id: String,
-    pub key: String,
     pub sort: String,
     pub token: String,
     pub currency: String,
