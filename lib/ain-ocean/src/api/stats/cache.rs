@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
-    api::{common::find_token_balance, stats::get_block_reward_distribution, AppContext},
+    api::{cache::list_pool_pairs_cached, common::find_token_balance, pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi}, stats::get_block_reward_distribution, AppContext},
     model::MasternodeStatsData,
     Error, Result, Services,
 };
@@ -278,7 +278,7 @@ pub fn get_masternodes(services: &Services) -> Result<Masternodes> {
 pub struct Tvl {
     pub total: Decimal,
     pub dex: Decimal,
-    pub loan: f64,
+    pub loan: Decimal,
     pub masternodes: Decimal,
 }
 
@@ -289,40 +289,53 @@ pub struct Tvl {
     convert = r#"{ format!("tvl") }"#
 )]
 pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
-    // let mut dex = 0f64;
-    // let pairs = ctx
-    //     .client
-    //     .list_pool_pairs(
+    // dex
+    let mut dex = dec!(0);
+    let pools = list_pool_pairs_cached(ctx).await?.0;
+    for (_, info) in pools {
+        let total_liquidity_usd = get_total_liquidity_usd(ctx, &info).await?;
+        dex += total_liquidity_usd;
+    }
 
-    //             including_start: true,
-    //             start: 0,
-    //             limit: 1000,
-    //         }),
-    //         Some(true),
-    //     )
-    //     .await;
-
-    let loan = get_loan(&ctx.client).await?;
-
-    // TODO value in DUSD
-    let masternodes = ctx
+    // masternodes
+    let usd = get_usd_per_dfi(ctx).await?;
+    let mut masternodes = ctx
         .services
         .masternode
         .stats
         .get_latest()?
         .map_or(Decimal::zero(), |mn| mn.stats.tvl);
+    masternodes *= usd;
 
-    // return {
-    //   dex: dex.toNumber(),
-    //   masternodes: masternodeTvlUSD,
-    //   loan: loan.value.collateral,
-    //   total: dex.toNumber() + masternodeTvlUSD + loan.value.collateral
-    // }
+    // loan
+    let loan = get_loan(&ctx.client).await?;
+    let loan = Decimal::from_f64(loan.value.collateral).unwrap_or_default();
+
     Ok(Tvl {
-        loan: loan.value.collateral,
+        loan,
         masternodes,
-        // TODO dex
-        // TODO total
-        ..Default::default()
+        dex,
+        total: dex + masternodes + loan
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Price {
+    pub usd: Decimal,
+    #[deprecated(note = "use USD instead of aggregation over multiple pairs")]
+    pub usdt: Decimal,
+}
+
+#[cached(
+    result = true,
+    time = 300,
+    key = "String",
+    convert = r#"{ format!("price") }"#
+)]
+pub async fn get_price(ctx: &Arc<AppContext>) -> Result<Price> {
+    let usd = get_usd_per_dfi(ctx).await?;
+    Ok(Price {
+        usd,
+        usdt: usd,
     })
 }
