@@ -61,6 +61,7 @@ protected:
     Res HasAuth(const CScript &auth) const;
     Res HasCollateralAuth(const uint256 &collateralTx) const;
     Res HasFoundationAuth() const;
+    Res HasGovernanceAuth() const;
 
     Res CheckCustomTx() const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const;

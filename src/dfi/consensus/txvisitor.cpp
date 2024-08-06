@@ -110,23 +110,9 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::HasFoundationAuth() const {
-    auto &mnview = blockCtx.GetView();
+static Res HasAuthInner(const TransactionContext &txCtx, const std::set<CScript> &members) {
     const auto &coins = txCtx.GetCoins();
-    const auto &consensus = txCtx.GetConsensus();
     const auto &tx = txCtx.GetTransaction();
-
-    auto members = consensus.foundationMembers;
-    const auto attributes = mnview.GetAttributes();
-
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
-                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
-            !databaseMembers.empty()) {
-            members = databaseMembers;
-        }
-    }
 
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
@@ -135,6 +121,30 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
         }
     }
     return Res::Err("tx not from foundation member");
+}
+
+Res CCustomTxVisitor::HasFoundationAuth() const {
+    auto &mnview = blockCtx.GetView();
+
+    const auto members = GetFoundationMembers(mnview);
+    return HasAuthInner(txCtx, members);
+}
+
+Res CCustomTxVisitor::HasGovernanceAuth() const {
+    auto &mnview = blockCtx.GetView();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+
+    if (height < consensus.DF24Height) {
+        return Res::Err("Governance cannot be used before the DF24Height");
+    }
+
+    if (HasFoundationAuth()) {
+        return Res::Ok();
+    }
+
+    const auto members = GetGovernanceMembers(mnview);
+    return HasAuthInner(txCtx, members);
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {

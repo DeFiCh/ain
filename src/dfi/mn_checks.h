@@ -262,6 +262,9 @@ bool IsMainNetwork();
 bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed);
 bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize);
 
+std::set<CScript> GetFoundationMembers(const CCustomCSView &mnview);
+std::set<CScript> GetGovernanceMembers(const CCustomCSView &mnview);
+
 class CPoolSwap {
     const CPoolSwapMessage &obj;
     uint32_t height;

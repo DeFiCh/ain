@@ -1562,3 +1562,28 @@ std::pair<Res, CCustomTxMessage> &TransactionContext::GetTxMessage() {
 bool TransactionContext::GetMetadataValidation() const {
     return metadataValidation;
 }
+
+std::set<CScript> GetFoundationMembers(const CCustomCSView &mnview) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                             false)) {
+        if (const auto databaseMembers = attributes->GetValue(
+                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+            !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
+    }
+    return members;
+}
+
+std::set<CScript> GetGovernanceMembers(const CCustomCSView &mnview) {
+    std::set<CScript> members;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CommunityGovernance},
+                             false)) {
+        members = attributes->GetValue(
+            CDataStructureV0{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::Members}, members);
+    }
+    return members;
+}

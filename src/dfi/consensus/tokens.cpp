@@ -83,6 +83,11 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
         return Res::Err("token is DAT and tx not from foundation member");
     }
 
+    // Foundation auth no longer used after DF24Height
+    if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
+
     return result;
 }
 
@@ -108,7 +113,7 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    if (token.IsDAT() && !HasFoundationAuth()) {
+    if (token.IsDAT() && !HasFoundationAuth() && !HasGovernanceAuth()) {
         return Res::Err("tx not from foundation member");
     }
 
@@ -172,15 +177,13 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     // check auth, depends from token's "origins"
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
-    const auto attributes = mnview.GetAttributes();
-    std::set<CScript> databaseMembers;
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        databaseMembers = attributes->GetValue(
-            CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+    bool isFoundersToken{};
+
+    if (height < static_cast<uint32_t>(consensus.DF24Height)) {
+        const auto members = GetFoundationMembers(mnview);
+        isFoundersToken = !members.empty() ? members.count(auth.out.scriptPubKey) > 0
+                                           : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
     }
-    bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
-                                                    : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
     if (isFoundersToken) {
         if (auto res = HasFoundationAuth(); !res) {

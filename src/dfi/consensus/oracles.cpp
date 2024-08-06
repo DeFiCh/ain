@@ -22,7 +22,9 @@ Res COraclesConsensus::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &
 }
 
 Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
-    if (!HasFoundationAuth()) {
+    const auto foundationAuth = HasFoundationAuth();
+    const auto governanceAuth = HasGovernanceAuth();
+    if (!governanceAuth && !foundationAuth) {
         return Res::Err("tx not from foundation member");
     }
 
@@ -36,7 +38,9 @@ Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
 }
 
 Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const {
-    if (!HasFoundationAuth()) {
+    const auto foundationAuth = HasFoundationAuth();
+    const auto governanceAuth = HasGovernanceAuth();
+    if (!governanceAuth && !foundationAuth) {
         return Res::Err("tx not from foundation member");
     }
 
@@ -51,8 +55,10 @@ Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const 
 }
 
 Res COraclesConsensus::operator()(const CRemoveOracleAppointMessage &obj) const {
-    if (auto res = HasFoundationAuth(); !res) {
-        return res;
+    const auto foundationAuth = HasFoundationAuth();
+    const auto governanceAuth = HasGovernanceAuth();
+    if (!governanceAuth && !foundationAuth) {
+        return Res::Err("tx not from foundation member");
     }
 
     auto &mnview = blockCtx.GetView();
