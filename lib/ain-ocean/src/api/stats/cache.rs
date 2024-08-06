@@ -257,21 +257,23 @@ pub struct Masternodes {
     key = "String",
     convert = r#"{ format!("masternodes") }"#
 )]
-pub fn get_masternodes(services: &Services) -> Result<Masternodes> {
-    let stats = services
+pub async fn get_masternodes(ctx: &Arc<AppContext>) -> Result<Masternodes> {
+    let stats = ctx
+        .services
         .masternode
         .stats
         .get_latest()?
         .map_or(MasternodeStatsData::default(), |mn| mn.stats);
 
-    // TODO Tvl * DUSD value
+    let usd = get_usd_per_dfi(ctx).await?;
+
     Ok(Masternodes {
         locked: stats
             .locked
             .into_iter()
             .map(|(k, v)| Locked {
                 weeks: k,
-                tvl: v.tvl,
+                tvl: v.tvl * usd,
                 count: v.count,
             })
             .collect(),

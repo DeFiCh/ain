@@ -85,7 +85,7 @@ async fn get_stats(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respons
         blockchain: Blockchain { difficulty },
         loan: get_loan(&ctx.client).await?,
         price: get_price(&ctx).await?,
-        masternodes: get_masternodes(&ctx.services)?,
+        masternodes: get_masternodes(&ctx).await?,
         tvl: get_tvl(&ctx).await?,
     };
     Ok(Response::new(stats))
