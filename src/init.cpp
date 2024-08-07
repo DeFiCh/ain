@@ -1747,6 +1747,21 @@ void SetupInterrupts() {
     fInterrupt = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight);
 }
 
+bool OceanIndex (const UniValue b) {
+    CrossBoundaryResult result;
+    ocean_index_block(result, b.write());
+    if (!result.ok) {
+        LogPrintf("Error indexing genesis block: %s\n", result.reason);
+        ocean_invalidate_block(result, b.write());
+        if (!result.ok) {
+            LogPrintf("Error invalidating genesis block: %s\n", result.reason);
+            return false;
+        }
+        OceanIndex(b);
+    }
+    return true;
+};
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -2511,14 +2526,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         const UniValue b = blockToJSON(*pcustomcsview, block, tip, pblockindex, true, 2);
 
-        CrossBoundaryResult result;
-        ocean_index_block(result, b.write());
-        if (!result.ok) {
-            LogPrintf("Error indexing genesis block: %s\n", result.reason);
-            ocean_invalidate_block(result, b.write());
-            if (!result.ok) {
-                return false;
-            }
+        if (bool isIndexed = OceanIndex(b); !isIndexed) {
+            return false;
         }
     }
 
