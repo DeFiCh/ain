@@ -1,9 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::loans::SetLoanToken;
+use log::debug;
 use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
-use log::debug;
 
 use crate::{
     indexer::{Context, Index, Result},
