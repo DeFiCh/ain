@@ -29,10 +29,6 @@ impl Index for SetLoanToken {
             context.block.height,
         );
         services.oracle_price_active.by_id.delete(&ticker_id)?;
-        services
-            .oracle_price_active
-            .by_key
-            .delete(&(ticker_id.0, ticker_id.1))?;
         Ok(())
     }
 }
