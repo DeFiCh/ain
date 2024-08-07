@@ -673,13 +673,13 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         median_time: block.mediantime,
     };
 
-    index_block_start(services, &block)?;
-
     index_script_activity(services, &block)?;
 
     index_script_aggregation(services, &block)?;
 
     index_script_unspent(services, &block)?;
+
+    index_block_start(services, &block)?;
 
     for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
         if is_skipped_tx(&tx.txid) {
@@ -750,15 +750,14 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         weight: block.weight,
     };
 
+    index_block_end(services, &block_ctx)?;
+
     // services.block.raw.put(&ctx.hash, &encoded_block)?; TODO
     services.block.by_id.put(&block_ctx.hash, &block_mapper)?;
     services
         .block
         .by_height
         .put(&block_ctx.height, &block_hash)?;
-
-    //index block end
-    index_block_end(services, &block_ctx)?;
 
     log_elapsed(start, "Indexed block");
 
@@ -824,7 +823,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                     DfTx::PlaceAuctionBid(data) => data.invalidate(services, &ctx)?,
                     _ => (),
                 }
-                log_elapsed(start, "Indexed dftx");
+                log_elapsed(start, "Invalidate dftx");
             }
         }
 
