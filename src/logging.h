@@ -32,6 +32,7 @@ enum AutoPort : uint8_t {
     P2P,
     ETHRPC,
     WEBSOCKET,
+    OCEAN
 };
 
 struct CLogCategoryActive
@@ -207,7 +208,7 @@ static inline void LogPrintCategoryOrThreadThrottled(const BCLog::LogFlags& cate
                 LogPrintf(args...);
                 it->second = current_time;
             }
-        }        
+        }
         else {
             // No entry yet -> log directly and save timestamp
             last_log_timestamps.insert(std::make_pair(message_key, current_time));

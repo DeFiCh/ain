@@ -675,6 +675,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive and REST server (default: %b)", DEFAULT_OCEAN_ARCHIVE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_ARCHIVE_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchivebind=<addr>[:port]", "Bind to given address to listen for Ocean connections. Do not expose the Ocean server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -oceanarchiveport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1600,7 +1601,7 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 }
 
-static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& wsEndpoints) {
+static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& wsEndpoints, std::vector<std::string>& oceanEndpoints) {
     std::string default_address = "127.0.0.1";
 
     bool setAutoPort{};
@@ -1611,7 +1612,7 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {
-            LogPrintf("ETH RPC server disabled.\n");
+        LogPrintf("ETH RPC server disabled.\n");
     } else {
         if (setAutoPort) {
             eth_rpc_port = 0;
@@ -1639,7 +1640,7 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     // Determine which addresses to bind to websocket server
     int ws_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
     if (ws_port == -1) {
-            LogPrintf("Websocket server disabled.\n");
+        LogPrintf("Websocket server disabled.\n");
     } else {
         if (setAutoPort) {
             ws_port = 0;
@@ -1660,6 +1661,34 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
                 SplitHostPort(strWSBind, port, host);
                 auto endpoint = host + ":" + std::to_string(port);
                 wsEndpoints.push_back(endpoint);
+            }
+        }
+    }
+
+    // Determine which addresses to bind to ocean server
+    int ocean_port = gArgs.GetArg("-oceanarchiveport", BaseParams().WSPort());
+    if (ocean_port == -1) {
+        LogPrintf("Websocket server disabled.\n");
+    } else {
+        if (setAutoPort) {
+            ocean_port = 0;
+        }
+        if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-oceanarchivebind"))) { // Default to loopback if not allowing external IPs
+            auto endpoint = default_address + ":" + std::to_string(ws_port);
+            oceanEndpoints.push_back(endpoint);
+            if (gArgs.IsArgSet("-rpcallowip")) {
+                LogPrintf("WARNING: option -rpcallowip was specified without -oceanarchivebind; this doesn't usually make sense\n");
+            }
+            if (gArgs.IsArgSet("-oceanarchivebind")) {
+                LogPrintf("WARNING: option -oceanarchivebind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+            }
+        } else if (gArgs.IsArgSet("-oceanarchivebind")) { // Specific bind address
+            for (const std::string& strWSBind : gArgs.GetArgs("-oceanarchivebind")) {
+                int port = ws_port;
+                std::string host;
+                SplitHostPort(strWSBind, port, host);
+                auto endpoint = host + ":" + std::to_string(port);
+                oceanEndpoints.push_back(endpoint);
             }
         }
     }
@@ -2345,8 +2374,8 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Start the ETH RPC, gRPC and websocket servers
     // We start the evm RPC servers as late as possible.
     {
-        std::vector<std::string> eth_endpoints, ws_endpoints;
-        SetupRPCPorts(eth_endpoints, ws_endpoints);
+        std::vector<std::string> eth_endpoints, ws_endpoints, ocean_endpoints;
+        SetupRPCPorts(eth_endpoints, ws_endpoints, ocean_endpoints);
         CrossBoundaryResult result;
 
         // Bind ETH RPC addresses
@@ -2383,15 +2412,20 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // bind ocean REST addresses
         if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
-        // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
-            // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
-            auto port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
-            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, strprintf("0.0.0.0:%s", port)))
-            if (!res) {
-                // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
-                return false;
+            // bind ocean addresses
+            for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
+                LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
+                const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+                if (!result.ok) {
+                    LogPrint(BCLog::HTTP, "Invalid ocean address, not UTF-8 valid\n");
+                    return false;
+                }
+                auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, addr))
+                if (!res) {
+                    LogPrintf("Binding ocean server on endpoint %s failed.\n", *it);
+                    return false;
+                }
             }
-        // }
         }
     }
     uiInterface.InitMessage(_("Done loading").translated);
