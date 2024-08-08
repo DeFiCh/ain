@@ -15,9 +15,17 @@ use serde::{Deserialize, Serialize};
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
-    api::{common::find_token_balance, stats::get_block_reward_distribution, AppContext},
+    api::{
+        cache::list_pool_pairs_cached,
+        common::find_token_balance,
+        pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi},
+        stats::get_block_reward_distribution,
+        AppContext,
+    },
     model::MasternodeStatsData,
-    Error, Result, Services,
+    repository::RepositoryOps,
+    storage::SortOrder,
+    Error, Result,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -64,7 +72,7 @@ pub async fn get_burned(client: &Client) -> Result<Burned> {
 pub struct Count {
     pub blocks: u32,
     pub tokens: usize,
-    pub prices: u64,
+    pub prices: usize,
     pub masternodes: u32,
 }
 
@@ -93,12 +101,18 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
         .get_latest()?
         .map_or(0, |mn| mn.stats.count);
 
+    let prices = ctx
+        .services
+        .price_ticker
+        .by_id
+        .list(None, SortOrder::Descending)?
+        .collect::<Vec<_>>();
+
     Ok(Count {
+        blocks: 0,
         tokens: tokens.0.len(),
         masternodes,
-        // TODO handle prices
-        // prices: <prices>
-        ..Default::default()
+        prices: prices.len(),
     })
 }
 
@@ -253,21 +267,23 @@ pub struct Masternodes {
     key = "String",
     convert = r#"{ format!("masternodes") }"#
 )]
-pub fn get_masternodes(services: &Services) -> Result<Masternodes> {
-    let stats = services
+pub async fn get_masternodes(ctx: &Arc<AppContext>) -> Result<Masternodes> {
+    let stats = ctx
+        .services
         .masternode
         .stats
         .get_latest()?
         .map_or(MasternodeStatsData::default(), |mn| mn.stats);
 
-    // TODO Tvl * DUSD value
+    let usd = get_usd_per_dfi(ctx).await?;
+
     Ok(Masternodes {
         locked: stats
             .locked
             .into_iter()
             .map(|(k, v)| Locked {
                 weeks: k,
-                tvl: v.tvl,
+                tvl: v.tvl * usd,
                 count: v.count,
             })
             .collect(),
@@ -278,7 +294,7 @@ pub fn get_masternodes(services: &Services) -> Result<Masternodes> {
 pub struct Tvl {
     pub total: Decimal,
     pub dex: Decimal,
-    pub loan: f64,
+    pub loan: Decimal,
     pub masternodes: Decimal,
 }
 
@@ -289,40 +305,51 @@ pub struct Tvl {
     convert = r#"{ format!("tvl") }"#
 )]
 pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
-    // let mut dex = 0f64;
-    // let pairs = ctx
-    //     .client
-    //     .list_pool_pairs(
+    // dex
+    let mut dex = dec!(0);
+    let pools = list_pool_pairs_cached(ctx).await?.0;
+    for (_, info) in pools {
+        let total_liquidity_usd = get_total_liquidity_usd(ctx, &info).await?;
+        dex += total_liquidity_usd;
+    }
 
-    //             including_start: true,
-    //             start: 0,
-    //             limit: 1000,
-    //         }),
-    //         Some(true),
-    //     )
-    //     .await;
-
-    let loan = get_loan(&ctx.client).await?;
-
-    // TODO value in DUSD
-    let masternodes = ctx
+    // masternodes
+    let usd = get_usd_per_dfi(ctx).await?;
+    let mut masternodes = ctx
         .services
         .masternode
         .stats
         .get_latest()?
         .map_or(Decimal::zero(), |mn| mn.stats.tvl);
+    masternodes *= usd;
 
-    // return {
-    //   dex: dex.toNumber(),
-    //   masternodes: masternodeTvlUSD,
-    //   loan: loan.value.collateral,
-    //   total: dex.toNumber() + masternodeTvlUSD + loan.value.collateral
-    // }
+    // loan
+    let loan = get_loan(&ctx.client).await?;
+    let loan = Decimal::from_f64(loan.value.collateral).unwrap_or_default();
+
     Ok(Tvl {
-        loan: loan.value.collateral,
+        loan,
         masternodes,
-        // TODO dex
-        // TODO total
-        ..Default::default()
+        dex,
+        total: dex + masternodes + loan,
     })
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Price {
+    pub usd: Decimal,
+    #[deprecated(note = "use USD instead of aggregation over multiple pairs")]
+    pub usdt: Decimal,
+}
+
+#[cached(
+    result = true,
+    time = 300,
+    key = "String",
+    convert = r#"{ format!("price") }"#
+)]
+pub async fn get_price(ctx: &Arc<AppContext>) -> Result<Price> {
+    let usd = get_usd_per_dfi(ctx).await?;
+    #[allow(deprecated)]
+    Ok(Price { usd, usdt: usd })
 }
