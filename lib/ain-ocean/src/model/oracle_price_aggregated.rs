@@ -19,7 +19,7 @@ pub struct OraclePriceAggregated {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregated {
     pub amount: String,
-    pub weightage: i32,
+    pub weightage: u8,
     pub oracles: OraclePriceAggregatedAggregatedOracles,
 }
 
