@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 
 use self::{
     cache::{
-        get_burned, get_count, get_emission, get_loan, get_masternodes, get_tvl, Burned, Count,
-        Emission, Loan, Masternodes, Tvl,
+        get_burned, get_count, get_emission, get_loan, get_masternodes, get_price, get_tvl, Burned,
+        Count, Emission, Loan, Masternodes, Price, Tvl,
     },
     distribution::get_block_reward_distribution,
 };
@@ -39,13 +39,6 @@ pub struct StatsData {
     pub loan: Loan,
     pub blockchain: Blockchain,
     pub net: Net,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct Price {
-    pub usd: f64,
-    #[deprecated(note = "use USD instead of aggregation over multiple pairs")]
-    pub usdt: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -91,10 +84,9 @@ async fn get_stats(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respons
         emission: get_emission(height)?,
         blockchain: Blockchain { difficulty },
         loan: get_loan(&ctx.client).await?,
-        // price: todo!(),
-        masternodes: get_masternodes(&ctx.services)?,
+        price: get_price(&ctx).await?,
+        masternodes: get_masternodes(&ctx).await?,
         tvl: get_tvl(&ctx).await?,
-        ..Default::default()
     };
     Ok(Response::new(stats))
 }
