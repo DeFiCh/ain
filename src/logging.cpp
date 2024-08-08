@@ -336,6 +336,8 @@ static std::string GetAutoPortString(const AutoPort type)
             return "ethrpcport";
         case WEBSOCKET:
             return "wsport";
+        case OCEAN:
+            return "ocean";
         default:
             return "Unknown";
     }

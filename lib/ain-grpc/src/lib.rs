@@ -35,7 +35,7 @@ use anyhow::{format_err, Result};
 use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee_server::ServerBuilder;
-use log::info;
+use log::{debug, info};
 use logging::CppLogTarget;
 use tower_http::cors::CorsLayer;
 
@@ -126,6 +126,10 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
+    let local_addr = listener.local_addr()?;
+    info!("Starting ocean server at {}", local_addr);
+    ain_cpp_imports::print_port_usage(4, local_addr.port());
+
     let (user, pass) = ain_cpp_imports::get_rpc_auth().map_err(|e| format_err!("{e}"))?;
     let client = Arc::new(
         Client::new(
@@ -134,6 +138,7 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
         )
         .await?,
     );
+    debug!("client : {:?}", client);
     let network = ain_cpp_imports::get_network();
 
     let ocean_router = ain_ocean::ocean_router(&OCEAN_SERVICES, client, network).await?;
@@ -143,6 +148,7 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
             log::error!("Server encountered an error: {}", e);
         }
     });
+
     *runtime.ocean_handle.lock() = Some(server_handle);
     Ok(())
 }

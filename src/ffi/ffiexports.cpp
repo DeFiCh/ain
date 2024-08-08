@@ -30,7 +30,11 @@ uint64_t getChainId() {
 }
 
 int getRPCPort() {
-    return gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    auto dvmport = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    if (const auto port = GetPortFromLockFile(AutoPort::RPC); port) {
+        dvmport = port;
+    }
+    return dvmport;
 }
 
 rust::string getRPCAuth() {

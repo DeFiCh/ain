@@ -534,8 +534,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         }
     }
 
-    log_elapsed(start, "Indexed block");
-
     let block_mapper = BlockMapper {
         hash: block_hash,
         id: block_hash,
@@ -565,6 +563,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 
     //index block end
     index_block_end(services, &block_ctx)?;
+
+    log_elapsed(start, "Indexed block");
 
     Ok(())
 }
