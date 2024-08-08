@@ -474,7 +474,7 @@ fn map_price_aggregated(
         currency,
         aggregated: OraclePriceAggregatedAggregated {
             amount: format!("{:.8}", aggregated_amount),
-            weightage: aggregated_weightage as i32,
+            weightage: aggregated_weightage,
             oracles: OraclePriceAggregatedAggregatedOracles {
                 active: aggregated_count,
                 total: oracles_len as i32,
@@ -810,8 +810,8 @@ pub fn invalidate_oracle_interval(
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
-                .to_i32()
-                .context("Err: Decimal.to_i32()")?,
+                .to_u8()
+                .context("Err: Decimal.to_u8()")?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active
@@ -870,8 +870,8 @@ fn forward_aggregate(
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
-                .to_i32()
-                .context("Err: Decimal.to_i32()")?,
+                .to_u8()
+                .context("Err: Decimal.to_u8()")?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active
