@@ -30,11 +30,14 @@ public:
         Mintable = 0x01,
         Tradeable = 0x02,
         DAT = 0x04,
-        LPS = 0x08,        // Liquidity Pool Share
-        Finalized = 0x10,  // locked forever
-        LoanToken = 0x20,  // token created for loan
+        LPS = 0x08,         // Liquidity Pool Share
+        Finalized = 0x10,   // locked forever
+        LoanToken = 0x20,   // token created for loan
+        Deprecated = 0x40,  // token is deprecated
         Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
+
+    static std::string DeprecationPrefix() { return "eol/"; }
 
     //! basic properties
     std::string symbol;
@@ -57,6 +60,7 @@ public:
     inline bool IsPoolShare() const { return flags & (uint8_t)TokenFlags::LPS; }
     inline bool IsFinalized() const { return flags & (uint8_t)TokenFlags::Finalized; }
     inline bool IsLoanToken() const { return flags & (uint8_t)TokenFlags::LoanToken; }
+    inline bool IsDeprecated() const { return flags & (uint8_t)TokenFlags::Deprecated; }
     inline std::string CreateSymbolKey(DCT_ID const &id) const {
         return symbol + (IsDAT() ? "" : "#" + std::to_string(id.v));
     }
@@ -182,7 +186,7 @@ public:
 };
 
 struct UpdateTokenContext {
-    const CTokenImplementation &newToken;
+    CTokenImplementation &newToken;
     BlockContext &blockCtx;
     const bool checkFinalised{};
     const bool tokenSplitUpdate{};

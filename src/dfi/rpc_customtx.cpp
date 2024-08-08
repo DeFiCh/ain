@@ -71,6 +71,7 @@ class CCustomTxRpcVisitor {
         rpcInfo.pushKV("mintable", token.IsMintable());
         rpcInfo.pushKV("tradeable", token.IsTradeable());
         rpcInfo.pushKV("finalized", token.IsFinalized());
+        rpcInfo.pushKV("deprecated", token.IsDeprecated());
     }
 
     void customRewardsInfo(const CBalances &rewards) const {

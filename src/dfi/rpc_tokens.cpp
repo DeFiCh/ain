@@ -215,6 +215,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
                      "Lock token properties forever (bool, optional)"},
+                    {"deprecate",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "Whether to add deprecation prefix to symbol (bool, optional)"},
                 },
             }, {
                 "inputs",
@@ -265,7 +269,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
     auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
-
     {
         DCT_ID id;
         auto token = view->GetTokenGuessId(tokenStr, id);
@@ -312,37 +315,47 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         tokenImpl.flags =
             metaObj["finalize"].getBool() ? tokenImpl.flags | (uint8_t)CToken::TokenFlags::Finalized : tokenImpl.flags;
     }
+    const auto isDeprecated = tokenImpl.IsDeprecated();
+    if (!metaObj["deprecate"].isNull()) {
+        tokenImpl.flags = metaObj["deprecate"].getBool() ? tokenImpl.flags | (uint8_t)CToken::TokenFlags::Deprecated
+                                                         : tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Deprecated;
+    }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
 
-    if (targetHeight < Params().GetConsensus().DF2BayfrontHeight) {
-        if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               "Only 'isDAT' flag modification allowed before Bayfront fork (<" +
-                                   std::to_string(Params().GetConsensus().DF2BayfrontHeight) + ")");
-        }
+    bool isFoundersToken{};
+    if (targetHeight < Params().GetConsensus().DF24Height) {
+        const auto members = GetFoundationMembers(*view);
+        isFoundersToken =
+            !members.empty() ? members.count(owner) : Params().GetConsensus().foundationMembers.count(owner);
+    }
 
-        // before DF2BayfrontHeight it needs only founders auth
+    if (isFoundersToken) {  // need any founder's auth
         rawTx.vin = GetAuthInputsSmart(
             pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
-    } else {  // post-bayfront auth
-        bool isFoundersToken{};
-        if (targetHeight < Params().GetConsensus().DF24Height) {
-            const auto members = GetFoundationMembers(*view);
-            isFoundersToken =
-                !members.empty() ? members.count(owner) : Params().GetConsensus().foundationMembers.count(owner);
-        }
-
-        if (isFoundersToken) {  // need any founder's auth
-            rawTx.vin = GetAuthInputsSmart(
-                pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
-        } else {  // "common" auth
+    } else {  // "common" auth
+        try {
             auths.insert(owner);
             rawTx.vin = GetAuthInputsSmart(
                 pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        } catch (const UniValue &error) {
+            if (const auto foundationAuth = isDeprecated != tokenImpl.IsDeprecated()) {
+                auths.clear();
+                rawTx.vin = GetAuthInputsSmart(pwallet,
+                                               rawTx.nVersion,
+                                               auths,
+                                               foundationAuth,
+                                               optAuthTx,
+                                               txInputs,
+                                               *view,
+                                               request.metadata.coinSelectOpts,
+                                               foundationAuth);
+            } else {
+                throw JSONRPCError(error["code"].get_int(), error["message"].getValStr());
+            }
         }
     }
 
@@ -393,6 +406,7 @@ UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplemen
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
+        tokenObj.pushKV("deprecated", token.IsDeprecated());
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
             auto attributes = view.GetAttributes();

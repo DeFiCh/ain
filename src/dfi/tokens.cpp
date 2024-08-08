@@ -154,7 +154,7 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
     const auto tokenSplitUpdate = ctx.tokenSplitUpdate;
     const auto checkSymbol = ctx.checkSymbol;
     auto &blockCtx = ctx.blockCtx;
-    const auto &newToken = ctx.newToken;
+    auto &newToken = ctx.newToken;
 
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
@@ -171,11 +171,21 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
         }
     }
 
+    // Remove deprecated prefix before symbol check, will be added if required after.
+    if (newToken.symbol.rfind(CToken::DeprecationPrefix(), 0) == 0) {
+        newToken.symbol.erase(0, CToken::DeprecationPrefix().length());
+    }
+
     // check new symbol correctness
     if (checkSymbol) {
         if (auto res = newToken.IsValidSymbol(); !res) {
             return res;
         }
+    }
+
+    // Add deprecated prefix
+    if (newToken.IsDeprecated()) {
+        newToken.symbol = CToken::DeprecationPrefix() + newToken.symbol;
     }
 
     // deal with DB symbol indexes before touching symbols/DATs:
@@ -258,6 +268,10 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
 
     if (oldToken.destructionTx != newToken.destructionTx) {
         oldToken.destructionTx = newToken.destructionTx;
+    }
+
+    if (oldToken.IsDeprecated() != newToken.IsDeprecated()) {
+        oldToken.flags ^= (uint8_t)CToken::TokenFlags::Deprecated;
     }
 
     WriteBy<ID>(id, oldToken);

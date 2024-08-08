@@ -185,13 +185,57 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
                                            : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
     }
 
-    if (isFoundersToken) {
-        if (auto res = HasFoundationAuth(); !res) {
-            return res;
+    CTokenImplementation updatedToken{obj.token};
+    updatedToken.creationTx = token.creationTx;
+    updatedToken.destructionTx = token.destructionTx;
+    updatedToken.destructionHeight = token.destructionHeight;
+
+    // Set creation height, otherwise invalid symbol check is skipped
+    if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
+        updatedToken.creationHeight = token.creationHeight;
+    }
+
+    const auto foundationAuth = HasFoundationAuth();
+    const auto governanceAuth = HasGovernanceAuth();
+    const auto ownerAuth = HasCollateralAuth(token.creationTx);
+
+    const uint8_t deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+
+    // Foundation or Governance can deprecate tokens
+    if (updatedToken.IsDeprecated()) {
+        if (height < static_cast<uint32_t>(consensus.DF24Height)) {
+            return Res::Err("Token cannot be deprecated below DF24Height");
+        }
+        if (token.IsDeprecated()) {
+            return Res::Err("Token already deprecated");
+        }
+        if (!foundationAuth && !governanceAuth && !ownerAuth) {
+            return Res::Err("Token deprecation must have auth from the owner, Foundation or Governance");
+        }
+        if ((foundationAuth || governanceAuth) && !ownerAuth) {
+            // Check no other changes are being made
+            if (updatedToken.symbol != token.symbol || updatedToken.name != token.name ||
+                (updatedToken.flags & deprecatedMask) != token.flags) {
+                return Res::Err("Token deprecation by Governance or Foundation must not have any other changes");
+            }
+        }
+    } else if (isFoundersToken) {
+        if (!foundationAuth) {
+            return foundationAuth;
         }
     } else {
-        if (auto res = HasCollateralAuth(token.creationTx); !res) {
-            return res;
+        // Allow Foundation of Governance to undeprecate tokens
+        if (height >= static_cast<uint32_t>(consensus.DF24Height) && !ownerAuth && (foundationAuth || governanceAuth)) {
+            if (!token.IsDeprecated()) {
+                return ownerAuth;
+            }
+            // Check no other changes are being made
+            if (updatedToken.symbol != token.symbol || updatedToken.name != token.name ||
+                updatedToken.flags != (token.flags & deprecatedMask)) {
+                return Res::Err("Token undeprecation by Governance or Foundation must not have any other changes");
+            }
+        } else if (!ownerAuth) {
+            return ownerAuth;
         }
     }
 
@@ -206,10 +250,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         }
     }
 
-    CTokenImplementation updatedToken{obj.token};
-    updatedToken.creationTx = token.creationTx;
-    updatedToken.destructionTx = token.destructionTx;
-    updatedToken.destructionHeight = token.destructionHeight;
     if (static_cast<int>(height) >= consensus.DF11FortCanningHeight) {
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     }

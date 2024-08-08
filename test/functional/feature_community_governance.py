@@ -13,10 +13,37 @@ import time
 
 class CommunityGovernanceTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 3
         self.setup_clean_chain = True
         self.df24height = 250
         self.extra_args = [
+            [
+                "-txnotokens=0",
+                "-subsidytest=1",
+                "-regtest-minttoken-simulate-mainnet=1",
+                "-amkheight=1",
+                "-bayfrontheight=1",
+                "-bayfrontmarinaheight=1",
+                "-bayfrontgardensheight=1",
+                "-clarkequayheight=1",
+                "-dakotaheight=1",
+                "-dakotacrescentheight=1",
+                "-eunosheight=1",
+                "-eunospayaheight=1",
+                "-fortcanningheight=1",
+                "-fortcanningmuseumheight=1",
+                "-fortcanningparkheight=1",
+                "-fortcanninghillheight=1",
+                "-fortcanningroadheight=1",
+                "-fortcanningcrunchheight=1",
+                "-fortcanningspringheight=1",
+                "-fortcanninggreatworldheight=1",
+                "-grandcentralheight=1",
+                "-grandcentralepilogueheight=1",
+                "-metachainheight=105",
+                "-df23height=110",
+                f"-df24height={self.df24height}",
+            ],
             [
                 "-txnotokens=0",
                 "-subsidytest=1",
@@ -105,6 +132,15 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Test Governance loans
         self.governance_loans()
 
+        # Test token deprecate token
+        self.foundation_deprecate_token()
+
+        # Test owner deprecate token
+        self.governance_deprecate_token()
+
+        # Test owner deprecate token
+        self.owner_deprecate_token()
+
     def setup(self):
 
         # Get address for Governance
@@ -113,8 +149,29 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Generate chain
         self.nodes[0].generate(110)
 
-        # Fund node one
+        # Add foundation to node two
+        self.nodes[2].importprivkey(
+            "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj"
+        )
+        collateral_address = "bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny"
+
+        # Fund nodes
         self.nodes[0].sendtoaddress(self.governance_member, 100)
+        self.nodes[0].sendtoaddress(collateral_address, 100)
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Create DAT token for later tests
+        self.nodes[2].createtoken(
+            {
+                "symbol": "ETH",
+                "name": "Ethereum",
+                "isDAT": True,
+                "collateralAddress": collateral_address,
+            }
+        )
+        self.nodes[2].generate(1)
+        self.sync_blocks()
 
         # Get address for Foundation
         foundation_member = self.nodes[0].getnewaddress()
@@ -181,6 +238,16 @@ class CommunityGovernanceTest(DefiTestFramework):
             "Cannot be set before DF24Height",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/feature/governance": "true"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Token cannot be deprecated below DF24Height",
+            self.nodes[2].updatetoken,
+            "ETH",
+            {
+                "deprecate": True,
+            },
         )
 
     def setup_governance(self):
@@ -450,7 +517,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check DAT token created
         assert_equal(
-            self.nodes[1].gettoken("BTC")["1"]["isDAT"],
+            self.nodes[1].gettoken("BTC")["2"]["isDAT"],
             True,
         )
 
@@ -466,7 +533,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check DAT token created
         assert_equal(
-            self.nodes[1].gettoken("BTC")["1"]["name"],
+            self.nodes[1].gettoken("BTC")["2"]["name"],
             "Bitcoin",
         )
 
@@ -485,7 +552,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check DAT token created
         assert_equal(
-            self.nodes[0].gettoken("LTC")["2"]["isDAT"],
+            self.nodes[0].gettoken("LTC")["3"]["isDAT"],
             True,
         )
 
@@ -501,7 +568,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check DAT token created
         assert_equal(
-            self.nodes[0].gettoken("BTC")["1"]["name"],
+            self.nodes[0].gettoken("BTC")["2"]["name"],
             "Bitcoin",
         )
 
@@ -540,7 +607,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check pool pair created
         assert_equal(
-            self.nodes[1].getpoolpair("BTC-LTC")["3"]["name"], "Bitcoin-Litecoin"
+            self.nodes[1].getpoolpair("BTC-LTC")["4"]["name"], "Bitcoin-Litecoin"
         )
 
         # Update pool pair
@@ -554,7 +621,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.sync_blocks()
 
         # Check pool pair updated
-        assert_equal(self.nodes[1].getpoolpair("BTC-LTC")["3"]["name"], "BTC-LTC")
+        assert_equal(self.nodes[1].getpoolpair("BTC-LTC")["4"]["name"], "BTC-LTC")
 
     def governance_oracles(self):
 
@@ -630,7 +697,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Check loan token created
-        assert_equal(self.nodes[1].gettoken("META")["4"]["name"], "Facebook")
+        assert_equal(self.nodes[1].gettoken("META")["5"]["name"], "Facebook")
 
         # Update loan token
         self.nodes[1].updateloantoken(
@@ -642,7 +709,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Check loan token updated
-        assert_equal(self.nodes[1].gettoken("META")["4"]["name"], "META")
+        assert_equal(self.nodes[1].gettoken("META")["5"]["name"], "META")
 
         # Create loan scheme
         self.nodes[1].createloanscheme(150, 1, "LOAN1")
@@ -681,6 +748,257 @@ class CommunityGovernanceTest(DefiTestFramework):
         results = self.nodes[1].listloanschemes()
         assert_equal(len(results), 1)
         assert_equal(results[0]["id"], "LOAN2")
+
+    def foundation_deprecate_token(self):
+
+        # Foundation deprecate and set other values
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "name": "Litecoin",
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "symbol": "LTC",
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "tradeable": False,
+                "deprecate": True,
+            },
+        )
+
+        # Test Foundation can deprecate token
+        self.nodes[0].updatetoken(
+            1,
+            {
+                "deprecate": True,
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check token deprecated
+        assert_equal(self.nodes[0].gettoken(1)["1"]["symbol"], "eol/ETH")
+        assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], True)
+
+        # Foundation undeprecate and set other values
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "name": "Litecoin",
+                "deprecate": False,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "symbol": "LTC",
+                "deprecate": False,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "tradeable": False,
+                "deprecate": False,
+            },
+        )
+
+        # Test Foundation can undeprecate token
+        self.nodes[0].updatetoken(
+            1,
+            {
+                "deprecate": False,
+            },
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Check token deprecated
+        assert_equal(self.nodes[0].gettoken(1)["1"]["symbol"], "ETH")
+        assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], False)
+
+    def governance_deprecate_token(self):
+
+        # Governance deprecate and set other values
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "name": "Litecoin",
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "symbol": "LTC",
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "tradeable": False,
+                "deprecate": True,
+            },
+        )
+
+        # Test Governance can deprecate token
+        self.nodes[1].updatetoken(
+            1,
+            {
+                "deprecate": True,
+            },
+        )
+        self.nodes[1].generate(1)
+
+        # Check token deprecated
+        assert_equal(self.nodes[1].gettoken(1)["1"]["symbol"], "eol/ETH")
+        assert_equal(self.nodes[1].gettoken(1)["1"]["deprecated"], True)
+
+        # Governance undeprecate and set other values
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "name": "Litecoin",
+                "deprecate": False,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "symbol": "LTC",
+                "deprecate": False,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "tradeable": False,
+                "deprecate": False,
+            },
+        )
+
+        # Test Governance can undeprecate token
+        self.nodes[1].updatetoken(
+            1,
+            {
+                "deprecate": False,
+            },
+        )
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
+        # Check token deprecated
+        assert_equal(self.nodes[1].gettoken(1)["1"]["symbol"], "ETH")
+        assert_equal(self.nodes[1].gettoken(1)["1"]["deprecated"], False)
+
+    def owner_deprecate_token(self):
+
+        # Test owner can deprecate token
+        self.nodes[2].updatetoken(
+            1,
+            {
+                "deprecate": True,
+            },
+        )
+        self.nodes[2].generate(1)
+
+        # Check token deprecated
+        assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "eol/ETH")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], True)
+
+        # Test owner can undeprecate token
+        self.nodes[2].updatetoken(
+            1,
+            {
+                "deprecate": False,
+            },
+        )
+        self.nodes[2].generate(1)
+
+        # Check token deprecated
+        assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "ETH")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], False)
+
+        # Test owner can deprecate token, rename and set falgs
+        self.nodes[2].updatetoken(
+            1,
+            {
+                "deprecate": True,
+                "name": "Litecoin",
+                "symbol": "LTC",
+                "tradeable": False,
+            },
+        )
+        self.nodes[2].generate(1)
+
+        # Check token deprecated and renamed
+        assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "eol/LTC")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["name"], "Litecoin")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], True)
+        assert_equal(self.nodes[2].gettoken(1)["1"]["tradeable"], False)
+
+        # Test owner can deprecate token and rename
+        self.nodes[2].updatetoken(
+            1,
+            {
+                "deprecate": False,
+                "name": "Ethereum",
+                "symbol": "ETH",
+                "tradeable": True,
+            },
+        )
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
+        # Check token deprecated and renamed
+        assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "ETH")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["name"], "Ethereum")
+        assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], False)
+        assert_equal(self.nodes[2].gettoken(1)["1"]["tradeable"], True)
 
 
 if __name__ == "__main__":
