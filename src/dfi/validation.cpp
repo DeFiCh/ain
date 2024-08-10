@@ -3013,7 +3013,7 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     auto estimatedCollPerDUSD = std::make_pair(output.GetLow64(), totalUSD.GetLow64());
     // now see how much collateral is acutally useable per vault
     LogPrintf("first esimate (based on wanted DUSD output): %s (%s@%d -> %s@DUSD)\n",
-              GetDecimalString(estimatedCollPerDUSD.first / estimatedCollPerDUSD.second),
+              GetDecimalString(DivideAmounts(estimatedCollPerDUSD.first , estimatedCollPerDUSD.second)),
               GetDecimalString(output.GetLow64()),
               collId.v,
               GetDecimalString(totalUSD.GetLow64()));

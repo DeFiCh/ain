@@ -92,6 +92,8 @@ class RestartdTokensTest(DefiTestFramework):
 
         self.check_token_lock()
 
+        #TODO: check history entries
+
         self.check_upgrade_fail()
 
         self.check_td()
