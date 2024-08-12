@@ -1525,7 +1525,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32600,
-            "transferdomain evm tx failed to pre-validate : Invalid nonce. Account nonce 1, signed_tx nonce 0",
+            "Invalid nonce. Account nonce 1, signed_tx nonce 0",
             self.nodes[0].transferdomain,
             [
                 {
