@@ -161,9 +161,24 @@ class TokenTransferTest(DefiTestFramework):
         result = self.nodes[0].gettoken("BTC")["1"]
         assert_equal(result["collateralAddress"], address_node0)
 
+        # Test token minting
+        self.nodes[0].minttokens("1000@BTC")
+        self.nodes[0].generate(1)
+
+        # Check token balances
+        assert_equal(self.nodes[0].gettokenbalances(), ["1000.00000000@1"])
+
+        # Try minting on original owner
+        assert_raises_rpc_error(
+            -32600,
+            "tx must have at least one input from token owner",
+            self.nodes[1].minttokens,
+            "1000@BTC",
+        )
+
         # Try and make changes with original owner
         assert_raises_rpc_error(
-            -26,
+            -5,
             "Incorrect authorization",
             self.nodes[1].updatetoken,
             "BTC",

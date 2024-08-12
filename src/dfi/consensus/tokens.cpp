@@ -35,8 +35,14 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
     const auto &coins = txCtx.GetCoins();
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
+    const auto &mnview = blockCtx.GetView();
 
-    const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
+    Coin auth;
+    if (const auto txid = mnview.GetNewTokenCollateralTXID(id.v); txid != uint256{}) {
+        auth = coins.AccessCoin(COutPoint(txid, 1));
+    } else {
+        auth = coins.AccessCoin(COutPoint(token.creationTx, 1));
+    }
 
     // pre-bayfront logic:
     if (static_cast<int>(height) < consensus.DF2BayfrontHeight) {
@@ -64,7 +70,6 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
 
     static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
     // may be different logic with LPS, so, dedicated check:
-    auto &mnview = blockCtx.GetView();
 
     if (!token.IsMintable() || (isMainNet && !fMockNetwork && mnview.GetLoanTokenByID(id))) {
         return Res::Err("token %s is not mintable!", id.ToString());

@@ -268,7 +268,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[2];
 
     CTokenImplementation tokenImpl;
-    CTxDestination ownerDest;
     CScript owner;
 
     auto [view, accountView, vaultView] = GetSnapshots();
@@ -291,23 +290,13 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         Coin authCoin;
         if (targetHeight >= Params().GetConsensus().DF24Height) {
             if (const auto txid = view->GetNewTokenCollateralTXID(id.v); txid != uint256{}) {
-                authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(txid, 1));  // always n=1 output
-                if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
-                    throw JSONRPCError(
-                        RPC_INVALID_PARAMETER,
-                        strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
-                }
+                authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(txid, 1));
             }
         }
 
         // Check if Coin is null which is the same as spent
         if (authCoin.IsSpent()) {
-            authCoin =
-                ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1));  // always n=1 output
-            if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                   strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
-            }
+            authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1));
         }
 
         owner = authCoin.out.scriptPubKey;
@@ -857,14 +846,26 @@ UniValue minttokens(const JSONRPCRequest &request) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", id.ToString()));
             }
 
-            if (token->IsDAT()) {
+            if (targetHeight < Params().GetConsensus().DF24Height && token->IsDAT()) {
                 needFoundersAuth = true;
             }
-            // Get token owner auth if present
-            const Coin &authCoin =
-                ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1));  // always n=1 output
-            if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
-                auths.insert(authCoin.out.scriptPubKey);
+
+            Coin authCoin;
+            if (targetHeight >= Params().GetConsensus().DF24Height) {
+                if (const auto txid = view->GetNewTokenCollateralTXID(id.v); txid != uint256{}) {
+                    authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(txid, 1));
+                    if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
+                        auths.insert(authCoin.out.scriptPubKey);
+                    }
+                }
+            }
+
+            if (!auths.empty()) {
+                // Get token owner auth if present
+                authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1));
+                if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
+                    auths.insert(authCoin.out.scriptPubKey);
+                }
             }
         }
     }
