@@ -161,6 +161,17 @@ class TokenTransferTest(DefiTestFramework):
         result = self.nodes[0].gettoken("BTC")["1"]
         assert_equal(result["collateralAddress"], address_node0)
 
+        # Try and make changes with original owner
+        assert_raises_rpc_error(
+            -26,
+            "Incorrect authorization",
+            self.nodes[1].updatetoken,
+            "BTC",
+            {
+                "tradeable": False,
+            },
+        )
+
         # Try and spend collateral
         assert_raises_rpc_error(
             -26,
