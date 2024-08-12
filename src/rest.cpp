@@ -260,7 +260,6 @@ static bool rest_block(HTTPRequest* req,
     }
 
     case RetFormat::JSON: {
-        LOCK(cs_main);
         UniValue objBlock = blockToJSON(*pcustomcsview, block, tip, pblockindex, showTxDetails);
         std::string strJSON = objBlock.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");

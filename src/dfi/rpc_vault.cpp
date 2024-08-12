@@ -4,8 +4,12 @@
 #include <dfi/mn_rpc.h>
 #include <dfi/vaulthistory.h>
 
-extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
-extern std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol);
+extern UniValue AmountsToJSON(const CCustomCSView &view,
+                              const TAmounts &diffs,
+                              AmountFormat format = AmountFormat::Symbol);
+extern std::string tokenAmountString(const CCustomCSView &view,
+                                     const CTokenAmount &amount,
+                                     AmountFormat format = AmountFormat::Symbol);
 
 namespace {
 
@@ -48,31 +52,34 @@ namespace {
         return VaultState::Unknown;
     }
 
-    bool WillLiquidateNext(const CVaultId &vaultId, const CVaultData &vault) {
-        auto height = ::ChainActive().Height();
-        auto blockTime = ::ChainActive()[height]->GetBlockTime();
+    bool WillLiquidateNext(CCustomCSView &view, const CVaultId &vaultId, const CVaultData &vault) {
+        auto height = view.GetLastHeight();
+        int64_t blockTime{};
+        {
+            LOCK(cs_main);
+            blockTime = ::ChainActive()[height]->GetBlockTime();
+        }
 
-        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        auto collaterals = view.GetVaultCollaterals(vaultId);
         if (!collaterals) {
             return false;
         }
 
         bool useNextPrice = true, requireLivePrice = false;
-        auto vaultRate =
-            pcustomcsview->GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
+        auto vaultRate = view.GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
         if (!vaultRate) {
             return false;
         }
 
-        auto loanScheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        auto loanScheme = view.GetLoanScheme(vault.schemeId);
         return (vaultRate.val->ratio() < loanScheme->ratio);
     }
 
-    VaultState GetVaultState(const CVaultId &vaultId, const CVaultData &vault) {
-        auto height = ::ChainActive().Height();
+    VaultState GetVaultState(CCustomCSView &view, const CVaultId &vaultId, const CVaultData &vault) {
+        auto height = view.GetLastHeight();
         auto inLiquidation = vault.isUnderLiquidation;
-        auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
-        auto willLiquidateNext = WillLiquidateNext(vaultId, vault);
+        auto priceIsValid = IsVaultPriceValid(view, vaultId, height);
+        auto willLiquidateNext = WillLiquidateNext(view, vaultId, vault);
 
         // Can possibly optimize with flags, but provides clarity for now.
         if (!inLiquidation && priceIsValid && !willLiquidateNext) {
@@ -90,18 +97,18 @@ namespace {
         return VaultState::Unknown;
     }
 
-    UniValue BatchToJSON(const CVaultId &vaultId, uint32_t batchCount) {
+    UniValue BatchToJSON(CCustomCSView &view, const CVaultId &vaultId, uint32_t batchCount) {
         UniValue batchArray{UniValue::VARR};
         for (uint32_t i = 0; i < batchCount; i++) {
             UniValue batchObj{UniValue::VOBJ};
-            auto batch = pcustomcsview->GetAuctionBatch({vaultId, i});
+            auto batch = view.GetAuctionBatch({vaultId, i});
             batchObj.pushKV("index", int(i));
-            batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
-            batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
-            if (auto bid = pcustomcsview->GetAuctionBid({vaultId, i})) {
+            batchObj.pushKV("collaterals", AmountsToJSON(view, batch->collaterals.balances));
+            batchObj.pushKV("loan", tokenAmountString(view, batch->loanAmount));
+            if (auto bid = view.GetAuctionBid({vaultId, i})) {
                 UniValue bidObj{UniValue::VOBJ};
                 bidObj.pushKV("owner", ScriptToString(bid->first));
-                bidObj.pushKV("amount", tokenAmountString(bid->second));
+                bidObj.pushKV("amount", tokenAmountString(view, bid->second));
                 batchObj.pushKV("highestBid", bidObj);
             }
             batchArray.push_back(batchObj);
@@ -109,9 +116,9 @@ namespace {
         return batchArray;
     }
 
-    UniValue AuctionToJSON(const CVaultId &vaultId, const CAuctionData &data) {
+    UniValue AuctionToJSON(CCustomCSView &view, const CVaultId &vaultId, const CAuctionData &data) {
         UniValue auctionObj{UniValue::VOBJ};
-        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vault = view.GetVault(vaultId);
         auctionObj.pushKV("vaultId", vaultId.GetHex());
         auctionObj.pushKV("loanSchemeId", vault->schemeId);
         auctionObj.pushKV("ownerAddress", ScriptToString(vault->ownerAddress));
@@ -119,21 +126,24 @@ namespace {
         auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
         auctionObj.pushKV("batchCount", int64_t(data.batchCount));
         auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
-        auctionObj.pushKV("batches", BatchToJSON(vaultId, data.batchCount));
+        auctionObj.pushKV("batches", BatchToJSON(view, vaultId, data.batchCount));
         return auctionObj;
     }
 
-    UniValue VaultToJSON(const CVaultId &vaultId, const CVaultData &vault, const bool verbose = false) {
+    UniValue VaultToJSON(CCustomCSView &view,
+                         const CVaultId &vaultId,
+                         const CVaultData &vault,
+                         const bool verbose = false) {
         UniValue result{UniValue::VOBJ};
-        auto vaultState = GetVaultState(vaultId, vault);
-        auto height = ::ChainActive().Height();
+        auto vaultState = GetVaultState(view, vaultId, vault);
+        auto height = view.GetLastHeight();
 
-        const auto scheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        const auto scheme = view.GetLoanScheme(vault.schemeId);
         assert(scheme);
 
         if (vaultState == VaultState::InLiquidation) {
-            if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
-                result.pushKVs(AuctionToJSON(vaultId, *data));
+            if (auto data = view.GetAuction(vaultId, height)) {
+                result.pushKVs(AuctionToJSON(view, vaultId, *data));
             } else {
                 LogPrintf("Warning: Vault in liquidation, but no auctions found\n");
             }
@@ -143,16 +153,20 @@ namespace {
         UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0},
             nextCollateralRatio{0}, totalInterestsPerBlockValue{0};
 
-        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        auto collaterals = view.GetVaultCollaterals(vaultId);
         if (!collaterals) {
             collaterals = CBalances{};
         }
 
-        auto blockTime = ::ChainActive().Tip()->GetBlockTime();
+        int64_t blockTime{};
+        {
+            LOCK(cs_main);
+            blockTime = ::ChainActive().Tip()->GetBlockTime();
+        }
         bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
 
-        if (auto rate = pcustomcsview->GetVaultAssets(
-                vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+        if (auto rate =
+                view.GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
             collValue = ValueFromUint(rate.val->totalCollaterals);
             loanValue = ValueFromUint(rate.val->totalLoans);
             ratioValue = ValueFromAmount(rate.val->precisionRatio());
@@ -161,7 +175,7 @@ namespace {
 
         bool isVaultTokenLocked{false};
         for (const auto &collateral : collaterals->balances) {
-            if (pcustomcsview->AreTokensLocked({collateral.first.v})) {
+            if (view.AreTokensLocked({collateral.first.v})) {
                 isVaultTokenLocked = true;
                 break;
             }
@@ -175,24 +189,24 @@ namespace {
         TAmounts interestsPerBlock{};
         CAmount totalInterestsPerBlock{0};
 
-        if (const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
+        if (const auto loanTokens = view.GetLoanTokens(vaultId)) {
             TAmounts totalBalances{};
             TAmounts interestBalances{};
             CAmount totalInterests{0};
 
             for (const auto &[tokenId, amount] : loanTokens->balances) {
-                auto token = pcustomcsview->GetLoanTokenByID(tokenId);
+                auto token = view.GetLoanTokenByID(tokenId);
                 if (!token) {
                     continue;
                 }
-                auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
+                auto rate = view.GetInterestRate(vaultId, tokenId, height);
                 if (!rate) {
                     continue;
                 }
                 auto totalInterest = TotalInterest(*rate, height + 1);
                 auto value = amount + totalInterest;
                 if (value > 0) {
-                    if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                    if (auto priceFeed = view.GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
                         auto price = priceFeed.val->priceRecord[0];
                         if (const auto interestCalculation = MultiplyAmounts(price, totalInterest)) {
                             totalInterests += interestCalculation;
@@ -220,20 +234,20 @@ namespace {
                     totalBalances.insert({tokenId, value});
                     interestBalances.insert({tokenId, totalInterest});
                 }
-                if (pcustomcsview->AreTokensLocked({tokenId.v})) {
+                if (view.AreTokensLocked({tokenId.v})) {
                     isVaultTokenLocked = true;
                 }
             }
             interestValue = ValueFromAmount(totalInterests);
-            loanBalances = AmountsToJSON(totalBalances);
-            interestAmounts = AmountsToJSON(interestBalances);
+            loanBalances = AmountsToJSON(view, totalBalances);
+            interestAmounts = AmountsToJSON(view, interestBalances);
         }
 
         result.pushKV("vaultId", vaultId.GetHex());
         result.pushKV("loanSchemeId", vault.schemeId);
         result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
         result.pushKV("state", VaultStateToString(vaultState));
-        result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
+        result.pushKV("collateralAmounts", AmountsToJSON(view, collaterals->balances));
         result.pushKV("loanAmounts", loanBalances);
         result.pushKV("interestAmounts", interestAmounts);
         if (isVaultTokenLocked) {
@@ -254,8 +268,8 @@ namespace {
         result.pushKV("collateralRatio", collateralRatio);
         if (verbose) {
             useNextPrice = true;
-            if (auto rate = pcustomcsview->GetVaultAssets(
-                    vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+            if (auto rate =
+                    view.GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
                 nextCollateralRatio = int(rate.val->ratio());
                 result.pushKV("nextCollateralRatio", nextCollateralRatio);
             }
@@ -268,14 +282,14 @@ namespace {
                     for (const auto &[id, interestPerBlock] : interestsPerBlockHighPrecission) {
                         auto tokenId = id;
                         auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
-                        auto token = pcustomcsview->GetToken(tokenId);
+                        auto token = view.GetToken(tokenId);
                         assert(token);
                         auto tokenSymbol = token->CreateSymbolKey(tokenId);
                         interestsPerBlockBalances.push_back(amountStr.append("@").append(tokenSymbol));
                     }
                 }
             } else {
-                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
+                interestsPerBlockBalances = AmountsToJSON(view, interestsPerBlock);
                 totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
                 result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
             }
@@ -345,15 +359,11 @@ UniValue createvault(const JSONRPCRequest &request) {
         }
     }
 
-    int targetHeight{};
-    CAmount vaultCreationFee{};
-    {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
-        const auto attributes = pcustomcsview->GetAttributes();
-        const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
-        vaultCreationFee = attributes->GetValue(creationFeeKey, Params().GetConsensus().vaultCreationFee);
-    }
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
+    const auto vaultCreationFee = attributes->GetValue(creationFeeKey, Params().GetConsensus().vaultCreationFee);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::Vault) << vault;
@@ -367,7 +377,7 @@ UniValue createvault(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(vaultCreationFee, scriptMeta);
 
@@ -437,15 +447,15 @@ UniValue closevault(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR}, false);
 
-    int targetHeight;
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CScript ownerAddress;
     CCloseVaultMessage msg;
     msg.vaultId = ParseHashV(request.params[0], "vaultId");
     {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
         // decode vaultId
-        auto vault = pcustomcsview->GetVault(msg.vaultId);
+        auto vault = view->GetVault(msg.vaultId);
         if (!vault) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", msg.vaultId.GetHex()));
         }
@@ -473,7 +483,7 @@ UniValue closevault(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -607,10 +617,10 @@ UniValue listvaults(const JSONRPCRequest &request) {
 
     UniValue valueArr{UniValue::VARR};
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    pcustomcsview->ForEachVault(
-        [&](const CVaultId &vaultId, const CVaultData &data) {
+    view->ForEachVault(
+        [&, &view = view](const CVaultId &vaultId, const CVaultData &data) {
             if (!including_start) {
                 including_start = true;
                 return (true);
@@ -618,7 +628,7 @@ UniValue listvaults(const JSONRPCRequest &request) {
             if (!ownerAddress.empty() && ownerAddress != data.ownerAddress) {
                 return false;
             }
-            auto vaultState = GetVaultState(vaultId, data);
+            auto vaultState = GetVaultState(*view, vaultId, data);
 
             if ((loanSchemeId.empty() || loanSchemeId == data.schemeId) &&
                 (state == VaultState::Unknown || state == vaultState)) {
@@ -629,7 +639,7 @@ UniValue listvaults(const JSONRPCRequest &request) {
                     vaultObj.pushKV("loanSchemeId", data.schemeId);
                     vaultObj.pushKV("state", VaultStateToString(vaultState));
                 } else {
-                    vaultObj = VaultToJSON(vaultId, data);
+                    vaultObj = VaultToJSON(*view, vaultId, data);
                 }
                 valueArr.push_back(vaultObj);
                 limit--;
@@ -668,14 +678,14 @@ UniValue getvault(const JSONRPCRequest &request) {
         verbose = request.params[1].get_bool();
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto vault = pcustomcsview->GetVault(vaultId);
+    auto vault = view->GetVault(vaultId);
     if (!vault) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found", vaultId.GetHex()));
     }
 
-    auto res = VaultToJSON(vaultId, *vault, verbose);
+    auto res = VaultToJSON(*view, vaultId, *vault, verbose);
     return GetRPCResultCache().Set(request, res);
 }
 
@@ -737,14 +747,14 @@ UniValue updatevault(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 1 must be non-null");
     }
 
-    int targetHeight;
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CVaultMessage vault;
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
     {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
         // decode vaultId
-        auto storedVault = pcustomcsview->GetVault(vaultId);
+        auto storedVault = view->GetVault(vaultId);
         if (!storedVault) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
         }
@@ -800,8 +810,8 @@ UniValue updatevault(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{vault.ownerAddress};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -901,10 +911,11 @@ UniValue deposittovault(const JSONRPCRequest &request) {
 
     const UniValue &txInputs = request.params[3];
 
+    auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -994,13 +1005,13 @@ UniValue withdrawfromvault(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
 
-    int targetHeight;
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CScript ownerAddress;
     {
-        LOCK(cs_main);
-        targetHeight = ::ChainActive().Height() + 1;
         // decode vaultId
-        auto vault = pcustomcsview->GetVault(vaultId);
+        auto vault = view->GetVault(vaultId);
         if (!vault) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Vault <%s> not found", vaultId.GetHex()));
         }
@@ -1017,8 +1028,8 @@ UniValue withdrawfromvault(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{ownerAddress};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1093,11 +1104,13 @@ UniValue placeauctionbid(const JSONRPCRequest &request) {
     uint32_t index = request.params[1].get_int();
     CTokenAmount amount = DecodeAmount(pwallet->chain(), request.params[3].get_str(), "amount");
 
+    auto [view, accountView, vaultView] = GetSnapshots();
+
     CScript from = {};
     auto fromStr = request.params[2].get_str();
     if (fromStr == "*") {
         auto selectedAccounts = SelectAccountsByTargetBalances(
-            GetAllMineAccounts(pwallet), CBalances{TAmounts{{amount.nTokenId, amount.nValue}}}, SelectionPie);
+            GetAllMineAccounts(pwallet, *view), CBalances{TAmounts{{amount.nTokenId, amount.nValue}}}, SelectionPie);
 
         for (auto &account : selectedAccounts) {
             if (account.second.balances[amount.nTokenId] >= amount.nValue) {
@@ -1132,7 +1145,7 @@ UniValue placeauctionbid(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths{from};
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[4], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[4], *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1229,14 +1242,15 @@ UniValue listauctions(const JSONRPCRequest &request) {
 
     UniValue valueArr{UniValue::VARR};
 
-    LOCK(cs_main);
-    pcustomcsview->ForEachVaultAuction(
-        [&](const CVaultId &vaultId, const CAuctionData &data) {
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    view->ForEachVaultAuction(
+        [&, &view = view](const CVaultId &vaultId, const CAuctionData &data) {
             if (!including_start) {
                 including_start = true;
                 return (true);
             }
-            valueArr.push_back(AuctionToJSON(vaultId, data));
+            valueArr.push_back(AuctionToJSON(*view, vaultId, data));
             return --limit != 0;
         },
         height,
@@ -1245,19 +1259,24 @@ UniValue listauctions(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, valueArr);
 }
 
-UniValue auctionhistoryToJSON(const AuctionHistoryKey &key, const AuctionHistoryValue &value) {
+UniValue auctionhistoryToJSON(const CCustomCSView &view,
+                              const AuctionHistoryKey &key,
+                              const AuctionHistoryValue &value) {
     UniValue obj(UniValue::VOBJ);
 
     obj.pushKV("winner", ScriptToString(key.owner));
     obj.pushKV("blockHeight", (uint64_t)key.blockHeight);
-    if (auto block = ::ChainActive()[key.blockHeight]) {
-        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
-        obj.pushKV("blockTime", block->GetBlockTime());
+    {
+        LOCK(cs_main);
+        if (auto block = ::ChainActive()[key.blockHeight]) {
+            obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+            obj.pushKV("blockTime", block->GetBlockTime());
+        }
     }
     obj.pushKV("vaultId", key.vaultId.GetHex());
     obj.pushKV("batchIndex", (uint64_t)key.index);
-    obj.pushKV("auctionBid", tokenAmountString(value.bidAmount));
-    obj.pushKV("auctionWon", AmountsToJSON(value.collaterals));
+    obj.pushKV("auctionBid", tokenAmountString(view, value.bidAmount));
+    obj.pushKV("auctionWon", AmountsToJSON(view, value.collaterals));
     return obj;
 }
 
@@ -1343,11 +1362,12 @@ UniValue listauctionhistory(const JSONRPCRequest &request) {
         filter = DecodeScriptTxId(account, {start.owner, start.vaultId});
     }
 
-    LOCK(cs_main);
     UniValue ret(UniValue::VARR);
 
-    paccountHistoryDB->ForEachAuctionHistory(
-        [&](const AuctionHistoryKey &key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    accountView->ForEachAuctionHistory(
+        [&, &view = view](const AuctionHistoryKey &key, CLazySerialize<AuctionHistoryValue> valueLazy) -> bool {
             if (filter == 0 && start.owner != key.owner) {
                 return true;
             }
@@ -1360,7 +1380,7 @@ UniValue listauctionhistory(const JSONRPCRequest &request) {
                 return true;
             }
 
-            ret.push_back(auctionhistoryToJSON(key, valueLazy.get()));
+            ret.push_back(auctionhistoryToJSON(*view, key, valueLazy.get()));
 
             return --limit != 0;
         },
@@ -1369,7 +1389,8 @@ UniValue listauctionhistory(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
-UniValue vaultToJSON(const uint256 &vaultID,
+UniValue vaultToJSON(const CCustomCSView &view,
+                     const uint256 &vaultID,
                      const std::string &address,
                      const uint64_t blockHeight,
                      const std::string &type,
@@ -1382,9 +1403,12 @@ UniValue vaultToJSON(const uint256 &vaultID,
         obj.pushKV("address", address);
     }
     obj.pushKV("blockHeight", blockHeight);
-    if (auto block = ::ChainActive()[blockHeight]) {
-        obj.pushKV("blockHash", block->GetBlockHash().GetHex());
-        obj.pushKV("blockTime", block->GetBlockTime());
+    {
+        LOCK(cs_main);
+        if (auto block = ::ChainActive()[blockHeight]) {
+            obj.pushKV("blockHash", block->GetBlockHash().GetHex());
+            obj.pushKV("blockTime", block->GetBlockTime());
+        }
     }
     if (!type.empty()) {
         obj.pushKV("type", type);
@@ -1397,36 +1421,36 @@ UniValue vaultToJSON(const uint256 &vaultID,
         obj.pushKV("txid", txid);
     }
     if (!amounts.empty()) {
-        obj.pushKV("amounts", AmountsToJSON(amounts));
+        obj.pushKV("amounts", AmountsToJSON(view, amounts));
     }
 
     return obj;
 }
 
-UniValue BatchToJSON(const std::vector<CAuctionBatch> batches) {
+UniValue BatchToJSON(const CCustomCSView &view, const std::vector<CAuctionBatch> batches) {
     UniValue batchArray{UniValue::VARR};
     for (uint64_t i{0}; i < batches.size(); ++i) {
         UniValue batchObj{UniValue::VOBJ};
         batchObj.pushKV("index", i);
-        batchObj.pushKV("collaterals", AmountsToJSON(batches[i].collaterals.balances));
-        batchObj.pushKV("loan", tokenAmountString(batches[i].loanAmount));
+        batchObj.pushKV("collaterals", AmountsToJSON(view, batches[i].collaterals.balances));
+        batchObj.pushKV("loan", tokenAmountString(view, batches[i].loanAmount));
         batchArray.push_back(batchObj);
     }
     return batchArray;
 }
 
-UniValue stateToJSON(const VaultStateKey &key, const VaultStateValue &value) {
-    auto obj = vaultToJSON(key.vaultID, "", key.blockHeight, "", 0, "", {});
+UniValue stateToJSON(const CCustomCSView &view, const VaultStateKey &key, const VaultStateValue &value) {
+    auto obj = vaultToJSON(view, key.vaultID, "", key.blockHeight, "", 0, "", {});
 
     UniValue snapshot(UniValue::VOBJ);
     snapshot.pushKV("state", !value.auctionBatches.empty() ? "inLiquidation" : "active");
-    snapshot.pushKV("collateralAmounts", AmountsToJSON(value.collaterals));
+    snapshot.pushKV("collateralAmounts", AmountsToJSON(view, value.collaterals));
     snapshot.pushKV("collateralValue", ValueFromUint(value.collateralsValues.totalCollaterals));
     snapshot.pushKV(
         "collateralRatio",
         static_cast<int>(value.ratio != static_cast<uint32_t>(-1) ? value.ratio : value.collateralsValues.ratio()));
     if (!value.auctionBatches.empty()) {
-        snapshot.pushKV("batches", BatchToJSON(value.auctionBatches));
+        snapshot.pushKV("batches", BatchToJSON(view, value.auctionBatches));
     }
 
     obj.pushKV("vaultSnapshot", snapshot);
@@ -1434,8 +1458,9 @@ UniValue stateToJSON(const VaultStateKey &key, const VaultStateValue &value) {
     return obj;
 }
 
-UniValue historyToJSON(const VaultHistoryKey &key, const VaultHistoryValue &value) {
-    return vaultToJSON(key.vaultID,
+UniValue historyToJSON(const CCustomCSView &view, const VaultHistoryKey &key, const VaultHistoryValue &value) {
+    return vaultToJSON(view,
+                       key.vaultID,
                        ScriptToString(key.address),
                        key.blockHeight,
                        ToString(CustomTxCodeToType(value.category)),
@@ -1444,8 +1469,9 @@ UniValue historyToJSON(const VaultHistoryKey &key, const VaultHistoryValue &valu
                        value.diff);
 }
 
-UniValue collateralToJSON(const VaultHistoryKey &key, const VaultHistoryValue &value) {
-    return vaultToJSON(key.vaultID,
+UniValue collateralToJSON(const CCustomCSView &view, const VaultHistoryKey &key, const VaultHistoryValue &value) {
+    return vaultToJSON(view,
+                       key.vaultID,
                        "vaultCollateral",
                        key.blockHeight,
                        ToString(CustomTxCodeToType(value.category)),
@@ -1454,9 +1480,15 @@ UniValue collateralToJSON(const VaultHistoryKey &key, const VaultHistoryValue &v
                        value.diff);
 }
 
-UniValue schemeToJSON(const VaultSchemeKey &key, const VaultGlobalSchemeValue &value) {
-    auto obj = vaultToJSON(
-        key.vaultID, "", key.blockHeight, ToString(CustomTxCodeToType(value.category)), 0, value.txid.ToString(), {});
+UniValue schemeToJSON(const CCustomCSView &view, const VaultSchemeKey &key, const VaultGlobalSchemeValue &value) {
+    auto obj = vaultToJSON(view,
+                           key.vaultID,
+                           "",
+                           key.blockHeight,
+                           ToString(CustomTxCodeToType(value.category)),
+                           0,
+                           value.txid.ToString(),
+                           {});
 
     UniValue scheme(UniValue::VOBJ);
     scheme.pushKV("id", value.loanScheme.identifier);
@@ -1574,9 +1606,11 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     std::set<uint256> txs;
 
-    auto hasToken = [&tokenFilter](const TAmounts &diffs) {
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    auto hasToken = [&, &view = view](const TAmounts &diffs) {
         for (auto const &diff : diffs) {
-            auto token = pcustomcsview->GetToken(diff.first);
+            auto token = view->GetToken(diff.first);
             auto const tokenIdStr = token->CreateSymbolKey(diff.first);
             if (tokenIdStr == tokenFilter) {
                 return true;
@@ -1585,10 +1619,10 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         return false;
     };
 
-    LOCK(cs_main);
-    std::map<uint32_t, UniValue, std::greater<uint32_t>> ret;
+    std::map<uint32_t, UniValue, std::greater<>> ret;
+    const uint32_t height = view->GetLastHeight();
 
-    maxBlockHeight = std::min(maxBlockHeight, uint32_t(::ChainActive().Height()));
+    maxBlockHeight = std::min(maxBlockHeight, height);
     depth = std::min(depth, maxBlockHeight);
 
     const auto startBlock = maxBlockHeight - depth;
@@ -1599,7 +1633,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
     // Get vault TXs
     auto count = limit;
 
-    auto shouldContinue = [&](const VaultHistoryKey &key, CLazySerialize<VaultHistoryValue> valueLazy) -> bool {
+    auto shouldContinue = [&, &view = view](const VaultHistoryKey &key,
+                                            CLazySerialize<VaultHistoryValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return true;
         }
@@ -1621,21 +1656,22 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         auto &array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
 
         if (key.address.empty()) {
-            array.push_back(collateralToJSON(key, value));
+            array.push_back(collateralToJSON(*view, key, value));
         } else {
-            array.push_back(historyToJSON(key, value));
+            array.push_back(historyToJSON(*view, key, value));
         }
 
         return --count != 0;
     };
 
     VaultHistoryKey startKey{maxBlockHeight, vaultID, std::numeric_limits<uint32_t>::max(), {}};
-    pvaultHistoryDB->ForEachVaultHistory(shouldContinue, startKey);
+    vaultView->ForEachVaultHistory(shouldContinue, startKey);
 
     // Get vault state changes
     count = limit;
 
-    auto shouldContinueState = [&](const VaultStateKey &key, CLazySerialize<VaultStateValue> valueLazy) -> bool {
+    auto shouldContinueState = [&, &view = view](const VaultStateKey &key,
+                                                 CLazySerialize<VaultStateValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return false;
         }
@@ -1647,14 +1683,14 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         const auto &value = valueLazy.get();
 
         auto &array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(stateToJSON(key, value));
+        array.push_back(stateToJSON(*view, key, value));
 
         return --count != 0;
     };
 
     VaultStateKey stateKey{vaultID, maxBlockHeight};
     if (!txTypeSearch) {
-        pvaultHistoryDB->ForEachVaultState(shouldContinueState, stateKey);
+        vaultView->ForEachVaultState(shouldContinueState, stateKey);
     }
 
     // Get vault schemes
@@ -1662,7 +1698,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
 
     std::map<uint32_t, uint256> schemes;
 
-    auto shouldContinueScheme = [&](const VaultSchemeKey &key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool {
+    auto shouldContinueScheme = [&, &view = view, &vaultView = vaultView](
+                                    const VaultSchemeKey &key, CLazySerialize<VaultSchemeValue> valueLazy) -> bool {
         if (!isMatchVault(key.vaultID)) {
             return false;
         }
@@ -1678,7 +1715,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         }
 
         CLoanScheme loanScheme;
-        pvaultHistoryDB->ForEachGlobalScheme(
+        vaultView->ForEachGlobalScheme(
             [&](VaultGlobalSchemeKey const &schemeKey, CLazySerialize<VaultGlobalSchemeValue> lazyValue) {
                 if (lazyValue.get().loanScheme.identifier != value.schemeID) {
                     return true;
@@ -1690,13 +1727,13 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
             {key.blockHeight, value.txn});
 
         auto &array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-        array.push_back(schemeToJSON(key, {loanScheme, value.category, value.txid}));
+        array.push_back(schemeToJSON(*view, key, {loanScheme, value.category, value.txid}));
 
         return --count != 0;
     };
 
     if (tokenFilter.empty()) {
-        pvaultHistoryDB->ForEachVaultScheme(shouldContinueScheme, stateKey);
+        vaultView->ForEachVaultScheme(shouldContinueScheme, stateKey);
     }
 
     // Get vault global scheme changes
@@ -1715,8 +1752,8 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
         for (auto it = schemes.cbegin(); it != schemes.cend(); ++it) {
             auto nit = std::next(it);
             uint32_t endHeight = nit != schemes.cend() ? nit->first - 1 : std::numeric_limits<uint32_t>::max();
-            pvaultHistoryDB->ForEachGlobalScheme(
-                [&](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> valueLazy) {
+            vaultView->ForEachGlobalScheme(
+                [&, &view = view](const VaultGlobalSchemeKey &key, CLazySerialize<VaultGlobalSchemeValue> valueLazy) {
                     if (key.blockHeight < minHeight) {
                         return false;
                     }
@@ -1736,7 +1773,7 @@ UniValue listvaulthistory(const JSONRPCRequest &request) {
                     }
 
                     auto &array = ret.emplace(key.blockHeight, UniValue::VARR).first->second;
-                    array.push_back(schemeToJSON({vaultID, key.blockHeight}, value));
+                    array.push_back(schemeToJSON(*view, {vaultID, key.blockHeight}, value));
 
                     return --count != 0;
                 },
@@ -1795,32 +1832,36 @@ UniValue estimateloan(const JSONRPCRequest &request) {
 
     CVaultId vaultId = ParseHashV(request.params[0], "vaultId");
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto vault = pcustomcsview->GetVault(vaultId);
+    auto vault = view->GetVault(vaultId);
     if (!vault) {
         throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Vault <%s> not found.", vaultId.GetHex()));
     }
 
-    auto vaultState = GetVaultState(vaultId, *vault);
+    auto vaultState = GetVaultState(*view, vaultId, *vault);
     if (vaultState == VaultState::InLiquidation) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Vault <%s> is in liquidation.", vaultId.GetHex()));
     }
 
-    auto scheme = pcustomcsview->GetLoanScheme(vault->schemeId);
+    auto scheme = view->GetLoanScheme(vault->schemeId);
     uint32_t ratio = scheme->ratio;
     if (request.params.size() > 2) {
         ratio = (size_t)request.params[2].get_int64();
     }
 
-    auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+    auto collaterals = view->GetVaultCollaterals(vaultId);
     if (!collaterals) {
         throw JSONRPCError(RPC_MISC_ERROR, "Cannot estimate loan without collaterals.");
     }
 
-    auto height = ::ChainActive().Height();
-    auto blockTime = ::ChainActive().Tip()->GetBlockTime();
-    auto rate = pcustomcsview->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, false, true);
+    auto height = view->GetLastHeight();
+    int64_t blockTime{};
+    {
+        LOCK(cs_main);
+        blockTime = ::ChainActive().Tip()->GetBlockTime();
+    }
+    auto rate = view->GetVaultAssets(vaultId, *collaterals, height + 1, blockTime, false, true);
     if (!rate.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, rate.msg);
     }
@@ -1831,23 +1872,23 @@ UniValue estimateloan(const JSONRPCRequest &request) {
         for (const auto &tokenId : request.params[1].getKeys()) {
             CAmount split = AmountFromValue(request.params[1][tokenId]);
 
-            auto token = pcustomcsview->GetToken(tokenId);
+            auto token = view->GetToken(tokenId);
             if (!token) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %d does not exist!", tokenId));
             }
 
-            auto loanToken = pcustomcsview->GetLoanTokenByID(token->first);
+            auto loanToken = view->GetLoanTokenByID(token->first);
             if (!loanToken) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a loan token!", tokenId));
             }
 
-            auto priceFeed = pcustomcsview->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
+            auto priceFeed = view->GetFixedIntervalPrice(loanToken->fixedIntervalPriceId);
             if (!priceFeed.ok) {
                 throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
             }
 
             auto price = priceFeed.val->priceRecord[0];
-            if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+            if (!priceFeed.val->isLive(view->GetPriceDeviation())) {
                 throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", tokenId));
             }
 
@@ -1865,7 +1906,7 @@ UniValue estimateloan(const JSONRPCRequest &request) {
                                          GetDecimalString(COIN)));
         }
     }
-    auto res = AmountsToJSON(loanBalances.balances);
+    auto res = AmountsToJSON(*view, loanBalances.balances);
     return GetRPCResultCache().Set(request, res);
 }
 
@@ -1911,46 +1952,46 @@ UniValue estimatecollateral(const JSONRPCRequest &request) {
         collateralSplits["DFI"] = 1;
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     CAmount totalLoanValue{0};
     for (const auto &loan : loanBalances.balances) {
-        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        auto loanToken = view->GetLoanTokenByID(loan.first);
         if (!loanToken) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
                                "Token with id (" + loan.first.ToString() + ") is not a loan token!");
         }
 
-        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        auto amountInCurrency = view->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
         totalLoanValue += *amountInCurrency.val;
     }
 
-    uint32_t height = ::ChainActive().Height();
+    const uint32_t height = view->GetLastHeight();
     CBalances collateralBalances;
     CAmount totalSplit{0};
     for (const auto &collateralSplit : collateralSplits) {
         CAmount split = AmountFromValue(collateralSplit.second);
 
-        auto token = pcustomcsview->GetToken(collateralSplit.first);
+        auto token = view->GetToken(collateralSplit.first);
         if (!token) {
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Token %s does not exist!", collateralSplit.first));
         }
 
-        auto collateralToken = pcustomcsview->HasLoanCollateralToken({token->first, height});
+        auto collateralToken = view->HasLoanCollateralToken({token->first, height});
         if (!collateralToken || !collateralToken->factor) {
             throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("(%s) is not a valid collateral!", collateralSplit.first));
         }
 
-        auto priceFeed = pcustomcsview->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
+        auto priceFeed = view->GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId);
         if (!priceFeed.ok) {
             throw JSONRPCError(RPC_DATABASE_ERROR, priceFeed.msg);
         }
 
         auto price = priceFeed.val->priceRecord[0];
-        if (!priceFeed.val->isLive(pcustomcsview->GetPriceDeviation())) {
+        if (!priceFeed.val->isLive(view->GetPriceDeviation())) {
             throw JSONRPCError(RPC_MISC_ERROR, strprintf("No live fixed price for %s", collateralSplit.first));
         }
 
@@ -1969,7 +2010,7 @@ UniValue estimatecollateral(const JSONRPCRequest &request) {
                                      GetDecimalString(COIN)));
     }
 
-    auto res = AmountsToJSON(collateralBalances.balances);
+    auto res = AmountsToJSON(*view, collateralBalances.balances);
     return GetRPCResultCache().Set(request, res);
 }
 
@@ -2007,20 +2048,19 @@ UniValue estimatevault(const JSONRPCRequest &request) {
     CBalances collateralBalances = DecodeAmounts(pwallet->chain(), request.params[0], "");
     CBalances loanBalances = DecodeAmounts(pwallet->chain(), request.params[1], "");
 
-    LOCK(cs_main);
-    auto height = (uint32_t)::ChainActive().Height();
+    auto [view, accountView, vaultView] = GetSnapshots();
+    uint32_t height = view->GetLastHeight();
 
     CVaultAssets result{};
 
     for (const auto &collateral : collateralBalances.balances) {
-        auto collateralToken = pcustomcsview->HasLoanCollateralToken({collateral.first, height});
+        auto collateralToken = view->HasLoanCollateralToken({collateral.first, height});
         if (!collateralToken || !collateralToken->factor) {
             throw JSONRPCError(RPC_DATABASE_ERROR,
                                strprintf("Token with id (%s) is not a valid collateral!", collateral.first.ToString()));
         }
 
-        auto amountInCurrency =
-            pcustomcsview->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
+        auto amountInCurrency = view->GetAmountInCurrency(collateral.second, collateralToken->fixedIntervalPriceId);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
@@ -2029,13 +2069,13 @@ UniValue estimatevault(const JSONRPCRequest &request) {
     }
 
     for (const auto &loan : loanBalances.balances) {
-        auto loanToken = pcustomcsview->GetLoanTokenByID(loan.first);
+        auto loanToken = view->GetLoanTokenByID(loan.first);
         if (!loanToken) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
                                "Token with id (" + loan.first.ToString() + ") is not a loan token!");
         }
 
-        auto amountInCurrency = pcustomcsview->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
+        auto amountInCurrency = view->GetAmountInCurrency(loan.second, loanToken->fixedIntervalPriceId);
         if (!amountInCurrency) {
             throw JSONRPCError(RPC_DATABASE_ERROR, amountInCurrency.msg);
         }
@@ -2078,19 +2118,19 @@ UniValue getstoredinterest(const JSONRPCRequest &request) {
         return *res;
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto vaultId = ParseHashV(request.params[0], "vaultId");
-    if (const auto vault = pcustomcsview->GetVault(vaultId); !vault) {
+    if (const auto vault = view->GetVault(vaultId); !vault) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Vault not found");
     }
 
     DCT_ID tokenId{};
-    if (const auto token = pcustomcsview->GetTokenGuessId(request.params[1].getValStr(), tokenId); !token) {
+    if (const auto token = view->GetTokenGuessId(request.params[1].getValStr(), tokenId); !token) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Token not found");
     }
 
-    const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, ::ChainActive().Height());
+    const auto interestRate = view->GetInterestRate(vaultId, tokenId, view->GetLastHeight());
     if (!interestRate) {
         throw JSONRPCError(RPC_DATABASE_ERROR, "No stored interest for this token found in the vault.");
     }
@@ -2126,14 +2166,14 @@ UniValue logstoredinterests(const JSONRPCRequest &request) {
         return *res;
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
+    auto height = view->GetLastHeight();
 
-    auto height = ::ChainActive().Height();
     using VaultInfo = std::tuple<DCT_ID, CAmount, CInterestRateV3>;
     std::map<std::string, std::vector<VaultInfo>> items;
 
-    pcustomcsview->ForEachVault([&](const CVaultId &vaultId, const CVaultData &vaultData) {
-        auto vaultTokens = pcustomcsview->GetLoanTokens(vaultId);
+    view->ForEachVault([&, &view = view](const CVaultId &vaultId, const CVaultData &vaultData) {
+        auto vaultTokens = view->GetLoanTokens(vaultId);
         if (!vaultTokens) {
             return true;
         }
@@ -2141,7 +2181,7 @@ UniValue logstoredinterests(const JSONRPCRequest &request) {
         std::vector<VaultInfo> infoItems;
 
         for (const auto &[tokenId, tokenAmount] : vaultTokens->balances) {
-            const auto interestRate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
+            const auto interestRate = view->GetInterestRate(vaultId, tokenId, height);
             if (interestRate) {
                 infoItems.push_back({tokenId, tokenAmount, *interestRate});
             }
@@ -2189,15 +2229,15 @@ UniValue getloantokens(const JSONRPCRequest &request) {
         return *res;
     }
 
-    LOCK(cs_main);
+    auto [view, accountView, vaultView] = GetSnapshots();
 
     const auto vaultId = ParseHashV(request.params[0], "vaultId");
-    const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId);
+    const auto loanTokens = view->GetLoanTokens(vaultId);
     if (!loanTokens) {
         return UniValue::VARR;
     }
 
-    const auto ret = AmountsToJSON(loanTokens->balances);
+    const auto ret = AmountsToJSON(*view, loanTokens->balances);
 
     return GetRPCResultCache().Set(request, ret);
 }

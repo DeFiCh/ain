@@ -414,11 +414,13 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "eth_getTransactionByBlockNumberAndIndex", 0, "tag"},
     { "eth_getTransactionByBlockNumberAndIndex", 1, "txIndex"},
     { "debug_feeEstimate", 0, "tx"},
+
+    { "setinterruptblock", 0, "height" },
 };
 
 /**
  * Specify a (method, idx, string param) here if the argument can alternatively be passed as a
- * string RPC argument alternative instead of the value specified in in vRPCConvertParams.
+ * string RPC argument alternative instead of the value specified in vRPCConvertParams.
  *
  * @note Parameter indexes start from 0.
  */

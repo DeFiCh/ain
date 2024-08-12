@@ -16,9 +16,11 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <dfi/accountshistory.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <dfi/vaulthistory.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -276,7 +278,7 @@ struct RewardInfo {
 };
 
 
-std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
+std::optional<UniValue> VmInfoUniv(CCustomCSView &view, const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
         const auto parent_hash = uint256::FromByteArray(header.parent_hash).GetHex();
         const auto beneficiary = uint160::FromByteArray(header.beneficiary).GetHex();
@@ -320,7 +322,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
         result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
     }
-    auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
+    auto res = RpcInfo(view, tx, std::numeric_limits<int>::max(), guess, txResults);
     if (guess == CustomTxType::None) {
         return {};
     }
@@ -335,12 +337,12 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
     return result;
 }
 
-UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock) {
+UniValue ExtendedTxToUniv(CCustomCSView &view, const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock) {
     if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
         if (version > 2) {
-            if (auto r = VmInfoUniv(tx, isEvmEnabledForBlock); r) {
+            if (auto r = VmInfoUniv(view, tx, isEvmEnabledForBlock); r) {
                 objTx.pushKV("vm", *r);
             }
         }
@@ -350,17 +352,17 @@ UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serializ
     }
 }
 
-UniValue blockToJSON(const CCustomCSView &mnview, const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
+UniValue blockToJSON(CCustomCSView &view, const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(view);
 
-    auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
+    auto txsToUniValue = [&](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx) {
-            txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails, isEvmEnabledForBlock));
+            txs.push_back(ExtendedTxToUniv(view, *tx, txDetails, RPCSerializationFlags(), version, txDetails, isEvmEnabledForBlock));
         }
         return txs;
     };
@@ -380,7 +382,7 @@ UniValue blockToJSON(const CCustomCSView &mnview, const CBlock& block, const CBl
     // For v3+, we fix the past mistakes and don't just modify existing root schema.
     // We'll add all these later.
     if (!v3plus) {
-        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValueLegacy(result);
+        MinterInfo::From(block, blockindex, view).ToUniValueLegacy(result);
     }
 
     result.pushKV("version", block.nVersion);
@@ -388,7 +390,7 @@ UniValue blockToJSON(const CCustomCSView &mnview, const CBlock& block, const CBl
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
 
     if (!v3plus) {
-        auto rewardInfo = RewardInfo::TryFrom(mnview, block, blockindex, consensus);
+        auto rewardInfo = RewardInfo::TryFrom(view, block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
         result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
@@ -405,9 +407,9 @@ UniValue blockToJSON(const CCustomCSView &mnview, const CBlock& block, const CBl
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
     if (v3plus) {
-        auto minterInfo = MinterInfo::From(block, blockindex, *pcustomcsview);
+        auto minterInfo = MinterInfo::From(block, blockindex, view);
         result.pushKV("minter", minterInfo.ToUniValue());
-        auto rewardInfo = RewardInfo::TryFrom(mnview, block, blockindex, consensus);
+        auto rewardInfo = RewardInfo::TryFrom(view, block, blockindex, consensus);
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
@@ -432,8 +434,8 @@ static UniValue getblockcount(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    LOCK(cs_main);
-    return ::ChainActive().Height();
+    const auto [view, accountView, vaultView] = GetSnapshots();
+    return view->GetLastHeight();
 }
 
 static UniValue getbestblockhash(const JSONRPCRequest& request)
@@ -1169,13 +1171,8 @@ static UniValue getblock(const JSONRPCRequest& request)
         return strHex;
     }
 
-    UniValue result(UniValue::VOBJ);
-    {
-        LOCK(cs_main);
-        result = blockToJSON(*pcustomcsview, block, tip, pblockindex, verbosity >= 2, verbosity);
-    }
-
-    return result;
+    auto [view, accountView, vaultView] = GetSnapshots();
+    return blockToJSON(*view, block, tip, pblockindex, verbosity >= 2, verbosity);
 }
 
 static UniValue pruneblockchain(const JSONRPCRequest& request)
