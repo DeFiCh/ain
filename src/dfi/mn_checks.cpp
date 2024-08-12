@@ -797,11 +797,25 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     return {finMsg.btcTxHash, Res::Ok()};
 }
 
-bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
-    CTransactionRef ptx = pool.get(txid);
-    if (ptx) {
-        std::vector<unsigned char> dummy;
-        CustomTxType txType = GuessCustomTxType(*ptx, dummy);
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid, const uint32_t height) {
+    if (CTransactionRef ptx = pool.get(txid)) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(*ptx, metadata, true);
+        LogPrintf("XXX IsMempooledCustomTxCreate input %s\n", ToString(txType));
+        if (txType == CustomTxType::UpdateTokenAny) {
+            LogPrintf("XXX IsMempooledCustomTxCreate UpdateToken input\n");
+            CCustomTxMessage txMessage{CUpdateTokenMessage{}};
+            auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+            if (!res) {
+                LogPrintf("XXX IsMempooledCustomTxCreate failed to parse metadata\n");
+                return false;
+            }
+            auto obj = std::get<CUpdateTokenMessage>(txMessage);
+            if (obj.newCollateralAddress) {
+                LogPrintf("XXX IsMempooledCustomTxCreate is collateral update\n");
+                return true;
+            }
+        }
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;

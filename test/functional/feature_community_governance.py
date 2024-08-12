@@ -751,6 +751,9 @@ class CommunityGovernanceTest(DefiTestFramework):
 
     def foundation_deprecate_token(self):
 
+        # Get address to test collateral change
+        new_address = self.nodes[0].getnewaddress()
+
         # Foundation deprecate and set other values
         assert_raises_rpc_error(
             -32600,
@@ -779,6 +782,16 @@ class CommunityGovernanceTest(DefiTestFramework):
             1,
             {
                 "tradeable": False,
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "collateralAddress": new_address,
                 "deprecate": True,
             },
         )
@@ -827,6 +840,16 @@ class CommunityGovernanceTest(DefiTestFramework):
                 "deprecate": False,
             },
         )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[0].updatetoken,
+            1,
+            {
+                "collateralAddress": new_address,
+                "deprecate": False,
+            },
+        )
 
         # Test Foundation can undeprecate token
         self.nodes[0].updatetoken(
@@ -843,6 +866,9 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], False)
 
     def governance_deprecate_token(self):
+
+        # Get address to test collateral change
+        new_address = self.nodes[1].getnewaddress()
 
         # Governance deprecate and set other values
         assert_raises_rpc_error(
@@ -872,6 +898,16 @@ class CommunityGovernanceTest(DefiTestFramework):
             1,
             {
                 "tradeable": False,
+                "deprecate": True,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token deprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "collateralAddress": new_address,
                 "deprecate": True,
             },
         )
@@ -917,6 +953,16 @@ class CommunityGovernanceTest(DefiTestFramework):
             1,
             {
                 "tradeable": False,
+                "deprecate": False,
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Token undeprecation by Governance or Foundation must not have any other changes",
+            self.nodes[1].updatetoken,
+            1,
+            {
+                "collateralAddress": new_address,
                 "deprecate": False,
             },
         )

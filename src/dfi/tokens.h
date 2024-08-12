@@ -102,12 +102,17 @@ struct CUpdateTokenPreAMKMessage {
 struct CUpdateTokenMessage {
     uint256 tokenTx;
     CToken token;
+    bool newCollateralAddress;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(tokenTx);
         READWRITE(token);
+
+        if (!s.eof()) {
+            READWRITE(newCollateralAddress);
+        }
     }
 };
 
@@ -214,6 +219,11 @@ public:
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback,
                       DCT_ID const &start = DCT_ID{0});
 
+    void SetNewTokenCollateral(const uint256 &txid, const uint32_t tokenID);
+    [[nodiscard]] bool NewTokenCollateralExists(const uint256 &txid) const;
+    [[nodiscard]] uint256 GetNewTokenCollateralTXID(const uint32_t tokenID) const;
+    void EraseNewTokenCollateral(const uint32_t tokenID);
+
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token, BlockContext &blockCtx, bool isPreBayfront = false);
     Res UpdateToken(UpdateTokenContext &ctx);
@@ -237,6 +247,12 @@ public:
     };
     struct TokenSplitMultiplier {
         static constexpr uint8_t prefix() { return 'n'; }
+    };
+    struct NewTokenCollateralTXID {
+        static constexpr uint8_t prefix() { return '*'; }
+    };
+    struct NewTokenCollateralID {
+        static constexpr uint8_t prefix() { return '@'; }
     };
 
     DCT_ID IncrementLastDctId();

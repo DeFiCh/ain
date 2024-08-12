@@ -219,6 +219,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
                      "Whether to add deprecation prefix to symbol (bool, optional)"},
+                    {"collateralAddress",
+                     RPCArg::Type::STR,
+                     RPCArg::Optional::OMITTED,
+                     "New collateral address to transfer token ownership to (string, optional)"},
                 },
             }, {
                 "inputs",
@@ -284,12 +288,28 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                                strprintf("Token %s is the LPS token! Can't alter pool share's tokens!", tokenStr));
         }
 
-        const Coin &authCoin =
-            ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1));  // always n=1 output
-        if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,
-                               strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+        Coin authCoin;
+        if (targetHeight >= Params().GetConsensus().DF24Height) {
+            if (const auto txid = view->GetNewTokenCollateralTXID(id.v); txid != uint256{}) {
+                authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(txid, 1));  // always n=1 output
+                if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
+                    throw JSONRPCError(
+                        RPC_INVALID_PARAMETER,
+                        strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+                }
+            }
         }
+
+        // Check if Coin is null which is the same as spent
+        if (authCoin.IsSpent()) {
+            authCoin =
+                ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(tokenImpl.creationTx, 1));  // always n=1 output
+            if (!ExtractDestination(authCoin.out.scriptPubKey, ownerDest)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Can't extract destination for token's %s collateral", tokenImpl.symbol));
+            }
+        }
+
         owner = authCoin.out.scriptPubKey;
     }
 
@@ -319,6 +339,21 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     if (!metaObj["deprecate"].isNull()) {
         tokenImpl.flags = metaObj["deprecate"].getBool() ? tokenImpl.flags | (uint8_t)CToken::TokenFlags::Deprecated
                                                          : tokenImpl.flags & ~(uint8_t)CToken::TokenFlags::Deprecated;
+    }
+
+    bool newCollateralAddress{};
+    CTxDestination collateralDest;
+    if (!metaObj["collateralAddress"].isNull()) {
+        if (targetHeight < Params().GetConsensus().DF24Height) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Collateral address update is not allowed before DF24Height");
+        }
+        const auto collateralAddress = metaObj["collateralAddress"].getValStr();
+        collateralDest = DecodeDestination(collateralAddress);
+        if (!IsValidDestination(collateralDest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY,
+                               "recipient (" + collateralAddress + ") does not refer to any valid address");
+        }
+        newCollateralAddress = true;
     }
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -362,7 +397,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
     // tx type and serialized data differ:
-    if (targetHeight < Params().GetConsensus().DF2BayfrontHeight) {
+    if (targetHeight >= Params().GetConsensus().DF24Height) {
+        metadata << static_cast<unsigned char>(CustomTxType::UpdateTokenAny) << tokenImpl.creationTx
+                 << static_cast<CToken>(tokenImpl) << newCollateralAddress;
+    } else if (targetHeight < Params().GetConsensus().DF2BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken) << tokenImpl.creationTx
                  << metaObj["isDAT"].getBool();
     } else {
@@ -374,6 +412,9 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    if (newCollateralAddress) {
+        rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
+    }
 
     CCoinControl coinControl;
 
@@ -422,8 +463,12 @@ UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplemen
         tokenObj.pushKV("destructionTx", token.destructionTx.ToString());
         tokenObj.pushKV("destructionHeight", token.destructionHeight);
         if (!token.IsPoolShare()) {
+            auto collateralAuth = token.creationTx;
+            if (const auto txid = view.GetNewTokenCollateralTXID(id.v); txid != uint256{}) {
+                collateralAuth = txid;
+            }
             const Coin &authCoin =
-                ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
+                ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(collateralAuth, 1));  // always n=1 output
             tokenObj.pushKV("collateralAddress", ScriptToString(authCoin.out.scriptPubKey));
         } else {
             tokenObj.pushKV("collateralAddress", "undefined");

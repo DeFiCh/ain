@@ -164,7 +164,10 @@ public:
 
     void operator()(const CUpdateTokenPreAMKMessage &obj) const { rpcInfo.pushKV("isDAT", obj.isDAT); }
 
-    void operator()(const CUpdateTokenMessage &obj) const { tokenInfo(obj.token); }
+    void operator()(const CUpdateTokenMessage &obj) const {
+        tokenInfo(obj.token);
+        rpcInfo.pushKV("newCollateralAddress", obj.newCollateralAddress);
+    }
 
     void operator()(const CMintTokensMessage &obj) const {
         rpcInfo.pushKVs(tokenBalances(obj));

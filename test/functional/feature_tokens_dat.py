@@ -115,13 +115,6 @@ class TokensBasicTest(DefiTestFramework):
             errorString = e.error["message"]
         assert "tx not from foundation member" in errorString
 
-        # 4.1 Trying to set smth else
-        try:
-            self.nodes[2].updatetoken("GOLD#128", {"symbol": "G"})
-        except JSONRPCException as e:
-            errorString = e.error["message"]
-        assert "before Bayfront fork" in errorString
-
         # 5 Making token isDAT from Foundation
         self.nodes[0].updatetoken("GOLD#128", {"isDAT": True}, [])
         self.nodes[0].generate(1)

@@ -152,6 +152,7 @@ BASE_SCRIPTS = [
     "wallet_txn_clone.py",
     "wallet_txn_clone.py --segwit",
     "feature_community_governance.py",
+    "feature_token_transfer.py",
     "rpc_getchaintips.py",
     "rpc_misc.py",
     "rpc_mn_basic.py",

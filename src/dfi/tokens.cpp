@@ -392,3 +392,28 @@ std::optional<std::pair<uint32_t, CTokensView::SplitMultiplier>> CTokensView::Ge
 
     return {};
 }
+
+void CTokensView::SetNewTokenCollateral(const uint256 &txid, const uint32_t tokenID) {
+    WriteBy<NewTokenCollateralTXID>(txid, tokenID);
+    WriteBy<NewTokenCollateralID>(tokenID, txid);
+}
+
+[[nodiscard]] bool CTokensView::NewTokenCollateralExists(const uint256 &txid) const {
+    if (const auto id = ReadBy<NewTokenCollateralTXID, uint32_t>(txid)) {
+        return true;
+    }
+    return false;
+}
+
+[[nodiscard]] uint256 CTokensView::GetNewTokenCollateralTXID(const uint32_t tokenID) const {
+    if (const auto txid = ReadBy<NewTokenCollateralID, uint256>(tokenID)) {
+        return *txid;
+    }
+    return {};
+}
+
+void CTokensView::EraseNewTokenCollateral(const uint32_t tokenID) {
+    const auto txid = GetNewTokenCollateralTXID(tokenID);
+    EraseBy<NewTokenCollateralTXID>(txid);
+    EraseBy<NewTokenCollateralID>(tokenID);
+}

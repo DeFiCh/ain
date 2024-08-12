@@ -9,12 +9,13 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 
-Res CTokensConsensus::CheckTokenCreationTx() const {
+Res CTokensConsensus::CheckTokenCreationTx(const bool creation) const {
     const auto height = txCtx.GetHeight();
     const auto &tx = txCtx.GetTransaction();
 
-    if (tx.vout.size() < 2 || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
-        tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}) {
+    if (tx.vout.size() < 2 || (creation && tx.vout[0].nValue < GetTokenCreationFee(height)) ||
+        tx.vout[0].nTokenId != DCT_ID{0} || tx.vout[1].nValue != GetTokenCollateralAmount() ||
+        tx.vout[1].nTokenId != DCT_ID{0}) {
         return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
@@ -159,15 +160,20 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
     }
-    if (pair->first == DCT_ID{0}) {
+
+    const auto &[tokenID, token] = *pair;
+
+    if (tokenID == DCT_ID{0}) {
         return Res::Err("Can't alter DFI token!");
     }
 
-    if (mnview.AreTokensLocked({pair->first.v})) {
+    if (mnview.AreTokensLocked({tokenID.v})) {
         return Res::Err("Cannot update token during lock");
     }
 
-    const auto &token = pair->second;
+    if (height < Params().GetConsensus().DF24Height && obj.newCollateralAddress) {
+        return Res::Err("Collateral address update is not allowed before DF24Height");
+    }
 
     // need to check it exectly here cause lps has no collateral auth (that checked next)
     if (token.IsPoolShare()) {
@@ -197,9 +203,17 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 
     const auto foundationAuth = HasFoundationAuth();
     const auto governanceAuth = HasGovernanceAuth();
-    const auto ownerAuth = HasCollateralAuth(token.creationTx);
 
-    const uint8_t deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+    Res ownerAuth = Res::Ok();
+    if (const auto txid = mnview.GetNewTokenCollateralTXID(tokenID.v); txid != uint256{}) {
+        ownerAuth = HasCollateralAuth(txid);
+    } else {
+        ownerAuth = HasCollateralAuth(token.creationTx);
+    }
+
+    const auto deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+    const auto disallowedChanges =
+        updatedToken.symbol != token.symbol || updatedToken.name != token.name || obj.newCollateralAddress;
 
     // Foundation or Governance can deprecate tokens
     if (updatedToken.IsDeprecated()) {
@@ -214,8 +228,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         }
         if ((foundationAuth || governanceAuth) && !ownerAuth) {
             // Check no other changes are being made
-            if (updatedToken.symbol != token.symbol || updatedToken.name != token.name ||
-                (updatedToken.flags & deprecatedMask) != token.flags) {
+            if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
                 return Res::Err("Token deprecation by Governance or Foundation must not have any other changes");
             }
         }
@@ -230,13 +243,21 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
                 return ownerAuth;
             }
             // Check no other changes are being made
-            if (updatedToken.symbol != token.symbol || updatedToken.name != token.name ||
-                updatedToken.flags != (token.flags & deprecatedMask)) {
+            if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
                 return Res::Err("Token undeprecation by Governance or Foundation must not have any other changes");
             }
         } else if (!ownerAuth) {
             return ownerAuth;
         }
+    }
+
+    if (obj.newCollateralAddress) {
+        if (auto res = CheckTokenCreationTx(false); !res) {
+            return res;
+        }
+
+        mnview.EraseNewTokenCollateral(tokenID.v);
+        mnview.SetNewTokenCollateral(hash, tokenID.v);
     }
 
     // Check for isDAT change

@@ -646,6 +646,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         CCoinsViewMemPool viewMemPool(&coins_cache, pool);
         view.SetBackend(viewMemPool);
 
+        const auto height = GetSpendHeight(view);
+
         // do all inputs exist?
         if (!isEVMTx) {
             for (const CTxIn &txin : tx.vin) {
@@ -674,11 +676,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
 
                 // Special check of collateral spending for _not_created_ mn or token (cheating?), those creation tx yet
                 // in mempool. CMasternode::CanSpend() (and CheckTxInputs()) will skip this situation
-                if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash)) {
+                if (txin.prevout.n == 1 && IsMempooledCustomTxCreate(pool, txin.prevout.hash, height)) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          false,
                                          "collateral-locked-in-mempool",
-                                         strprintf("tried to spend collateral of non-created mn or token %s, cheater?",
+                                         strprintf("tried to spend collateral of non-created mn or token %s",
                                                    txin.prevout.hash.ToString()));
                 }
             }
@@ -686,8 +688,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
 
         // Bring the best block into scope
         view.GetBestBlock();
-
-        const auto height = GetSpendHeight(view);
 
         // rebuild accounts view if dirty
         pool.rebuildAccountsView(height, view);
