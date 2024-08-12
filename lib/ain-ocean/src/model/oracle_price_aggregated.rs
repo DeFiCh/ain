@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use rust_decimal::Decimal;
 
 use super::{BlockContext, OraclePriceActiveNext};
 

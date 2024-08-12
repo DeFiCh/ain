@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use rust_decimal::Decimal;
 
 use super::BlockContext;
 
@@ -19,7 +20,8 @@ pub struct OraclePriceActive {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNext {
-    pub amount: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
     pub weightage: u8,
     pub oracles: OraclePriceActiveNextOracles,
 }
