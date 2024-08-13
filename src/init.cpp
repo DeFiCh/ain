@@ -1666,15 +1666,15 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     }
 
     // Determine which addresses to bind to ocean server
-    int ocean_port = gArgs.GetArg("-oceanarchiveport", BaseParams().WSPort());
+    int ocean_port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
     if (ocean_port == -1) {
-        LogPrintf("Websocket server disabled.\n");
+        LogPrintf("Ocean server disabled.\n");
     } else {
         if (setAutoPort) {
             ocean_port = 0;
         }
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-oceanarchivebind"))) { // Default to loopback if not allowing external IPs
-            auto endpoint = default_address + ":" + std::to_string(ws_port);
+            auto endpoint = default_address + ":" + std::to_string(ocean_port);
             oceanEndpoints.push_back(endpoint);
             if (gArgs.IsArgSet("-rpcallowip")) {
                 LogPrintf("WARNING: option -rpcallowip was specified without -oceanarchivebind; this doesn't usually make sense\n");
@@ -1683,10 +1683,10 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
                 LogPrintf("WARNING: option -oceanarchivebind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
             }
         } else if (gArgs.IsArgSet("-oceanarchivebind")) { // Specific bind address
-            for (const std::string& strWSBind : gArgs.GetArgs("-oceanarchivebind")) {
-                int port = ws_port;
+            for (const std::string& strOCEANBind : gArgs.GetArgs("-oceanarchivebind")) {
+                int port = ocean_port;
                 std::string host;
-                SplitHostPort(strWSBind, port, host);
+                SplitHostPort(strOCEANBind, port, host);
                 auto endpoint = host + ":" + std::to_string(port);
                 oceanEndpoints.push_back(endpoint);
             }
