@@ -47,6 +47,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=1",
                 "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
+                "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
                 "-df23height=150",  # must have 50 diff to metachain start, no idea why
                 "-df24height=990",
