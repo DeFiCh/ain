@@ -60,4 +60,4 @@ The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Pull requests are warmly welcomed.
 
-Reach us at [engineering@defichain.com](mailto:engineering@defichain.com) for any questions or collaborations.
+Reach us at <engineering@defichain.com> for any questions or collaborations.
