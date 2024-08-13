@@ -32,7 +32,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "-bayfrontheight=1",
                 "-bayfrontmarinaheight=1",
                 "-bayfrontgardensheight=1",
-                "-clarkequayheight=1"
+                "-clarkequayheight=1",
                 "-dakotaheight=1",
                 "-dakotacrescentheight=1",
                 "-eunosheight=1",
@@ -100,7 +100,7 @@ class RestartdTokensTest(DefiTestFramework):
 
         self.check_token_lock()
 
-        #TODO: check history entries
+        # TODO: check history entries
 
         self.check_upgrade_fail()
 
@@ -139,23 +139,56 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        """
+        # get account before restart triggers consolidate rewards, but we want to check that this works correctly without consolidation before.
+        # keeping the numbers here for reference
+        assert_equal(
+            sorted(self.nodes[0].getaccount(lmaddress)),
+            [
+                "0.00785674@DUSD",
+                "1.00000000@SPY",
+                "1.00000000@SPY-DUSD",
+                "10.00000000@DUSD-DFI",
+                "10.00000000@USDT-DUSD",
+            ],
+        )
+
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.96000000@BTC",
+                "10.00000000@USDT",
+                "120.00000000@DUSD",
+                "1262.79219613@DUSD-DFI",
+                "22.36066977@USDT-DFI",
+                "39373.68546796@DFI",
+                "4.00000000@SPY",
+                "8.99999000@SPY-DUSD",
+                "938.68328805@USDT-DUSD",
+                "99.99999000@BTC-DFI",
+            ],
+        )
+        """
+
         # Set dToken restart and move to execution block
         self.nodes[0].setgov({"ATTRIBUTES": {f"v0/params/dtoken_restart/1000": "0.5"}})
         self.nodes[0].generate(10)
 
         sort = [lmaddress, self.address, self.address1, self.address2, self.address3]
+
         assert_equal(
             sorted(
-                self.nodes[0].listlockedtokens(), key=lambda a: sort.index(a["owner"])
+                self.nodes[0].listlockedtokens(),
+                key=lambda a: sort.index(a["owner"]),
             ),
             [
                 {
                     "owner": lmaddress,
-                    "values": ["0.55000056@SPY", "22.42387545@DUSD"],
+                    "values": ["0.55000056@SPY", "22.42913292@DUSD"],
                 },
                 {
                     "owner": self.address,
-                    "values": ["2.45000008@SPY", "2134.44519763@DUSD"],
+                    "values": ["2.45000008@SPY", "2134.61303422@DUSD"],
                 },
                 {
                     "owner": self.address1,
@@ -167,7 +200,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address3,
-                    "values": ["0.99999930@SPY", "100.01673308@DUSD"],
+                    "values": ["0.99999930@SPY", "100.01673309@DUSD"],
                 },
             ],
         )
@@ -178,24 +211,25 @@ class RestartdTokensTest(DefiTestFramework):
                 "0.96000000@BTC",
                 "2.00000000@SPY",
                 "22.36066977@USDT-DFI",
-                "39633.44739507@DFI",
+                "39633.41918465@DFI",
                 "4.49999499@SPY-DUSD",
                 "455.25657402@USDT",
                 "469.34163902@USDT-DUSD",
                 "60.00000000@DUSD",
-                "631.31846070@DUSD-DFI",
+                "631.39609307@DUSD-DFI",
                 "99.99999000@BTC-DFI",
             ],
         )
+
         assert_equal(
             sorted(self.nodes[0].getaccount(lmaddress)),
             [
-                "",  # FIXME: this only appears with DF24 set, without DF24 we get DUSD commission
+                "0.00392837@DUSD",
                 "0.50000000@SPY",
                 "0.50000500@SPY-DUSD",
-                "2.05654192@DFI",
+                "2.05682280@DFI",
                 "4.74342123@USDT",
-                "4.99939023@DUSD-DFI",
+                "5.00000500@DUSD-DFI",
                 "5.00000500@USDT-DUSD",
             ],
         )
@@ -297,7 +331,7 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "owner": self.address,
-                    "values": ["4.00000068@SPY", "2169.87927888@DUSD"],
+                    "values": ["4.00000068@SPY", "2170.02855461@DUSD"],
                 },
                 {
                     "owner": self.address1,
@@ -543,7 +577,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["43.39904218@DUSD", "0.60000020@SPY"],
+                    "values": ["43.40025190@DUSD", "0.60000020@SPY"],
                 },
             ],
         )
@@ -570,14 +604,14 @@ class RestartdTokensTest(DefiTestFramework):
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
-                "127.27205533@DUSD-DFI",
+                "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "3.16226765@SPY-DUSD",
-                "3967.91379583@DUSD",
-                "39847.82162614@DFI",
+                "3968.02267057@DUSD",
+                "39847.83957863@DFI",
                 "59.00001170@SPY",
-                "854.81190994@USDT",
-                "94.86637327@USDT-DUSD",
+                "854.92730600@USDT",
+                "94.86832881@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -659,14 +693,14 @@ class RestartdTokensTest(DefiTestFramework):
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
-                "127.27205533@DUSD-DFI",
+                "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "3.16226765@SPY-DUSD",
-                "3924.51475365@DUSD",
-                "39847.82162614@DFI",
+                "3924.62241867@DUSD",
+                "39847.83957863@DFI",
                 "58.40001150@SPY",
-                "854.81190994@USDT",
-                "94.86637327@USDT-DUSD",
+                "854.92730600@USDT",
+                "94.86832881@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -684,7 +718,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.81000010@SPY", "47.19957592@DUSD"],
+            ["0.81000010@SPY", "47.20078564@DUSD"],
         )
 
         assert_equal(
@@ -708,7 +742,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["43.39904218@DUSD", "0.60000020@SPY"],
+                    "values": ["43.40025190@DUSD", "0.60000020@SPY"],
                 },
             ],
         )
@@ -735,7 +769,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["0.06000002@SPY", "43.39904218@DUSD"],
+                    "values": ["0.06000002@SPY", "43.40025190@DUSD"],
                 },
                 {
                     "owner": self.address2,
@@ -757,13 +791,13 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 "0.96000000@BTC",
                 "1.00000000@SPY-DUSD",
-                "127.27205533@DUSD-DFI",
+                "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "3924.51475365@DUSD",
-                "39847.82162614@DFI",
+                "3924.62241867@DUSD",
+                "39847.83957863@DFI",
                 "5.84000115@SPY",
-                "854.81190994@USDT",
-                "94.86637327@USDT-DUSD",
+                "854.92730600@USDT",
+                "94.86832881@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -781,7 +815,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["0.08100001@SPY", "47.19957592@DUSD"],
+            ["0.08100001@SPY", "47.20078564@DUSD"],
         )
 
     def check_td(self):
@@ -905,7 +939,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.40000117@SPY", "3905.91379583@DUSD"],
+                    "values": ["5.40000117@SPY", "3906.02267057@DUSD"],
                 },
             ],
         )
@@ -941,7 +975,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.34000116@SPY", "3862.51475366@DUSD"],
+                    "values": ["5.34000116@SPY", "3862.62241868@DUSD"],
                 },
             ],
         )
@@ -956,12 +990,12 @@ class RestartdTokensTest(DefiTestFramework):
                 "0.56000001@SPY",
                 "0.96000000@BTC",
                 "1.00000000@SPY-DUSD",
-                "105.39904217@DUSD",
-                "127.27205533@DUSD-DFI",
+                "105.40025189@DUSD",
+                "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "39847.82162614@DFI",
-                "854.81190994@USDT",
-                "94.86637327@USDT-DUSD",
+                "39847.83957863@DFI",
+                "854.92730600@USDT",
+                "94.86832881@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -979,7 +1013,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["4200.76225501@DUSD", "7.20899992@SPY"],
+            ["4200.86992003@DUSD", "7.20899992@SPY"],
         )
 
     def check_token_lock(self):
@@ -1046,8 +1080,8 @@ class RestartdTokensTest(DefiTestFramework):
                         "BTC-DFI",
                         "1",
                         "0",
-                        Decimal("1.00003380"),
-                        Decimal("9999.66200000"),
+                        Decimal("1.00003580"),
+                        Decimal("9999.64201282"),
                         100.00000000,
                     ]
                 },
@@ -1068,9 +1102,9 @@ class RestartdTokensTest(DefiTestFramework):
                         "DUSD-DFI",
                         "11",
                         "0",
-                        Decimal("266.11508035"),
-                        Decimal("60.86907436"),
-                        Decimal("127.27206533"),
+                        Decimal("266.13631958"),
+                        Decimal("60.87106908"),
+                        Decimal("127.27922962"),
                     ]
                 },
                 {
@@ -1078,9 +1112,9 @@ class RestartdTokensTest(DefiTestFramework):
                         "USDT-DUSD",
                         "2",
                         "11",
-                        Decimal("93.86799989"),
-                        Decimal("95.87538550"),
-                        Decimal("94.86638327"),
+                        Decimal("93.88082169"),
+                        Decimal("95.86624348"),
+                        Decimal("94.86833881"),
                     ]
                 },
             ],
@@ -1088,7 +1122,7 @@ class RestartdTokensTest(DefiTestFramework):
 
         assert_equal(
             self.nodes[0].getlockedtokens(self.address),
-            ["5.40000117@SPY", "3905.91379583@DUSD"],
+            ["5.40000117@SPY", "3906.02267057@DUSD"],
         )
 
         assert_equal(
@@ -1108,7 +1142,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["5.40000117@SPY", "3905.91379583@DUSD"],
+                    "values": ["5.40000117@SPY", "3906.02267057@DUSD"],
                 },
             ],
         )
@@ -1139,10 +1173,10 @@ class RestartdTokensTest(DefiTestFramework):
                 "loanSchemeId": "LOAN0001",
                 "ownerAddress": self.address1,
                 "state": "active",
-                "collateralAmounts": ["0.01000000@BTC", "11.24257533@USDT"],
+                "collateralAmounts": ["0.01000000@BTC", "11.11410052@USDT"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": Decimal("511.24257533"),
+                "collateralValue": Decimal("511.11410052"),
                 "loanValue": Decimal("0E-8"),
                 "interestValue": 0,
                 "informativeRatio": Decimal("-1.00000000"),
@@ -1191,10 +1225,10 @@ class RestartdTokensTest(DefiTestFramework):
                 "loanSchemeId": "LOAN0001",
                 "ownerAddress": self.address2,
                 "state": "active",
-                "collateralAmounts": ["0.00996611@BTC"],
+                "collateralAmounts": ["0.00996410@BTC"],
                 "loanAmounts": [],
                 "interestAmounts": [],
-                "collateralValue": Decimal("498.30550000"),
+                "collateralValue": Decimal("498.20500000"),
                 "loanValue": Decimal("0E-8"),
                 "interestValue": 0,
                 "informativeRatio": Decimal("-1.00000000"),
@@ -1226,12 +1260,12 @@ class RestartdTokensTest(DefiTestFramework):
                 "0.50000000@SPY",
                 "0.96000000@BTC",
                 "1.00000000@SPY-DUSD",
-                "127.27205533@DUSD-DFI",
+                "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
-                "39847.82162614@DFI",
+                "39847.83957863@DFI",
                 "62.00000000@DUSD",
-                "854.81190994@USDT",
-                "94.86637327@USDT-DUSD",
+                "854.92730600@USDT",
+                "94.86832881@USDT-DUSD",
                 "99.99999000@BTC-DFI",
             ],
         )
@@ -1249,7 +1283,7 @@ class RestartdTokensTest(DefiTestFramework):
         )
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
-            ["4238.96183089@DUSD", "7.19999991@SPY"],
+            ["4239.07070563@DUSD", "7.19999991@SPY"],
         )
 
     def check_upgrade_fail(self):
