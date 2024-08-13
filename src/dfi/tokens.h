@@ -249,10 +249,10 @@ public:
         static constexpr uint8_t prefix() { return 'n'; }
     };
     struct NewTokenCollateralTXID {
-        static constexpr uint8_t prefix() { return '*'; }
+        static constexpr uint8_t prefix() { return 0x7C; }
     };
     struct NewTokenCollateralID {
-        static constexpr uint8_t prefix() { return '@'; }
+        static constexpr uint8_t prefix() { return 0x7D; }
     };
 
     DCT_ID IncrementLastDctId();
