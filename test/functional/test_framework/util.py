@@ -822,7 +822,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
 
 def mine_large_block(node, utxos=None):
     """
-    Generate a ~1M transaction, and 16 of them will be close to the the 16MB block limit.
+    Generate a ~1M transaction, and 16 of them will be close to the 16MB block limit.
     """
     num = 16  # old value 14
 
