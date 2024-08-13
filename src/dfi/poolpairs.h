@@ -446,22 +446,22 @@ public:
         static constexpr uint8_t prefix() { return 'p'; }
     };
     struct ByLoanTokenLiquidityAverage {
-        static constexpr uint8_t prefix() { return '+'; }
+        static constexpr uint8_t prefix() { return 0x27; }
     };
     struct ByTotalRewardPerShare {
-        static constexpr uint8_t prefix() { return '-'; }
+        static constexpr uint8_t prefix() { return 0x28; }
     };
 
     struct ByTotalLoanRewardPerShare {
-        static constexpr uint8_t prefix() { return '='; }
+        static constexpr uint8_t prefix() { return 0x29; }
     };
 
     struct ByTotalCustomRewardPerShare {
-        static constexpr uint8_t prefix() { return '_'; }
+        static constexpr uint8_t prefix() { return 0x2A; }
     };
 
     struct ByTotalCommissionPerShare {
-        static constexpr uint8_t prefix() { return '/'; }
+        static constexpr uint8_t prefix() { return 0x7B; }
     };
 };
 
