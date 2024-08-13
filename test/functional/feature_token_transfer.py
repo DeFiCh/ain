@@ -37,6 +37,7 @@ class TokenTransferTest(DefiTestFramework):
                 "-fortcanningcrunchheight=1",
                 "-fortcanningspringheight=1",
                 "-fortcanninggreatworldheight=1",
+                "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
                 "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
