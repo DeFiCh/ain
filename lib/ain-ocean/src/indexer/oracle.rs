@@ -13,7 +13,10 @@ use rust_decimal_macros::dec;
 use crate::{
     indexer::{Context, Index, Result},
     model::{
-        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext, OraclePriceAggregated, OraclePriceActiveNextOracles, OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker
+        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
+        OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
+        OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
+        OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,

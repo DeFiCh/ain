@@ -21,7 +21,7 @@ use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::{
         ApiResponseOraclePriceFeed, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceAggregated, OraclePriceActiveNext, OraclePriceAggregatedApi,
+        OraclePriceActiveNext, OraclePriceAggregated, OraclePriceAggregatedApi,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OracleTokenCurrency, PriceOracles, PriceTickerApi,
     },

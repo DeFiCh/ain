@@ -6,10 +6,7 @@ use rust_decimal_macros::dec;
 
 use crate::{
     indexer::{Context, Index, Result},
-    model::{
-        BlockContext, OraclePriceActive, OraclePriceActiveNext,
-        OraclePriceActiveNextOracles, OraclePriceAggregated,
-    },
+    model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
     repository::RepositoryOps,
     storage::SortOrder,
@@ -138,7 +135,7 @@ fn map_active_price(
         active: active_price.clone(),
         next: next_price.clone(),
         is_live: is_live(active_price, next_price),
-        block: block.clone()
+        block: block.clone(),
     }
 }
 
@@ -157,20 +154,17 @@ pub fn perform_active_price_tick(
         .collect::<Vec<_>>();
 
     if prev_keys.is_empty() {
-        return Ok(())
+        return Ok(());
     }
 
     let Some((_, prev_id)) = prev_keys.first() else {
-        return Ok(())
+        return Ok(());
     };
 
-    let aggregated_price = services
-        .oracle_price_aggregated
-        .by_id
-        .get(prev_id)?;
+    let aggregated_price = services.oracle_price_aggregated.by_id.get(prev_id)?;
 
     let Some(aggregated_price) = aggregated_price else {
-        return Ok(())
+        return Ok(());
     };
 
     // oracle_price_active
@@ -183,20 +177,17 @@ pub fn perform_active_price_tick(
         .collect::<Vec<_>>();
 
     if prev_keys.is_empty() {
-        return Ok(())
+        return Ok(());
     }
 
     let Some((_, prev_id)) = prev_keys.first() else {
-        return Ok(())
+        return Ok(());
     };
 
-    let prev_price = services
-        .oracle_price_active
-        .by_id
-        .get(&prev_id)?;
+    let prev_price = services.oracle_price_active.by_id.get(prev_id)?;
 
     let Some(prev_price) = prev_price else {
-        return Ok(())
+        return Ok(());
     };
 
     let active_price = map_active_price(block, ticker_id, aggregated_price, prev_price);
