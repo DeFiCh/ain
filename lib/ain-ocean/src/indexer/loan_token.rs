@@ -90,7 +90,8 @@ fn is_live(active: Option<OraclePriceActiveActive>, next: Option<OraclePriceActi
 }
 
 pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-    let block_interval = match Network::Regtest {
+    let network = ain_cpp_imports::get_network();
+    let block_interval = match Network::from_str(&network)? {
         Network::Regtest => 6,
         _ => 120,
     };
