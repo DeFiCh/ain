@@ -13,11 +13,7 @@ use rust_decimal_macros::dec;
 use crate::{
     indexer::{Context, Index, Result},
     model::{
-        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
-        OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
-        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        PriceFeedsItem, PriceTicker,
+        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext, OraclePriceAggregated, OraclePriceActiveNextOracles, OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -472,10 +468,10 @@ fn map_price_aggregated(
         ),
         token,
         currency,
-        aggregated: OraclePriceAggregatedAggregated {
+        aggregated: OraclePriceActiveNext {
             amount: format!("{:.8}", aggregated_amount),
             weightage: aggregated_weightage,
-            oracles: OraclePriceAggregatedAggregatedOracles {
+            oracles: OraclePriceActiveNextOracles {
                 active: aggregated_count,
                 total: oracles_len as i32,
             },

@@ -10,18 +10,10 @@ pub struct OraclePriceActive {
     pub id: OraclePriceActiveId,
     pub key: OraclePriceActiveKey,
     pub sort: String, //height
-    pub active: Option<OraclePriceActiveActive>,
+    pub active: Option<OraclePriceActiveNext>,
     pub next: Option<OraclePriceActiveNext>,
     pub is_live: bool,
     pub block: BlockContext,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceActiveActive {
-    pub amount: String,
-    pub weightage: u8,
-    pub oracles: OraclePriceActiveActiveOracles,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -30,13 +22,6 @@ pub struct OraclePriceActiveNext {
     pub amount: String,
     pub weightage: u8,
     pub oracles: OraclePriceActiveNextOracles,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceActiveActiveOracles {
-    pub active: i32,
-    pub total: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

@@ -21,7 +21,7 @@ use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::{
         ApiResponseOraclePriceFeed, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceAggregated, OraclePriceAggregatedAggregated, OraclePriceAggregatedApi,
+        OraclePriceAggregated, OraclePriceActiveNext, OraclePriceAggregatedApi,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OracleTokenCurrency, PriceOracles, PriceTickerApi,
     },
@@ -77,7 +77,7 @@ async fn list_prices(
                     sort: price_ticker.price.sort,
                     token: price_ticker.price.token,
                     currency: price_ticker.price.currency,
-                    aggregated: OraclePriceAggregatedAggregated {
+                    aggregated: OraclePriceActiveNext {
                         amount: amount.to_string(),
                         weightage: price_ticker.price.aggregated.weightage,
                         oracles: price_ticker.price.aggregated.oracles,
@@ -120,7 +120,7 @@ async fn get_price(
                     sort: price_ticker.price.sort,
                     token: price_ticker.price.token,
                     currency: price_ticker.price.currency,
-                    aggregated: OraclePriceAggregatedAggregated {
+                    aggregated: OraclePriceActiveNext {
                         amount: amount.to_string(),
                         weightage: price_ticker.price.aggregated.weightage,
                         oracles: price_ticker.price.aggregated.oracles,
