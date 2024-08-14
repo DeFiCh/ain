@@ -99,7 +99,7 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
         let pt = services
             .price_ticker
             .by_id
-            .list(None, SortOrder::Ascending)?
+            .list(None, SortOrder::Descending)?
             .map(|item| {
                 let (_, priceticker) = item?;
                 Ok(priceticker)
