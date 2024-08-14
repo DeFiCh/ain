@@ -190,13 +190,9 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, ticker_id, aggregated_price, prev_price);
 
-    repo
-        .by_id
-        .put(&active_price.id, &active_price)?;
+    repo.by_id.put(&active_price.id, &active_price)?;
 
-    repo
-        .by_key
-        .put(&active_price.key, &active_price.id)?;
+    repo.by_key.put(&active_price.key, &active_price.id)?;
 
     Ok(())
 }
