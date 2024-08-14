@@ -144,9 +144,8 @@ pub fn perform_active_price_tick(
     ticker_id: (String, String),
     block: &BlockContext,
 ) -> Result<()> {
-    // oracle_price_aggregated
-    let prev_keys = services
-        .oracle_price_aggregated
+    let repo = &services.oracle_price_aggregated;
+    let prev_keys = repo
         .by_key
         .list(Some(ticker_id.clone()), SortOrder::Descending)?
         .take(1)
@@ -161,15 +160,14 @@ pub fn perform_active_price_tick(
         return Ok(());
     };
 
-    let aggregated_price = services.oracle_price_aggregated.by_id.get(prev_id)?;
+    let aggregated_price = repo.by_id.get(prev_id)?;
 
     let Some(aggregated_price) = aggregated_price else {
         return Ok(());
     };
 
-    // oracle_price_active
-    let prev_keys = services
-        .oracle_price_active
+    let repo = &services.oracle_price_active;
+    let prev_keys = repo
         .by_key
         .list(Some(ticker_id.clone()), SortOrder::Descending)?
         .take(1)
@@ -184,7 +182,7 @@ pub fn perform_active_price_tick(
         return Ok(());
     };
 
-    let prev_price = services.oracle_price_active.by_id.get(prev_id)?;
+    let prev_price = repo.by_id.get(prev_id)?;
 
     let Some(prev_price) = prev_price else {
         return Ok(());
@@ -192,13 +190,11 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, ticker_id, aggregated_price, prev_price);
 
-    services
-        .oracle_price_active
+    repo
         .by_id
         .put(&active_price.id, &active_price)?;
 
-    services
-        .oracle_price_active
+    repo
         .by_key
         .put(&active_price.key, &active_price.id)?;
 
