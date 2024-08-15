@@ -472,7 +472,7 @@ fn map_price_aggregated(
         token,
         currency,
         aggregated: OraclePriceActiveNext {
-            amount: format!("{:.8}", aggregated_amount),
+            amount: aggregated_amount,
             weightage: aggregated_weightage,
             oracles: OraclePriceActiveNextOracles {
                 active: aggregated_count,

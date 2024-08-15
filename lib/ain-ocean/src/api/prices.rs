@@ -23,7 +23,7 @@ use crate::{
     model::{
         ApiResponseOraclePriceFeed, BlockContext, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregated, OraclePriceAggregatedInterval,
-        OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedAggregatedOracles,
+        OraclePriceAggregatedIntervalAggregated, OraclePriceActiveNextOracles,
         OracleTokenCurrency, PriceOracles, PriceTicker,
     },
     repository::RepositoryOps,
@@ -48,7 +48,7 @@ pub struct OraclePriceAggregatedResponse {
 pub struct OraclePriceAggregatedAggregatedResponse {
     pub amount: String,
     pub weightage: u8,
-    pub oracles: OraclePriceAggregatedAggregatedOracles,
+    pub oracles: OraclePriceActiveNextOracles,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
