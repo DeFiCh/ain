@@ -51,7 +51,13 @@ pub async fn get_token_cached(
     Ok(token)
 }
 
-pub async fn list_token_cached(ctx: &Arc<AppContext>) -> Result<TokenResult> {
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("listtokens") }"#
+)]
+pub async fn list_tokens_cached(ctx: &Arc<AppContext>) -> Result<TokenResult> {
     let tokens = ctx
         .client
         .list_tokens(

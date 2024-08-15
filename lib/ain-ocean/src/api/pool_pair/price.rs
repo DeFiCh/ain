@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::{path::get_best_path, AppContext};
 use crate::{
     api::{
-        cache::{get_token_cached, list_token_cached},
+        cache::{get_token_cached, list_tokens_cached},
         common::parse_display_symbol,
     },
     error::{Error, NotFoundKind},
@@ -40,7 +40,7 @@ pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<De
         return Err(Error::UntradeableTokenError(denomination_token_info.symbol));
     };
 
-    let tokens = list_token_cached(ctx)
+    let tokens = list_tokens_cached(ctx)
         .await?
         .0
         .into_iter()
