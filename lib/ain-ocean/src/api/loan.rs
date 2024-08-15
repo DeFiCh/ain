@@ -97,11 +97,16 @@ pub struct CollateralToken {
     factor: String,
     activate_after_block: u32,
     fixed_interval_price_id: String,
-    active_price: Option<PriceTickerResponse>
+    active_price: Option<PriceTickerResponse>,
 }
 
 impl CollateralToken {
-    fn from_with_id(id: String, detail: CollateralTokenDetail, info: TokenInfo, active_price: Option<PriceTickerResponse>) -> Self {
+    fn from_with_id(
+        id: String,
+        detail: CollateralTokenDetail,
+        info: TokenInfo,
+        active_price: Option<PriceTickerResponse>,
+    ) -> Self {
         Self {
             token_id: detail.token_id,
             factor: format!("{}", detail.factor),
@@ -113,7 +118,10 @@ impl CollateralToken {
     }
 }
 
-async fn get_active_price(ctx: &Arc<AppContext>, fixed_interval_price_id: String) -> Result<Option<PriceTickerResponse>> {
+async fn get_active_price(
+    ctx: &Arc<AppContext>,
+    fixed_interval_price_id: String,
+) -> Result<Option<PriceTickerResponse>> {
     let mut parts = fixed_interval_price_id.split('/');
     let token = parts
         .next()
@@ -123,14 +131,10 @@ async fn get_active_price(ctx: &Arc<AppContext>, fixed_interval_price_id: String
         .next()
         .context("Invalid fixed interval price id structure")?
         .to_string();
-    let price = ctx
-        .services
-        .price_ticker
-        .by_id
-        .get(&(token, currency))?;
+    let price = ctx.services.price_ticker.by_id.get(&(token, currency))?;
 
     let Some(active_price) = price else {
-        return Ok(None)
+        return Ok(None);
     };
 
     Ok(Some(PriceTickerResponse::from(active_price)))
@@ -176,7 +180,8 @@ async fn get_collateral_token(
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
         .context("None is not valid")?;
-    let active_price = get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
+    let active_price =
+        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
