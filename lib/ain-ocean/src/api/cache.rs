@@ -130,7 +130,12 @@ pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsRe
     Ok(pool_pairs)
 }
 
-#[cached(result = true, time = 600, key = "String", convert = r#"{ format!("gov{id}") }"#)]
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("getgov{id}") }"#
+)]
 pub async fn get_gov_cached(
     ctx: &Arc<AppContext>,
     id: String,
