@@ -16,6 +16,7 @@ use crate::Result;
 
 #[cached(
     result = true,
+    time = 600,
     key = "String",
     convert = r#"{ format!("gettoken{symbol}") }"#
 )]
@@ -68,6 +69,7 @@ pub async fn list_token_cached(ctx: &Arc<AppContext>) -> Result<TokenResult> {
 
 #[cached(
     result = true,
+    time = 600,
     key = "String",
     convert = r#"{ format!("getpoolpair{id}") }"#
 )]
@@ -122,7 +124,7 @@ pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsRe
     Ok(pool_pairs)
 }
 
-#[cached(result = true, key = "String", convert = r#"{ format!("gov{id}") }"#)]
+#[cached(result = true, time = 600, key = "String", convert = r#"{ format!("gov{id}") }"#)]
 pub async fn get_gov_cached(
     ctx: &Arc<AppContext>,
     id: String,
@@ -133,6 +135,7 @@ pub async fn get_gov_cached(
 
 #[cached(
     result = true,
+    time = 600,
     key = "String",
     convert = r#"{ format!("getloanscheme{id}") }"#
 )]
