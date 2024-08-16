@@ -276,24 +276,24 @@ async fn list_pool_pairs(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PoolPairResponse>> {
-    let next = query
-        .next
-        .map(|n| n.parse::<u64>())
-        .transpose()?;
+    let next = query.next.map(|n| n.parse::<u64>()).transpose()?;
 
     let mut pools = list_pool_pairs_cached(&ctx, Some(query.size as u64), next).await?;
     if pools.0.is_empty() {
-        pools = ctx.client.call(
-            "listpoolpairs",
-            &[
-                json!({
-                    "limit": query.size,
-                    "start": next.unwrap_or_default(),
-                    "including_start": next.is_none()
-                }),
-                true.into(),
-            ],
-        ).await?;
+        pools = ctx
+            .client
+            .call(
+                "listpoolpairs",
+                &[
+                    json!({
+                        "limit": query.size,
+                        "start": next.unwrap_or_default(),
+                        "including_start": next.is_none()
+                    }),
+                    true.into(),
+                ],
+            )
+            .await?;
     }
 
     let fut = pools
