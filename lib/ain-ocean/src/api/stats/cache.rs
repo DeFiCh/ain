@@ -307,7 +307,7 @@ pub struct Tvl {
 pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
     // dex
     let mut dex = dec!(0);
-    let pools = list_pool_pairs_cached(ctx, None).await?.0;
+    let pools = list_pool_pairs_cached(ctx, None, None).await?.0;
     for (_, info) in pools {
         let total_liquidity_usd = get_total_liquidity_usd(ctx, &info).await?;
         dex += total_liquidity_usd;
