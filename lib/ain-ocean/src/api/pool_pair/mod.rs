@@ -7,10 +7,7 @@ use ain_macros::ocean_endpoint;
 use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
-    json::{
-        poolpair::{PoolPairInfo, PoolPairsResult},
-        token::TokenInfo,
-    },
+    json::{poolpair::PoolPairInfo, token::TokenInfo},
     RpcApi,
 };
 use futures::future::try_join_all;

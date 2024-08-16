@@ -116,7 +116,10 @@ pub async fn get_pool_pair_cached(
     key = "String",
     convert = r#"{ format!("listpoolpairs{limit:?}") }"#
 )]
-pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>, limit: Option<u64>) -> Result<PoolPairsResult> {
+pub async fn list_pool_pairs_cached(
+    ctx: &Arc<AppContext>,
+    limit: Option<u64>,
+) -> Result<PoolPairsResult> {
     let pool_pairs = ctx
         .client
         .list_pool_pairs(
