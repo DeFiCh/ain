@@ -25,29 +25,10 @@ class RestartdTokensTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            [
+            DefiTestFramework.fork_params_till(21)
+            + [
                 "-txnotokens=0",
                 "-subsidytest=1",
-                "-amkheight=1",
-                "-bayfrontheight=1",
-                "-bayfrontmarinaheight=1",
-                "-bayfrontgardensheight=1",
-                "-clarkequayheight=1",
-                "-dakotaheight=1",
-                "-dakotacrescentheight=1",
-                "-eunosheight=1",
-                "-eunospayaheight=1",
-                "-fortcanningheight=1",
-                "-fortcanningmuseumheight=1",
-                "-fortcanningparkheight=1",
-                "-fortcanninghillheight=1",
-                "-fortcanningroadheight=1",
-                "-fortcanningcrunchheight=1",
-                "-fortcanningspringheight=1",
-                "-fortcanninggreatworldheight=1",
-                "-fortcanningepilogueheight=1",
-                "-grandcentralheight=1",
-                "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
                 "-df23height=150",  # must have 50 diff to metachain start, no idea why
                 "-df24height=990",
@@ -176,6 +157,8 @@ class RestartdTokensTest(DefiTestFramework):
 
         sort = [lmaddress, self.address, self.address1, self.address2, self.address3]
 
+        # FIXME: check why sometimes (very rare cases) commission seems to be paid double to the LM address.
+
         assert_equal(
             sorted(
                 self.nodes[0].listlockedtokens(),
@@ -206,6 +189,19 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
         assert_equal(
+            sorted(self.nodes[0].getaccount(lmaddress)),
+            [
+                "0.00392837@DUSD",
+                "0.50000000@SPY",
+                "0.50000500@SPY-DUSD",
+                "2.05682280@DFI",
+                "4.74342123@USDT",
+                "5.00000500@DUSD-DFI",
+                "5.00000500@USDT-DUSD",
+            ],
+        )
+
+        assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.96000000@BTC",
@@ -218,19 +214,6 @@ class RestartdTokensTest(DefiTestFramework):
                 "60.00000000@DUSD",
                 "631.39609307@DUSD-DFI",
                 "99.99999000@BTC-DFI",
-            ],
-        )
-
-        assert_equal(
-            sorted(self.nodes[0].getaccount(lmaddress)),
-            [
-                "0.00392837@DUSD",
-                "0.50000000@SPY",
-                "0.50000500@SPY-DUSD",
-                "2.05682280@DFI",
-                "4.74342123@USDT",
-                "5.00000500@DUSD-DFI",
-                "5.00000500@USDT-DUSD",
             ],
         )
 

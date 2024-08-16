@@ -367,6 +367,37 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
             shutil.rmtree(self.options.tmpdir)
         sys.exit(exit_code)
 
+    @staticmethod
+    def fork_params_till(fork_number):
+
+        if fork_number >= 9:
+            fork_number -= 1  # DF9EunosKampungHeight = DF8EunosHeight
+        return [
+            "-amkheight=1",
+            "-bayfrontheight=1",
+            "-bayfrontmarinaheight=1",
+            "-bayfrontgardensheight=1",
+            "-clarkequayheight=1",
+            "-dakotaheight=1",
+            "-dakotacrescentheight=1",
+            "-eunosheight=1",
+            "-eunospayaheight=1",
+            "-fortcanningheight=1",
+            "-fortcanningmuseumheight=1",
+            "-fortcanningparkheight=1",
+            "-fortcanninghillheight=1",
+            "-fortcanningroadheight=1",
+            "-fortcanningcrunchheight=1",
+            "-fortcanningspringheight=1",
+            "-fortcanninggreatworldheight=1",
+            "-fortcanningepilogueheight=1",
+            "-grandcentralheight=1",
+            "-grandcentralepilogueheight=1",
+            "-metachainheight=1",
+            "-df23height=1",
+            "-df24height=1",
+        ][:fork_number]
+
     # Methods to override in subclass test scripts.
     def set_test_params(self):
         """Tests must this method to change default values for number of nodes, topology, etc"""
