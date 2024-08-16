@@ -1588,7 +1588,15 @@ void ConsolidateRewards(CCustomCSView &view,
     std::atomic<uint64_t> tasksCompleted{0};
     std::atomic<uint64_t> reportedTs{0};
 
+    std::set<CScript> uniqueOwners;
+
     for (auto &[owner, amount] : items) {
+        if (uniqueOwners.count(owner) > 0) {
+            LogPrintf("Warning: got double entry in ConsolidateRewards\n");
+        }
+        uniqueOwners.emplace(owner);
+    }
+    for (auto &owner : uniqueOwners) {
         // See https://github.com/DeFiCh/ain/pull/1291
         // https://github.com/DeFiCh/ain/pull/1291#issuecomment-1137638060
         // Technically not fully synchronized, but avoid races

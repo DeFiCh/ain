@@ -157,8 +157,6 @@ class RestartdTokensTest(DefiTestFramework):
 
         sort = [lmaddress, self.address, self.address1, self.address2, self.address3]
 
-        # FIXME: check why sometimes (very rare cases) commission seems to be paid double to the LM address.
-
         assert_equal(
             sorted(
                 self.nodes[0].listlockedtokens(),
