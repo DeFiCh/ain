@@ -488,7 +488,7 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(120));
 
     loop {
-        let pools = list_pool_pairs_cached(ctx).await?;
+        let pools = list_pool_pairs_cached(ctx, None).await?;
 
         // addTokensAndConnectionsToGraph
         for (k, v) in pools.0 {

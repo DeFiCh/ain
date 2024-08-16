@@ -114,16 +114,16 @@ pub async fn get_pool_pair_cached(
     result = true,
     time = 600,
     key = "String",
-    convert = r#"{ format!("listpoolpairs") }"#
+    convert = r#"{ format!("listpoolpairs{limit:?}") }"#
 )]
-pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsResult> {
+pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>, limit: Option<u64>) -> Result<PoolPairsResult> {
     let pool_pairs = ctx
         .client
         .list_pool_pairs(
             Some(PoolPairPagination {
                 start: 0,
                 including_start: true,
-                limit: 1000,
+                limit: limit.unwrap_or(1000),
             }),
             Some(true),
         )
