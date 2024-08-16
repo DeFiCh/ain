@@ -106,9 +106,6 @@ pub async fn ocean_router(
         network: Network::from_str(&network)?,
     });
 
-    let context_cloned = context.clone();
-    tokio::spawn(async move { pool_pair::path::sync_token_graph(&context_cloned).await });
-
     Ok(Router::new().nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()

@@ -40,7 +40,7 @@ pub struct Burned {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("burned") }"#
 )]
@@ -78,7 +78,7 @@ pub struct Count {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("count") }"#
 )]
@@ -129,7 +129,7 @@ lazy_static::lazy_static! {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("burned_total") }"#
 )]
@@ -178,7 +178,7 @@ pub struct Emission {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("emission") }"#
 )]
@@ -227,7 +227,7 @@ pub struct Loan {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("loan") }"#
 )]
@@ -263,7 +263,7 @@ pub struct Masternodes {
 
 #[cached(
     result = true,
-    time = 1800,
+    time = 600,
     key = "String",
     convert = r#"{ format!("masternodes") }"#
 )]
@@ -300,7 +300,7 @@ pub struct Tvl {
 
 #[cached(
     result = true,
-    time = 300,
+    time = 600,
     key = "String",
     convert = r#"{ format!("tvl") }"#
 )]
@@ -344,7 +344,7 @@ pub struct Price {
 
 #[cached(
     result = true,
-    time = 300,
+    time = 600,
     key = "String",
     convert = r#"{ format!("price") }"#
 )]
