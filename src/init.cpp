@@ -2194,25 +2194,25 @@ bool AppInitMain(InitInterfaces& interfaces)
                 return false;
             }
 
-            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            std::set<CScript> ownersToConsolidate;
             pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
                 if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
-                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                    ownersToConsolidate.emplace(owner);
                 }
                 return true;
             });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
         if (fullRewardConsolidation) {
             LogPrintf("Consolidate rewards for all addresses..\n");
-            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            pcustomcsview->ForEachBalance([&](CScript const& owner, CTokenAmount balance) {
+            std::set<CScript> ownersToConsolidate;
+            pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
                 if (balance.nValue > 0) {
-                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                    ownersToConsolidate.emplace(owner);
                 }
                 return true;
             });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
         pcustomcsview->Flush();
     }

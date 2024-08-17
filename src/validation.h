@@ -927,7 +927,7 @@ Res AddNonTxToBurnIndex(const CScript &from, const CBalances &amounts);
 
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::vector<std::pair<CScript, CAmount>> &items,
+                        const std::set<CScript> &owners,
                         bool interruptOnShutdown,
                         int numWorkers = 0);
 
