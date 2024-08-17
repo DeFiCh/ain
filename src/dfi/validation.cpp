@@ -1544,7 +1544,7 @@ size_t RewardConsolidationWorkersCount() {
 // in lower versions of gcc or across clang.
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::vector<std::pair<CScript, CAmount>> &items,
+                        const std::set<CScript> &owners,
                         bool interruptOnShutdown,
                         int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
@@ -1554,7 +1554,7 @@ void ConsolidateRewards(CCustomCSView &view,
     std::atomic<uint64_t> tasksCompleted{0};
     std::atomic<uint64_t> reportedTs{0};
 
-    for (auto &[owner, amount] : items) {
+    for (auto &owner : owners) {
         // See https://github.com/DeFiCh/ain/pull/1291
         // https://github.com/DeFiCh/ain/pull/1291#issuecomment-1137638060
         // Technically not fully synchronized, but avoid races
@@ -1579,9 +1579,9 @@ void ConsolidateRewards(CCustomCSView &view,
                 const auto logTimeIntervalMillis = 3 * 1000;
                 if (GetTimeMillis() - reportedTs > logTimeIntervalMillis) {
                     LogPrintf("Reward consolidation: %.2f%% completed (%d/%d)\n",
-                              (itemsCompleted * 1.f / items.size()) * 100.0,
+                              (itemsCompleted * 1.f / owners.size()) * 100.0,
                               itemsCompleted,
-                              items.size());
+                              owners.size());
                     reportedTs.store(GetTimeMillis(), std::memory_order::memory_order_relaxed);
                 }
             });
@@ -1713,10 +1713,12 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
+            std::set<CScript> ownersToConsolidate;
             uint64_t totalAccounts = 0;
             view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
                 if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
                     balancesToMigrate.emplace_back(owner, balance.nValue);
+                    ownersToConsolidate.emplace(owner);
                 }
                 totalAccounts++;
                 return true;
@@ -1735,7 +1737,7 @@ static Res PoolSplits(CCustomCSView &view,
                           return a.second > b.second;
                       });
 
-            ConsolidateRewards(view, pindex->nHeight, balancesToMigrate, false, nWorkers);
+            ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
 
             // Special case. No liquidity providers in a previously used pool.
             if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
