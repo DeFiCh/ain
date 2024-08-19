@@ -1713,31 +1713,31 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            std::set<CScript> ownersToConsolidate;
-            uint64_t totalAccounts = 0;
-            view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
-                if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
-                    balancesToMigrate.emplace_back(owner, balance.nValue);
-                    ownersToConsolidate.emplace(owner);
-                }
-                totalAccounts++;
-                return true;
-            });
+            {
+                std::set<CScript> ownersToConsolidate;
+                uint64_t totalAccounts = 0;
+                view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
+                    if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
+                        balancesToMigrate.emplace_back(owner, balance.nValue);
+                        ownersToConsolidate.emplace(owner);
+                    }
+                    totalAccounts++;
+                    return true;
+                });
 
-            auto nWorkers = RewardConsolidationWorkersCount();
-            LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d, concurrency: %d)..\n",
-                      balancesToMigrate.size(),
-                      totalAccounts,
-                      nWorkers);
-
+                auto nWorkers = RewardConsolidationWorkersCount();
+                LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d, concurrency: %d)..\n",
+                          ownersToConsolidate.size(),
+                          totalAccounts,
+                          nWorkers);
+                ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
+            }
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(),
                       balancesToMigrate.end(),
                       [](const std::pair<CScript, CAmount> &a, const std::pair<CScript, CAmount> &b) {
                           return a.second > b.second;
                       });
-
-            ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
 
             // Special case. No liquidity providers in a previously used pool.
             if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
