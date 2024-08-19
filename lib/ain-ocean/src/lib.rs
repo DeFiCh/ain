@@ -19,7 +19,7 @@ use repository::{
     OracleHistoryRepository, OracleHistoryRepositoryKey, OraclePriceActiveKeyRepository,
     OraclePriceActiveRepository, OraclePriceAggregatedIntervalKeyRepository,
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
-    OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
+    OraclePriceAggregatedRepositoryKey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
     PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
@@ -102,7 +102,7 @@ pub struct OraclePriceAggregatedIntervalService {
     by_id: OraclePriceAggregatedIntervalRepository,
 }
 pub struct OraclePriceAggregatedService {
-    by_key: OraclePriceAggregatedRepositorykey,
+    by_key: OraclePriceAggregatedRepositoryKey,
     by_id: OraclePriceAggregatedRepository,
 }
 
@@ -217,7 +217,7 @@ impl Services {
                 by_id: OraclePriceAggregatedIntervalRepository::new(Arc::clone(&store)),
             },
             oracle_price_aggregated: OraclePriceAggregatedService {
-                by_key: OraclePriceAggregatedRepositorykey::new(Arc::clone(&store)),
+                by_key: OraclePriceAggregatedRepositoryKey::new(Arc::clone(&store)),
                 by_id: OraclePriceAggregatedRepository::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {

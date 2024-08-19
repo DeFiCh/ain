@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use super::BlockContext;
+use super::{BlockContext, OraclePriceActiveNext};
+
 pub type OraclePriceAggregatedId = (String, String, u32); //token-currency-height
 pub type OraclePriceAggregatedKey = (String, String); //token-currency
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregated {
@@ -11,23 +13,8 @@ pub struct OraclePriceAggregated {
     pub sort: String,
     pub token: String,
     pub currency: String,
-    pub aggregated: OraclePriceAggregatedAggregated,
+    pub aggregated: OraclePriceActiveNext,
     pub block: BlockContext,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceAggregatedAggregated {
-    pub amount: String,
-    pub weightage: u8,
-    pub oracles: OraclePriceAggregatedAggregatedOracles,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceAggregatedAggregatedOracles {
-    pub active: i32,
-    pub total: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,6 +25,6 @@ pub struct OraclePriceAggregatedApi {
     pub sort: String,
     pub token: String,
     pub currency: String,
-    pub aggregated: OraclePriceAggregatedAggregated,
+    pub aggregated: OraclePriceActiveNext,
     pub block: BlockContext,
 }
