@@ -13,11 +13,10 @@ use rust_decimal_macros::dec;
 use crate::{
     indexer::{Context, Index, Result},
     model::{
-        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
-        OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
-        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        PriceFeedsItem, PriceTicker,
+        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
+        OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
+        OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
+        OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -472,10 +471,10 @@ fn map_price_aggregated(
         ),
         token,
         currency,
-        aggregated: OraclePriceAggregatedAggregated {
+        aggregated: OraclePriceActiveNext {
             amount: format!("{:.8}", aggregated_amount),
             weightage: aggregated_weightage,
-            oracles: OraclePriceAggregatedAggregatedOracles {
+            oracles: OraclePriceActiveNextOracles {
                 active: aggregated_count,
                 total: oracles_len as i32,
             },
@@ -504,7 +503,7 @@ fn index_set_oracle_data(
             price_aggregated.currency.clone(),
         );
         let id = (key.0.clone(), key.1.clone(), price_aggregated.block.height);
-        // oracle_repo.by_key.put(&key, &id)?;
+        oracle_repo.by_key.put(&key, &id)?;
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
         let id = (

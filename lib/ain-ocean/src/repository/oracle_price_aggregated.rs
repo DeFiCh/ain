@@ -19,7 +19,7 @@ pub struct OraclePriceAggregatedRepository {
 
 #[derive(Repository)]
 #[repository(K = "OraclePriceAggregatedKey", V = "OraclePriceAggregatedId")]
-pub struct OraclePriceAggregatedRepositorykey {
+pub struct OraclePriceAggregatedRepositoryKey {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceAggregatedKey>,
 }
