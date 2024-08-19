@@ -245,10 +245,9 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
 }
 
 pub fn dst20_name_info(dvm_block: u64, name: &str, symbol: &str) -> Vec<(H256, H256)> {
-    let contract_address = if dvm_block >= ain_cpp_imports::get_df23_height() {
-        get_dst20_v2_contract().fixed_address
-    } else {
-        get_dst20_v1_contract().fixed_address
+    let contract_address = match dvm_block >= ain_cpp_imports::get_df23_height() {
+        true => get_dst20_v2_contract().fixed_address,
+        false => get_dst20_v1_contract().fixed_address,
     };
 
     vec![
