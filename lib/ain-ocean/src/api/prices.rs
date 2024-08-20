@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
@@ -10,6 +10,7 @@ use axum::{
 };
 use indexmap::IndexSet;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use super::{
     common::split_key,
@@ -20,21 +21,74 @@ use super::{
 use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::{
-        ApiResponseOraclePriceFeed, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceActiveNext, OraclePriceAggregated, OraclePriceAggregatedApi,
-        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OracleTokenCurrency, PriceOracles, PriceTickerApi,
+        ApiResponseOraclePriceFeed, BlockContext, OracleIntervalSeconds, OraclePriceActive,
+        OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
+        OraclePriceAggregatedIntervalAggregated, OracleTokenCurrency, PriceOracles, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,
     Result,
 };
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedResponse {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub token: String,
+    pub currency: String,
+    pub aggregated: OraclePriceAggregatedAggregatedResponse,
+    pub block: BlockContext,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedAggregatedResponse {
+    pub amount: String,
+    pub weightage: u8,
+    pub oracles: OraclePriceActiveNextOracles,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PriceTickerResponse {
+    pub id: String,   //token-currency
+    pub sort: String, //count-height-token-currency
+    pub price: OraclePriceAggregatedResponse,
+}
+
+impl From<PriceTicker> for PriceTickerResponse {
+    fn from(price_ticker: PriceTicker) -> Self {
+        let amount = price_ticker.price.aggregated.amount / Decimal::from(COIN);
+        Self {
+            id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
+            sort: price_ticker.sort,
+            price: OraclePriceAggregatedResponse {
+                id: format!(
+                    "{}-{}-{}",
+                    price_ticker.price.id.0, price_ticker.price.id.1, price_ticker.price.id.2
+                ),
+                key: format!("{}-{}", price_ticker.price.key.0, price_ticker.price.key.1),
+                sort: price_ticker.price.sort,
+                token: price_ticker.price.token,
+                currency: price_ticker.price.currency,
+                aggregated: OraclePriceAggregatedAggregatedResponse {
+                    amount: format!("{:.8}", amount),
+                    weightage: price_ticker.price.aggregated.weightage,
+                    oracles: price_ticker.price.aggregated.oracles,
+                },
+                block: price_ticker.price.block,
+            },
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<PriceTickerApi>> {
+) -> Result<ApiPagedResponse<PriceTickerResponse>> {
     let sorted_ids = ctx
         .services
         .price_ticker
@@ -63,28 +117,7 @@ async fn list_prices(
                 .get(&id)?
                 .context("Missing price ticker index")?;
 
-            let amount =
-                Decimal::from_str(&price_ticker.price.aggregated.amount)? / Decimal::from(COIN);
-            Ok(PriceTickerApi {
-                id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
-                sort: price_ticker.sort,
-                price: OraclePriceAggregatedApi {
-                    id: format!(
-                        "{}-{}-{}",
-                        price_ticker.price.id.0, price_ticker.price.id.1, price_ticker.price.id.2
-                    ),
-                    key: format!("{}-{}", price_ticker.price.key.0, price_ticker.price.key.1),
-                    sort: price_ticker.price.sort,
-                    token: price_ticker.price.token,
-                    currency: price_ticker.price.currency,
-                    aggregated: OraclePriceActiveNext {
-                        amount: amount.to_string(),
-                        weightage: price_ticker.price.aggregated.weightage,
-                        oracles: price_ticker.price.aggregated.oracles,
-                    },
-                    block: price_ticker.price.block,
-                },
-            })
+            Ok(PriceTickerResponse::from(price_ticker))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -96,7 +129,7 @@ async fn list_prices(
 async fn get_price(
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<PriceTickerApi>> {
+) -> Result<Response<PriceTickerResponse>> {
     let (token, currency) = match split_key(&key) {
         Ok((t, c)) => (t, c),
         Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
@@ -106,29 +139,7 @@ async fn get_price(
         if price_ticker.price.token.eq(&price_ticker_id.0)
             && price_ticker.price.currency.eq(&price_ticker_id.1)
         {
-            let amount =
-                Decimal::from_str(&price_ticker.price.aggregated.amount)? / Decimal::from(COIN);
-            let ticker = PriceTickerApi {
-                id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
-                sort: price_ticker.sort,
-                price: OraclePriceAggregatedApi {
-                    id: format!(
-                        "{}-{}-{}",
-                        price_ticker.price.id.0, price_ticker.price.id.1, price_ticker.price.id.2
-                    ),
-                    key: format!("{}-{}", price_ticker.price.key.0, price_ticker.price.key.1),
-                    sort: price_ticker.price.sort,
-                    token: price_ticker.price.token,
-                    currency: price_ticker.price.currency,
-                    aggregated: OraclePriceActiveNext {
-                        amount: amount.to_string(),
-                        weightage: price_ticker.price.aggregated.weightage,
-                        oracles: price_ticker.price.aggregated.oracles,
-                    },
-                    block: price_ticker.price.block,
-                },
-            };
-            Ok(Response::new(ticker))
+            Ok(Response::new(PriceTickerResponse::from(price_ticker)))
         } else {
             Err(Error::NotFound(NotFoundKind::Oracle))
         }

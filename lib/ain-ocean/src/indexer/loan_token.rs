@@ -61,13 +61,9 @@ fn is_live(active: Option<OraclePriceActiveNext>, next: Option<OraclePriceActive
         return false;
     };
 
-    let Ok(active_price) = Decimal::from_str(&active.amount) else {
-        return false;
-    };
+    let active_price = active.amount;
 
-    let Ok(next_price) = Decimal::from_str(&next.amount) else {
-        return false;
-    };
+    let next_price = next.amount;
 
     if active_price <= Decimal::zero() {
         return false;

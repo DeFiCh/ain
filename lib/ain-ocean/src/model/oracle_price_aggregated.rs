@@ -16,15 +16,3 @@ pub struct OraclePriceAggregated {
     pub aggregated: OraclePriceActiveNext,
     pub block: BlockContext,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceAggregatedApi {
-    pub id: String,
-    pub key: String,
-    pub sort: String,
-    pub token: String,
-    pub currency: String,
-    pub aggregated: OraclePriceActiveNext,
-    pub block: BlockContext,
-}
