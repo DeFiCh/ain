@@ -7,10 +7,7 @@ use ain_macros::ocean_endpoint;
 use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
-    json::{
-        poolpair::{PoolPairInfo, PoolPairsResult},
-        token::TokenInfo,
-    },
+    json::{poolpair::PoolPairInfo, token::TokenInfo},
     RpcApi,
 };
 use futures::future::try_join_all;
@@ -30,7 +27,7 @@ use service::{
 };
 
 use super::{
-    cache::{get_pool_pair_cached, get_token_cached},
+    cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
     common::parse_dat_symbol,
     path::Path,
     query::{PaginationQuery, Query},
@@ -279,17 +276,25 @@ async fn list_pool_pairs(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PoolPairResponse>> {
-    let pools: PoolPairsResult = ctx.client.call(
-        "listpoolpairs",
-        &[
-            json!({
-                "limit": query.size,
-                "start": query.next.as_ref().and_then(|n| n.parse::<u32>().ok()).unwrap_or_default(),
-                "including_start": query.next.is_none()
-            }),
-            true.into(),
-        ],
-    ).await?;
+    let next = query.next.map(|n| n.parse::<u64>()).transpose()?;
+
+    let mut pools = list_pool_pairs_cached(&ctx, Some(query.size as u64), next).await?;
+    if pools.0.is_empty() {
+        pools = ctx
+            .client
+            .call(
+                "listpoolpairs",
+                &[
+                    json!({
+                        "limit": query.size,
+                        "start": next.unwrap_or_default(),
+                        "including_start": next.is_none()
+                    }),
+                    true.into(),
+                ],
+            )
+            .await?;
+    }
 
     let fut = pools
         .0
