@@ -1,7 +1,8 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::{format_err, Context};
+// use anyhow::{format_err, Context};
+use snafu::{OptionExt, Snafu};
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -124,7 +125,10 @@ async fn get_active_price(
     let mut parts = fixed_interval_price_id.split('/');
     let token = parts
         .next()
-        .context("Invalid fixed interval price id structure")?
+        // .context("Invalid fixed interval price id structure")?
+        .context(Error::Other {
+            message: "Invalid fixed interval price id structure".to_string(),
+        })?
         .to_string();
     let currency = parts
         .next()

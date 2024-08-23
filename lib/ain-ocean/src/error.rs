@@ -1,19 +1,13 @@
-use std::{
-    fmt,
-    num::{ParseFloatError, ParseIntError},
-};
-
-use ain_db::DBError;
 use anyhow::format_err;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
 use serde_json::json;
-use thiserror::Error;
+// use thiserror::Error;
+use snafu::{Location, Snafu};
 
 #[derive(Debug)]
 pub enum IndexAction {
@@ -21,8 +15,8 @@ pub enum IndexAction {
     Invalidate,
 }
 
-impl fmt::Display for IndexAction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for IndexAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             IndexAction::Index => write!(f, "index"),
             IndexAction::Invalidate => write!(f, "invalidate"),
@@ -30,78 +24,198 @@ impl fmt::Display for IndexAction {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum NotFoundKind {
-    #[error("proposal")]
     Proposal,
-    #[error("masternode")]
     Masternode,
-    #[error("scheme")]
     Scheme,
-    #[error("oracle")]
     Oracle,
-    #[error("token")]
     Token,
-    #[error("poolpair")]
     PoolPair,
-    #[error("rawtx")]
     RawTx,
 }
 
-#[derive(Error, Debug)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("Ocean: Bincode error: {0:?}")]
-    BincodeError(#[from] bincode::Error),
-    #[error("Ocean: HexToArrayError error: {0:?}")]
-    HexToArrayError(#[from] HexToArrayError),
-    #[error("Ocean: ParseIntError error: {0:?}")]
-    ParseIntError(#[from] ParseIntError),
-    #[error("Ocean: ParseFloatError error: {0:?}")]
-    ParseFloatError(#[from] ParseFloatError),
-    #[error("Ocean: DBError error: {0:?}")]
-    DBError(#[from] DBError),
-    #[error("Ocean: IO error: {0:?}")]
-    IOError(#[from] std::io::Error),
-    #[error("Ocean: FromHexError error: {0:?}")]
-    FromHexError(#[from] hex::FromHexError),
-    #[error("Ocean: Consensus encode error: {0:?}")]
-    ConsensusEncodeError(#[from] bitcoin::consensus::encode::Error),
-    #[error("Ocean: jsonrpsee error: {0:?}")]
-    JsonrpseeError(#[from] jsonrpsee::core::Error),
-    #[error("Ocean: serde_json error: {0:?}")]
-    SerdeJSONError(#[from] serde_json::Error),
-    #[error("Ocean: RPC error: {0:?}")]
-    RpcError(#[from] defichain_rpc::Error),
-    #[error("Unable to find {0:}")]
-    NotFound(NotFoundKind),
-    #[error(
-        "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
-    )]
-    NotFoundIndex(IndexAction, String, String),
-    #[error("Ocean: Decimal error: {0:?}")]
-    DecimalError(#[from] rust_decimal::Error),
-    #[error("Decimal conversion error")]
+    // #[snafu(display("{username} may not log in until they pay USD {amount:E}"))]
+    AddressParseError {
+        source: bitcoin::address::error::ParseError,
+        location: Location,
+    },
+    BincodeError {
+        source: bincode::Error,
+        location: Location,
+    },
+    BitcoinAddressError {
+        source: bitcoin::address::Error,
+        location: Location,
+    },
+    BitcoinConsensusEncodeError {
+        source: bitcoin::consensus::encode::Error,
+        location: Location,
+    },
+    BitcoinHexToArrayError {
+        source: bitcoin::hex::HexToArrayError,
+        location: Location,
+    },
+    DecimalError {
+        source: rust_decimal::Error,
+        location: Location,
+    },
+    // #[snafu(context(false))]
+    // #[snafu(transparent)]
+    DBError {
+        source: ain_db::DBError,
+        location: Location,
+    },
+    FromHexError {
+        source: hex::FromHexError,
+        location: Location,
+    },
+    IOError {
+        source: std::io::Error,
+        location: Location,
+    },
+    JsonrpseeError {
+        source: jsonrpsee::core::Error,
+        location: Location,
+    },
+    ParseIntError {
+        source: std::num::ParseIntError,
+        location: Location,
+    },
+    ParseFloatError {
+        source: std::num::ParseFloatError,
+        location: Location,
+    },
+    RpcError {
+        source: defichain_rpc::Error,
+        location: Location,
+    },
+    SerdeJsonError {
+        source: serde_json::Error,
+        location: Location,
+    },
+    TryFromIntError {
+        source: std::num::TryFromIntError,
+        location: Location,
+    },
+    NotFound,
+    NotFoundIndex,
     DecimalConversionError,
-    #[error("Ocean: Overflow error")]
     OverflowError,
-    #[error("Ocean: Underflow error")]
     UnderflowError,
-    #[error("Error fetching primary value")]
     SecondaryIndex,
-    #[error("Token {0:?} is invalid as it is not tradeable")]
-    UntradeableTokenError(String),
-    #[error("Ocean: BitcoinAddressError: {0:?}")]
-    BitcoinAddressError(#[from] bitcoin::address::Error),
-    #[error("Ocean: TryFromIntError: {0:?}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
-    #[error("{0:}")]
-    AddressParseError(#[from] bitcoin::address::error::ParseError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    #[error("{0}")]
-    BadRequest(String),
+    UntradeableTokenError,
+    ValidationError,
+    BadRequest {
+        message: String
+    },
+    // #[error("Unable to find {0:}")]
+    // NotFound(NotFoundKind),
+    // #[error(
+    //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
+    // )]
+    // NotFoundIndex(IndexAction, String, String),
+    Other {
+        message: String,
+    },
+}
+
+impl From<bincode::Error> for Error {
+    fn from(error: bincode::Error) -> Self {
+        Self::BincodeError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<bitcoin::address::Error> for Error {
+    fn from(error: bitcoin::address::Error) -> Self {
+        Self::BitcoinAddressError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<bitcoin::consensus::encode::Error> for Error {
+    fn from(error: bitcoin::consensus::encode::Error) -> Self {
+        Self::BitcoinConsensusEncodeError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<bitcoin::hex::HexToArrayError> for Error {
+    fn from(error: bitcoin::hex::HexToArrayError) -> Self {
+        Self::BitcoinHexToArrayError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<rust_decimal::Error> for Error {
+    fn from(error: rust_decimal::Error ) -> Self {
+        Self::DecimalError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<ain_db::DBError> for Error {
+    fn from(error: ain_db::DBError) -> Self {
+        Self::DBError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<hex::FromHexError> for Error {
+    fn from(error: hex::FromHexError) -> Self {
+        Self::FromHexError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(error: std::io::Error) -> Self {
+        Self::IOError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<jsonrpsee::core::Error> for Error {
+    fn from(error: jsonrpsee::core::Error) -> Self {
+        Self::JsonrpseeError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<std::num::ParseIntError> for Error {
+    fn from(error: std::num::ParseIntError) -> Self {
+        Self::ParseIntError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<std::num::ParseFloatError> for Error {
+    fn from(error: std::num::ParseFloatError) -> Self {
+        Self::ParseFloatError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<defichain_rpc::Error> for Error {
+    fn from(error: defichain_rpc::Error) -> Self {
+        Self::RpcError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(error: serde_json::Error) -> Self {
+        Self::SerdeJsonError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(error: std::num::TryFromIntError) -> Self {
+        Self::TryFromIntError { source: error, location: snafu::location!() }
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        Self::Other { message: err.to_string(), location: snafu::location!() }
+    }
+}
+
+impl From<&str> for Error {
+    fn from(s: &str) -> Self {
+        Self::Other { message: s.to_string(), location: snafu::location!() }
+    }
 }
 
 #[derive(Serialize)]
@@ -166,33 +280,33 @@ impl IntoResponse for ApiError {
 impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
-                (
-                    StatusCode::NOT_FOUND,
-                    match e {
-                        e if e.message.contains("Cannot find existing loan scheme") => {
-                            format!("{}", Error::NotFound(NotFoundKind::Scheme))
-                        }
-                        _ => e.message.to_string(),
-                    },
-                )
-            }
-            Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{self}")),
-            Error::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            // Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
+            //     (
+            //         StatusCode::NOT_FOUND,
+            //         match e {
+            //             e if e.message.contains("Cannot find existing loan scheme") => {
+            //                 format!("{}", Error::NotFound(NotFoundKind::Scheme))
+            //             }
+            //             _ => e.message.to_string(),
+            //         },
+            //     )
+            // }
+            Error::NotFound => (StatusCode::NOT_FOUND, format!("{self}")),
+            Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)
     }
 }
 
-impl From<Box<dyn std::error::Error>> for Error {
-    fn from(err: Box<dyn std::error::Error>) -> Error {
-        Error::Other(format_err!("{err}"))
-    }
-}
+// impl From<Box<dyn std::error::Error>> for Error {
+//     fn from(err: Box<dyn std::error::Error>) -> Error {
+//         Error::Other(format_err!("{err}"))
+//     }
+// }
 
-impl From<&str> for Error {
-    fn from(s: &str) -> Self {
-        Error::Other(format_err!("{s}"))
-    }
-}
+// impl From<&str> for Error {
+//     fn from(s: &str) -> Self {
+//         Error::Other(format_err!("{s}"))
+//     }
+// }

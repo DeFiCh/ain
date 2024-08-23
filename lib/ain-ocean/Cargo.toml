@@ -48,6 +48,7 @@ petgraph = { version = "0.6.4", features = ["serde-1"] }
 parking_lot.workspace = true
 indexmap.workspace = true
 sha2.workspace = true
+snafu = { version = "0.8.4" }
 
 [dev-dependencies]
 tempdir.workspace = true
