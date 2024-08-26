@@ -6,6 +6,7 @@
 #ifndef DEFI_VALIDATION_H
 #define DEFI_VALIDATION_H
 
+#include "script/script.h"
 #if defined(HAVE_CONFIG_H)
 #include <config/defi-config.h>
 #endif
@@ -32,6 +33,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -925,9 +927,23 @@ inline CAmount CalculateCoinbaseReward(const CAmount blockReward, const uint32_t
 
 Res AddNonTxToBurnIndex(const CScript &from, const CBalances &amounts);
 
+struct CScriptHasher {
+    std::size_t operator()(const CScript &k) const {
+        using std::hash;
+        using std::size_t;
+        using std::string;
+        // Note: We could optimize this by using the bytes of the
+        // prevector directly. However we'll then need to worry
+        // about hash collisions and distribution. Instead
+        // for simplicity we just return the string repr
+        // and pass it down to the std hasher.
+        return (hash<string>()(k.GetHex()));
+    }
+};
+
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::set<CScript> &owners,
+                        const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
                         int numWorkers = 0);
 

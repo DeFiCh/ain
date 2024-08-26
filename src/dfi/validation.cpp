@@ -1545,7 +1545,7 @@ size_t RewardConsolidationWorkersCount() {
 // in lower versions of gcc or across clang.
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::set<CScript> &owners,
+                        const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
                         int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
@@ -1726,7 +1726,8 @@ static Res PoolSplits(CCustomCSView &view,
 
             {
                 auto nWorkers = RewardConsolidationWorkersCount();
-                std::set<CScript> ownersToConsolidate;
+                std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
+                ownersToConsolidate.reserve(balancesToMigrate.size());
                 for (const auto &[owner, _] : balancesToMigrate) {
                     ownersToConsolidate.emplace(owner);
                 }
