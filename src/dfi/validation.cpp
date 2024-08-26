@@ -24,6 +24,7 @@
 
 #include <consensus/params.h>
 #include <boost/asio.hpp>
+#include <functional>
 
 #define MILLI 0.001
 
@@ -1713,31 +1714,34 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            std::set<CScript> ownersToConsolidate;
+
             uint64_t totalAccounts = 0;
             view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
                 if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
                     balancesToMigrate.emplace_back(owner, balance.nValue);
-                    ownersToConsolidate.emplace(owner);
                 }
                 totalAccounts++;
                 return true;
             });
 
-            auto nWorkers = RewardConsolidationWorkersCount();
-            LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d, concurrency: %d)..\n",
-                      balancesToMigrate.size(),
-                      totalAccounts,
-                      nWorkers);
-
+            {
+                auto nWorkers = RewardConsolidationWorkersCount();
+                std::set<CScript> ownersToConsolidate;
+                for (const auto &[owner, _] : balancesToMigrate) {
+                    ownersToConsolidate.emplace(owner);
+                }
+                LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d, concurrency: %d)..\n",
+                          ownersToConsolidate.size(),
+                          totalAccounts,
+                          nWorkers);
+                ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
+            }
             // Largest first to make sure we are over MINIMUM_LIQUIDITY on first call to AddLiquidity
             std::sort(balancesToMigrate.begin(),
                       balancesToMigrate.end(),
                       [](const std::pair<CScript, CAmount> &a, const std::pair<CScript, CAmount> &b) {
                           return a.second > b.second;
                       });
-
-            ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
 
             // Special case. No liquidity providers in a previously used pool.
             if (balancesToMigrate.empty() && oldPoolPair->totalLiquidity == CPoolPair::MINIMUM_LIQUIDITY) {
@@ -2755,7 +2759,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
             }
 
             if (activeMasternodes.empty()) {
-                cache.ForEachMasternode([&](uint256 const &mnId, CMasternode node) {
+                cache.ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
                     if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
                         activeMasternodes.insert(mnId);
                     }
@@ -2769,7 +2773,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
             uint32_t voteYes = 0, voteNeutral = 0;
             std::set<uint256> voters{};
             cache.ForEachProposalVote(
-                [&](CProposalId const &pId, uint8_t cycle, uint256 const &mnId, CProposalVoteType vote) {
+                [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
                     if (pId != propId || cycle != prop.cycle) {
                         return false;
                     }
@@ -2794,7 +2798,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 auto feeBack = prop.fee - prop.feeBurnAmount;
                 auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
                 for (const auto mnId : voters) {
-                    auto const mn = cache.GetMasternode(mnId);
+                    const auto mn = cache.GetMasternode(mnId);
                     assert(mn);
 
                     CScript scriptPubKey;
