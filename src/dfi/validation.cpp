@@ -1544,7 +1544,7 @@ size_t RewardConsolidationWorkersCount() {
 // in lower versions of gcc or across clang.
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::set<CScript> &owners,
+                        const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
                         int numWorkers) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
@@ -1714,7 +1714,7 @@ static Res PoolSplits(CCustomCSView &view,
 
             std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
             {
-                std::set<CScript> ownersToConsolidate;
+                std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
                 uint64_t totalAccounts = 0;
                 view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
                     if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
@@ -2755,7 +2755,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
             }
 
             if (activeMasternodes.empty()) {
-                cache.ForEachMasternode([&](uint256 const &mnId, CMasternode node) {
+                cache.ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
                     if (node.IsActive(pindex->nHeight, cache) && node.mintedBlocks) {
                         activeMasternodes.insert(mnId);
                     }
@@ -2769,7 +2769,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
             uint32_t voteYes = 0, voteNeutral = 0;
             std::set<uint256> voters{};
             cache.ForEachProposalVote(
-                [&](CProposalId const &pId, uint8_t cycle, uint256 const &mnId, CProposalVoteType vote) {
+                [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
                     if (pId != propId || cycle != prop.cycle) {
                         return false;
                     }
@@ -2794,7 +2794,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 auto feeBack = prop.fee - prop.feeBurnAmount;
                 auto amountPerVoter = DivideAmounts(feeBack, voters.size() * COIN);
                 for (const auto mnId : voters) {
-                    auto const mn = cache.GetMasternode(mnId);
+                    const auto mn = cache.GetMasternode(mnId);
                     assert(mn);
 
                     CScript scriptPubKey;
