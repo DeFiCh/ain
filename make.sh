@@ -53,7 +53,7 @@ setup_vars() {
 
     MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
-      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
+        MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug"
     fi
 
     MAKE_CONF_ARGS_OVERRIDE="${MAKE_CONF_ARGS_OVERRIDE:-}"
@@ -247,7 +247,7 @@ package() {
         _ensure_enter_dir "${versioned_build_dir}"
         _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
     fi
-    sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
+    sha256sum "${pkg_path}" >"${pkg_path}.SHA256"
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -271,7 +271,7 @@ docker_build() {
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DOCKERFILE}"
 
-    echo "> docker-build";
+    echo "> docker-build"
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
@@ -288,7 +288,7 @@ docker_deploy() {
     local img_version="${IMAGE_VERSION}"
     local build_dir="${BUILD_DIR}"
 
-    echo "> docker-deploy";
+    echo "> docker-deploy"
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
@@ -330,7 +330,7 @@ docker_build_from_binaries() {
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DEFI_DOCKERFILE}"
 
-    echo "> docker-build-from-binaries";
+    echo "> docker-build-from-binaries"
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
@@ -370,18 +370,17 @@ py_ensure_env_active() {
 }
 
 py_env_activate() {
-  local python_venv="${PYTHON_VENV_DIR}"
-  python3 -m venv "${python_venv}"
-  # shellcheck disable=SC1091
-  source "${python_venv}/bin/activate"
+    local python_venv="${PYTHON_VENV_DIR}"
+    python3 -m venv "${python_venv}"
+    # shellcheck disable=SC1091
+    source "${python_venv}/bin/activate"
 }
 
 py_env_deactivate() {
-  deactivate
+    deactivate
 }
 
 # -------------- Misc -----------------
-
 
 # check
 # ---
@@ -444,7 +443,7 @@ check_sh() {
         -or -path ./test/lint/lint-python-dead-code.sh \
         -or -path ./src/univalue -prune \
         -or -path ./src/secp256k1 -prune \
-        -or -path ./build\* \)  -name '*.sh' -print0 | xargs -0L1 shellcheck
+        -or -path ./build\* \) -name '*.sh' -print0 | xargs -0L1 shellcheck
 
     py_env_deactivate
 }
@@ -456,10 +455,10 @@ check_cpp() {
 check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
     _ensure_enter_dir "$build_dir/lib" || {
-        echo "Please configure first";
-        exit 1; }
+        echo "Please configure first"
+        exit 1
+    }
 }
-
 
 # fmt
 # ---
@@ -493,8 +492,8 @@ _run_clang_format() {
     local index=-1
     local fmt_args=""
 
-    for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
-        if "${clang_formatters[$idx]}" --version &> /dev/null; then
+    for ((idx = 0; idx < ${#clang_formatters[@]}; ++idx)); do
+        if "${clang_formatters[$idx]}" --version &>/dev/null; then
             index="$idx"
             break
         fi
@@ -509,7 +508,7 @@ _run_clang_format() {
     fi
 
     # shellcheck disable=SC2086
-    find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
+    find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 |
         xargs -0 -I{} "${clang_formatters[$index]}" $fmt_args -i -style=file {}
 
     local whitelist_files=(src/miner.{cpp,h} src/txmempool.{cpp,h} src/validation.{cpp,h})
@@ -573,13 +572,13 @@ test_py() {
     # If an argument is given as an existing file, we switch that
     # out to the last arg
     if [[ -f "${first_arg}" ]]; then
-      shift
+        shift
     elif [[ -f "${src_dir}/test/functional/${first_arg}" ]]; then
-      first_arg="${src_dir}/test/functional/${first_arg}"
-      shift
+        first_arg="${src_dir}/test/functional/${first_arg}"
+        shift
     else
-      # We don't shift, this just ends up in the $@ args
-      first_arg=""
+        # We don't shift, this just ends up in the $@ args
+        first_arg=""
     fi
 
     if [[ "$tests_fail_fast" == "1" ]]; then
@@ -590,13 +589,16 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    (set -x; python3 ${build_target_dir}/test/functional/test_runner.py \
-        --tmpdirprefix="./test_runner/" \
-        --ansi \
-        --configfile="${build_target_dir}/test/config.ini" \
-        --jobs=${make_jobs} \
-        --combinedlogslen=${tests_combined_logs} \
-        ${extra_args} ${first_arg} "$@")
+    (
+        set -x
+        python3 ${build_target_dir}/test/functional/test_runner.py \
+            --tmpdirprefix="./test_runner/" \
+            --ansi \
+            --configfile="${build_target_dir}/test/config.ini" \
+            --jobs=${make_jobs} \
+            --combinedlogslen=${tests_combined_logs} \
+            ${extra_args} ${first_arg} "$@"
+    )
 
     py_env_deactivate
     _exit_dir
@@ -605,12 +607,17 @@ test_py() {
 # Others
 
 debug_env() {
-    (set -o posix ; set)
-    (set -x +e
-    uname -a
-    gcc -v
-    "clang-${CLANG_DEFAULT_VERSION}" -v
-    rustup show)
+    (
+        set -o posix
+        set
+    )
+    (
+        set -x +e
+        uname -a
+        gcc -v
+        "clang-${CLANG_DEFAULT_VERSION}" -v
+        rustup show
+    )
 }
 
 exec() {
@@ -636,7 +643,7 @@ git_version() {
     local current_commit
     local current_branch
 
-    git fetch --tags &> /dev/null
+    git fetch --tags &>/dev/null
     current_tag=$(git tag --points-at HEAD | head -1)
     current_commit=$(git rev-parse --short HEAD)
     current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -670,7 +677,6 @@ git_version() {
 # - pkg_local_*: for pulling packages into the local dir
 #   - clean_pkg_local*: Make sure to have the opp.
 # - pkg_setup*: setup of existing (or installed) pkgs // but not installing now
-
 
 pkg_update_base() {
     _fold_start "pkg-update-base"
@@ -748,13 +754,13 @@ pkg_install_deps_osx_tools() {
 
 pkg_install_gh_cli() {
     _fold_start "pkg-install-gh_cli"
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-        dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg |
+        dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg &&
         chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) \
         signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
-        https://cli.github.com/packages stable main" | \
-        tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        https://cli.github.com/packages stable main" |
+        tee /etc/apt/sources.list.d/github-cli.list >/dev/null
     apt-get update
     apt-get install -y gh
 
@@ -811,11 +817,12 @@ pkg_local_ensure_py_deps() {
 }
 
 pkg_local_install_py_deps() {
+    local root_dir="${ROOT_DIR}"
     _fold_start "pkg-install-py-deps"
     py_env_activate
 
     # lints, fmt, checks deps
-    python3 -m pip install -r ${ROOT_DIR}/test/requirements.txt
+    python3 -m pip install -r "${root_dir}/test/requirements.txt"
 
     # post dep for test
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
@@ -825,8 +832,8 @@ pkg_local_install_py_deps() {
 }
 
 clean_pkg_local_py_deps() {
-  local python_venv="${PYTHON_VENV_DIR}"
-  _safe_rm_rf "${python_venv}"
+    local python_venv="${PYTHON_VENV_DIR}"
+    _safe_rm_rf "${python_venv}"
 }
 
 pkg_user_setup_rust() {
@@ -855,7 +862,7 @@ clean_artifacts() {
     # If build is done out of tree, this is not needed at all. But when done
     # in-tree, or helper tools that end up running configure in-tree, this is
     # a helpful method to clean up left overs.
-    local items=(\
+    local items=(
         .libs .deps obj "*.dirstamp" "*.a" "*.o" "*.Po" "*.lo")
 
     local x
@@ -865,23 +872,23 @@ clean_artifacts() {
 }
 
 clean_conf() {
-    local top_left_overs=(\
+    local top_left_overs=(
         Makefile.in aclocal.m4 autom4te.cache configure configure~)
 
     # If things were built in-tree, help clean this up as well
-    local in_tree_conf_left_overs=(\
+    local in_tree_conf_left_overs=(
         Makefile libtool config.log config.status)
 
-    local build_aux_left_overs=(\
+    local build_aux_left_overs=(
         ar-lib compile config.guess config.sub depcomp install-sh ltmain.sh
         missing test-driver)
 
-    local build_aux_m4_left_overs=(\
+    local build_aux_m4_left_overs=(
         libtool.m4 lt~obsolete.m4 ltoptions.m4 ltsugar.m4 ltversion.m4)
 
-    local left_overs=("${top_left_overs[@]}" \
-        "${in_tree_conf_left_overs[@]}" \
-        "${build_aux_left_overs[@]/#/build-aux/}" \
+    local left_overs=("${top_left_overs[@]}"
+        "${in_tree_conf_left_overs[@]}"
+        "${build_aux_left_overs[@]/#/build-aux/}"
         "${build_aux_m4_left_overs[@]/#/build-aux/m4/}")
 
     local individual_files=(./test/config.ini)
@@ -978,11 +985,11 @@ get_default_docker_file() {
     local target="${TARGET}"
     local dockerfiles_dir="${DOCKERFILES_DIR}"
 
-    local try_files=(\
-        "${dockerfiles_dir}/${target}.dockerfile" \
-        "${dockerfiles_dir}/${target}" \
-        "${dockerfiles_dir}/noarch.dockerfile" \
-        )
+    local try_files=(
+        "${dockerfiles_dir}/${target}.dockerfile"
+        "${dockerfiles_dir}/${target}"
+        "${dockerfiles_dir}/noarch.dockerfile"
+    )
 
     for file in "${try_files[@]}"; do
         if [[ -f "$file" ]]; then
@@ -998,13 +1005,13 @@ get_default_docker_file() {
 get_default_conf_args() {
     local conf_args=""
     if [[ "$TARGET" =~ .*linux.* ]]; then
-        conf_args="${conf_args} --enable-glibc-back-compat";
+        conf_args="${conf_args} --enable-glibc-back-compat"
     fi
-    conf_args="${conf_args} --enable-static";
-    conf_args="${conf_args} --enable-reduce-exports";
+    conf_args="${conf_args} --enable-static"
+    conf_args="${conf_args} --enable-reduce-exports"
     # Note: https://stackoverflow.com/questions/13636513/linking-libstdc-statically-any-gotchas
     # We don't use dynamic loading at the time being
-    conf_args="${conf_args} LDFLAGS=-static-libstdc++";
+    conf_args="${conf_args} LDFLAGS=-static-libstdc++"
     # Other potential options: -static-libgcc on gcc, -static on clang
     echo "$conf_args"
 }
@@ -1013,8 +1020,8 @@ get_default_jobs() {
     local total
     total=$(_nproc)
     # Use a num closer to 80% of the cores by default
-    local jobs=$(( total * 4/5 ))
-    if (( jobs > 1 )); then
+    local jobs=$((total * 4 / 5))
+    if ((jobs > 1)); then
         echo $jobs
     else
         echo 1
@@ -1051,11 +1058,11 @@ git_add_hooks() {
     local force_update=${1:-0}
     local file=".git/hooks/pre-push"
     if [[ -f "$file" && $force_update == "0" ]]; then
-        return;
+        return
     fi
     echo "> add pre-push-hook"
     mkdir -p "$(dirname $file)" 2>/dev/null || { true && return; }
-    cat <<END > "$file"
+    cat <<END >"$file"
 #!/bin/bash
 set -Eeuo pipefail
 dir="\$(dirname "\${BASH_SOURCE[0]}")"
@@ -1066,32 +1073,32 @@ END
     chmod +x "$file"
 }
 
-
 # Platform helpers
 # ---
 
 _bash_version_check() {
     _bash_ver_err_exit() {
-        echo "Bash version 5+ required."; exit 1;
+        echo "Bash version 5+ required."
+        exit 1
     }
     [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
     case $BASH_VERSION in
-        5.*) return 0;;
-        *) _bash_ver_err_exit;;
+    5.*) return 0 ;;
+    *) _bash_ver_err_exit ;;
     esac
 }
 
 _platform_init() {
     # Lazy init functions
-    if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
-        if [[ $(greadlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
+    if [[ $(readlink -m . 2>/dev/null) != "${_SCRIPT_DIR}" ]]; then
+        if [[ $(greadlink -m . 2>/dev/null) != "${_SCRIPT_DIR}" ]]; then
             echo "error: readlink or greadlink with \`-m\` support is required"
             _platform_pkg_tip coreutils
             exit 1
         else
-        _canonicalize() {
-            greadlink -m "$@"
-        }
+            _canonicalize() {
+                greadlink -m "$@"
+            }
         fi
     else
         _canonicalize() {
@@ -1099,12 +1106,12 @@ _platform_init() {
         }
     fi
 
-    if tar --version 2> /dev/null | grep -q 'GNU tar'; then
+    if tar --version 2>/dev/null | grep -q 'GNU tar'; then
         _tar() {
             tar "$@"
         }
     else
-        if gtar --version 2> /dev/null | grep -q 'GNU tar'; then
+        if gtar --version 2>/dev/null | grep -q 'GNU tar'; then
             _tar() {
                 gtar "$@"
             }
@@ -1129,7 +1136,7 @@ _platform_init_intercept_build() {
     local intercept_build_cmds=("intercept-build-15" "intercept-build")
     local x
     for x in "${intercept_build_cmds[@]}"; do
-        if command -v "$x" >/dev/null ; then
+        if command -v "$x" >/dev/null; then
             _INTERCEPT_BUILD_CMD="$x"
             _intercept_build() {
                 "$_INTERCEPT_BUILD_CMD" "$@"
@@ -1160,27 +1167,27 @@ ci_export_vars() {
 
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
-        echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
-        echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+        echo "BUILD_VERSION=${IMAGE_VERSION}" >>"$GITHUB_ENV"
+        echo "PATH=$HOME/.cargo/bin:$PATH" >>"$GITHUB_ENV"
+        echo "CARGO_INCREMENTAL=0" >>"$GITHUB_ENV"
 
         if [[ "${MAKE_DEBUG}" == "1" ]]; then
-            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+            echo "BUILD_TYPE=debug" >>"$GITHUB_ENV"
         else
-            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+            echo "BUILD_TYPE=release" >>"$GITHUB_ENV"
         fi
 
         if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
-            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+            echo "PKG_TYPE=zip" >>"$GITHUB_ENV"
         else
-            echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
+            echo "PKG_TYPE=tar.gz" >>"$GITHUB_ENV"
         fi
 
         if [[ "${TARGET}" =~ .*darwin.* ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}" >> "$GITHUB_ENV"
+            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}" >>"$GITHUB_ENV"
         fi
 
-        echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"
+        echo "RUST_DEFAULT_VERSION=1.76" >>"$GITHUB_ENV"
     fi
 }
 
@@ -1196,20 +1203,25 @@ ci_setup_deps() {
 ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
-        # Nothing to do on host
-        x86_64-pc-linux-gnu) ;;
-        aarch64-linux-gnu)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64;;
-        arm-linux-gnueabihf)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf;;
-        x86_64-apple-darwin|aarch64-apple-darwin)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools;;
-        x86_64-w64-mingw32)
-            DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
-            pkg_setup_mingw_x86_64;;
-        *)
-            echo "error: unsupported target: ${target}"
-            exit 1;;
+    # Nothing to do on host
+    x86_64-pc-linux-gnu) ;;
+    aarch64-linux-gnu)
+        DEBIAN_FRONTEND=noninteractive pkg_install_deps_arm64
+        ;;
+    arm-linux-gnueabihf)
+        DEBIAN_FRONTEND=noninteractive pkg_install_deps_armhf
+        ;;
+    x86_64-apple-darwin | aarch64-apple-darwin)
+        DEBIAN_FRONTEND=noninteractive pkg_install_deps_osx_tools
+        ;;
+    x86_64-w64-mingw32)
+        DEBIAN_FRONTEND=noninteractive pkg_install_deps_mingw_x86_64
+        pkg_setup_mingw_x86_64
+        ;;
+    *)
+        echo "error: unsupported target: ${target}"
+        exit 1
+        ;;
     esac
 }
 
@@ -1229,9 +1241,9 @@ lib() {
     check_enter_build_rs_dir
     # shellcheck disable=SC2086
     make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then
-        echo "Error: Please resolve all checks";
-        exit 1;
-        fi; }
+        echo "Error: Please resolve all checks"
+        exit 1
+    fi; }
     _exit_dir
 }
 
@@ -1241,7 +1253,7 @@ rust_analyzer_check() {
 
 compiledb() {
     _platform_init_intercept_build
-    clean 2> /dev/null || true
+    clean 2>/dev/null || true
     build_deps
     build_conf
     _intercept_build ./make.sh build_make
@@ -1257,13 +1269,16 @@ get_rust_triplet() {
     local triplet=${1:-${TARGET}}
     local result
     case $triplet in
-        x86_64-pc-linux-gnu) result=x86_64-unknown-linux-gnu;;
-        aarch64-linux-gnu|aarch64-unknown-linux-gnu) result=aarch64-unknown-linux-gnu;;
-        arm-linux-gnueabihf|arm-unknown-linux-gnueabihf) result=armv7-unknown-linux-gnueabihf;;
-        x86_64-apple-darwin*) result=x86_64-apple-darwin;;
-        aarch64-apple-darwin*) result=aarch64-apple-darwin;;
-        x86_64-w64-mingw32) result=x86_64-pc-windows-gnu;;
-        *) echo "error: unsupported triplet: ${triplet}"; exit 1;;
+    x86_64-pc-linux-gnu) result=x86_64-unknown-linux-gnu ;;
+    aarch64-linux-gnu | aarch64-unknown-linux-gnu) result=aarch64-unknown-linux-gnu ;;
+    arm-linux-gnueabihf | arm-unknown-linux-gnueabihf) result=armv7-unknown-linux-gnueabihf ;;
+    x86_64-apple-darwin*) result=x86_64-apple-darwin ;;
+    aarch64-apple-darwin*) result=aarch64-apple-darwin ;;
+    x86_64-w64-mingw32) result=x86_64-pc-windows-gnu ;;
+    *)
+        echo "error: unsupported triplet: ${triplet}"
+        exit 1
+        ;;
     esac
     echo "$result"
 }
@@ -1300,7 +1315,7 @@ _safe_rm_rf() {
 
 _fold_start() {
     if [[ "${CI_GROUP_LOGS}" == "1" ]]; then
-        echo "::group::${*:-}";
+        echo "::group::${*:-}"
     fi
 }
 
@@ -1312,11 +1327,11 @@ _fold_end() {
 
 _ensure_enter_dir() {
     local dir="${1?dir required}"
-    mkdir -p "${dir}" && pushd "${dir}" > /dev/null
+    mkdir -p "${dir}" && pushd "${dir}" >/dev/null
 }
 
 _exit_dir() {
-    popd > /dev/null
+    popd >/dev/null
 }
 
 main "$@"
