@@ -821,6 +821,7 @@ pkg_local_install_py_deps() {
     _fold_start "pkg-install-py-deps"
     py_env_activate
 
+    python3 -m pip install wheel
     # lints, fmt, checks deps
     python3 -m pip install -r "${root_dir}/test/requirements.txt"
 
