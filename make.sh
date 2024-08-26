@@ -694,7 +694,7 @@ pkg_install_deps() {
         libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
+        curl cmake zip unzip libc6-dev gcc-multilib locales locales-all python3-dev
 
     _fold_end
 }
@@ -741,7 +741,7 @@ pkg_install_deps_osx_tools() {
     _fold_start "pkg-install-deps-mac-tools"
 
     apt-get install -y \
-        python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
+        libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
     _fold_end
 }
