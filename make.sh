@@ -815,10 +815,9 @@ pkg_local_install_py_deps() {
     py_env_activate
 
     # lints, fmt, checks deps
-    python3 -m pip install black shellcheck-py codespell==2.2.4 flake8==6.0.0 vulture==2.7
+    python3 -m pip install -r ${ROOT_DIR}/test/requirements.txt
 
-    # test deps
-    python3 -m pip install py-solc-x eth_typing==4.0.0 eth_account==0.11.2 web3
+    # post dep for test
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
     py_env_deactivate
