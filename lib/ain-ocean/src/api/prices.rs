@@ -310,11 +310,7 @@ async fn get_oracles(
             )?
             .take(1)
             .take_while(|item| match item {
-                Ok((k, _)) => {
-                    k.0 == token
-                        && k.1 == currency
-                        && k.2 == oracle.oracle_id
-                }
+                Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle.oracle_id,
                 _ => true,
             })
             .map(|item| {
