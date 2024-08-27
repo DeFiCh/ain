@@ -50,6 +50,8 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
     // for each tokenlock: release funds and update values
     const auto contractAddressValue = blockCtx.GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
     std::vector<CTokenLockUserKey> todelete{};
+
+    CBalances totalReleasedFunds;
     mnview.ForEachTokenLockUserValues([&](const auto &key, const auto &value) {
         const auto &owner = key.owner;
         auto newBalance = CTokenLockUserValue{};
@@ -61,7 +63,7 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
             const CTokenAmount moved = {tokenId, releaseAmount(amount)};
 
             view.AddBalance(owner, moved);
-            view.SubBalance(contractAddressValue, moved);
+            totalReleasedFunds.Add(moved);
             auto updated = amount - moved.nValue;
             if (updated > 0) {
                 newBalance.Add({tokenId, updated});
@@ -76,6 +78,14 @@ Res CTokenLockConsensus::operator()(const CReleaseLockMessage &obj) const {
         }
         return true;
     });
+
+    CAccountsHistoryWriter view(
+        mnview, blockCtx.GetHeight(), txCtx.GetTxn(), tx.GetHash(), uint8_t(CustomTxType::TokenLockRelease));
+    for (const auto &[tokenId, amount] : totalReleasedFunds.balances) {
+        view.SubBalance(contractAddressValue, {tokenId, amount});
+    }
+    view.Flush();
+
     attributes->SetValue(releaseKey, newRatio);
     mnview.SetVariable(*attributes);
     for (const auto &key : todelete) {

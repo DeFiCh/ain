@@ -924,6 +924,12 @@ class RestartdTokensTest(DefiTestFramework):
                 },
             ],
         )
+        lockHistory = self.nodes[0].listaccounthistory(
+            self.newaddress, {"txtypes": ["?"]}
+        )
+        assert_equal(
+            len(lockHistory), 0
+        )  # no change in balance of address -> no history
 
     def release_first_1(self):
 
@@ -995,6 +1001,44 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
             ["4200.86992003@DUSD", "7.20899992@SPY"],
+        )
+
+        # check history
+
+        lockHistory = self.nodes[0].listaccounthistory(self.address, {"txtypes": ["?"]})
+        print(lockHistory)
+        assert_equal(
+            len(lockHistory), 2
+        )  # commission tx got added on consolidate rewards later
+        releaseHistory = self.nodes[0].listaccounthistory(
+            self.address, {"txtypes": ["!"]}
+        )
+        assert_equal(len(releaseHistory), 1)
+        assert_equal(
+            releaseHistory[0]["amounts"], ["0.06000001@SPY", "43.40025189@DUSD"]
+        )
+
+        lockHistory = self.nodes[0].listaccounthistory(
+            self.address1, {"txtypes": ["?"]}
+        )
+        assert_equal(len(lockHistory), 0)  # must not have additional entry
+        releaseHistory = self.nodes[0].listaccounthistory(
+            self.address1, {"txtypes": ["!"]}
+        )
+        assert_equal(len(releaseHistory), 1)
+        assert_equal(releaseHistory[0]["amounts"], ["1.50018173@DUSD"])
+
+        lockHistory = self.nodes[0].listaccounthistory(
+            self.tokenlockaddress, {"txtypes": ["?"]}
+        )
+        print(lockHistory)
+        assert_equal(len(lockHistory), 3)  # TD added locks
+        releaseHistory = self.nodes[0].listaccounthistory(
+            self.tokenlockaddress, {"txtypes": ["!"]}
+        )
+        assert_equal(len(releaseHistory), 1)
+        assert_equal(
+            releaseHistory[0]["amounts"], ["-0.08099999@SPY", "-47.20078560@DUSD"]
         )
 
     def check_token_lock(self):
@@ -1265,6 +1309,71 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.tokenlockaddress)),
             ["4239.07070563@DUSD", "7.19999991@SPY"],
+        )
+
+        # check history entries
+        # split
+        assert_equal(
+            len(self.nodes[0].listaccounthistory(self.address, {"txtypes": ["P"]})),
+            10,  # = 5 split "tokens" (2 token, 3 pools)
+        )
+        lockHistory = self.nodes[0].listaccounthistory(self.address, {"txtypes": ["?"]})
+        assert_equal(len(lockHistory), 1)
+        assert_equal(
+            lockHistory[0]["amounts"],
+            [
+                "547.83957863@DFI",
+                "844.92730600@USDT",
+                "-4.50000000@SPY",
+                "-558.00000000@DUSD",
+                "-8.99999997@SPY-DUSD",
+                "-1145.51297651@DUSD-DFI",
+                "-853.81495924@USDT-DUSD",
+            ],
+        )
+
+        assert_equal(
+            len(
+                self.nodes[0].listaccounthistory(self.address1, {"txtypes": ["P", "?"]})
+            ),
+            0,
+        )
+
+        assert_equal(
+            len(
+                self.nodes[0].listaccounthistory(self.address2, {"txtypes": ["P", "?"]})
+            ),
+            0,
+        )
+
+        assert_equal(
+            len(self.nodes[0].listaccounthistory(self.address3, {"txtypes": ["P"]})), 6
+        )
+        lockHistory = self.nodes[0].listaccounthistory(
+            self.address3, {"txtypes": ["?"]}
+        )
+        assert_equal(len(lockHistory), 1)
+        assert_equal(
+            lockHistory[0]["amounts"],
+            ["-0.89999847@SPY", "-90.03032704@DUSD", "-8.99999097@SPY-DUSD"],
+        )
+
+        assert_equal(
+            len(
+                self.nodes[0].listaccounthistory(
+                    self.tokenlockaddress, {"txtypes": ["P"]}
+                )
+            ),
+            0,
+        )
+        lockHistory = self.nodes[0].listaccounthistory(
+            self.tokenlockaddress, {"txtypes": ["?"]}
+        )
+        assert_equal(
+            len(lockHistory), 1
+        )  # on lockaddress, every lock is a seperate entry
+        assert_equal(
+            lockHistory[0]["amounts"], ["7.19999991@SPY", "4239.07070563@DUSD"]
         )
 
     def check_upgrade_fail(self):

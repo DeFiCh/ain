@@ -86,8 +86,8 @@ enum class CustomTxType : uint8_t {
     FutureSwapExecution = 'q',
     FutureSwapRefund = 'w',
     TokenSplit = 'P',
-    TokenLock = 0x3,
-    TokenLockRelease = 0x4,
+    TokenLock = '?',
+    TokenLockRelease = '!',
     // On-Chain-Gov
     CreateCfp = 'z',
     Vote = 'O',       // NOTE: Check whether this overlapping with CreateOrder above is fine

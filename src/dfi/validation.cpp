@@ -3618,12 +3618,12 @@ static Res LockToken(CCustomCSView &cache,
                      const int height,
                      const uint256 refHash,
                      const CScript &owner,
-                     const CTokenAmount &tokenAmount) {
-    const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
-
-    CAccountsHistoryWriter addView(cache, height, GetNextAccPosition(), refHash, uint8_t(CustomTxType::TokenLock));
-    addView.AddBalance(contractAddressValue, tokenAmount);
-    addView.Flush();
+                     const CTokenAmount &tokenAmount,
+                     CBalances &totalLockedFunds) {
+    auto res = totalLockedFunds.Add(tokenAmount);
+    if (!res) {
+        return res;
+    }
 
     auto currentLock = cache.GetTokenLockUserValue({owner});
     currentLock.Add(tokenAmount);
@@ -3636,6 +3636,10 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                                             BlockContext &blockCtx,
                                             const CAmount lockRatio) {
     auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
+
+    // to have it all in one history
+    std::map<CScript, TAmounts> balanceChangePerAddress;
+    CBalances totalLockedFunds;
 
     std::unordered_set<uint32_t> tokensToBeLocked;
     std::unordered_set<uint32_t> affectedPools;
@@ -3677,16 +3681,14 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
 
         if (tokensToBeLocked.count(amount.nTokenId.v) && amount.nValue > 0) {
             const auto amountToLock = lockedAmount(amount.nValue);
-            CAccountsHistoryWriter subView(
-                cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
+            balanceChangePerAddress[owner][amount.nTokenId] -= amountToLock;
 
-            res = subView.SubBalance(owner, CTokenAmount{amount.nTokenId, amountToLock});
-            if (!res) {
-                return res;
-            }
-            subView.Flush();
-
-            res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {amount.nTokenId, amountToLock});
+            res = LockToken(cache,
+                            pindex->nHeight,
+                            pindex->GetBlockHash(),
+                            owner,
+                            {amount.nTokenId, amountToLock},
+                            totalLockedFunds);
             if (!res) {
                 return res;
             }
@@ -3701,49 +3703,41 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
             }
             auto poolPair = &poolsCache.at(amount.nTokenId);
             auto amountToLock = lockedAmount(amount.nValue);
-            CAccountsHistoryWriter subView(
-                cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
+            balanceChangePerAddress[owner][amount.nTokenId] -= amountToLock;
 
-            res = subView.SubBalance(owner, CTokenAmount{amount.nTokenId, amountToLock});
-            if (!res) {
-                return res;
-            }
-            subView.Flush();
             CAmount resAmountA = MultiplyDivideAmounts(amountToLock, poolPair->reserveA, poolPair->totalLiquidity);
             CAmount resAmountB = MultiplyDivideAmounts(amountToLock, poolPair->reserveB, poolPair->totalLiquidity);
             poolPair->reserveA -= resAmountA;
             poolPair->reserveB -= resAmountB;
             poolPair->totalLiquidity -= amountToLock;
 
-            CAccountsHistoryWriter addView(cache,
-                                           pindex->nHeight,
-                                           GetNextAccPosition(),
-                                           pindex->GetBlockHash(),
-                                           uint8_t(CustomTxType::TokenSplit));
-
             if (tokensToBeLocked.count(poolPair->idTokenA.v)) {
-                res =
-                    LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenA, resAmountA});
+                res = LockToken(cache,
+                                pindex->nHeight,
+                                pindex->GetBlockHash(),
+                                owner,
+                                {poolPair->idTokenA, resAmountA},
+                                totalLockedFunds);
                 if (!res) {
                     return res;
                 }
             } else {
-                addView.AddBalance(owner, {poolPair->idTokenA, resAmountA});
+                balanceChangePerAddress[owner][poolPair->idTokenA] += resAmountA;
             }
 
             if (tokensToBeLocked.count(poolPair->idTokenB.v)) {
-                res =
-                    LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {poolPair->idTokenB, resAmountB});
+                res = LockToken(cache,
+                                pindex->nHeight,
+                                pindex->GetBlockHash(),
+                                owner,
+                                {poolPair->idTokenB, resAmountB},
+                                totalLockedFunds);
                 if (!res) {
                     return res;
                 }
             } else {
-                res = addView.AddBalance(owner, {poolPair->idTokenB, resAmountB});
-                if (!res) {
-                    return res;
-                }
+                balanceChangePerAddress[owner][poolPair->idTokenB] += resAmountB;
             }
-            addView.Flush();
 
             cache.SetShare(amount.nTokenId, owner, pindex->nHeight);
         }
@@ -3765,6 +3759,24 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
         }
     }
 
+    // add one history entry per address for tokenLock
+    for (const auto &[owner, amounts] : balanceChangePerAddress) {
+        CAccountsHistoryWriter changeView(
+            cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
+
+        for (const auto &[tokenId, amount] : amounts) {
+            if (amount > 0) {
+                res = changeView.AddBalance(owner, CTokenAmount{tokenId, amount});
+            } else if (amount < 0) {
+                res = changeView.SubBalance(owner, CTokenAmount{tokenId, -amount});
+            }
+            if (!res) {
+                return res;
+            }
+        }
+        changeView.Flush();
+    }
+
     // from vault collaterals (only USDD)
     LogPrintf("locking %.2f%% of loan tokens in collaterals\n", lockRatio * 100.0 / COIN);
 
@@ -3779,7 +3791,8 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                 if (!res) {
                     return false;
                 }
-                res = LockToken(cache, pindex->nHeight, pindex->GetBlockHash(), owner, {tokenId, amountToLock});
+                res = LockToken(
+                    cache, pindex->nHeight, pindex->GetBlockHash(), owner, {tokenId, amountToLock}, totalLockedFunds);
                 if (!res) {
                     return false;
                 }
@@ -3791,6 +3804,16 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
     if (!res) {
         return res;
     }
+
+    CAccountsHistoryWriter addView(
+        cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::TokenLock));
+    for (const auto &[tokenId, amount] : totalLockedFunds.balances) {
+        res = addView.AddBalance(contractAddressValue, {tokenId, amount});
+        if (!res) {
+            return res;
+        }
+    }
+    addView.Flush();
 
     CDataStructureV0 releaseKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
     auto attributes = cache.GetAttributes();
@@ -4692,9 +4715,21 @@ Res ExecuteLockTransferDomain(CCustomCSView &view,
 
     if (lockRatio > 0) {
         const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
-        if (auto res = LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount}); !res) {
+
+        CBalances dummyTotalLocked;
+        if (auto res = LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount}, dummyTotalLocked);
+            !res) {
             return res;
         }
+        const auto contractAddressValue = Params().GetConsensus().smartContracts.at(SMART_CONTRACT_TOKENLOCK);
+
+        CAccountsHistoryWriter addView(view, height, GetNextAccPosition(), refHash, uint8_t(CustomTxType::TokenLock));
+        auto res = addView.AddBalance(contractAddressValue, {amount.nTokenId, lockedAmount});
+        if (!res) {
+            return res;
+        }
+        addView.Flush();
+
         amount.nValue -= lockedAmount;
     }
     return Res::Ok();
