@@ -103,7 +103,7 @@ async fn get_feed(
                 oracle_id: feed.oracle_id,
                 txid: feed.txid,
                 time: feed.time,
-                amount: amount.to_string(),
+                amount: amount.normalize().to_string(),
                 block: feed.block.clone(),
             });
         }
