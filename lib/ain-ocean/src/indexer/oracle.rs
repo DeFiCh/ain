@@ -1,7 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
 use ain_dftx::oracles::*;
-use anyhow::{anyhow, Context as _};
+use anyhow::Context as _;
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
@@ -142,39 +142,33 @@ impl Index for RemoveOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
         services.oracle.by_id.delete(&oracle_id)?;
-        let previous_hsitory = get_previous_oracle_history_list(services, oracle_id);
-        match previous_hsitory {
-            Ok(previous_oracle) => {
-                for oracle_history in &previous_oracle {
-                    for price_feed_item in &oracle_history.price_feeds {
-                        let deletion_id = (
-                            price_feed_item.token.to_owned(),
-                            price_feed_item.currency.to_owned(),
-                            oracle_history.oracle_id,
-                        );
-                        let deletion_key = (
-                            price_feed_item.token.to_owned(),
-                            price_feed_item.currency.to_owned(),
-                            oracle_history.block.height,
-                        );
-                        services.oracle_token_currency.by_id.delete(&deletion_id)?;
-                        services
-                            .oracle_token_currency
-                            .by_key
-                            .delete(&deletion_key)?;
-                    }
-                }
-            }
-            Err(err) => {
-                return Err(Error::Other(anyhow!("remove oracle : {}", err)));
+        let previous_oracle = get_previous_oracle_history_list(services, oracle_id)?;
+        for oracle_history in &previous_oracle {
+            for price_feed_item in &oracle_history.price_feeds {
+                let deletion_id = (
+                    price_feed_item.token.to_owned(),
+                    price_feed_item.currency.to_owned(),
+                    oracle_history.oracle_id,
+                );
+                let deletion_key = (
+                    price_feed_item.token.to_owned(),
+                    price_feed_item.currency.to_owned(),
+                    oracle_history.block.height,
+                );
+                services.oracle_token_currency.by_id.delete(&deletion_id)?;
+                services
+                    .oracle_token_currency
+                    .by_key
+                    .delete(&deletion_key)?;
             }
         }
+
         Ok(())
     }
+
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
-        let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-        let previous_oracle_history = previous_oracle_history_result?;
+        let previous_oracle_history = get_previous_oracle_history_list(services, oracle_id)?;
 
         for previous_oracle in previous_oracle_history {
             let oracle = Oracle {
@@ -243,8 +237,7 @@ impl Index for UpdateOracle {
 
         //save oracle
         services.oracle.by_id.put(&oracle.id, &oracle)?;
-        let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
-        let previous_oracle = previous_oracle_history_result?;
+        let previous_oracle = get_previous_oracle_history_list(services, oracle_id)?;
 
         for oracle in previous_oracle {
             for price_feed_item in &oracle.price_feeds {
