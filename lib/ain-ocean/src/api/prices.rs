@@ -2,28 +2,27 @@ use std::sync::Arc;
 
 use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
     Extension, Router,
 };
+use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    common::split_key,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
+    oracle::OraclePriceFeedResponse,
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind},
+    error::{ApiError, Error},
     model::{
-        ApiResponseOraclePriceFeed, BlockContext, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
-        OraclePriceAggregatedIntervalAggregated, OracleTokenCurrency, PriceOracles, PriceTicker,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -125,27 +124,29 @@ async fn list_prices(
         price.sort.to_string()
     }))
 }
+
 #[ocean_endpoint]
 async fn get_price(
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<PriceTickerResponse>> {
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+) -> Result<Response<Option<PriceTickerResponse>>> {
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
+
+    let price_ticker= ctx
+        .services
+        .price_ticker
+        .by_id
+        .get(&(token.to_string(), currency.to_string()))?;
+
+    let Some(price_ticker) = price_ticker else {
+        return Ok(Response::new(None))
     };
-    let price_ticker_id = (token, currency);
-    if let Some(price_ticker) = ctx.services.price_ticker.by_id.get(&price_ticker_id)? {
-        if price_ticker.price.token.eq(&price_ticker_id.0)
-            && price_ticker.price.currency.eq(&price_ticker_id.1)
-        {
-            Ok(Response::new(PriceTickerResponse::from(price_ticker)))
-        } else {
-            Err(Error::NotFound(NotFoundKind::Oracle))
-        }
-    } else {
-        Err(Error::NotFound(NotFoundKind::Oracle))
-    }
+
+    let res = PriceTickerResponse::from(price_ticker);
+
+    Ok(Response::new(Some(res)))
 }
 
 #[ocean_endpoint]
@@ -154,126 +155,110 @@ async fn get_feed(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
-    };
-    let aggregated_key = (token, currency);
-    let mut oracle_aggrigated = Vec::new();
-    let aggregated = ctx
-        .services
-        .oracle_price_aggregated
-        .by_id
-        .list(None, SortOrder::Ascending)?
-        .take(query.size)
-        .map(|item| {
-            let (_, price_aggrigated) = item?;
-            Ok(price_aggrigated)
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
 
-    for aggre in aggregated {
-        let (token, currency, _) = &aggre.id;
-        if aggregated_key.0.eq(token) && aggregated_key.1.eq(currency) {
-            oracle_aggrigated.push(aggre);
-        }
-    }
+    let repo = &ctx.services.oracle_price_aggregated;
+    let key = (token.to_string(), currency.to_string());
+    let oracle_aggrigated = repo
+        .by_key
+        .list(Some(key), SortOrder::Descending)?
+        .take(query.size)
+        .flat_map(|item| {
+            let (_, id) = item?;
+            let item = repo.by_id.get(&id)?;
+            Ok::<Option<OraclePriceAggregated>, Error>(item)
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+
     Ok(ApiPagedResponse::of(
         oracle_aggrigated,
         query.size,
-        |aggre| aggre.sort.to_string(),
+        |aggrigated| aggrigated.sort.to_string(),
     ))
 }
+
 #[ocean_endpoint]
 async fn get_feed_active(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
-    };
-    let price_active_key = (token, currency);
-    let mut price_list = Vec::new();
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
+
+    let key = (token.to_string(), currency.to_string());
+    let repo = &ctx.services.oracle_price_active;
     let price_active = ctx
         .services
         .oracle_price_active
-        .by_id
-        .list(None, SortOrder::Descending)?
+        .by_key
+        .list(Some(key), SortOrder::Descending)?
         .take(query.size)
-        .map(|item| {
-            let (_, data) = item?;
-            Ok(data)
+        .flat_map(|item| {
+            let (_, id) = item?;
+            let item = repo.by_id.get(&id)?;
+            Ok::<Option<OraclePriceActive>, Error>(item)
         })
-        .collect::<Result<Vec<_>>>()?;
-    for active in price_active {
-        let (token, currency, _) = &active.id;
-        if price_active_key.0.eq(token) && price_active_key.1.eq(currency) {
-            price_list.push(active);
-        }
-    }
+        .flatten()
+        .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(
-        price_list,
+        price_active,
         query.size,
-        |price_active| price_active.sort.to_string(),
+        |price| price.sort.to_string(),
     ))
 }
+
 #[ocean_endpoint]
 async fn get_feed_with_interval(
     Path((key, interval)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
-    println!("the value {:?} {:?}", key, interval);
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
-    };
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
+
     let interval = match interval.as_str() {
         "900" => OracleIntervalSeconds::FifteenMinutes,
         "3600" => OracleIntervalSeconds::OneHour,
         "86400" => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid interval")),
     };
-    let mut feed_intervals = Vec::new();
-    let price_aggregated_interval = (&token, &currency, interval.clone());
-    let items = ctx
-        .services
-        .oracle_price_aggregated_interval
-        .by_id
-        .list(None, SortOrder::Descending)?
+    let key = (token.to_string(), currency.to_string(), interval.clone());
+    let repo = &ctx.services.oracle_price_aggregated_interval;
+    let prices = repo
+        .by_key
+        .list(Some(key), SortOrder::Descending)?
         .take(query.size)
-        .map(|item| {
-            let (_, data) = item?;
-            Ok(data)
+        .flat_map(|item| {
+            let (_, id) = item?;
+            let item = repo.by_id.get(&id)?;
+            Ok::<Option<OraclePriceAggregatedInterval>, Error>(item)
         })
-        .collect::<Result<Vec<_>>>()?;
+        .flatten()
+        .collect::<Vec<_>>();
 
-    for oracle_intervals in items {
-        let (token, currency, _) = &oracle_intervals.key;
-        if price_aggregated_interval.0.eq(token) && price_aggregated_interval.1.eq(currency) {
-            feed_intervals.push(OraclePriceAggregatedInterval {
-                id: oracle_intervals.id,
-                key: oracle_intervals.key,
-                sort: oracle_intervals.sort,
-                token: oracle_intervals.token,
-                currency: oracle_intervals.currency,
-                aggregated: OraclePriceAggregatedIntervalAggregated {
-                    amount: oracle_intervals.aggregated.amount,
-                    weightage: oracle_intervals.aggregated.weightage,
-                    count: oracle_intervals.aggregated.count,
-                    oracles: oracle_intervals.aggregated.oracles,
-                },
-                block: oracle_intervals.block,
-            });
-        }
-    }
-
-    Ok(ApiPagedResponse::of(feed_intervals, query.size, |item| {
+    Ok(ApiPagedResponse::of(prices, query.size, |item| {
         item.sort.clone()
     }))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PriceOracleResponse {
+    pub id: String,
+    pub key: String,
+    pub token: String,
+    pub currency: String,
+    pub oracle_id: String,
+    pub weightage: u8,
+    pub feed: Option<OraclePriceFeedResponse>,
+    pub block: BlockContext,
 }
 
 #[ocean_endpoint]
@@ -281,85 +266,75 @@ async fn get_oracles(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<PriceOracles>> {
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
-    };
-    let mut oracles_feed = Vec::new();
-    let oracle_token_currency_key = (token, currency);
-    let token_currency: Vec<OracleTokenCurrency> = ctx
+) -> Result<ApiPagedResponse<PriceOracleResponse>> {
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
+
+    let id = (token.to_string(), currency.to_string(), Txid::from_byte_array([0xffu8; 32]));
+    let oracles = ctx
         .services
         .oracle_token_currency
         .by_id
-        .list(None, SortOrder::Ascending)?
+        .list(Some(id.clone()), SortOrder::Descending)?
         .take(query.size)
-        .map(|item| {
-            let (_, data) = item?;
-            Ok(data)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == id.0 && k.1 == id.1,
+            _ => true,
         })
-        .collect::<Result<Vec<_>>>()?;
-
-    let price_feed = ctx
-        .services
-        .oracle_price_feed
-        .by_id
-        .list(None, SortOrder::Ascending)?
-        .take(query.size)
-        .map(|item| {
-            let (_, data) = item?;
-            Ok(data)
+        .flat_map(|item| {
+            let (_, oracle) = item?;
+            Ok::<OracleTokenCurrency, Error>(oracle)
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
-    for item in token_currency {
-        let (token, currency, _) = &item.id;
-        if oracle_token_currency_key.clone().0.eq(token)
-            && oracle_token_currency_key.clone().1.eq(currency)
-        {
-            let mut oracleprice = None;
-            for pricefeed in &price_feed {
-                let (token, currency, _, _) = &pricefeed.id;
-                if oracle_token_currency_key.clone().0.eq(token)
-                    && oracle_token_currency_key.clone().1.eq(currency)
-                {
-                    oracleprice = Some(ApiResponseOraclePriceFeed {
-                        id: format!(
-                            "{}{}{}{}",
-                            pricefeed.token,
-                            pricefeed.currency,
-                            pricefeed.oracle_id,
-                            pricefeed.txid
-                        ),
-                        key: format!(
-                            "{}{}{}",
-                            pricefeed.token, pricefeed.currency, pricefeed.oracle_id
-                        ),
-                        sort: pricefeed.sort.clone(),
-                        token: pricefeed.token.clone(),
-                        currency: pricefeed.currency.clone(),
-                        oracle_id: item.oracle_id,
-                        txid: pricefeed.txid,
-                        time: pricefeed.time,
-                        amount: pricefeed.amount.to_string(),
-                        block: pricefeed.block.clone(),
-                    });
+    let mut prices = Vec::new();
+    for oracle in oracles {
+        let feeds = ctx
+            .services
+            .oracle_price_feed
+            .by_id
+            .list(Some((token.to_string(), currency.to_string(), oracle.oracle_id, Txid::from_byte_array([0xffu8; 32]))), SortOrder::Descending)?
+            .take(1)
+            .take_while(|item| match item {
+                Ok((k, _)) => k.0 == token.to_string() && k.1 == currency.to_string() && k.2 == oracle.oracle_id,
+                _ => true,
+            })
+            .map(|item| {
+                let (_, data) = item?;
+                Ok(data)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let feed = feeds.first().cloned();
+
+        prices.push(PriceOracleResponse {
+            id: format!("{}-{}-{}", oracle.id.0, oracle.id.1, oracle.id.2),
+            key: format!("{}-{}-{}", oracle.key.0, oracle.key.1, oracle.key.2),
+            token: oracle.token,
+            currency: oracle.currency,
+            oracle_id: oracle.oracle_id.to_string(),
+            weightage: oracle.weightage,
+            block: oracle.block,
+            feed: feed.map(|f| {
+                OraclePriceFeedResponse {
+                    id: format!("{}-{}-{}-{}", token, currency, f.oracle_id, f.txid),
+                    key: format!("{}-{}-{}", token, currency, f.oracle_id),
+                    sort: f.sort.clone(),
+                    token: f.token.clone(),
+                    currency: f.currency.clone(),
+                    oracle_id: f.oracle_id,
+                    txid: f.txid,
+                    time: f.time,
+                    amount: f.amount.to_string(),
+                    block: f.block.clone(),
                 }
-            }
-            oracles_feed.push(PriceOracles {
-                id: format!("{}-{}-{}", item.id.0, item.id.1, item.id.2),
-                key: format!("{}-{}", item.key.0, item.key.1),
-                token: item.token,
-                currency: item.currency,
-                oracle_id: item.oracle_id.to_string(),
-                feed: oracleprice,
-                block: item.block,
-                weightage: item.weightage,
-            });
-        }
+            }),
+        })
     }
-    Ok(ApiPagedResponse::of(oracles_feed, query.size, |item| {
-        item.oracle_id.to_string()
+
+    Ok(ApiPagedResponse::of(prices, query.size, |price| {
+        price.oracle_id.to_string()
     }))
 }
 
