@@ -161,18 +161,20 @@ async fn get_feed(
     let currency = parts.next().context("Missing currency")?;
 
     let repo = &ctx.services.oracle_price_aggregated;
-    let key = (token.to_string(), currency.to_string());
+    let id = (token.to_string(), currency.to_string(), u32::MAX);
     let oracle_aggregated = repo
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
+        .by_id
+        .list(Some(id), SortOrder::Descending)?
         .take(query.size)
-        .flat_map(|item| {
-            let (_, id) = item?;
-            let item = repo.by_id.get(&id)?;
-            Ok::<Option<OraclePriceAggregated>, Error>(item)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == token && k.1 == currency,
+            _ => true,
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(
         oracle_aggregated,
@@ -309,8 +311,8 @@ async fn get_oracles(
             .take(1)
             .take_while(|item| match item {
                 Ok((k, _)) => {
-                    k.0 == token.to_string()
-                        && k.1 == currency.to_string()
+                    k.0 == token
+                        && k.1 == currency
                         && k.2 == oracle.oracle_id
                 }
                 _ => true,
@@ -325,7 +327,7 @@ async fn get_oracles(
 
         prices.push(PriceOracleResponse {
             id: format!("{}-{}-{}", oracle.id.0, oracle.id.1, oracle.id.2),
-            key: format!("{}-{}-{}", oracle.key.0, oracle.key.1, oracle.key.2),
+            key: format!("{}-{}", oracle.key.0, oracle.key.1),
             token: oracle.token,
             currency: oracle.currency,
             oracle_id: oracle.oracle_id.to_string(),
