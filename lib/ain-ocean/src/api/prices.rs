@@ -162,7 +162,7 @@ async fn get_feed(
 
     let repo = &ctx.services.oracle_price_aggregated;
     let key = (token.to_string(), currency.to_string());
-    let oracle_aggrigated = repo
+    let oracle_aggregated = repo
         .by_key
         .list(Some(key), SortOrder::Descending)?
         .take(query.size)
@@ -175,9 +175,9 @@ async fn get_feed(
         .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(
-        oracle_aggrigated,
+        oracle_aggregated,
         query.size,
-        |aggrigated| aggrigated.sort.to_string(),
+        |aggregated| aggregated.sort.to_string(),
     ))
 }
 
