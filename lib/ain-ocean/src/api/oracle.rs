@@ -10,7 +10,7 @@ use axum::{
 };
 use bitcoin::Txid;
 use rust_decimal::Decimal;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use super::{
     query::PaginationQuery,
@@ -20,7 +20,7 @@ use super::{
 use crate::{
     api::common::Paginate,
     error::ApiError,
-    model::{Oracle, BlockContext},
+    model::{BlockContext, Oracle},
     repository::RepositoryOps,
     storage::SortOrder,
     Result,

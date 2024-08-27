@@ -14,15 +14,16 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
-    oracle::OraclePriceFeedResponse,
     AppContext,
 };
 use crate::{
     error::{ApiError, Error},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
+        OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -134,14 +135,14 @@ async fn get_price(
     let token = parts.next().context("Missing token")?;
     let currency = parts.next().context("Missing currency")?;
 
-    let price_ticker= ctx
+    let price_ticker = ctx
         .services
         .price_ticker
         .by_id
         .get(&(token.to_string(), currency.to_string()))?;
 
     let Some(price_ticker) = price_ticker else {
-        return Ok(Response::new(None))
+        return Ok(Response::new(None));
     };
 
     let res = PriceTickerResponse::from(price_ticker);
@@ -206,11 +207,9 @@ async fn get_feed_active(
         .flatten()
         .collect::<Vec<_>>();
 
-    Ok(ApiPagedResponse::of(
-        price_active,
-        query.size,
-        |price| price.sort.to_string(),
-    ))
+    Ok(ApiPagedResponse::of(price_active, query.size, |price| {
+        price.sort.to_string()
+    }))
 }
 
 #[ocean_endpoint]
@@ -271,7 +270,11 @@ async fn get_oracles(
     let token = parts.next().context("Missing token")?;
     let currency = parts.next().context("Missing currency")?;
 
-    let id = (token.to_string(), currency.to_string(), Txid::from_byte_array([0xffu8; 32]));
+    let id = (
+        token.to_string(),
+        currency.to_string(),
+        Txid::from_byte_array([0xffu8; 32]),
+    );
     let oracles = ctx
         .services
         .oracle_token_currency
@@ -294,10 +297,22 @@ async fn get_oracles(
             .services
             .oracle_price_feed
             .by_id
-            .list(Some((token.to_string(), currency.to_string(), oracle.oracle_id, Txid::from_byte_array([0xffu8; 32]))), SortOrder::Descending)?
+            .list(
+                Some((
+                    token.to_string(),
+                    currency.to_string(),
+                    oracle.oracle_id,
+                    Txid::from_byte_array([0xffu8; 32]),
+                )),
+                SortOrder::Descending,
+            )?
             .take(1)
             .take_while(|item| match item {
-                Ok((k, _)) => k.0 == token.to_string() && k.1 == currency.to_string() && k.2 == oracle.oracle_id,
+                Ok((k, _)) => {
+                    k.0 == token.to_string()
+                        && k.1 == currency.to_string()
+                        && k.2 == oracle.oracle_id
+                }
                 _ => true,
             })
             .map(|item| {
@@ -316,19 +331,17 @@ async fn get_oracles(
             oracle_id: oracle.oracle_id.to_string(),
             weightage: oracle.weightage,
             block: oracle.block,
-            feed: feed.map(|f| {
-                OraclePriceFeedResponse {
-                    id: format!("{}-{}-{}-{}", token, currency, f.oracle_id, f.txid),
-                    key: format!("{}-{}-{}", token, currency, f.oracle_id),
-                    sort: f.sort.clone(),
-                    token: f.token.clone(),
-                    currency: f.currency.clone(),
-                    oracle_id: f.oracle_id,
-                    txid: f.txid,
-                    time: f.time,
-                    amount: f.amount.to_string(),
-                    block: f.block.clone(),
-                }
+            feed: feed.map(|f| OraclePriceFeedResponse {
+                id: format!("{}-{}-{}-{}", token, currency, f.oracle_id, f.txid),
+                key: format!("{}-{}-{}", token, currency, f.oracle_id),
+                sort: f.sort.clone(),
+                token: f.token.clone(),
+                currency: f.currency.clone(),
+                oracle_id: f.oracle_id,
+                txid: f.txid,
+                time: f.time,
+                amount: f.amount.to_string(),
+                block: f.block.clone(),
             }),
         })
     }
