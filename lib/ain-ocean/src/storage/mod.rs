@@ -5,12 +5,11 @@ mod ocean_store;
 
 use std::sync::Arc;
 
+use crate::{define_table, model, Error, Result};
 use ain_db::{Column, ColumnName, DBError, LedgerColumn, Result as DBResult, TypedColumn};
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 pub use ocean_store::OceanStore;
 use rocksdb::Direction;
-
-use crate::{define_table, model, Error, Result};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SortOrder {
@@ -271,6 +270,39 @@ define_table! {
     pub struct PoolSwapAggregatedKey {
         key_type = model::PoolSwapAggregatedKey,
         value_type = model::PoolSwapAggregatedId,
+        custom_key = {
+            fn key(index: &Self::Index) -> DBResult<Vec<u8>> {
+                let (pool_id, interval, bucket) = index;
+                let mut vec = Vec::with_capacity(16);
+                vec.extend_from_slice(&pool_id.to_be_bytes());
+                vec.extend_from_slice(&interval.to_be_bytes());
+                vec.extend_from_slice(&bucket.to_be_bytes());
+                Ok(vec)
+            }
+
+            fn get_key(raw_key: Box<[u8]>) -> DBResult<Self::Index> {
+                if raw_key.len() != 16 {
+                    return Err(DBError::WrongKeyLength);
+                }
+                let pool_id = u32::from_be_bytes(
+                    raw_key[0..4]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let interval = u32::from_be_bytes(
+                    raw_key[4..8]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let bucket = i64::from_be_bytes(
+                    raw_key[8..16]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+
+                Ok((pool_id, interval, bucket))
+                }
+            },
     },
     SecondaryIndex = PoolSwapAggregated
 }
