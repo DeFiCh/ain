@@ -15,7 +15,7 @@ mod tests {
     use crate::{
         indexer::{Context, Index},
         model::{BlockContext, Oracle, OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem},
-        storage::{ocean_store, RepositoryOps, SortOrder},
+        storage::{OceanStore, RepositoryOps, SortOrder},
         Services,
     };
 
@@ -24,7 +24,7 @@ mod tests {
         // Setup the temporary storage for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
             Err(error) => panic!("Failed to create OceanStore: {}", error),
@@ -92,7 +92,7 @@ mod tests {
         // Setup the temporary storage for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
             Err(error) => panic!("Failed to create OceanStore: {}", error),
@@ -205,7 +205,7 @@ mod tests {
         // Setup the temporary storage for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
             Err(error) => panic!("Failed to create OceanStore: {}", error),
@@ -425,7 +425,7 @@ mod tests {
         // Setup the temporary storage for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
             Err(error) => panic!("Failed to create OceanStore: {}", error),
@@ -644,7 +644,7 @@ mod tests {
     fn test_index_set_oracle_oracle() {
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(ocean_store) => Arc::new(ocean_store),
             Err(error) => {
@@ -1001,7 +1001,7 @@ mod tests {
     fn test_index_appoint_oracle() {
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let path = temp_dir.path();
-        let ocean_store_result = ocean_store::OceanStore::new(path);
+        let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(ocean_store) => Arc::new(ocean_store),
             Err(error) => {
