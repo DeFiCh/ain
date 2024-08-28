@@ -1764,7 +1764,6 @@ static Res PoolSplits(CCustomCSView &view,
             view.ForEachBalance([&, oldPoolId = oldPoolId](const CScript &owner, CTokenAmount balance) {
                 if (oldPoolId.v == balance.nTokenId.v && balance.nValue > 0) {
                     balancesToMigrate.emplace_back(owner, balance.nValue);
-                    ownersToConsolidate.emplace(owner);
                 }
                 totalAccounts++;
                 return true;
@@ -3279,7 +3278,7 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
 
     LogPrintf("preparing payback with owner balance\n");
     // need to consolidate before payback to have all tokens for payback
-    std::set<CScript> ownersToMigrate;
+    std::unordered_set<CScript, CScriptHasher> ownersToMigrate;
     std::vector<std::tuple<CVaultId, DCT_ID>> directPaybacks;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto owner = cache.GetVault(vaultId)->ownerAddress;
@@ -3559,7 +3558,7 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
     LogPrintf("got lock %d splits, %d pool creations\n", splits.size(), creationTxPerPoolId.size());
 
     // need to consolidate all before token split, otherwise commission might not be converted
-    std::set<CScript> poolOwnersToMigrate;
+    std::unordered_set<CScript, CScriptHasher> poolOwnersToMigrate;
     cache.ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
         if (poolsForConsolidation.count(balance.nTokenId) > 0 && balance.nValue > 0) {
             poolOwnersToMigrate.emplace(owner);
