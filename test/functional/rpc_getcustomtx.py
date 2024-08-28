@@ -149,10 +149,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         assert_equal(result["type"], "MintToken")
         assert_equal(result["results"][str(token_silver)], Decimal("300.00000000"))
 
-        # Node 2 no longer needed
-        disconnect_nodes(self.nodes[0], 2)
-        disconnect_nodes(self.nodes[1], 2)
-
         # Update token
         updatetx = self.nodes[0].updatetoken(
             token_silver,
@@ -164,7 +160,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             },
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get history node 1 with transaction index
         result = self.nodes[1].getcustomtx(updatetx)
@@ -180,7 +176,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         collateral = self.nodes[0].getnewaddress("", "legacy")
         mn_txid = self.nodes[0].createmasternode(collateral)
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Make sure new MN was successfully created
         assert_equal(len(self.nodes[0].listmasternodes()), num_mns + 1)
@@ -195,7 +191,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test resign MN call
         resign_tx = self.nodes[0].resignmasternode(mn_txid)
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Check MN in PRE_RESIGNED state
         assert_equal(self.nodes[0].listmasternodes()[mn_txid]["state"], "PRE_RESIGNED")
@@ -244,7 +240,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(poolpair_tx)
@@ -268,7 +264,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             collateral_b, {collateral_a: "100@" + token_gold}
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(accounttoaccount_tx)
@@ -286,7 +282,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {collateral_a: ["100@" + token_silver, "100@" + token_gold]}, pool_share
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(add_liquidity_tx)
@@ -309,7 +305,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(poolswap_tx)
@@ -328,7 +324,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             remove_liquidity_tx, 1
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(remove_liquidity_tx)
@@ -353,7 +349,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(poolpair_update_tx)
@@ -366,7 +362,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test UTXOs to account TX
         utxostoaccount_tx = self.nodes[0].utxostoaccount({collateral_a: "100@0"})
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(utxostoaccount_tx)
@@ -379,7 +375,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             collateral_a, {collateral_b: "1@0"}
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(accountoutxos_tx)
@@ -397,7 +393,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {collateral_a: "1@0"}, {collateral_b: "1@0"}
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(tokenstoaddress_tx)
@@ -411,7 +407,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test setgox TX
         setgov_tx = self.nodes[0].setgov({"LP_DAILY_DFI_REWARD": 35})
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(setgov_tx)
@@ -428,7 +424,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         collateral = self.nodes[0].getnewaddress("", "legacy")
         mn_txid = self.nodes[0].createmasternode(collateral, "", [], "TENYEARTIMELOCK")
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(mn_txid)
@@ -444,7 +440,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test set loan scheme
         loan_txid = self.nodes[0].createloanscheme(1000, 0.5, "LOANMAX")
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(loan_txid)
@@ -460,7 +456,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         self.nodes[0].generate(1)
         default_txid = self.nodes[0].setdefaultloanscheme("LOAN001")
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(default_txid)
@@ -471,7 +467,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test destroying a loan scheme
         destroy_txid = self.nodes[0].destroyloanscheme("LOANMAX")
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(destroy_txid)
@@ -485,7 +481,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             oracle_address, [{"currency": "GBP", "token": "TSLA"}], 1
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(appoint_oracle_tx)
@@ -506,7 +502,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             10,
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(update_oracle_tx)
@@ -530,7 +526,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             appoint_oracle_tx, timestamp, oracle_prices
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(oracle_data_tx)
@@ -590,7 +586,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             [],
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(composite_tx)
@@ -609,7 +605,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"ORACLE_DEVIATION": Decimal("0.04000000")}, 1000
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(setgov_height_tx)
@@ -646,7 +642,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(loan_token_tx)
@@ -663,7 +659,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"name": "Tesla stock token", "mintable": True, "interest": 1},
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(update_token_tx)
@@ -732,6 +728,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"token": "DFI", "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
         )
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(collateral_toke_tx)
@@ -750,7 +747,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         vault_owner = self.nodes[0].getnewaddress("", "legacy")
         create_vault_tx = self.nodes[0].createvault(vault_owner, "LOANMAX")
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(create_vault_tx)
@@ -766,7 +763,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"ownerAddress": new_vault_owner, "loanSchemeId": "LOAN0001"},
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(update_vault_tx)
@@ -781,7 +778,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             create_vault_tx, collateral_a, "10@DFI"
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(deposit_vault_tx)
@@ -796,7 +793,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"vaultId": create_vault_tx, "amounts": "1@TSLA"}
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(take_loan_tx)
@@ -822,7 +819,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(payback_loan_tx)
@@ -839,7 +836,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             create_vault_tx, new_vault_owner, "0.5@DFI"
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(vault_withdraw_tx)
@@ -852,7 +849,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test close vault
         vault_close_tx = self.nodes[0].closevault(create_vault_tx, new_vault_owner)
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(vault_close_tx)
@@ -876,7 +873,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             new_vault, 0, self.nodes[0].get_genesis_keys().ownerAuthAddress, "7.1@TSLA"
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(auction_tx)
@@ -889,7 +886,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
         # Test remove oracle
         oracle_rem_tx = self.nodes[0].removeoracle(appoint_oracle_tx)
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(oracle_rem_tx)
@@ -907,7 +904,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        self.sync_blocks(self.nodes[0:2])
+        self.sync_blocks()
 
         # Get custom TX
         result = self.nodes[1].getcustomtx(setgov_tx)
