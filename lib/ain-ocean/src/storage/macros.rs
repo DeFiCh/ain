@@ -77,7 +77,7 @@ macro_rules! define_table {
                 Ok(self.col.delete(id)?)
             }
 
-            fn list<'a>(&'a self, from: Option<$key_type>, dir: crate::storage::SortOrder) -> Result<Box<dyn Iterator<Item = Self::ListItem> + 'a>> {
+            fn list<'a>(&'a self, from: Option<$key_type>, dir: $crate::storage::SortOrder) -> Result<Box<dyn Iterator<Item = Self::ListItem> + 'a>> {
                 let it = self.col.iter(from, dir.into())?;
                 Ok(Box::new(it))
             }
