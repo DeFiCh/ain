@@ -152,7 +152,7 @@ where
     }
 
     pub fn handle(&self) -> Result<&ColumnFamily> {
-        self.backend.cf_handle(C::NAME)
+        self.backend.cf_handle(&C::NAME)
     }
 }
 

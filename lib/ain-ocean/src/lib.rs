@@ -2,6 +2,7 @@ pub mod error;
 pub mod hex_encoder;
 mod indexer;
 pub mod network;
+mod storage;
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -13,28 +14,12 @@ pub use indexer::{
 };
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
-use repository::{
-    AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
-    BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    OracleHistoryRepository, OracleHistoryRepositoryKey, OraclePriceActiveKeyRepository,
-    OraclePriceActiveRepository, OraclePriceAggregatedIntervalKeyRepository,
-    OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
-    OraclePriceAggregatedRepositoryKey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
-    OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
-    PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
-    PriceTickerRepository, RawBlockRepository, ScriptActivityRepository,
-    ScriptAggregationRepository, ScriptUnspentKeyRepository, ScriptUnspentRepository,
-    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
-    TransactionVoutRepository, TxResultRepository,
-};
+
 use serde::Serialize;
 pub mod api;
 mod model;
-mod repository;
-pub mod storage;
 
-use crate::storage::ocean_store::OceanStore;
+use storage::*;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -49,89 +34,89 @@ lazy_static::lazy_static! {
 }
 
 pub struct MasternodeService {
-    pub by_id: MasternodeRepository,
-    pub by_height: MasternodeByHeightRepository,
-    pub stats: MasternodeStatsRepository,
+    pub by_id: Masternode,
+    pub by_height: MasternodeByHeight,
+    pub stats: MasternodeStats,
 }
 
 pub struct BlockService {
-    pub raw: RawBlockRepository,
-    pub by_id: BlockRepository,
-    pub by_height: BlockByHeightRepository,
+    pub raw: RawBlock,
+    pub by_id: Block,
+    pub by_height: BlockByHeight,
 }
 
 pub struct AuctionService {
-    by_id: AuctionHistoryRepository,
-    by_height: AuctionHistoryByHeightRepository,
+    by_id: VaultAuctionHistory,
+    by_height: VaultAuctionHistoryByHeight,
 }
 
 pub struct PoolService {
-    by_id: PoolSwapRepository,
+    by_id: PoolSwap,
 }
 
 pub struct PoolPairService {
-    by_height: PoolPairByHeightRepository,
-    by_id: PoolPairRepository,
+    by_height: PoolPairByHeight,
+    by_id: PoolPair,
 }
 
 pub struct PoolSwapAggregatedService {
-    by_id: PoolSwapAggregatedRepository,
-    by_key: PoolSwapAggregatedKeyRepository,
+    by_id: PoolSwapAggregated,
+    by_key: PoolSwapAggregatedKey,
 }
 
 pub struct TransactionService {
-    by_id: TransactionRepository,
-    by_block_hash: TransactionByBlockHashRepository,
-    vin_by_id: TransactionVinRepository,
-    vout_by_id: TransactionVoutRepository,
+    by_id: Transaction,
+    by_block_hash: TransactionByBlockHash,
+    vin_by_id: TransactionVin,
+    vout_by_id: TransactionVout,
 }
 
 pub struct OracleService {
-    by_id: OracleRepository,
+    by_id: Oracle,
 }
 pub struct OraclePriceFeedService {
-    by_key: OraclePriceFeedKeyRepository,
-    by_id: OraclePriceFeedRepository,
+    by_key: OraclePriceFeedKey,
+    by_id: OraclePriceFeed,
 }
 pub struct OraclePriceActiveService {
-    by_key: OraclePriceActiveKeyRepository,
-    by_id: OraclePriceActiveRepository,
+    by_key: OraclePriceActiveKey,
+    by_id: OraclePriceActive,
 }
 pub struct OraclePriceAggregatedIntervalService {
-    by_key: OraclePriceAggregatedIntervalKeyRepository,
-    by_id: OraclePriceAggregatedIntervalRepository,
+    by_key: OraclePriceAggregatedIntervalKey,
+    by_id: OraclePriceAggregatedInterval,
 }
 pub struct OraclePriceAggregatedService {
-    by_key: OraclePriceAggregatedRepositoryKey,
-    by_id: OraclePriceAggregatedRepository,
+    by_key: OraclePriceAggregatedKey,
+    by_id: OraclePriceAggregated,
 }
 
 pub struct OracleTokenCurrencyService {
-    by_key: OracleTokenCurrencyKeyRepository,
-    by_id: OracleTokenCurrencyRepository,
+    by_key: OracleTokenCurrencyKey,
+    by_id: OracleTokenCurrency,
 }
 
 pub struct OracleHistoryService {
-    by_id: OracleHistoryRepository,
-    by_key: OracleHistoryRepositoryKey,
+    by_id: OracleHistory,
+    by_key: OracleHistoryOracleIdSort,
 }
 
 pub struct PriceTickerService {
-    by_id: PriceTickerRepository,
-    by_key: PriceTickerKeyRepository,
+    by_id: PriceTicker,
+    by_key: PriceTickerKey,
 }
 
 pub struct ScriptActivityService {
-    by_id: ScriptActivityRepository,
+    by_id: ScriptActivity,
 }
 
 pub struct ScriptAggregationService {
-    by_id: ScriptAggregationRepository,
+    by_id: ScriptAggregation,
 }
 
 pub struct ScriptUnspentService {
-    by_id: ScriptUnspentRepository,
-    by_key: ScriptUnspentKeyRepository,
+    by_id: ScriptUnspent,
+    by_key: ScriptUnspentKey,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
@@ -147,7 +132,7 @@ pub struct Services {
     pub masternode: MasternodeService,
     pub block: BlockService,
     pub auction: AuctionService,
-    pub result: TxResultRepository,
+    pub result: TxResult,
     pub pool: PoolService,
     pub poolpair: PoolPairService,
     pub pool_swap_aggregated: PoolSwapAggregatedService,
@@ -170,77 +155,77 @@ impl Services {
     pub fn new(store: Arc<OceanStore>) -> Self {
         Self {
             masternode: MasternodeService {
-                by_id: MasternodeRepository::new(Arc::clone(&store)),
-                by_height: MasternodeByHeightRepository::new(Arc::clone(&store)),
-                stats: MasternodeStatsRepository::new(Arc::clone(&store)),
+                by_id: Masternode::new(Arc::clone(&store)),
+                by_height: MasternodeByHeight::new(Arc::clone(&store)),
+                stats: MasternodeStats::new(Arc::clone(&store)),
             },
             block: BlockService {
-                raw: RawBlockRepository::new(Arc::clone(&store)),
-                by_id: BlockRepository::new(Arc::clone(&store)),
-                by_height: BlockByHeightRepository::new(Arc::clone(&store)),
+                raw: RawBlock::new(Arc::clone(&store)),
+                by_id: Block::new(Arc::clone(&store)),
+                by_height: BlockByHeight::new(Arc::clone(&store)),
             },
             auction: AuctionService {
-                by_id: AuctionHistoryRepository::new(Arc::clone(&store)),
-                by_height: AuctionHistoryByHeightRepository::new(Arc::clone(&store)),
+                by_id: VaultAuctionHistory::new(Arc::clone(&store)),
+                by_height: VaultAuctionHistoryByHeight::new(Arc::clone(&store)),
             },
-            result: TxResultRepository::new(Arc::clone(&store)),
+            result: TxResult::new(Arc::clone(&store)),
             poolpair: PoolPairService {
-                by_height: PoolPairByHeightRepository::new(Arc::clone(&store)),
-                by_id: PoolPairRepository::new(Arc::clone(&store)),
+                by_height: PoolPairByHeight::new(Arc::clone(&store)),
+                by_id: PoolPair::new(Arc::clone(&store)),
             },
             pool: PoolService {
-                by_id: PoolSwapRepository::new(Arc::clone(&store)),
+                by_id: PoolSwap::new(Arc::clone(&store)),
             },
             pool_swap_aggregated: PoolSwapAggregatedService {
-                by_id: PoolSwapAggregatedRepository::new(Arc::clone(&store)),
-                by_key: PoolSwapAggregatedKeyRepository::new(Arc::clone(&store)),
+                by_id: PoolSwapAggregated::new(Arc::clone(&store)),
+                by_key: PoolSwapAggregatedKey::new(Arc::clone(&store)),
             },
             transaction: TransactionService {
-                by_id: TransactionRepository::new(Arc::clone(&store)),
-                by_block_hash: TransactionByBlockHashRepository::new(Arc::clone(&store)),
-                vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
-                vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
+                by_id: Transaction::new(Arc::clone(&store)),
+                by_block_hash: TransactionByBlockHash::new(Arc::clone(&store)),
+                vin_by_id: TransactionVin::new(Arc::clone(&store)),
+                vout_by_id: TransactionVout::new(Arc::clone(&store)),
             },
             oracle: OracleService {
-                by_id: OracleRepository::new(Arc::clone(&store)),
+                by_id: Oracle::new(Arc::clone(&store)),
             },
             oracle_price_feed: OraclePriceFeedService {
-                by_key: OraclePriceFeedKeyRepository::new(Arc::clone(&store)),
-                by_id: OraclePriceFeedRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceFeedKey::new(Arc::clone(&store)),
+                by_id: OraclePriceFeed::new(Arc::clone(&store)),
             },
             oracle_price_active: OraclePriceActiveService {
-                by_key: OraclePriceActiveKeyRepository::new(Arc::clone(&store)),
-                by_id: OraclePriceActiveRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceActiveKey::new(Arc::clone(&store)),
+                by_id: OraclePriceActive::new(Arc::clone(&store)),
             },
             oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService {
-                by_key: OraclePriceAggregatedIntervalKeyRepository::new(Arc::clone(&store)),
-                by_id: OraclePriceAggregatedIntervalRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceAggregatedIntervalKey::new(Arc::clone(&store)),
+                by_id: OraclePriceAggregatedInterval::new(Arc::clone(&store)),
             },
             oracle_price_aggregated: OraclePriceAggregatedService {
-                by_key: OraclePriceAggregatedRepositoryKey::new(Arc::clone(&store)),
-                by_id: OraclePriceAggregatedRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceAggregatedKey::new(Arc::clone(&store)),
+                by_id: OraclePriceAggregated::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {
-                by_key: OracleTokenCurrencyKeyRepository::new(Arc::clone(&store)),
-                by_id: OracleTokenCurrencyRepository::new(Arc::clone(&store)),
+                by_key: OracleTokenCurrencyKey::new(Arc::clone(&store)),
+                by_id: OracleTokenCurrency::new(Arc::clone(&store)),
             },
             oracle_history: OracleHistoryService {
-                by_id: OracleHistoryRepository::new(Arc::clone(&store)),
-                by_key: OracleHistoryRepositoryKey::new(Arc::clone(&store)),
+                by_id: OracleHistory::new(Arc::clone(&store)),
+                by_key: OracleHistoryOracleIdSort::new(Arc::clone(&store)),
             },
             price_ticker: PriceTickerService {
-                by_id: PriceTickerRepository::new_id(Arc::clone(&store)),
-                by_key: PriceTickerKeyRepository::new_key(Arc::clone(&store)),
+                by_id: PriceTicker::new(Arc::clone(&store)),
+                by_key: PriceTickerKey::new(Arc::clone(&store)),
             },
             script_activity: ScriptActivityService {
-                by_id: ScriptActivityRepository::new(Arc::clone(&store)),
+                by_id: ScriptActivity::new(Arc::clone(&store)),
             },
             script_aggregation: ScriptAggregationService {
-                by_id: ScriptAggregationRepository::new(Arc::clone(&store)),
+                by_id: ScriptAggregation::new(Arc::clone(&store)),
             },
             script_unspent: ScriptUnspentService {
-                by_id: ScriptUnspentRepository::new(Arc::clone(&store)),
-                by_key: ScriptUnspentKeyRepository::new(Arc::clone(&store)),
+                by_id: ScriptUnspent::new(Arc::clone(&store)),
+                by_key: ScriptUnspentKey::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }

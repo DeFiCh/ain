@@ -33,8 +33,8 @@ use crate::{
     api::prices::PriceTickerResponse,
     error::{ApiError, Error},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
-    repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
+    storage::{RepositoryOps, SecondaryIndex},
     Result,
 };
 

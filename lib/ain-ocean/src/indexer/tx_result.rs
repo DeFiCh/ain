@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bitcoin::{hashes::Hash, Txid};
 
-use crate::{model::TxResult, repository::RepositoryOps, Result, Services};
+use crate::{model::TxResult, storage::RepositoryOps, Result, Services};
 
 pub fn index(
     services: &Arc<Services>,

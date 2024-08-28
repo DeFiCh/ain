@@ -25,7 +25,7 @@ use crate::{
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OracleTokenCurrency, PriceOracles, PriceTicker,
     },
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     storage::SortOrder,
     Result,
 };

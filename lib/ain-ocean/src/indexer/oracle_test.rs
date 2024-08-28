@@ -15,7 +15,7 @@ mod tests {
     use crate::{
         indexer::{Context, Index},
         model::{BlockContext, Oracle, OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem},
-        repository::RepositoryOps,
+        storage::RepositoryOps,
         storage::{ocean_store, SortOrder},
         Services,
     };

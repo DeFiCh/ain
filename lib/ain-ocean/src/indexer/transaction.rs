@@ -13,7 +13,7 @@ use crate::{
     model::{
         Transaction as TransactionMapper, TransactionVin, TransactionVout, TransactionVoutScript,
     },
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     Services,
 };
 

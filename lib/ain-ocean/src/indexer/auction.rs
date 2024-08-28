@@ -7,7 +7,7 @@ use super::Context;
 use crate::{
     indexer::{Index, Result},
     model::VaultAuctionBatchHistory,
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     Services,
 };
 

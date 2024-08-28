@@ -14,7 +14,7 @@ use crate::{
     model::{
         BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent,
     },
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     storage::SortOrder,
     Error, Result,
 };

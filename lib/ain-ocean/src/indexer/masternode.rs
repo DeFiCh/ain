@@ -10,7 +10,7 @@ use crate::{
     error::Error,
     indexer::{Index, Result},
     model::{HistoryItem, Masternode, MasternodeStats, MasternodeStatsData, TimelockStats},
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     Services,
 };
 

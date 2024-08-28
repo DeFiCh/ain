@@ -2,7 +2,7 @@ use std::{fs, marker::PhantomData, path::Path, sync::Arc};
 
 use ain_db::{Column, ColumnName, LedgerColumn, Rocks};
 
-use super::columns::COLUMN_NAMES;
+use super::COLUMN_NAMES;
 use crate::Result;
 
 #[derive(Debug, Clone)]
