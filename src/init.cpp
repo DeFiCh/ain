@@ -2181,37 +2181,44 @@ bool AppInitMain(InitInterfaces& interfaces)
     if (gArgs.IsArgSet("-consolidaterewards")) {
         const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
         auto fullRewardConsolidation = false;
-        for (const auto& tokenSymbolInput : tokenSymbolArgs) {
+        for (const auto &tokenSymbolInput : tokenSymbolArgs) {
             auto tokenSymbol = trim_ws(tokenSymbolInput);
             if (tokenSymbol.empty()) {
                 fullRewardConsolidation = true;
-                continue;
+                break;
             }
-            LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
-            auto token = pcustomcsview->GetToken(tokenSymbol);
-            if (!token) {
-                InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
-                return false;
-            }
-
-            std::set<CScript> ownersToConsolidate;
-            pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
-                if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
-                    ownersToConsolidate.emplace(owner);
-                }
-                return true;
-            });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
+
         if (fullRewardConsolidation) {
             LogPrintf("Consolidate rewards for all addresses..\n");
-            std::set<CScript> ownersToConsolidate;
+
+            std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
             pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
                 if (balance.nValue > 0) {
                     ownersToConsolidate.emplace(owner);
                 }
                 return true;
             });
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
+        } else {
+            //one set for all tokens, ConsolidateRewards runs on the address, so no need to run multiple times for multiple token inputs
+            std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
+            for (const auto &tokenSymbolInput : tokenSymbolArgs) {
+                auto tokenSymbol = trim_ws(tokenSymbolInput);
+                LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
+                auto token = pcustomcsview->GetToken(tokenSymbol);
+                if (!token) {
+                    InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
+                    return false;
+                }
+
+                pcustomcsview->ForEachBalance([&, tokenId = token->first](const CScript &owner, CTokenAmount balance) {
+                    if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
+                        ownersToConsolidate.emplace(owner);
+                    }
+                    return true;
+                });
+            }
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
         pcustomcsview->Flush();
