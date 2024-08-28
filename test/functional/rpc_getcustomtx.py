@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, disconnect_nodes
+from test_framework.util import assert_equal
 from decimal import Decimal
 import calendar
 import time
@@ -51,6 +51,7 @@ class TokensRPCGetCustomTX(DefiTestFramework):
                 "-bayfrontgardensheight=50",
                 "-dakotaheight=120",
                 "-eunosheight=120",
+                "-eunospayaheight=120",
                 "-fortcanningheight=120",
                 "-fortcanninghillheight=122",
                 "-grandcentralheight=189",
@@ -70,7 +71,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(101)
-        self.sync_blocks()
         num_tokens = len(self.nodes[0].listtokens())
 
         # collateral address
@@ -81,7 +81,6 @@ class TokensRPCGetCustomTX(DefiTestFramework):
             {"symbol": "GOLD", "name": "gold", "collateralAddress": collateral_a}
         )
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         # Make sure there's an extra token
         assert_equal(len(self.nodes[0].listtokens()), num_tokens + 1)
