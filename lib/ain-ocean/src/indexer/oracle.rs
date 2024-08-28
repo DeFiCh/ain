@@ -18,8 +18,7 @@ use crate::{
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
         OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
     },
-    storage::RepositoryOps,
-    storage::SortOrder,
+    storage::{RepositoryOps, SortOrder},
     Error, Services,
 };
 

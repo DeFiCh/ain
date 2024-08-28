@@ -23,8 +23,7 @@ use crate::{
         AppContext,
     },
     model::MasternodeStatsData,
-    storage::RepositoryOps,
-    storage::SortOrder,
+    storage::{RepositoryOps, SortOrder},
     Error, Result,
 };
 

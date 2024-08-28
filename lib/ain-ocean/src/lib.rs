@@ -14,7 +14,6 @@ pub use indexer::{
 };
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
-
 use serde::Serialize;
 pub mod api;
 mod model;

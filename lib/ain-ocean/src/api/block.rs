@@ -18,8 +18,9 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error},
     model::{Block, BlockContext, Transaction},
-    storage::SortOrder,
-    storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, TransactionByBlockHash},
+    storage::{
+        InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder, TransactionByBlockHash,
+    },
     Result,
 };
 

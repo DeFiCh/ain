@@ -1,6 +1,7 @@
+use std::fmt;
+
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 use super::BlockContext;
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]

@@ -10,8 +10,9 @@ use crate::{
     api::{common::Paginate, response::Response},
     error::ApiError,
     model::{Transaction, TransactionVin, TransactionVout},
-    storage::SortOrder,
-    storage::{InitialKeyProvider, RepositoryOps, TransactionVin as TransactionVinStorage},
+    storage::{
+        InitialKeyProvider, RepositoryOps, SortOrder, TransactionVin as TransactionVinStorage,
+    },
     Result,
 };
 

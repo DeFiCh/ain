@@ -18,8 +18,7 @@ use crate::{
     error::{Error, NotFoundKind},
     indexer::PoolSwapAggregatedInterval,
     model::{BlockContext, PoolSwapAggregatedAggregated},
-    storage::{RepositoryOps, SecondaryIndex},
-    storage::SortOrder,
+    storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
 
