@@ -6,7 +6,7 @@ use super::BlockContext;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Masternode {
-    pub id: Txid, // Keep for backward compatibility
+    pub id: Txid,
     pub owner_address: String,
     pub operator_address: String,
     pub creation_height: u32,

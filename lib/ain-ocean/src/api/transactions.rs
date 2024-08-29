@@ -10,8 +10,9 @@ use crate::{
     api::{common::Paginate, response::Response},
     error::ApiError,
     model::{Transaction, TransactionVin, TransactionVout},
-    repository::{InitialKeyProvider, RepositoryOps, TransactionVinRepository},
-    storage::SortOrder,
+    storage::{
+        InitialKeyProvider, RepositoryOps, SortOrder, TransactionVin as TransactionVinStorage,
+    },
     Result,
 };
 
@@ -39,7 +40,7 @@ async fn get_vins(
     let next = query
         .next
         .clone()
-        .unwrap_or(TransactionVinRepository::initial_key(id));
+        .unwrap_or(TransactionVinStorage::initial_key(id));
 
     let list = ctx
         .services

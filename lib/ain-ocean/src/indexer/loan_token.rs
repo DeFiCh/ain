@@ -8,8 +8,7 @@ use crate::{
     indexer::{Context, Index, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
-    repository::RepositoryOps,
-    storage::SortOrder,
+    storage::{RepositoryOps, SortOrder},
     Services,
 };
 
