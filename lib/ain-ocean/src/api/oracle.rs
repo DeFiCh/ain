@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
-use anyhow::anyhow;
+use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -10,17 +10,17 @@ use axum::{
 };
 use bitcoin::Txid;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use super::{
-    common::split_key,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
     api::common::Paginate,
-    error::{ApiError, Error, NotFoundKind},
-    model::{ApiResponseOraclePriceFeed, Oracle},
+    error::ApiError,
+    model::{BlockContext, Oracle},
     storage::{RepositoryOps, SortOrder},
     Result,
 };
@@ -49,18 +49,34 @@ async fn list_oracles(
     }))
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceFeedResponse {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub token: String,
+    pub currency: String,
+    pub oracle_id: Txid,
+    pub txid: Txid,
+    pub time: i32,
+    pub amount: String,
+    pub block: BlockContext,
+}
+
 #[ocean_endpoint]
 async fn get_feed(
     Path((oracle_id, key)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<ApiResponseOraclePriceFeed>> {
+) -> Result<ApiPagedResponse<OraclePriceFeedResponse>> {
     let txid = Txid::from_str(&oracle_id)?;
-    let (token, currency) = match split_key(&key) {
-        Ok((t, c)) => (t, c),
-        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
-    };
-    let key = (token.clone(), currency.clone(), txid);
+
+    let mut parts = key.split('-');
+    let token = parts.next().context("Missing token")?;
+    let currency = parts.next().context("Missing currency")?;
+
+    let key = (token, currency, txid);
 
     let price_feed_list = ctx
         .services
@@ -68,7 +84,7 @@ async fn get_feed(
         .by_id
         .list(None, SortOrder::Descending)?
         .paginate(&query)
-        .map(|res| res.expect("Error retrieving key"))
+        .flatten()
         .collect::<Vec<_>>();
 
     let mut oracle_price_feeds = Vec::new();
@@ -77,7 +93,7 @@ async fn get_feed(
         let (token, currency, oracle_id, _) = &feed.id;
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
-            oracle_price_feeds.push(ApiResponseOraclePriceFeed {
+            oracle_price_feeds.push(OraclePriceFeedResponse {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),
                 sort: feed.sort.clone(),
@@ -86,7 +102,7 @@ async fn get_feed(
                 oracle_id: feed.oracle_id,
                 txid: feed.txid,
                 time: feed.time,
-                amount: amount.to_string(),
+                amount: amount.normalize().to_string(),
                 block: feed.block.clone(),
             });
         }
@@ -103,23 +119,24 @@ async fn get_feed(
 async fn get_oracle_by_address(
     Path(address): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Oracle>> {
-    format!("Oracle details for address {}", address);
-    let (_, oracle) = ctx
+) -> Result<Response<Option<Oracle>>> {
+    let oracles = ctx
         .services
         .oracle
         .by_id
         .list(None, SortOrder::Descending)?
-        .filter_map(|item| {
-            let (id, oracle) = item.ok()?;
+        .flatten()
+        .filter_map(|(_, oracle)| {
             if oracle.owner_address == address {
-                Some((id, oracle))
+                Some(oracle)
             } else {
                 None
             }
         })
-        .next()
-        .ok_or(Error::NotFound(NotFoundKind::Oracle))?;
+        .collect::<Vec<_>>();
+
+    let oracle = oracles.first().cloned();
+
     Ok(Response::new(oracle))
 }
 
