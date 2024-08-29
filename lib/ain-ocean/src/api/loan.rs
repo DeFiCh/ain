@@ -1,8 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-// use anyhow::{format_err, Context};
-use snafu::{OptionExt, Snafu};
+use snafu::OptionExt;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -32,7 +31,7 @@ use super::{
 };
 use crate::{
     api::prices::PriceTickerResponse,
-    error::{ApiError, Error},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
@@ -126,13 +125,11 @@ async fn get_active_price(
     let token = parts
         .next()
         // .context("Invalid fixed interval price id structure")?
-        .context(Error::Other {
-            message: "Invalid fixed interval price id structure".to_string(),
-        })?
+        .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?
         .to_string();
     let currency = parts
         .next()
-        .context("Invalid fixed interval price id structure")?
+        .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?
         .to_string();
     let price = ctx.services.price_ticker.by_id.get(&(token, currency))?;
 
@@ -161,7 +158,7 @@ async fn list_collateral_token(
         .map(|v| async {
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
-                .context("None is not valid")?;
+                .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
             let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
@@ -182,7 +179,7 @@ async fn get_collateral_token(
     let collateral_token = ctx.client.get_collateral_token(token_id).await?;
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
-        .context("None is not valid")?;
+        .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
     let active_price =
         get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
 
@@ -242,10 +239,10 @@ async fn list_loan_token(
 
             let token = parts
                 .next()
-                .context("Invalid fixed interval price id structure")?;
+                .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?;
             let currency = parts
                 .next()
-                .context("Invalid fixed interval price id structure")?;
+                .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -289,10 +286,10 @@ async fn get_loan_token(
             let mut parts = fixed_interval_price_id.split('/');
             let token = parts
                 .next()
-                .context("Invalid fixed interval price id structure")?;
+                .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?;
             let currency = parts
                 .next()
-                .context("Invalid fixed interval price id structure")?;
+                .context(OtherSnafu { msg: "Invalid fixed interval price id structure" })?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -314,7 +311,7 @@ async fn get_loan_token(
         })
         .transpose()?
     else {
-        return Err(format_err!("Token {:?} does not exist!", token_id).into());
+        return Err(Error::NotFound { kind: NotFoundKind::Token });
     };
 
     Ok(Response::new(token))
@@ -529,7 +526,7 @@ async fn list_vault_auction_history(
                 .auction
                 .by_id
                 .get(&id)?
-                .context("Missing auction index")?;
+                .context(NotFoundSnafu { kind: NotFoundKind::Auction })?;
 
             Ok(auction)
         })
@@ -649,8 +646,8 @@ async fn map_token_amounts(
             let amount = amount.to_owned();
             let mut parts = amount.split('@');
 
-            let amount = parts.next().context("Invalid amount structure")?;
-            let token_symbol = parts.next().context("Invalid amount structure")?;
+            let amount = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
+            let token_symbol = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
             Ok::<[String; 2], Error>([amount.to_string(), token_symbol.to_string()])
         })
         .collect::<Result<Vec<_>>>()?;

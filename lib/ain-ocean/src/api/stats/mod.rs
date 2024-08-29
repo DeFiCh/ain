@@ -13,6 +13,7 @@ use defichain_rpc::{
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use self::{
     cache::{
@@ -24,7 +25,7 @@ use self::{
 use super::{response::Response, AppContext};
 use crate::{
     api::stats::{cache::get_burned_total, subsidy::BLOCK_SUBSIDY},
-    error::{ApiError, Error},
+    error::{ApiError, DecimalConversionSnafu},
     Result,
 };
 
@@ -116,7 +117,7 @@ async fn get_reward_distribution(
         .unwrap_or_default(); // Default to genesis block
 
     let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
-        .ok_or(Error::DecimalConversionError)?;
+        .context(DecimalConversionSnafu)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let distribution = RewardDistributionData {
@@ -152,7 +153,7 @@ async fn get_supply(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respon
         .unwrap_or_default(); // Default to genesis block
 
     let total = Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height))
-        .ok_or(Error::DecimalConversionError)?
+        .context(DecimalConversionSnafu)?
         / Decimal::from(COIN);
 
     let burned = get_burned_total(&ctx).await?;

@@ -22,7 +22,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::ApiError,
+    error::{ApiError, OtherSnafu},
     model::{
         BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent,
     },
@@ -89,8 +89,7 @@ async fn get_account_history(
     let res = ctx
         .client
         .get_account_history(&address, height, txno)
-        .await
-        .context("Record not found")?;
+        .await?;
 
     Ok(Response::new(res.into()))
 }

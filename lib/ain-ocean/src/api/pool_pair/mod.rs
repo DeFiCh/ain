@@ -4,7 +4,6 @@ use std::{
 };
 
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     json::{poolpair::PoolPairInfo, token::TokenInfo},
@@ -25,6 +24,7 @@ use service::{
     check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
     get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
+use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
@@ -35,7 +35,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -208,8 +208,8 @@ impl PoolPairResponse {
         volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
         let mut parts = p.symbol.split('-');
-        let a = parts.next().context("Missing symbol a")?;
-        let b = parts.next().context("Missing symbol b")?;
+        let a = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
+        let b = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
 
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
@@ -307,7 +307,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_a)
                 .await?
-                .context("None is not valid")?;
+                .context(OtherSnafu { msg: format!("token by id: {} is not found", p.id_token_a) })?;
             let (
                 _,
                 TokenInfo {
@@ -315,7 +315,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_b)
                 .await?
-                .context("None is not valid")?;
+                .context(OtherSnafu { msg: format!("token by id: {} is not found", p.id_token_b) })?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let apr = get_apr(&ctx, &id, &p).await?;
@@ -356,7 +356,7 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_a)
             .await?
-            .context("None is not valid")?;
+            .context(OtherSnafu { msg: format!("token by id: {} is not found", pool.id_token_a) })?;
         let (
             _,
             TokenInfo {
@@ -364,7 +364,7 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_b)
             .await?
-            .context("None is not valid")?;
+            .context(OtherSnafu { msg: format!("token by id: {} is not found", pool.id_token_b) })?;
         let res = PoolPairResponse::from_with_id(
             id,
             pool,
@@ -377,7 +377,7 @@ async fn get_pool_pair(
         return Ok(Response::new(Some(res)));
     };
 
-    Err(Error::NotFound(NotFoundKind::PoolPair))
+    Err(Error::NotFound { kind: NotFoundKind::PoolPair })
 }
 
 #[ocean_endpoint]

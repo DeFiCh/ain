@@ -1,12 +1,12 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
-use anyhow::{format_err, Context};
 use bitcoin::Txid;
 use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
         common::{from_script, parse_display_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
-    error::{Error, NotFoundKind},
+    error::{DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu, UnderflowSnafu},
     indexer::PoolSwapAggregatedInterval,
     model::{BlockContext, PoolSwapAggregatedAggregated},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
@@ -69,17 +69,17 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
         if p.id_token_a == "0" {
             total_usd = total_usd
                 .checked_add(reserve_b)
-                .ok_or_else(|| Error::OverflowError)?;
+                .context(OverflowSnafu)?;
             total_dfi = total_dfi
                 .checked_add(reserve_a)
-                .ok_or_else(|| Error::OverflowError)?;
+                .context(OverflowSnafu)?;
         } else if p.id_token_b == "0" {
             total_usd = total_usd
                 .checked_add(reserve_a)
-                .ok_or_else(|| Error::OverflowError)?;
+                .context(OverflowSnafu)?;
             total_dfi = total_dfi
                 .checked_add(reserve_b)
-                .ok_or_else(|| Error::OverflowError)?;
+                .context(OverflowSnafu)?;
         }
         Ok((total_usd, total_dfi))
     }
@@ -95,7 +95,7 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     if !total_usd.is_zero() {
         let res = total_usd
             .checked_div(total_dfi)
-            .ok_or_else(|| Error::UnderflowError)?;
+            .context(UnderflowSnafu)?;
         return Ok(res);
     };
 
@@ -132,21 +132,21 @@ async fn get_total_liquidity_usd_by_best_path(
 
     let a = a_token_rate
         .checked_mul(reserve_a)
-        .ok_or_else(|| Error::OverflowError)?;
+        .context(OverflowSnafu)?;
 
     let b = b_token_rate
         .checked_mul(reserve_b)
-        .ok_or_else(|| Error::OverflowError)?;
+        .context(OverflowSnafu)?;
 
-    let res = a.checked_add(b).ok_or_else(|| Error::OverflowError)?;
+    let res = a.checked_add(b).context(OverflowSnafu)?;
 
     Ok(res)
 }
 
 pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
     let mut parts = p.symbol.split('-');
-    let a = parts.next().context("Missing symbol a")?;
-    let b = parts.next().context("Missing symbol b")?;
+    let a = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
+    let b = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
@@ -154,13 +154,13 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     if ["DUSD", "USDT", "USDC"].contains(&a) {
         return reserve_a
             .checked_mul(dec!(2))
-            .ok_or_else(|| Error::OverflowError);
+            .context(OverflowSnafu);
     };
 
     if ["DUSD", "USDT", "USDC"].contains(&b) {
         return reserve_b
             .checked_mul(dec!(2))
-            .ok_or_else(|| Error::OverflowError);
+            .context(OverflowSnafu);
     };
 
     let usdt_per_dfi = get_usd_per_dfi(ctx).await?;
@@ -171,17 +171,17 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     if a == "DFI" {
         return reserve_a
             .checked_mul(dec!(2))
-            .ok_or_else(|| Error::OverflowError)?
+            .context(OverflowSnafu)?
             .checked_mul(usdt_per_dfi)
-            .ok_or_else(|| Error::OverflowError);
+            .context(OverflowSnafu);
     };
 
     if b == "DFI" {
         return reserve_b
             .checked_mul(dec!(2))
-            .ok_or_else(|| Error::OverflowError)?
+            .context(OverflowSnafu)?
             .checked_mul(usdt_per_dfi)
-            .ok_or_else(|| Error::OverflowError);
+            .context(OverflowSnafu);
     };
 
     let res = get_total_liquidity_usd_by_best_path(ctx, p).await?;
@@ -191,22 +191,21 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
 fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Decimal> {
     let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
         let mut parts = account.split('@');
-        let amount = parts.next().context("Invalid amount structure")?;
-        let token = parts.next().context("Invalid amount structure")?;
+        let amount = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
+        let token = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
 
         if token != "0" && token != "DFI" {
             return Ok(accumulate);
         }
 
-        let yearly = Decimal::from_str(amount)
-            .context("convert numeric string to number")?
+        let yearly = Decimal::from_str(amount)?
             .checked_mul(dec!(2880))
             .and_then(|v| v.checked_mul(dec!(365)))
             .and_then(|v| v.checked_mul(dfi_price_usdt))
-            .context("yearly reward overflow")?;
+            .context(OtherSnafu { msg: "".to_string() })?;
         accumulate
             .checked_add(yearly)
-            .context("accumlate reward overflow")
+            .context(OtherSnafu { msg: "".to_string() })
     })?;
     Ok(rewards)
 }
@@ -235,7 +234,7 @@ async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
         .unwrap_or_default();
 
     let daily_dfi_reward =
-        Decimal::from_f64(reward).ok_or_else(|| Error::DecimalConversionError)?;
+        Decimal::from_f64(reward).context(DecimalConversionSnafu)?;
     Ok(daily_dfi_reward)
 }
 
@@ -258,41 +257,41 @@ async fn get_yearly_reward_pct_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> R
     let reward_pct = Decimal::from_f64(p.reward_pct).unwrap_or_default();
     reward_pct
         .checked_mul(daily_dfi_reward)
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dec!(365))
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dfi_price_usd)
-        .ok_or_else(|| Error::OverflowError)
+        .context(OverflowSnafu)
 }
 
 async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
     let eunos_height =
-        Decimal::from_u32(eunos_height).ok_or_else(|| Error::DecimalConversionError)?;
-    let height = Decimal::from_u32(height).ok_or_else(|| Error::DecimalConversionError)?;
+        Decimal::from_u32(eunos_height).context(DecimalConversionSnafu)?;
+    let height = Decimal::from_u32(height).context(DecimalConversionSnafu)?;
     let mut block_subsidy = dec!(405.04);
 
     if height >= eunos_height {
         let reduction_amount = dec!(0.01658); // 1.658%
         let mut reductions = height
             .checked_sub(eunos_height)
-            .ok_or_else(|| Error::UnderflowError)?
+            .context(UnderflowSnafu)?
             .checked_div(dec!(32690))
-            .ok_or_else(|| Error::UnderflowError)?
+            .context(UnderflowSnafu)?
             .floor();
 
         while reductions >= dec!(0) {
             let amount = reduction_amount
                 .checked_mul(block_subsidy)
-                .ok_or_else(|| Error::OverflowError)?;
+                .context(OverflowSnafu)?;
             if amount <= dec!(0.00001) {
                 return Ok(dec!(0));
             };
             block_subsidy = block_subsidy
                 .checked_sub(amount)
-                .ok_or_else(|| Error::UnderflowError)?;
+                .context(UnderflowSnafu)?;
             reductions = reductions
                 .checked_sub(dec!(1))
-                .ok_or_else(|| Error::UnderflowError)?;
+                .context(UnderflowSnafu)?;
         }
     };
 
@@ -306,7 +305,7 @@ async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {
         .softforks
         .get("eunos")
         .and_then(|eunos| eunos.height)
-        .ok_or_else(|| format_err!("BlockchainInfo eunos height field is missing"))?;
+        .context(OtherSnafu { msg: "BlockchainInfo eunos height field is missing" })?;
 
     get_block_subsidy(eunos_height, info.blocks).await
 }
@@ -319,7 +318,7 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
         .and_then(|obj| obj.get(id))
         .and_then(|v| v.as_f64())
         .unwrap_or_default();
-    let split = Decimal::from_f64(split).ok_or_else(|| Error::DecimalConversionError)?;
+    let split = Decimal::from_f64(split).context(DecimalConversionSnafu)?;
 
     let dfi_price_usd = get_usd_per_dfi(ctx).await?;
 
@@ -327,13 +326,13 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
 
     loan_emission
         .checked_mul(split) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dec!(2880)) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dec!(365)) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dfi_price_usd) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .ok_or_else(|| Error::OverflowError)
+        .context(OverflowSnafu)
 }
 
 async fn gather_amount(
@@ -371,7 +370,7 @@ async fn gather_amount(
             let amount = if let Some(amount) = aggregated.get(token_id) {
                 amount
                     .checked_add(from_amount)
-                    .ok_or(Error::OverflowError)?
+                    .context(OverflowSnafu)?
             } else {
                 from_amount
             };
@@ -389,9 +388,9 @@ async fn gather_amount(
             .checked_add(
                 token_price
                     .checked_mul(amount)
-                    .ok_or(Error::OverflowError)?,
+                    .context(OverflowSnafu)?,
             )
-            .ok_or(Error::OverflowError)?;
+            .context(OverflowSnafu)?;
     }
 
     Ok(volume)
@@ -415,9 +414,9 @@ async fn get_yearly_commission_estimate(
     let commission = Decimal::from_f64(p.commission).unwrap_or_default();
     commission
         .checked_mul(volume.h24)
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_mul(dec!(365))
-        .ok_or_else(|| Error::OverflowError)
+        .context(OverflowSnafu)
 }
 
 pub async fn get_apr(
@@ -432,9 +431,9 @@ pub async fn get_apr(
 
     let yearly_usd = custom_usd
         .checked_add(pct_usd)
-        .ok_or_else(|| Error::OverflowError)?
+        .context(OverflowSnafu)?
         .checked_add(loan_usd)
-        .ok_or_else(|| Error::OverflowError)?;
+        .context(OverflowSnafu)?;
 
     if yearly_usd.is_zero() {
         return Ok(PoolPairAprResponse::default());
@@ -443,16 +442,16 @@ pub async fn get_apr(
     // 1 == 100%, 0.1 = 10%
     let reward = yearly_usd
         .checked_div(total_liquidity_usd)
-        .ok_or_else(|| Error::UnderflowError)?;
+        .context(UnderflowSnafu)?;
 
     let yearly_commission = get_yearly_commission_estimate(ctx, id, p).await?;
     let commission = yearly_commission
         .checked_div(total_liquidity_usd)
-        .ok_or_else(|| Error::UnderflowError)?;
+        .context(UnderflowSnafu)?;
 
     let total = reward
         .checked_add(commission)
-        .ok_or_else(|| Error::OverflowError)?;
+        .context(OverflowSnafu)?;
 
     Ok(PoolPairAprResponse {
         reward,
@@ -478,7 +477,7 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<Decimal> {
     let (_, info) = get_token_cached(ctx, token_id)
         .await?
-        .ok_or(Error::NotFound(NotFoundKind::Token))?;
+        .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {
         return Ok(dec!(1));
@@ -487,36 +486,36 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
     let dusd_pool = get_pool_pair(ctx, &info.symbol, "DUSD").await?;
     if let Some(p) = dusd_pool {
         let mut parts = p.symbol.split('-');
-        let a = parts.next().context("Invalid pool pair symbol structure")?;
-        let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
-        let reserve_b = Decimal::from_f64(p.reserve_b).ok_or(Error::DecimalConversionError)?;
+        let a = parts.next().context(OtherSnafu { msg: "Invalid pool pair symbol structure" })?;
+        let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
+        let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if a == "DUSD" {
             return reserve_a
                 .checked_div(reserve_b)
-                .ok_or(Error::UnderflowError);
+                .context(UnderflowSnafu);
         };
         return reserve_b
             .checked_div(reserve_a)
-            .ok_or(Error::UnderflowError);
+            .context(UnderflowSnafu)
     }
 
     let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;
     if let Some(p) = dfi_pool {
         let usd_per_dfi = get_usd_per_dfi(ctx).await?;
-        let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
-        let reserve_b = Decimal::from_f64(p.reserve_b).ok_or(Error::DecimalConversionError)?;
+        let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
+        let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if p.id_token_a == *"0" {
             return reserve_a
                 .checked_div(reserve_b)
-                .ok_or(Error::UnderflowError)?
+                .context(UnderflowSnafu)?
                 .checked_mul(usd_per_dfi)
-                .ok_or(Error::OverflowError);
+                .context(OverflowSnafu);
         }
         return reserve_b
             .checked_div(reserve_a)
-            .ok_or(Error::UnderflowError)?
+            .context(UnderflowSnafu)?
             .checked_mul(usd_per_dfi)
-            .ok_or(Error::OverflowError);
+            .context(OverflowSnafu);
     }
 
     Ok(dec!(0))
@@ -533,9 +532,9 @@ pub async fn get_aggregated_in_usd(
         let amount = Decimal::from_str(amount)?;
         value = value
             .checked_add(token_price)
-            .ok_or(Error::OverflowError)?
+            .context(OverflowSnafu)?
             .checked_mul(amount)
-            .ok_or(Error::OverflowError)?
+            .context(OverflowSnafu)?
     }
 
     Ok(value)
@@ -666,11 +665,9 @@ pub async fn find_swap_to(
         .await?;
 
     for account in history.amounts {
-        let parts = account.split('@').collect::<Vec<&str>>();
-        let [value, symbol] = parts
-            .as_slice()
-            .try_into()
-            .context("Invalid amount structure")?;
+        let mut parts = account.split('@');
+        let value = parts.next().context(OtherSnafu { msg: "Invalid account structure" })?;
+        let symbol = parts.next().context(OtherSnafu { msg: "Invalid account structure" })?;
 
         let value = Decimal::from_str(value)?;
 

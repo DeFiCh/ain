@@ -1,7 +1,6 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
 use ain_dftx::oracles::*;
-use anyhow::Context as _;
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
@@ -9,6 +8,7 @@ use rust_decimal::{
     Decimal,
 };
 use rust_decimal_macros::dec;
+use snafu::OptionExt;
 
 use crate::{
     indexer::{Context, Index, Result},
