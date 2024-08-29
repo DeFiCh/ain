@@ -37,9 +37,8 @@ use super::{
 use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
-    repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps, SecondaryIndex},
-    storage::SortOrder,
-    Result, TokenIdentifier,
+    storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
+    PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
 };
 
 pub mod path;

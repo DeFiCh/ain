@@ -22,9 +22,8 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
     model::Masternode,
-    repository::{RepositoryOps, SecondaryIndex},
-    storage::SortOrder,
-    Result,
+    storage::{RepositoryOps, SortOrder},
+    Result, SecondaryIndex,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

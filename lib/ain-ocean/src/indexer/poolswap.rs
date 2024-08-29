@@ -12,8 +12,7 @@ use super::Context;
 use crate::{
     indexer::{tx_result, Index, Result},
     model::{self, PoolSwapResult, TxResult},
-    repository::{RepositoryOps, SecondaryIndex},
-    storage::SortOrder,
+    storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Error, Services,
 };
 

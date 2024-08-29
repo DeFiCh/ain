@@ -21,8 +21,7 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
     model::{ApiResponseOraclePriceFeed, Oracle},
-    repository::RepositoryOps,
-    storage::SortOrder,
+    storage::{RepositoryOps, SortOrder},
     Result,
 };
 

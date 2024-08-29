@@ -6,7 +6,7 @@ use log::debug;
 use crate::{
     indexer::{Context, Index, Result},
     model::TxResult,
-    repository::RepositoryOps,
+    storage::RepositoryOps,
     Services,
 };
 

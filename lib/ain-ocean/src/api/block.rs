@@ -18,10 +18,9 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error},
     model::{Block, BlockContext, Transaction},
-    repository::{
-        InitialKeyProvider, RepositoryOps, SecondaryIndex, TransactionByBlockHashRepository,
+    storage::{
+        InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder, TransactionByBlockHash,
     },
-    storage::SortOrder,
     Result,
 };
 
@@ -137,13 +136,13 @@ async fn get_transactions(
 ) -> Result<ApiPagedResponse<TransactionResponse>> {
     let repository = &ctx.services.transaction.by_block_hash;
 
-    let next = query.next.as_ref().map_or(
-        Ok(TransactionByBlockHashRepository::initial_key(hash)),
-        |q| {
+    let next = query
+        .next
+        .as_ref()
+        .map_or(Ok(TransactionByBlockHash::initial_key(hash)), |q| {
             let height = q.parse::<usize>().context("Invalid height")?;
             Ok::<(BlockHash, usize), Error>((hash, height))
-        },
-    )?;
+        })?;
 
     let txs = repository
         .list(Some(next), SortOrder::Ascending)?

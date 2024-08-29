@@ -1,6 +1,7 @@
-use super::BlockContext;
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
+
+use super::BlockContext;
 
 pub type ScriptUnspentId = (String, String, Txid, String); // hid + hex::encode(block.height) + txid + hex::encode(vout_index)
 pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_index
