@@ -1416,7 +1416,7 @@ class RestartdTokensTest(DefiTestFramework):
 
         self.nodes[0].generate(5)
 
-        # account is same, FIXME: should be except for DFI rewards, but its actually the same? 
+        # account is same (no DFI rewards on pools), FIXME: missing commissions that should have happened during tokenLock 
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
