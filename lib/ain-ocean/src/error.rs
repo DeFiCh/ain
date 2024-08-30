@@ -29,7 +29,9 @@ pub enum NotFoundKind {
     Masternode,
     Scheme,
     Oracle,
-    Token,
+    Token {
+        id: String,
+    },
     PoolPair,
     RawTx,
 }

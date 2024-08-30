@@ -150,7 +150,9 @@ async fn list_collateral_token(
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
                 .context(NotFoundSnafu {
-                    kind: NotFoundKind::Token,
+                    kind: NotFoundKind::Token {
+                        id: v.token_id.clone(),
+                    },
                 })?;
             let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
@@ -173,7 +175,9 @@ async fn get_collateral_token(
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token,
+            kind: NotFoundKind::Token {
+                id: collateral_token.token_id.clone(),
+            },
         })?;
     let active_price =
         get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
@@ -294,7 +298,9 @@ async fn get_loan_token(
         .transpose()?
     else {
         return Err(Error::NotFound {
-            kind: NotFoundKind::Token,
+            kind: NotFoundKind::Token {
+                id: token_id,
+            },
         });
     };
 

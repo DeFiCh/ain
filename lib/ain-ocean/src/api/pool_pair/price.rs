@@ -36,7 +36,9 @@ pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<De
     let (denomination_token_id, denomination_token_info) = get_token_cached(ctx, &symbol)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token,
+            kind: NotFoundKind::Token {
+                id: symbol,
+            },
         })?;
 
     if is_untradable_token(&denomination_token_info) {

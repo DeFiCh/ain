@@ -107,7 +107,7 @@ impl StackSet {
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
     let (id, token) = get_token_cached(ctx, id).await?.context(NotFoundSnafu {
-        kind: NotFoundKind::Token,
+        kind: NotFoundKind::Token { id: id.to_string() },
     })?;
     Ok(TokenIdentifier {
         id,

@@ -35,7 +35,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind, OtherSnafu},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -299,9 +299,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_a)
                 .await?
-                .context(OtherSnafu {
-                    msg: format!("token by id: {} is not found", p.id_token_a),
-                })?;
+                .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_a.clone() } })?;
             let (
                 _,
                 TokenInfo {
@@ -309,9 +307,7 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_b)
                 .await?
-                .context(OtherSnafu {
-                    msg: format!("token by id: {} is not found", p.id_token_b),
-                })?;
+                .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_b.clone() } })?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let apr = get_apr(&ctx, &id, &p).await?;
