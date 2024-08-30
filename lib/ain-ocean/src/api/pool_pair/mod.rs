@@ -45,11 +45,6 @@ pub mod path;
 pub mod price;
 pub mod service;
 
-// #[derive(Deserialize)]
-// struct PoolPair {
-//     id: String,
-// }
-
 #[derive(Deserialize)]
 struct SwapAggregate {
     id: String,
