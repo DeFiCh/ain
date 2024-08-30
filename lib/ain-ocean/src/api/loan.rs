@@ -22,7 +22,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
-    common::{from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price, Paginate},
+    common::{from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price, parse_query_height_txno, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -31,7 +31,7 @@ use super::{
 };
 use crate::{
     api::prices::PriceTickerResponse,
-    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
@@ -472,20 +472,11 @@ async fn list_vault_auction_history(
     let next = query
         .next
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((height, txno))
+            let (height, txno) = parse_query_height_txno(&q)?;
+            Ok::<(u32, usize), Error>((height, txno))
         })
         .transpose()?
         .unwrap_or_default();
-
-    debug!("next : {:?}", next);
 
     let size = if query.size > 0 { query.size } else { 20 };
 

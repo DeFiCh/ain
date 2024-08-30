@@ -28,7 +28,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
-    common::{parse_dat_symbol, parse_pool_pair_symbol},
+    common::{parse_dat_symbol, parse_query_height_txno, parse_pool_pair_symbol},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -392,15 +392,8 @@ async fn list_pool_swaps(
         .next
         .as_ref()
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((id, height, txno))
+            let (height, txno) = parse_query_height_txno(q)?;
+            Ok::<(u32, u32, usize), Error>((id, height, txno))
         })
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));
@@ -438,15 +431,8 @@ async fn list_pool_swaps_verbose(
         .next
         .as_ref()
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((id, height, txno))
+            let (height, txno) = parse_query_height_txno(q)?;
+            Ok::<(u32, u32, usize), Error>((id, height, txno))
         })
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));

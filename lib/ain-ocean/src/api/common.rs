@@ -96,6 +96,21 @@ pub fn parse_amount(item: &str) -> Result<(String, String)> {
     Ok((amount, symbol))
 }
 
+pub fn parse_query_height_txno(item: &str) -> Result<(u32, usize)> {
+    let mut parts = item.split('-');
+    let height = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?;
+    let txno = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?;
+
+    let height = height.parse::<u32>()?;
+    let txno = txno.parse::<usize>()?;
+
+    Ok((height, txno))
+}
+
 pub fn format_number(v: Decimal) -> String {
     if v == dec!(0) {
         "0".to_string()
