@@ -35,10 +35,14 @@ fn is_untradable_token(token: &TokenInfo) -> bool {
 pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<DexPriceResponse> {
     let (denomination_token_id, denomination_token_info) = get_token_cached(ctx, &symbol)
         .await?
-        .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token,
+        })?;
 
     if is_untradable_token(&denomination_token_info) {
-        return Err(Error::Other { msg: format!("{} is not tradable", denomination_token_info.symbol) });
+        return Err(Error::Other {
+            msg: format!("{} is not tradable", denomination_token_info.symbol),
+        });
     };
 
     let tokens = list_tokens_cached(ctx)

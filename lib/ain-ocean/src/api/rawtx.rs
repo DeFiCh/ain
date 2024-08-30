@@ -54,9 +54,14 @@ async fn send_raw_tx(
         Ok(tx_hash) => Ok(tx_hash.to_string()),
         Err(e) => {
             if e.to_string().contains("TX decode failed") {
-                Err(Error::BadRequest{ msg: "Transaction decode failed".to_string() })
+                Err(Error::BadRequest {
+                    msg: "Transaction decode failed".to_string(),
+                })
             } else {
-                Err(Error::RpcError { error: e, location: location!() })
+                Err(Error::RpcError {
+                    error: e,
+                    location: location!(),
+                })
             }
         }
     }
@@ -93,9 +98,14 @@ async fn test_raw_tx(
         }
         Err(e) => {
             if e.to_string().contains("TX decode failed") {
-                Err(Error::BadRequest{ msg: "Transaction decode failed".to_string() })
+                Err(Error::BadRequest {
+                    msg: "Transaction decode failed".to_string(),
+                })
             } else {
-                Err(Error::RpcError { error: e, location: location!() })
+                Err(Error::RpcError {
+                    error: e,
+                    location: location!(),
+                })
             }
         }
     }
@@ -130,10 +140,7 @@ async fn get_raw_tx(
         })?;
         Ok(TransactionResponse::HexString(tx_hex))
     } else {
-        let tx_info = ctx
-            .client
-            .get_raw_transaction_info(&tx_hash, None)
-            .await?;
+        let tx_info = ctx.client.get_raw_transaction_info(&tx_hash, None).await?;
         let result = RawTransactionResult {
             in_active_chain: tx_info.in_active_chain,
             hex: tx_info.hex,

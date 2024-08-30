@@ -1,13 +1,17 @@
-use std::str::FromStr;
-use ain_dftx::{Token, Currency};
+use ain_dftx::{Currency, Token};
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
+use std::str::FromStr;
 
 use super::query::PaginationQuery;
-use crate::{error::{InvalidAmountSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu}, hex_encoder::as_sha256, Result};
+use crate::{
+    error::{InvalidAmountSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu},
+    hex_encoder::as_sha256,
+    Result,
+};
 
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {

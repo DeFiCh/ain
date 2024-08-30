@@ -135,9 +135,10 @@ async fn get_transactions(
 ) -> Result<ApiPagedResponse<TransactionResponse>> {
     let repository = &ctx.services.transaction.by_block_hash;
 
-    let next = query.next.as_ref().map_or(
-        Ok(TransactionByBlockHash::initial_key(hash)),
-        |q| {
+    let next = query
+        .next
+        .as_ref()
+        .map_or(Ok(TransactionByBlockHash::initial_key(hash)), |q| {
             let height: usize = q.parse::<usize>()?;
             Ok::<(BlockHash, usize), Error>((hash, height))
         })?;

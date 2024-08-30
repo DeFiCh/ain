@@ -168,97 +168,144 @@ pub enum Error {
 
 impl From<bincode::Error> for Error {
     fn from(error: bincode::Error) -> Self {
-        Self::BincodeError { error, location: snafu::location!() }
+        Self::BincodeError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<bitcoin::address::Error> for Error {
     fn from(error: bitcoin::address::Error) -> Self {
-        Self::BitcoinAddressError { error, location: snafu::location!() }
+        Self::BitcoinAddressError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<bitcoin::address::error::ParseError> for Error {
     fn from(error: bitcoin::address::error::ParseError) -> Self {
-        Self::BitcoinAddressParseError { error, location: snafu::location!() }
+        Self::BitcoinAddressParseError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<bitcoin::consensus::encode::Error> for Error {
     fn from(error: bitcoin::consensus::encode::Error) -> Self {
-        Self::BitcoinConsensusEncodeError { error, location: snafu::location!() }
+        Self::BitcoinConsensusEncodeError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<bitcoin::hex::HexToArrayError> for Error {
     fn from(error: bitcoin::hex::HexToArrayError) -> Self {
-        Self::BitcoinHexToArrayError { error, location: snafu::location!() }
+        Self::BitcoinHexToArrayError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<rust_decimal::Error> for Error {
-    fn from(error: rust_decimal::Error ) -> Self {
-        Self::DecimalError { error, location: snafu::location!() }
+    fn from(error: rust_decimal::Error) -> Self {
+        Self::DecimalError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<ain_db::DBError> for Error {
     fn from(error: ain_db::DBError) -> Self {
-        Self::DBError { error, location: snafu::location!() }
+        Self::DBError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<hex::FromHexError> for Error {
     fn from(error: hex::FromHexError) -> Self {
-        Self::FromHexError { error, location: snafu::location!() }
+        Self::FromHexError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
-        Self::IOError { error, location: snafu::location!() }
+        Self::IOError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<jsonrpsee::core::Error> for Error {
     fn from(error: jsonrpsee::core::Error) -> Self {
-        Self::JsonrpseeError { error, location: snafu::location!() }
+        Self::JsonrpseeError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<std::num::ParseIntError> for Error {
     fn from(error: std::num::ParseIntError) -> Self {
-        Self::ParseIntError { error, location: snafu::location!() }
+        Self::ParseIntError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<std::num::ParseFloatError> for Error {
     fn from(error: std::num::ParseFloatError) -> Self {
-        Self::ParseFloatError { error, location: snafu::location!() }
+        Self::ParseFloatError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<defichain_rpc::Error> for Error {
     fn from(error: defichain_rpc::Error) -> Self {
-        Self::RpcError { error, location: snafu::location!() }
+        Self::RpcError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Self {
-        Self::SerdeJsonError { error, location: snafu::location!() }
+        Self::SerdeJsonError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<std::num::TryFromIntError> for Error {
     fn from(error: std::num::TryFromIntError) -> Self {
-        Self::TryFromIntError { error, location: snafu::location!() }
+        Self::TryFromIntError {
+            error,
+            location: snafu::location!(),
+        }
     }
 }
 
 impl From<Box<dyn std::error::Error>> for Error {
     fn from(err: Box<dyn std::error::Error>) -> Self {
-        Self::Other { msg: err.to_string() }
+        Self::Other {
+            msg: err.to_string(),
+        }
     }
 }
 

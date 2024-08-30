@@ -106,9 +106,9 @@ impl StackSet {
 }
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, id)
-        .await?
-        .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
+    let (id, token) = get_token_cached(ctx, id).await?.context(NotFoundSnafu {
+        kind: NotFoundKind::Token,
+    })?;
     Ok(TokenIdentifier {
         id,
         display_symbol: parse_dat_symbol(&token.symbol),
@@ -125,7 +125,9 @@ pub async fn get_all_swap_paths(
     sync_token_graph_if_empty(ctx).await?;
 
     if from_token_id == to_token_id {
-        return Err(Error::Other { msg: "Invalid tokens: fromToken must be different from toToken".to_string() });
+        return Err(Error::Other {
+            msg: "Invalid tokens: fromToken must be different from toToken".to_string(),
+        });
     }
 
     let mut res = SwapPathsResponse {
@@ -232,10 +234,14 @@ fn all_simple_paths(
 
     let graph = &ctx.services.token_graph;
     if !graph.lock().contains_node(from_token_id) {
-        return Err(Error::Other { msg: format!("from_token_id not found: {:?}", from_token_id) });
+        return Err(Error::Other {
+            msg: format!("from_token_id not found: {:?}", from_token_id),
+        });
     }
     if !graph.lock().contains_node(to_token_id) {
-        return Err(Error::Other { msg: format!("to_token_id not found: {:?}", to_token_id) });
+        return Err(Error::Other {
+            msg: format!("to_token_id not found: {:?}", to_token_id),
+        });
     }
 
     let is_cycle = from_token_id == to_token_id;
@@ -363,7 +369,9 @@ pub async fn compute_paths_between_tokens(
 
             let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?
             else {
-                return Err(Error::Other { msg: format!("Pool pair by id {pool_pair_id} not found") });
+                return Err(Error::Other {
+                    msg: format!("Pool pair by id {pool_pair_id} not found"),
+                });
             };
 
             let estimated_dex_fees_in_pct =
@@ -442,40 +450,56 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
 
         estimated_return = estimated_return
             .checked_mul(price_ratio)
-            .context(OtherSnafu { msg: "estimated_return overflow" })?;
+            .context(OtherSnafu {
+                msg: "estimated_return overflow",
+            })?;
 
         // less commission fee
         let commission_fee_in_pct = Decimal::from_str(pool.commission_fee_in_pct.as_str())?;
         let commission_fee = estimated_return_less_dex_fees
             .checked_mul(commission_fee_in_pct)
-            .context(OtherSnafu { msg: "commission_fee overflow" })?;
+            .context(OtherSnafu {
+                msg: "commission_fee overflow",
+            })?;
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(commission_fee)
-            .context(OtherSnafu { msg: "estimated_return_less_dex_fees underflow" })?;
+            .context(OtherSnafu {
+                msg: "estimated_return_less_dex_fees underflow",
+            })?;
 
         // less dex fee from_token
         let from_token_estimated_dex_fee = from_token_fee_pct
             .unwrap_or_default()
             .checked_mul(estimated_return_less_dex_fees)
-            .context(OtherSnafu { msg: "from_token_fee_pct overflow" })?;
+            .context(OtherSnafu {
+                msg: "from_token_fee_pct overflow",
+            })?;
 
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(from_token_estimated_dex_fee)
-            .context(OtherSnafu { msg: "estimated_return_less_dex_fees underflow" })?;
+            .context(OtherSnafu {
+                msg: "estimated_return_less_dex_fees underflow",
+            })?;
 
         // convert to to_token
         let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees
             .checked_mul(price_ratio)
-            .context(OtherSnafu { msg: "from_token_estimated_return_less_dex_fee overflow" })?;
+            .context(OtherSnafu {
+                msg: "from_token_estimated_return_less_dex_fee overflow",
+            })?;
         let to_token_estimated_dex_fee = to_token_fee_pct
             .unwrap_or_default()
             .checked_mul(from_token_estimated_return_less_dex_fee)
-            .context(OtherSnafu { msg: "to_token_estimated_dex_fee overflow" })?;
+            .context(OtherSnafu {
+                msg: "to_token_estimated_dex_fee overflow",
+            })?;
 
         // less dex fee to_token
         estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee
             .checked_sub(to_token_estimated_dex_fee)
-            .context(OtherSnafu { msg: "estimated_return_less_dex_fees underflow" })?;
+            .context(OtherSnafu {
+                msg: "estimated_return_less_dex_fees underflow",
+            })?;
     }
 
     Ok(EstimatedLessDexFeeInfo {

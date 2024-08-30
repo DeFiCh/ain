@@ -115,7 +115,9 @@ async fn list_prices(
                 .price_ticker
                 .by_id
                 .get(&id)?
-                .context(OtherSnafu { msg: "Missing price ticker index" })?;
+                .context(OtherSnafu {
+                    msg: "Missing price ticker index",
+                })?;
 
             Ok(PriceTickerResponse::from(price_ticker))
         })

@@ -81,7 +81,9 @@ fn index_swap_aggregated(
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
-                return Err(Error::Other { msg: "Invalid poolswap aggregated id format".to_string() });
+                return Err(Error::Other {
+                    msg: "Invalid poolswap aggregated id format".to_string(),
+                });
             };
             let pool_id = parts[0].parse::<u32>()?;
             let interval = parts[1].parse::<u32>()?;
@@ -144,7 +146,9 @@ fn invalidate_swap_aggregated(
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
-                return Err(Error::Other { msg: "Invalid poolswap aggregated id format".to_string() });
+                return Err(Error::Other {
+                    msg: "Invalid poolswap aggregated id format".to_string(),
+                });
             };
             let pool_id = parts[0].parse::<u32>()?;
             let interval = parts[1].parse::<u32>()?;

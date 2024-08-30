@@ -28,7 +28,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
-    common::{parse_pool_pair_symbol, parse_dat_symbol},
+    common::{parse_dat_symbol, parse_pool_pair_symbol},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -299,7 +299,9 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_a)
                 .await?
-                .context(OtherSnafu { msg: format!("token by id: {} is not found", p.id_token_a) })?;
+                .context(OtherSnafu {
+                    msg: format!("token by id: {} is not found", p.id_token_a),
+                })?;
             let (
                 _,
                 TokenInfo {
@@ -307,7 +309,9 @@ async fn list_pool_pairs(
                 },
             ) = get_token_cached(&ctx, &p.id_token_b)
                 .await?
-                .context(OtherSnafu { msg: format!("token by id: {} is not found", p.id_token_b) })?;
+                .context(OtherSnafu {
+                    msg: format!("token by id: {} is not found", p.id_token_b),
+                })?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let apr = get_apr(&ctx, &id, &p).await?;
@@ -348,7 +352,9 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_a)
             .await?
-            .context(OtherSnafu { msg: format!("token by id: {} is not found", pool.id_token_a) })?;
+            .context(OtherSnafu {
+                msg: format!("token by id: {} is not found", pool.id_token_a),
+            })?;
         let (
             _,
             TokenInfo {
@@ -356,7 +362,9 @@ async fn get_pool_pair(
             },
         ) = get_token_cached(&ctx, &pool.id_token_b)
             .await?
-            .context(OtherSnafu { msg: format!("token by id: {} is not found", pool.id_token_b) })?;
+            .context(OtherSnafu {
+                msg: format!("token by id: {} is not found", pool.id_token_b),
+            })?;
         let res = PoolPairResponse::from_with_id(
             id,
             pool,
@@ -369,7 +377,9 @@ async fn get_pool_pair(
         return Ok(Response::new(Some(res)));
     };
 
-    Err(Error::NotFound { kind: NotFoundKind::PoolPair })
+    Err(Error::NotFound {
+        kind: NotFoundKind::PoolPair,
+    })
 }
 
 #[ocean_endpoint]

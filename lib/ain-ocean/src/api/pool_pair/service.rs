@@ -15,7 +15,10 @@ use crate::{
         common::{from_script, parse_amount, parse_display_symbol, parse_pool_pair_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
-    error::{DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu, UnderflowSnafu},
+    error::{
+        DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu,
+        UnderflowSnafu,
+    },
     indexer::PoolSwapAggregatedInterval,
     model::{BlockContext, PoolSwapAggregatedAggregated},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
@@ -67,19 +70,11 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
         let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
         let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
         if p.id_token_a == "0" {
-            total_usd = total_usd
-                .checked_add(reserve_b)
-                .context(OverflowSnafu)?;
-            total_dfi = total_dfi
-                .checked_add(reserve_a)
-                .context(OverflowSnafu)?;
+            total_usd = total_usd.checked_add(reserve_b).context(OverflowSnafu)?;
+            total_dfi = total_dfi.checked_add(reserve_a).context(OverflowSnafu)?;
         } else if p.id_token_b == "0" {
-            total_usd = total_usd
-                .checked_add(reserve_a)
-                .context(OverflowSnafu)?;
-            total_dfi = total_dfi
-                .checked_add(reserve_b)
-                .context(OverflowSnafu)?;
+            total_usd = total_usd.checked_add(reserve_a).context(OverflowSnafu)?;
+            total_dfi = total_dfi.checked_add(reserve_b).context(OverflowSnafu)?;
         }
         Ok((total_usd, total_dfi))
     }
@@ -93,9 +88,7 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     };
 
     if !total_usd.is_zero() {
-        let res = total_usd
-            .checked_div(total_dfi)
-            .context(UnderflowSnafu)?;
+        let res = total_usd.checked_div(total_dfi).context(UnderflowSnafu)?;
         return Ok(res);
     };
 
@@ -130,13 +123,9 @@ async fn get_total_liquidity_usd_by_best_path(
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
-    let a = a_token_rate
-        .checked_mul(reserve_a)
-        .context(OverflowSnafu)?;
+    let a = a_token_rate.checked_mul(reserve_a).context(OverflowSnafu)?;
 
-    let b = b_token_rate
-        .checked_mul(reserve_b)
-        .context(OverflowSnafu)?;
+    let b = b_token_rate.checked_mul(reserve_b).context(OverflowSnafu)?;
 
     let res = a.checked_add(b).context(OverflowSnafu)?;
 
@@ -150,15 +139,11 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
     if ["DUSD", "USDT", "USDC"].contains(&a.as_str()) {
-        return reserve_a
-            .checked_mul(dec!(2))
-            .context(OverflowSnafu);
+        return reserve_a.checked_mul(dec!(2)).context(OverflowSnafu);
     };
 
     if ["DUSD", "USDT", "USDC"].contains(&b.as_str()) {
-        return reserve_b
-            .checked_mul(dec!(2))
-            .context(OverflowSnafu);
+        return reserve_b.checked_mul(dec!(2)).context(OverflowSnafu);
     };
 
     let usdt_per_dfi = get_usd_per_dfi(ctx).await?;
@@ -198,10 +183,12 @@ fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Dec
             .checked_mul(dec!(2880))
             .and_then(|v| v.checked_mul(dec!(365)))
             .and_then(|v| v.checked_mul(dfi_price_usdt))
-            .context(OtherSnafu { msg: "".to_string() })?;
-        accumulate
-            .checked_add(yearly)
-            .context(OtherSnafu { msg: "".to_string() })
+            .context(OtherSnafu {
+                msg: "".to_string(),
+            })?;
+        accumulate.checked_add(yearly).context(OtherSnafu {
+            msg: "".to_string(),
+        })
     })?;
     Ok(rewards)
 }
@@ -229,8 +216,7 @@ async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
         .and_then(|v| v.as_f64()) // eg: { "LP_DAILY_DFI_REWARD": 3664.80000000 }
         .unwrap_or_default();
 
-    let daily_dfi_reward =
-        Decimal::from_f64(reward).context(DecimalConversionSnafu)?;
+    let daily_dfi_reward = Decimal::from_f64(reward).context(DecimalConversionSnafu)?;
     Ok(daily_dfi_reward)
 }
 
@@ -261,8 +247,7 @@ async fn get_yearly_reward_pct_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> R
 }
 
 async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
-    let eunos_height =
-        Decimal::from_u32(eunos_height).context(DecimalConversionSnafu)?;
+    let eunos_height = Decimal::from_u32(eunos_height).context(DecimalConversionSnafu)?;
     let height = Decimal::from_u32(height).context(DecimalConversionSnafu)?;
     let mut block_subsidy = dec!(405.04);
 
@@ -282,12 +267,8 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
             if amount <= dec!(0.00001) {
                 return Ok(dec!(0));
             };
-            block_subsidy = block_subsidy
-                .checked_sub(amount)
-                .context(UnderflowSnafu)?;
-            reductions = reductions
-                .checked_sub(dec!(1))
-                .context(UnderflowSnafu)?;
+            block_subsidy = block_subsidy.checked_sub(amount).context(UnderflowSnafu)?;
+            reductions = reductions.checked_sub(dec!(1)).context(UnderflowSnafu)?;
         }
     };
 
@@ -301,7 +282,9 @@ async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {
         .softforks
         .get("eunos")
         .and_then(|eunos| eunos.height)
-        .context(OtherSnafu { msg: "BlockchainInfo eunos height field is missing" })?;
+        .context(OtherSnafu {
+            msg: "BlockchainInfo eunos height field is missing",
+        })?;
 
     get_block_subsidy(eunos_height, info.blocks).await
 }
@@ -364,9 +347,7 @@ async fn gather_amount(
                 .unwrap_or(dec!(0));
 
             let amount = if let Some(amount) = aggregated.get(token_id) {
-                amount
-                    .checked_add(from_amount)
-                    .context(OverflowSnafu)?
+                amount.checked_add(from_amount).context(OverflowSnafu)?
             } else {
                 from_amount
             };
@@ -381,11 +362,7 @@ async fn gather_amount(
         let token_price = get_token_usd_value(ctx, token_id).await?;
         let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
         volume = volume
-            .checked_add(
-                token_price
-                    .checked_mul(amount)
-                    .context(OverflowSnafu)?,
-            )
+            .checked_add(token_price.checked_mul(amount).context(OverflowSnafu)?)
             .context(OverflowSnafu)?;
     }
 
@@ -445,9 +422,7 @@ pub async fn get_apr(
         .checked_div(total_liquidity_usd)
         .context(UnderflowSnafu)?;
 
-    let total = reward
-        .checked_add(commission)
-        .context(OverflowSnafu)?;
+    let total = reward.checked_add(commission).context(OverflowSnafu)?;
 
     Ok(PoolPairAprResponse {
         reward,
@@ -473,7 +448,9 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<Decimal> {
     let (_, info) = get_token_cached(ctx, token_id)
         .await?
-        .context(NotFoundSnafu { kind: NotFoundKind::Token })?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token,
+        })?;
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {
         return Ok(dec!(1));
@@ -485,13 +462,9 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if a == "DUSD" {
-            return reserve_a
-                .checked_div(reserve_b)
-                .context(UnderflowSnafu);
+            return reserve_a.checked_div(reserve_b).context(UnderflowSnafu);
         };
-        return reserve_b
-            .checked_div(reserve_a)
-            .context(UnderflowSnafu)
+        return reserve_b.checked_div(reserve_a).context(UnderflowSnafu);
     }
 
     let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;

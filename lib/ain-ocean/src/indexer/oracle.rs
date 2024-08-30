@@ -11,12 +11,16 @@ use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use crate::{
-    error::OtherSnafu, indexer::{Context, Index, Result}, model::{
+    error::OtherSnafu,
+    indexer::{Context, Index, Result},
+    model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
         OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
-    }, storage::{RepositoryOps, SortOrder}, Error, Services
+    },
+    storage::{RepositoryOps, SortOrder},
+    Error, Services,
 };
 
 pub const AGGREGATED_INTERVALS: [OracleIntervalSeconds; 3] = [
@@ -435,7 +439,9 @@ fn map_price_aggregated(
             );
             let weighted_amount = Decimal::from(feed.amount)
                 .checked_mul(Decimal::from(oracle.weightage))
-                .context(OtherSnafu { msg: "weighted_amount overflow" })?;
+                .context(OtherSnafu {
+                    msg: "weighted_amount overflow",
+                })?;
             aggregated_total += weighted_amount;
         }
     }
@@ -751,7 +757,9 @@ pub fn invalidate_oracle_interval(
                 .oracle_price_aggregated_interval
                 .by_id
                 .get(&id)?
-                .context(OtherSnafu { msg: "Missing oracle price aggregated interval index" })?;
+                .context(OtherSnafu {
+                    msg: "Missing oracle price aggregated interval index",
+                })?;
             Ok(price)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -797,15 +805,17 @@ pub fn invalidate_oracle_interval(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage
-                .to_u8()
-                .context(OtherSnafu { msg: "parse u8 error" })?,
+            weightage: aggregated_weightage.to_u8().context(OtherSnafu {
+                msg: "parse u8 error",
+            })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active
-                    .to_i32()
-                    .context(OtherSnafu { msg: "parse i32 error" })?,
-                total: aggregated_total.to_i32().context(OtherSnafu { msg: "parse i32 error" })?,
+                active: aggregated_active.to_i32().context(OtherSnafu {
+                    msg: "parse i32 error",
+                })?,
+                total: aggregated_total.to_i32().context(OtherSnafu {
+                    msg: "parse i32 error",
+                })?,
             },
         },
         block: previous.block.clone(),
@@ -857,15 +867,17 @@ fn forward_aggregate(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage
-                .to_u8()
-                .context(OtherSnafu { msg: "parse u8 error" })?,
+            weightage: aggregated_weightage.to_u8().context(OtherSnafu {
+                msg: "parse u8 error",
+            })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active
-                    .to_i32()
-                    .context(OtherSnafu { msg: "parse i32 error" })?,
-                total: aggregated_total.to_i32().context(OtherSnafu { msg: "parse i32 error" })?,
+                active: aggregated_active.to_i32().context(OtherSnafu {
+                    msg: "parse i32 error",
+                })?,
+                total: aggregated_total.to_i32().context(OtherSnafu {
+                    msg: "parse i32 error",
+                })?,
             },
         },
         block: previous.block.clone(),
@@ -915,7 +927,9 @@ fn get_previous_oracle_history_list(
                 .oracle_history
                 .by_id
                 .get(&id)?
-                .context(OtherSnafu { msg: "Missing oracle previous history index" })?;
+                .context(OtherSnafu {
+                    msg: "Missing oracle previous history index",
+                })?;
 
             Ok(b)
         })

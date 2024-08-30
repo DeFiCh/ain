@@ -48,8 +48,7 @@ pub async fn get_burned(client: &Client) -> Result<Burned> {
     let burn_info = client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).context(DecimalConversionSnafu)?;
-    let emission =
-        Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
+    let emission = Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
     let fee = Decimal::from_f64(burn_info.feeburn).context(DecimalConversionSnafu)?;
     let auction = Decimal::from_f64(burn_info.auctionburn).context(DecimalConversionSnafu)?;
 
@@ -134,9 +133,9 @@ lazy_static::lazy_static! {
     convert = r#"{ format!("burned_total") }"#
 )]
 pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
-    let burn_address = BURN_ADDRESS
-        .get(ctx.network.as_str())
-        .context(OtherSnafu { msg: "Missing burn address" })?;
+    let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).context(OtherSnafu {
+        msg: "Missing burn address",
+    })?;
     let accounts = ctx
         .client
         .get_account(burn_address, None, Some(true))
@@ -144,8 +143,7 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let burn_info = ctx.client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).context(DecimalConversionSnafu)?;
-    let emission =
-        Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
+    let emission = Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
     let fee = Decimal::from_f64(burn_info.feeburn).context(DecimalConversionSnafu)?;
     let account_balance = if let AccountAmount::List(accounts) = accounts {
         for account in accounts {

@@ -12,11 +12,7 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{
-    error::ApiError,
-    model::ApiProposalInfo,
-    Result,
-};
+use crate::{error::ApiError, model::ApiProposalInfo, Result};
 
 #[derive(Deserialize, Default)]
 pub struct GovernanceQuery {

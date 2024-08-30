@@ -152,7 +152,9 @@ async fn get_masternode(
             let state = MasternodeService::new(ctx.network).get_masternode_state(&mn, height);
             MasternodeData::from_with_state(mn, state)
         })
-        .context(NotFoundSnafu { kind: NotFoundKind::Masternode })?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Masternode,
+        })?;
 
     Ok(Response::new(mn))
 }
