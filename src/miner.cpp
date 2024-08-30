@@ -433,7 +433,38 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         const auto lockedTokens = attributes->GetValue(lockedTokenKey, CBalances{});
         const auto lockRatio = attributes->GetValue(lockKey, CAmount{});
 
-        if (lockedTokens.balances.empty() && lockRatio) {
+        // Check all collaterals are currently valid
+        auto tokenPricesValid{true};
+
+        auto checkLivePrice = [&](const CTokenCurrencyPair &currencyPair) {
+            if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(currencyPair)) {
+                if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
+                    tokenPricesValid = false;
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        attributes->ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+            if (attr.type != AttributeTypes::Token) {
+                return false;
+            }
+            if (attr.key == TokenKeys::LoanCollateralEnabled) {
+                if (auto collateralToken = mnview.GetCollateralTokenFromAttributes({attr.typeId})) {
+                    return checkLivePrice(collateralToken->fixedIntervalPriceId);
+                }
+            } else if (attr.key == TokenKeys::LoanMintingEnabled) {
+                if (auto loanToken = mnview.GetLoanTokenFromAttributes({attr.typeId})) {
+                    return checkLivePrice(loanToken->fixedIntervalPriceId);
+                }
+            }
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Token});
+
+        if (lockedTokens.balances.empty() && lockRatio && tokenPricesValid) {
             SplitMap lockSplitMapEVM;
             auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
                 CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
