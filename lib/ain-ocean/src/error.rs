@@ -318,17 +318,6 @@ impl IntoResponse for ApiError {
 impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            // Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
-            //     (
-            //         StatusCode::NOT_FOUND,
-            //         match e {
-            //             e if e.message.contains("Cannot find existing loan scheme") => {
-            //                 format!("{}", Error::NotFound(NotFoundKind::Scheme))
-            //             }
-            //             _ => e.message.to_string(),
-            //         },
-            //     )
-            // }
             Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
             Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
@@ -336,15 +325,3 @@ impl Error {
         (code, reason)
     }
 }
-
-// impl From<Box<dyn std::error::Error>> for Error {
-//     fn from(err: Box<dyn std::error::Error>) -> Error {
-//         Error::Other(format_err!("{err}"))
-//     }
-// }
-
-// impl From<&str> for Error {
-//     fn from(s: &str) -> Self {
-//         Error::Other(format_err!("{s}"))
-//     }
-// }
