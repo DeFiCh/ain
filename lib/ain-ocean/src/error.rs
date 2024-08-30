@@ -135,19 +135,18 @@ pub enum Error {
     NotFound {
         kind: NotFoundKind,
     },
+    // #[error(
+    //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
+    // )]
+    // NotFoundIndex(IndexAction, String, String),
     NotFoundIndex,
     DecimalConversionError,
     OverflowError,
     UnderflowError,
     SecondaryIndex,
-    ValidationError,
     BadRequest {
         msg: String,
     },
-    // #[error(
-    //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
-    // )]
-    // NotFoundIndex(IndexAction, String, String),
     #[snafu(display("Invalid token currency format: {item}"))]
     InvalidTokenCurrency {
         item: String,
