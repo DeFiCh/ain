@@ -35,7 +35,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -262,6 +262,40 @@ impl PoolPairResponse {
     }
 }
 
+async fn map_pool_pair_response(ctx: &Arc<AppContext>, id: String, p: PoolPairInfo) -> Result<PoolPairResponse> {
+    let (
+        _,
+        TokenInfo {
+            name: a_token_name, ..
+        },
+    ) = get_token_cached(ctx, &p.id_token_a)
+        .await?
+        .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_a.clone() } })?;
+    let (
+        _,
+        TokenInfo {
+            name: b_token_name, ..
+        },
+    ) = get_token_cached(ctx, &p.id_token_b)
+        .await?
+        .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_b.clone() } })?;
+
+    let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
+    let apr = get_apr(ctx, &id, &p).await?;
+    let volume = get_usd_volume(ctx, &id).await?;
+    let res = PoolPairResponse::from_with_id(
+        id,
+        p,
+        a_token_name,
+        b_token_name,
+        total_liquidity_usd,
+        apr,
+        volume,
+    )?;
+
+    Ok(res)
+}
+
 #[ocean_endpoint]
 async fn list_pool_pairs(
     Query(query): Query<PaginationQuery>,
@@ -292,35 +326,7 @@ async fn list_pool_pairs(
         .into_iter()
         .filter(|(_, p)| !p.symbol.starts_with("BURN-"))
         .map(|(id, p)| async {
-            let (
-                _,
-                TokenInfo {
-                    name: a_token_name, ..
-                },
-            ) = get_token_cached(&ctx, &p.id_token_a)
-                .await?
-                .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_a.clone() } })?;
-            let (
-                _,
-                TokenInfo {
-                    name: b_token_name, ..
-                },
-            ) = get_token_cached(&ctx, &p.id_token_b)
-                .await?
-                .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_b.clone() } })?;
-
-            let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
-            let apr = get_apr(&ctx, &id, &p).await?;
-            let volume = get_usd_volume(&ctx, &id).await?;
-            let res = PoolPairResponse::from_with_id(
-                id,
-                p,
-                a_token_name,
-                b_token_name,
-                total_liquidity_usd,
-                apr,
-                volume,
-            )?;
+            let res = map_pool_pair_response(&ctx, id, p).await?;
             Ok::<PoolPairResponse, Error>(res)
         })
         .collect::<Vec<_>>();
@@ -337,39 +343,8 @@ async fn get_pool_pair(
     Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PoolPairResponse>>> {
-    if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
-        let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
-        let apr = get_apr(&ctx, &id, &pool).await?;
-        let volume = get_usd_volume(&ctx, &id).await?;
-        let (
-            _,
-            TokenInfo {
-                name: a_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &pool.id_token_a)
-            .await?
-            .context(OtherSnafu {
-                msg: format!("token by id: {} is not found", pool.id_token_a),
-            })?;
-        let (
-            _,
-            TokenInfo {
-                name: b_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &pool.id_token_b)
-            .await?
-            .context(OtherSnafu {
-                msg: format!("token by id: {} is not found", pool.id_token_b),
-            })?;
-        let res = PoolPairResponse::from_with_id(
-            id,
-            pool,
-            a_token_name,
-            b_token_name,
-            total_liquidity_usd,
-            apr,
-            volume,
-        )?;
+    if let Some((id, p)) = get_pool_pair_cached(&ctx, id).await? {
+        let res = map_pool_pair_response(&ctx, id, p).await?;
         return Ok(Response::new(Some(res)));
     };
 
