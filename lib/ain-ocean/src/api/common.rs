@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use super::query::PaginationQuery;
 use crate::{
-    error::{InvalidAmountSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu},
+    error::{InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu},
     hex_encoder::as_sha256,
     Result,
 };
@@ -63,6 +63,20 @@ pub fn parse_token_currency(item: &str) -> Result<(Token, Currency)> {
     let currency = parts
         .next()
         .context(InvalidTokenCurrencySnafu { item })?
+        .to_string();
+
+    Ok((token, currency))
+}
+
+pub fn parse_fixed_interval_price(item: &str) -> Result<(Token, Currency)> {
+    let mut parts = item.split('/');
+    let token = parts
+        .next()
+        .context(InvalidFixedIntervalPriceSnafu { item })?
+        .to_string();
+    let currency = parts
+        .next()
+        .context(InvalidFixedIntervalPriceSnafu { item })?
         .to_string();
 
     Ok((token, currency))

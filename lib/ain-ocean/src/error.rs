@@ -152,6 +152,10 @@ pub enum Error {
     InvalidTokenCurrency {
         item: String,
     },
+    #[snafu(display("Invalid fixed interval price format: {item}"))]
+    InvalidFixedIntervalPrice {
+        item: String,
+    },
     #[snafu(display("Invalid amount format: {item}"))]
     InvalidAmount {
         item: String,

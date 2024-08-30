@@ -22,7 +22,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
-    common::{from_script, parse_amount, parse_display_symbol, Paginate},
+    common::{from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -121,20 +121,7 @@ async fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
 ) -> Result<Option<PriceTickerResponse>> {
-    let mut parts = fixed_interval_price_id.split('/');
-    let token = parts
-        .next()
-        // .context("Invalid fixed interval price id structure")?
-        .context(OtherSnafu {
-            msg: "Invalid fixed interval price id structure",
-        })?
-        .to_string();
-    let currency = parts
-        .next()
-        .context(OtherSnafu {
-            msg: "Invalid fixed interval price id structure",
-        })?
-        .to_string();
+    let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
     let price = ctx.services.price_ticker.by_id.get(&(token, currency))?;
 
     let Some(active_price) = price else {
@@ -243,14 +230,7 @@ async fn list_loan_token(
         })
         .map(|flatten_token| {
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
-            let mut parts = fixed_interval_price_id.split('/');
-
-            let token = parts.next().context(OtherSnafu {
-                msg: "Invalid fixed interval price id structure",
-            })?;
-            let currency = parts.next().context(OtherSnafu {
-                msg: "Invalid fixed interval price id structure",
-            })?;
+            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -291,13 +271,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let mut parts = fixed_interval_price_id.split('/');
-            let token = parts.next().context(OtherSnafu {
-                msg: "Invalid fixed interval price id structure",
-            })?;
-            let currency = parts.next().context(OtherSnafu {
-                msg: "Invalid fixed interval price id structure",
-            })?;
+            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
