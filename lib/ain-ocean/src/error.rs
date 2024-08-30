@@ -142,8 +142,6 @@ pub enum Error {
     BadRequest {
         msg: String,
     },
-    // #[error("Unable to find {0:}")]
-    // NotFound(NotFoundKind),
     // #[error(
     //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
     // )]
