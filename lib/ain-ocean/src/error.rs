@@ -140,7 +140,7 @@ pub enum Error {
     SecondaryIndex,
     ValidationError,
     BadRequest {
-        msg: String
+        msg: String,
     },
     // #[error("Unable to find {0:}")]
     // NotFound(NotFoundKind),
@@ -150,11 +150,15 @@ pub enum Error {
     // NotFoundIndex(IndexAction, String, String),
     #[snafu(display("Invalid token currency format: {item}"))]
     InvalidTokenCurrency {
-        item: String
+        item: String,
+    },
+    #[snafu(display("Invalid amount format: {item}"))]
+    InvalidAmount {
+        item: String,
     },
     #[snafu(display("Invalid pool pair symbol format: {item}"))]
     InvalidPoolPairSymbol {
-        item: String
+        item: String,
     },
     #[snafu(display("error message: {}", msg))]
     Other {

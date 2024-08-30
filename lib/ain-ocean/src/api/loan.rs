@@ -22,7 +22,7 @@ use serde::{Serialize, Serializer};
 
 use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
-    common::{from_script, parse_display_symbol, Paginate},
+    common::{from_script, parse_amount, parse_display_symbol, Paginate},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -644,11 +644,8 @@ async fn map_token_amounts(
         .into_iter()
         .map(|amount| {
             let amount = amount.to_owned();
-            let mut parts = amount.split('@');
-
-            let amount = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
-            let token_symbol = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
-            Ok::<[String; 2], Error>([amount.to_string(), token_symbol.to_string()])
+            let (amount, token_symbol) = parse_amount(&amount)?;
+            Ok::<[String; 2], Error>([amount, token_symbol])
         })
         .collect::<Result<Vec<_>>>()?;
 

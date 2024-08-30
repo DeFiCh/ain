@@ -12,7 +12,7 @@ use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
-        common::{from_script, parse_display_symbol, parse_pool_pair_symbol},
+        common::{from_script, parse_amount, parse_display_symbol, parse_pool_pair_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu, UnderflowSnafu},
@@ -188,15 +188,13 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
 
 fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Decimal> {
     let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
-        let mut parts = account.split('@');
-        let amount = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
-        let token = parts.next().context(OtherSnafu { msg: "Invalid amount structure" })?;
+        let (amount, token) = parse_amount(account)?;
 
         if token != "0" && token != "DFI" {
             return Ok(accumulate);
         }
 
-        let yearly = Decimal::from_str(amount)?
+        let yearly = Decimal::from_str(&amount)?
             .checked_mul(dec!(2880))
             .and_then(|v| v.checked_mul(dec!(365)))
             .and_then(|v| v.checked_mul(dfi_price_usdt))
@@ -662,11 +660,9 @@ pub async fn find_swap_to(
         .await?;
 
     for account in history.amounts {
-        let mut parts = account.split('@');
-        let value = parts.next().context(OtherSnafu { msg: "Invalid account structure" })?;
-        let symbol = parts.next().context(OtherSnafu { msg: "Invalid account structure" })?;
+        let (value, symbol) = parse_amount(&account)?;
 
-        let value = Decimal::from_str(value)?;
+        let value = Decimal::from_str(&value)?;
 
         if value.is_sign_positive() {
             return Ok(Some(PoolSwapFromToData {

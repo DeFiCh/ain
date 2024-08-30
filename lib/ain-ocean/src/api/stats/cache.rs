@@ -17,7 +17,7 @@ use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
     api::{
         cache::list_pool_pairs_cached,
-        common::find_token_balance,
+        common::{find_token_balance, parse_amount},
         pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi},
         stats::get_block_reward_distribution,
         AppContext,
@@ -149,13 +149,10 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let fee = Decimal::from_f64(burn_info.feeburn).context(DecimalConversionSnafu)?;
     let account_balance = if let AccountAmount::List(accounts) = accounts {
         for account in accounts {
-            let mut parts = account.split('@');
-
-            let amount = parts.next().context(OtherSnafu { msg: "Missing amount" })?;
-            let token_id = parts.next().context(OtherSnafu { msg: "Missing token_id" })?;
+            let (amount, token_id) = parse_amount(&account)?;
 
             if token_id == "DFI" {
-                return Ok(Decimal::from_str(amount).unwrap_or_default());
+                return Ok(Decimal::from_str(&amount).unwrap_or_default());
             }
         }
         dec!(0)

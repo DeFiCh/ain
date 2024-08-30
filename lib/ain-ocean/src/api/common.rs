@@ -7,7 +7,7 @@ use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use super::query::PaginationQuery;
-use crate::{error::{InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu}, hex_encoder::as_sha256, Result};
+use crate::{error::{InvalidAmountSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu}, hex_encoder::as_sha256, Result};
 
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {
@@ -62,6 +62,20 @@ pub fn parse_token_currency(item: &str) -> Result<(Token, Currency)> {
         .to_string();
 
     Ok((token, currency))
+}
+
+pub fn parse_amount(item: &str) -> Result<(String, String)> {
+    let mut parts = item.split('@');
+    let amount = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?
+        .to_string();
+    let symbol = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?
+        .to_string();
+
+    Ok((amount, symbol))
 }
 
 pub fn format_number(v: Decimal) -> String {
