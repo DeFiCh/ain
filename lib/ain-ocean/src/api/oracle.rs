@@ -2,7 +2,6 @@ use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -11,6 +10,7 @@ use axum::{
 use bitcoin::Txid;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use super::{
     query::PaginationQuery,
@@ -19,7 +19,7 @@ use super::{
 };
 use crate::{
     api::common::Paginate,
-    error::ApiError,
+    error::{ApiError, OtherSnafu},
     model::{BlockContext, Oracle},
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -73,8 +73,8 @@ async fn get_feed(
     let txid = Txid::from_str(&oracle_id)?;
 
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let key = (token, currency, txid);
 

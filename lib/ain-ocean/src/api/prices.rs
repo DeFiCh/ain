@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -12,6 +11,7 @@ use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use super::{
     oracle::OraclePriceFeedResponse,
@@ -20,7 +20,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error},
+    error::{ApiError, Error, OtherSnafu},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
         OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker,
@@ -114,7 +114,7 @@ async fn list_prices(
                 .price_ticker
                 .by_id
                 .get(&id)?
-                .context("Missing price ticker index")?;
+                .context(OtherSnafu { msg: "Missing price ticker index" })?;
 
             Ok(PriceTickerResponse::from(price_ticker))
         })
@@ -131,8 +131,8 @@ async fn get_price(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let price_ticker = ctx
         .services
@@ -156,8 +156,8 @@ async fn get_feed(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let repo = &ctx.services.oracle_price_aggregated;
     let id = (token.to_string(), currency.to_string(), u32::MAX);
@@ -189,8 +189,8 @@ async fn get_feed_active(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let key = (token.to_string(), currency.to_string());
     let repo = &ctx.services.oracle_price_active;
@@ -220,8 +220,8 @@ async fn get_feed_with_interval(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let interval = match interval.as_str() {
         "900" => OracleIntervalSeconds::FifteenMinutes,
@@ -268,8 +268,8 @@ async fn get_oracles(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceOracleResponse>> {
     let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
+    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
 
     let id = (
         token.to_string(),

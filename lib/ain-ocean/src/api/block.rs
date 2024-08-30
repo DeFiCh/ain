@@ -136,9 +136,9 @@ async fn get_transactions(
     let repository = &ctx.services.transaction.by_block_hash;
 
     let next = query.next.as_ref().map_or(
-        Ok(TransactionByBlockHashRepository::initial_key(hash)),
+        Ok(TransactionByBlockHash::initial_key(hash)),
         |q| {
-            let height = q.parse::<usize>()?;
+            let height: usize = q.parse::<usize>()?;
             Ok::<(BlockHash, usize), Error>((hash, height))
         })?;
 

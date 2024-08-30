@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, BlockHash, Txid};
 use defichain_rpc::{
@@ -22,7 +21,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, OtherSnafu},
+    error::ApiError,
     model::{
         BlockContext, ScriptActivity, ScriptActivityTypeHex, ScriptAggregation, ScriptUnspent,
     },

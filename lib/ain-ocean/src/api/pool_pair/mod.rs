@@ -35,7 +35,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind, NotFoundSnafu, OtherSnafu},
+    error::{ApiError, Error, NotFoundKind, OtherSnafu},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,

@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
