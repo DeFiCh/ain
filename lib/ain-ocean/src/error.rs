@@ -148,6 +148,14 @@ pub enum Error {
     //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
     // )]
     // NotFoundIndex(IndexAction, String, String),
+    #[snafu(display("Invalid token currency format: {item}"))]
+    InvalidTokenCurrency {
+        item: String
+    },
+    #[snafu(display("Invalid pool pair symbol format: {item}"))]
+    InvalidPoolPairSymbol {
+        item: String
+    },
     #[snafu(display("error message: {}", msg))]
     Other {
         msg: String,

@@ -10,16 +10,16 @@ use axum::{
 use bitcoin::Txid;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use snafu::OptionExt;
 
 use super::{
+    common::parse_token_currency,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
     api::common::Paginate,
-    error::{ApiError, OtherSnafu},
+    error::ApiError,
     model::{BlockContext, Oracle},
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -72,9 +72,7 @@ async fn get_feed(
 ) -> Result<ApiPagedResponse<OraclePriceFeedResponse>> {
     let txid = Txid::from_str(&oracle_id)?;
 
-    let mut parts = key.split('-');
-    let token = parts.next().context(OtherSnafu { msg: "missing token".to_string() })?;
-    let currency = parts.next().context(OtherSnafu { msg: "missing currency".to_string() })?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let key = (token, currency, txid);
 

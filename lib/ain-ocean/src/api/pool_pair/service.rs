@@ -12,7 +12,7 @@ use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
-        common::{from_script, parse_display_symbol},
+        common::{from_script, parse_display_symbol, parse_pool_pair_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu, UnderflowSnafu},
@@ -144,20 +144,18 @@ async fn get_total_liquidity_usd_by_best_path(
 }
 
 pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
-    let mut parts = p.symbol.split('-');
-    let a = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
-    let b = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
+    let (a, b) = parse_pool_pair_symbol(&p.symbol)?;
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
-    if ["DUSD", "USDT", "USDC"].contains(&a) {
+    if ["DUSD", "USDT", "USDC"].contains(&a.as_str()) {
         return reserve_a
             .checked_mul(dec!(2))
             .context(OverflowSnafu);
     };
 
-    if ["DUSD", "USDT", "USDC"].contains(&b) {
+    if ["DUSD", "USDT", "USDC"].contains(&b.as_str()) {
         return reserve_b
             .checked_mul(dec!(2))
             .context(OverflowSnafu);
@@ -485,8 +483,7 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
 
     let dusd_pool = get_pool_pair(ctx, &info.symbol, "DUSD").await?;
     if let Some(p) = dusd_pool {
-        let mut parts = p.symbol.split('-');
-        let a = parts.next().context(OtherSnafu { msg: "Invalid pool pair symbol structure" })?;
+        let (a, _) = parse_pool_pair_symbol(&p.symbol)?;
         let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if a == "DUSD" {

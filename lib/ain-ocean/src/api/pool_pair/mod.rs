@@ -28,7 +28,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
-    common::parse_dat_symbol,
+    common::{parse_pool_pair_symbol, parse_dat_symbol},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -202,12 +202,9 @@ impl PoolPairResponse {
         apr: PoolPairAprResponse,
         volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
-        let mut parts = p.symbol.split('-');
-        let a = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
-        let b = parts.next().context(OtherSnafu { msg: format!("Invalid split '-' on {}", p.symbol) })?;
-
-        let a_parsed = parse_dat_symbol(a);
-        let b_parsed = parse_dat_symbol(b);
+        let (a, b) = parse_pool_pair_symbol(&p.symbol)?;
+        let a_parsed = parse_dat_symbol(&a);
+        let b_parsed = parse_dat_symbol(&b);
 
         Ok(Self {
             id,
