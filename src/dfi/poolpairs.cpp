@@ -271,7 +271,7 @@ void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquid
             // Calculate reward
             const auto reward = (liquidity * rewardPerShare / HIGH_PRECISION_SCALER).GetLow64();
             // Pay reward to the owner
-            onReward(type, {DCT_ID{id}, static_cast<CAmount>(reward)}, endHeight);
+            onReward(type, {DCT_ID{id}, static_cast<CAmount>(reward)}, key.height);
         }
     };
 

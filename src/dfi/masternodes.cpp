@@ -981,16 +981,15 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
 
         if (beginHeight < Params().GetConsensus().DF24Height) {
             // Calculate just up to the fork height
-            const auto targetNewHeight = targetHeight >= Params().GetConsensus().DF24Height
-                                             ? Params().GetConsensus().DF24Height - 1
-                                             : targetHeight;
+            const auto targetNewHeight =
+                targetHeight >= Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : targetHeight;
             CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetNewHeight, onReward);
         }
 
         if (targetHeight >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
             const auto beginNewHeight =
-                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : beginHeight;
+                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight;
             CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, targetHeight);
         }
 
