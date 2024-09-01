@@ -11,6 +11,8 @@ from test_framework.util import assert_equal
 from decimal import Decimal
 import time
 
+SATOSHI = Decimal("0.00000001")
+
 
 class TokenFractionalSplitTest(DefiTestFramework):
     def set_test_params(self):
@@ -24,16 +26,22 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=1",
                 "-bayfrontheight=1",
+                "-bayfrontmarinaheight=1",
                 "-bayfrontgardensheight=1",
                 "-clarkequayheight=1",
+                "-dakotaheight=1",
+                "-dakotacrescentheight=1",
                 "-eunosheight=1",
+                "-eunospayaheight=1",
                 "-fortcanningheight=1",
                 "-fortcanningmuseumheight=1",
+                "-fortcanningparkheight=1",
                 "-fortcanninghillheight=1",
                 "-fortcanningroadheight=1",
                 "-fortcanningcrunchheight=1",
                 "-fortcanningspringheight=1",
                 "-fortcanninggreatworldheight=1",
+                "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
                 "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
@@ -251,7 +259,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         return liquidity_addresses
 
     def test_single_liquidity(
-        self, token_a, token_b, balance_index=0, custom_token=None
+        self, token_a, token_b, extra_sat=False, balance_index=0, custom_token=None
     ):
 
         # Rollback block
@@ -271,34 +279,70 @@ class TokenFractionalSplitTest(DefiTestFramework):
             )
             self.nodes[0].generate(1)
 
-        # Calculate pre-fork reward
-        pre_fork_reward = Decimal(
+        # Store reward amount
+        reward_amount = Decimal(
             self.nodes[0].getaccount(self.address)[balance_index].split("@")[0]
         )
 
         # Save first pre-fork reward
         if self.pre_fork_reward is None:
-            self.pre_fork_reward = pre_fork_reward
+            self.pre_fork_reward = reward_amount
+
+        # Move to before fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount() - 2)
+
+        # Store account balances
+        account_balances = self.nodes[0].getaccount(self.address)
+        balance_before = Decimal(account_balances[balance_index].split("@")[0])
+
+        # Move to just before fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount() - 1)
+
+        # Check reward is paid
+        balance_current = Decimal(
+            self.nodes[0].getaccount(self.address)[balance_index].split("@")[0]
+        )
+        assert_equal(balance_current, balance_before + reward_amount)
 
         # Move to fork height
         self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
 
-        # Get initial balance
-        start_balance = Decimal(
+        # Check reward is paid
+        balance_current = Decimal(
             self.nodes[0].getaccount(self.address)[balance_index].split("@")[0]
         )
+        assert_equal(balance_current, balance_before + (reward_amount * 2))
         self.nodes[0].generate(1)
 
-        # Get balance after a block
-        end_balance = Decimal(
+        # Check reward is paid
+        balance_current = Decimal(
             self.nodes[0].getaccount(self.address)[balance_index].split("@")[0]
         )
+        assert_equal(
+            balance_current,
+            balance_before + (reward_amount * 3) + (SATOSHI if extra_sat else 0),
+        )
 
-        # Calculate post-fork reward
-        post_fork_reward = end_balance - start_balance
+        # Get current height
+        height = self.nodes[0].getblockcount()
 
-        # Check rewards are the same
-        assert_equal(pre_fork_reward, post_fork_reward)
+        # Loop over and check account history entries
+        for result in self.nodes[0].listaccounthistory(
+            self.address, {"limit": self.nodes[0].getblockcount()}
+        ):
+            if result["type"] != "AddPoolLiquidity":
+                if custom_token:
+                    if result["type"] == "Pool":
+                        assert_equal(result["blockHeight"], height)
+                        assert_equal(
+                            Decimal(result["amounts"][0].split("@")[0]), reward_amount
+                        )
+                else:
+                    assert_equal(result["blockHeight"], height)
+                    assert_equal(
+                        Decimal(result["amounts"][0].split("@")[0]), reward_amount
+                    )
+                height -= 1
 
     def test_multiple_liquidity(
         self, token_a, token_b, balance_index=0, custom_token=None
@@ -361,12 +405,14 @@ class TokenFractionalSplitTest(DefiTestFramework):
         ]
 
         # Check rewards are the same
-        assert_equal(pre_fork_rewards, post_fork_rewards)
+        for x, y in zip(pre_fork_rewards, post_fork_rewards):
+            if x != y:
+                assert_equal(x + SATOSHI, y)
 
     def static_reward_single(self):
 
         # Test single coinbase reward
-        self.test_single_liquidity(self.symbolBTC, self.symbolDFI)
+        self.test_single_liquidity(self.symbolBTC, self.symbolDFI, True)
 
     def static_reward_multiple(self):
 
@@ -386,49 +432,45 @@ class TokenFractionalSplitTest(DefiTestFramework):
     def static_custom_single(self):
 
         # Test single custom reward
-        self.test_single_liquidity(self.symbolBTC, self.symbolDFI, 1, self.symbolETH)
-
-        # Rollback block
-        self.rollback_to(self.start_block)
-
-        # Fund pool
-        self.nodes[0].addpoolliquidity(
-            {self.owner_address: [f"1000@{self.symbolBTC}", f"1000@{self.symbolDFI}"]},
-            self.address,
+        self.test_single_liquidity(
+            self.symbolBTC, self.symbolDFI, False, 1, self.symbolETH
         )
-        self.nodes[0].generate(1)
-
-        # Add custom reward
-        self.nodes[0].updatepoolpair(
-            {"pool": self.btc_pool_id, "customRewards": [f"1@{self.symbolETH}"]}
-        )
-        self.nodes[0].generate(1)
-
-        # Calculate pre-fork reward
-        pre_fork_reward = Decimal(
-            self.nodes[0].getaccount(self.address)[1].split("@")[0]
-        )
-
-        # Move to fork height
-        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
-
-        # Get initial balance
-        start_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
-        self.nodes[0].generate(1)
-
-        # Get balance after a block
-        end_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
-
-        # Calculate post-fork reward
-        post_fork_reward = end_balance - start_balance
-
-        # Check rewards are the same
-        assert_equal(pre_fork_reward, post_fork_reward)
 
     def static_custom_multiple(self):
 
         # Test multiple custom reward
         self.test_multiple_liquidity(self.symbolBTC, self.symbolDFI, 1, self.symbolETH)
+
+    def execute_poolswap(self):
+        # Swap LTC to DFI
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Swap DFI to LTC
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Get commission balances
+        dfi_balance = Decimal(self.nodes[0].getaccount(self.address)[0].split("@")[0])
+        ltc_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+
+        return dfi_balance, ltc_balance
 
     def static_commission_single(self):
 
@@ -445,37 +487,34 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Store rollback block
         rollback_block = self.nodes[0].getblockcount()
 
-        # Swap LTC to DFI
-        self.nodes[0].poolswap(
-            {
-                "from": self.owner_address,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": 1,
-                "to": self.owner_address,
-                "tokenTo": self.symbolDFI,
-            }
-        )
-        self.nodes[0].generate(1)
+        # Execute swaps
+        pre_dfi_balance, pre_ltc_balance = self.execute_poolswap()
 
-        # Swap DFI to LTC
-        self.nodes[0].poolswap(
-            {
-                "from": self.owner_address,
-                "tokenFrom": self.symbolDFI,
-                "amountFrom": 1,
-                "to": self.owner_address,
-                "tokenTo": self.symbolLTC,
-            }
-        )
-        self.nodes[0].generate(1)
+        # Get pre fork history
+        self.nodes[0].generate(1)  # Add block to get history
+        pre_fork_history = self.nodes[0].listaccounthistory(self.address)
 
-        # Get commission balances
-        pre_dfi_balance = Decimal(
-            self.nodes[0].getaccount(self.address)[0].split("@")[0]
-        )
-        pre_ltc_balance = Decimal(
-            self.nodes[0].getaccount(self.address)[1].split("@")[0]
-        )
+        # Rollback swaps
+        self.rollback_to(rollback_block)
+
+        # Move to before fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount() - 2)
+
+        # Check results the same before fork
+        pre_two_dfi_balance, pre_two_ltc_balance = self.execute_poolswap()
+        assert_equal(pre_dfi_balance, pre_two_dfi_balance)
+        assert_equal(pre_ltc_balance, pre_two_ltc_balance)
+
+        # Rollback swaps
+        self.rollback_to(rollback_block)
+
+        # Move to before fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount() - 1)
+
+        # Check results the same before fork
+        pre_two_dfi_balance, pre_two_ltc_balance = self.execute_poolswap()
+        assert_equal(pre_dfi_balance, pre_two_dfi_balance)
+        assert_equal(pre_ltc_balance, pre_two_ltc_balance)
 
         # Rollback swaps
         self.rollback_to(rollback_block)
@@ -483,41 +522,27 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
 
-        # Swap LTC to DFI
-        self.nodes[0].poolswap(
-            {
-                "from": self.owner_address,
-                "tokenFrom": self.symbolLTC,
-                "amountFrom": 1,
-                "to": self.owner_address,
-                "tokenTo": self.symbolDFI,
-            }
-        )
-        self.nodes[0].generate(1)
+        # Store swap heights to check results
+        first_swap_height = self.nodes[0].getblockcount() + 1
+        second_swap_height = self.nodes[0].getblockcount() + 2
 
-        # Swap DFI to LTC
-        self.nodes[0].poolswap(
-            {
-                "from": self.owner_address,
-                "tokenFrom": self.symbolDFI,
-                "amountFrom": 1,
-                "to": self.owner_address,
-                "tokenTo": self.symbolLTC,
-            }
-        )
-        self.nodes[0].generate(1)
-
-        # Get commission balances
-        post_dfi_balance = Decimal(
-            self.nodes[0].getaccount(self.address)[0].split("@")[0]
-        )
-        post_ltc_balance = Decimal(
-            self.nodes[0].getaccount(self.address)[1].split("@")[0]
-        )
+        # Execute swaps
+        post_dfi_balance, post_ltc_balance = self.execute_poolswap()
 
         # Check commission is the same pre and post fork
         assert_equal(pre_dfi_balance, post_dfi_balance)
         assert_equal(pre_ltc_balance, post_ltc_balance)
+
+        # Get post fork history
+        post_fork_history = self.nodes[0].listaccounthistory(self.address)
+        assert_equal(post_fork_history[0]["blockHeight"], second_swap_height)
+        assert_equal(post_fork_history[0]["type"], pre_fork_history[0]["type"])
+        assert_equal(post_fork_history[0]["poolID"], pre_fork_history[0]["poolID"])
+        assert_equal(post_fork_history[0]["amounts"], pre_fork_history[0]["amounts"])
+        assert_equal(post_fork_history[1]["blockHeight"], first_swap_height)
+        assert_equal(post_fork_history[1]["type"], pre_fork_history[1]["type"])
+        assert_equal(post_fork_history[1]["poolID"], pre_fork_history[1]["poolID"])
+        assert_equal(post_fork_history[1]["amounts"], pre_fork_history[1]["amounts"])
 
     def static_commission_multiple(self):
 
