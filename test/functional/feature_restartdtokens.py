@@ -1007,7 +1007,7 @@ class RestartdTokensTest(DefiTestFramework):
 
         lockHistory = self.nodes[0].listaccounthistory(self.address, {"txtypes": ["?"]})
         assert_equal(
-            len(lockHistory), 2
+            len(lockHistory), 1
         )  # commission tx got added on consolidate rewards later
         releaseHistory = self.nodes[0].listaccounthistory(
             self.address, {"txtypes": ["!"]}
@@ -1030,7 +1030,6 @@ class RestartdTokensTest(DefiTestFramework):
         lockHistory = self.nodes[0].listaccounthistory(
             self.tokenlockaddress, {"txtypes": ["?"]}
         )
-        print(lockHistory)
         assert_equal(len(lockHistory), 3)  # TD added locks
         releaseHistory = self.nodes[0].listaccounthistory(
             self.tokenlockaddress, {"txtypes": ["!"]}
@@ -1348,6 +1347,7 @@ class RestartdTokensTest(DefiTestFramework):
                         "-853.81495924@USDT-DUSD",
                     ],
                 },
+                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
                 {"h": 1000, "t": "blockReward", "a": ["122.11455925@DFI"]},
                 {"h": 999, "t": "blockReward", "a": ["122.11455925@DFI"]},
             ],
@@ -1447,7 +1447,6 @@ class RestartdTokensTest(DefiTestFramework):
                 {"h": 1002, "t": "blockReward", "a": ["122.11455925@DFI"]},
                 {"h": 1001, "t": "blockReward", "a": ["122.11455925@DFI"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["-5.00000000@SPY/v1"]},
-                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["5.00000000@SPY"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["-620.00000000@DUSD/v1"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["620.00000000@DUSD"]},
@@ -1470,6 +1469,7 @@ class RestartdTokensTest(DefiTestFramework):
                         "-853.81495924@USDT-DUSD",
                     ],
                 },
+                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
                 {"h": 1000, "t": "blockReward", "a": ["122.11455925@DFI"]},
                 {"h": 999, "t": "blockReward", "a": ["122.11455925@DFI"]},
             ],
