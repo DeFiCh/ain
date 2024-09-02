@@ -533,7 +533,10 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check balance
-        assert_equal(self.nodes[0].getaccount(self.address), ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"])    
+        assert_equal(
+            self.nodes[0].getaccount(self.address),
+            ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"],
+        )
 
         # Check account history
         results = []
