@@ -477,9 +477,7 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
     let (_, info) = get_token_cached(ctx, token_id)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: token_id.to_string(),
-            },
+            kind: NotFoundKind::Token,
         })?;
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {

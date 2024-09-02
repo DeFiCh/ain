@@ -36,7 +36,7 @@ pub enum NotFoundKind {
     Masternode,
     Scheme,
     Oracle,
-    Token { id: String },
+    Token,
     PoolPair,
     RawTx,
 }
@@ -136,7 +136,7 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("{} not found", kind))]
+    #[snafu(display("Unable to find {}", kind))]
     NotFound {
         kind: NotFoundKind,
     },

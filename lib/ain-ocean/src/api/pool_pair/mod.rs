@@ -275,9 +275,7 @@ async fn map_pool_pair_response(
     ) = get_token_cached(ctx, &p.id_token_a)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_a.clone(),
-            },
+            kind: NotFoundKind::Token,
         })?;
     let (
         _,
@@ -287,9 +285,7 @@ async fn map_pool_pair_response(
     ) = get_token_cached(ctx, &p.id_token_b)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_b.clone(),
-            },
+            kind: NotFoundKind::Token,
         })?;
 
     let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
