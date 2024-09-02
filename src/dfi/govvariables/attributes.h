@@ -483,6 +483,17 @@ public:
         return attributes.count(key) > 0;
     }
 
+    [[nodiscard]] bool CheckPartialKey(const uint8_t type, const uint8_t typeId) const {
+        for (const auto &[key, value] : attributes) {
+            if (auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
+                if (attrV0->type == type && attrV0->typeId == typeId) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     template <typename C, typename K>
     void ForEach(const C &callback, const K &key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);

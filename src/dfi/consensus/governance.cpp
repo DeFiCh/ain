@@ -55,7 +55,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 
                 if (governanceAuth && !foundationAuth) {
                     CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
-                    if (newVar->CheckKey(foundationMembers) || newVar->CheckKey(foundationParam)) {
+                    if (newVar->CheckPartialKey(foundationMembers.type, foundationMembers.typeId) || newVar->CheckKey(foundationParam)) {
                         return Res::Err("Foundation cannot be modified by governance");
                     }
                 }
@@ -208,9 +208,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             }
 
             if (governanceAuth && !foundationAuth) {
-                CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
                 CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
-                if (newVar->CheckKey(foundationMembers) || newVar->CheckKey(foundationParam)) {
+                if (newVar->CheckPartialKey(AttributeTypes::Param, ParamIDs::Foundation) || newVar->CheckKey(foundationParam)) {
                     return Res::Err("Foundation cannot be modified by governance");
                 }
             }
