@@ -31,14 +31,28 @@ impl std::fmt::Display for IndexAction {
 
 #[derive(Snafu, Debug)]
 pub enum NotFoundKind {
+    #[snafu(display("auction"))]
     Auction,
-    Proposal,
+    #[snafu(display("collateral token"))]
+    CollateralToken,
+    #[snafu(display("loan token"))]
+    LoanToken,
+    #[snafu(display("masternode"))]
     Masternode,
-    Scheme,
+    #[snafu(display("oracle"))]
     Oracle,
-    Token,
+    #[snafu(display("token"))]
     PoolPair,
+    #[snafu(display("proposal"))]
+    Proposal,
+    #[snafu(display("rawtx"))]
     RawTx,
+    #[snafu(display("scheme"))]
+    Scheme,
+    #[snafu(display("token {:?}", id))]
+    Token { id: String },
+    #[snafu(display("vault"))]
+    Vault
 }
 
 #[derive(Debug, Snafu)]
