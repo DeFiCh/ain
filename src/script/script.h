@@ -588,4 +588,15 @@ struct CScriptWitness
     std::string ToString() const;
 };
 
+struct CScriptHasher {
+    std::size_t operator()(const CScript &k) const {
+        // Note: We could optimize this by using the bytes of the
+        // prevector directly. However we'll then need to worry
+        // about hash collisions and distribution. Instead
+        // for simplicity we just return the string repr
+        // and pass it down to the std hasher.
+        return (std::hash<std::string>()(k.GetHex()));
+    }
+};
+
 #endif // DEFI_SCRIPT_SCRIPT_H

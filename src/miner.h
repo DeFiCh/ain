@@ -236,15 +236,16 @@ namespace pos {
     class ThreadStaker {
     public:
         struct Args {
-            int32_t nMint = -1;
-            int64_t nMaxTries = -1;
             CScript coinbaseScript = CScript();
             CKey minterKey = CKey();
             CKeyID operatorID = {};
+            uint8_t subNode = 0;
+            int32_t creationHeight = 0;
+            uint256 masternode = {};
         };
 
         /// always forward by value to avoid dangling pointers
-        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+        void operator()(CChainParams chainparams);
     };
 
     class Staker {
@@ -253,7 +254,6 @@ namespace pos {
 
     public:
         enum class Status {
-            error,
             initWaiting,
             stakeWaiting,
             stakeReady,
@@ -275,6 +275,8 @@ namespace pos {
         template <typename F>
         void withSearchInterval(F &&f, int64_t height);
     };
+
+    bool StartStakingThreads(std::vector<std::thread> &threadGroup);
 }  // namespace pos
 
 #endif  // DEFI_MINER_H

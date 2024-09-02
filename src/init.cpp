@@ -39,6 +39,7 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/settings.h>
+#include <pos_kernel.h>
 #include <rpc/blockchain.h>
 #include <rpc/register.h>
 #include <rpc/stats.h>
@@ -677,6 +678,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-minerstrategy", "Staking optimisation. Options are none, numeric value indicating the number of subnodes to stake (default: none)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -2181,38 +2183,45 @@ bool AppInitMain(InitInterfaces& interfaces)
     if (gArgs.IsArgSet("-consolidaterewards")) {
         const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
         auto fullRewardConsolidation = false;
-        for (const auto& tokenSymbolInput : tokenSymbolArgs) {
+        for (const auto &tokenSymbolInput : tokenSymbolArgs) {
             auto tokenSymbol = trim_ws(tokenSymbolInput);
             if (tokenSymbol.empty()) {
                 fullRewardConsolidation = true;
-                continue;
+                break;
             }
-            LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
-            auto token = pcustomcsview->GetToken(tokenSymbol);
-            if (!token) {
-                InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
-                return false;
-            }
-
-            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            pcustomcsview->ForEachBalance([&, tokenId = token->first](CScript const& owner, CTokenAmount balance) {
-                if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
-                    balancesToMigrate.emplace_back(owner, balance.nValue);
-                }
-                return true;
-            });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
         }
+
         if (fullRewardConsolidation) {
             LogPrintf("Consolidate rewards for all addresses..\n");
-            std::vector<std::pair<CScript, CAmount>> balancesToMigrate;
-            pcustomcsview->ForEachBalance([&](CScript const& owner, CTokenAmount balance) {
+
+            std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
+            pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
                 if (balance.nValue > 0) {
-                    balancesToMigrate.emplace_back(owner, balance.nValue);
+                    ownersToConsolidate.emplace(owner);
                 }
                 return true;
             });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), balancesToMigrate, true);
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
+        } else {
+            //one set for all tokens, ConsolidateRewards runs on the address, so no need to run multiple times for multiple token inputs
+            std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
+            for (const auto &tokenSymbolInput : tokenSymbolArgs) {
+                auto tokenSymbol = trim_ws(tokenSymbolInput);
+                LogPrintf("Consolidate rewards for token: %s\n", tokenSymbol);
+                auto token = pcustomcsview->GetToken(tokenSymbol);
+                if (!token) {
+                    InitError(strprintf("Invalid token \"%s\" for reward consolidation.\n", tokenSymbol));
+                    return false;
+                }
+
+                pcustomcsview->ForEachBalance([&, tokenId = token->first](const CScript &owner, CTokenAmount balance) {
+                    if (tokenId.v == balance.nTokenId.v && balance.nValue > 0) {
+                        ownersToConsolidate.emplace(owner);
+                    }
+                    return true;
+                });
+            }
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
         pcustomcsview->Flush();
     }
@@ -2436,103 +2445,9 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step 15: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
-        LOCK(cs_main);
-
-        auto wallets = GetWallets();
-        if (wallets.size() == 0) {
-            LogPrintf("Warning! wallets not found\n");
-            return true;
-        }
-
-        std::set<std::string> operatorsSet;
-        bool atLeastOneRunningOperator = false;
-        auto operators = gArgs.GetArgs("-masternode_operator");
-
-        if (fMockNetwork) {
-            auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
-            operators.push_back(mocknet_operator);
-        }
-
-        std::vector<pos::ThreadStaker::Args> stakersParams;
-        for (auto const & op : operators) {
-            // do not process duplicate operator option
-            if (operatorsSet.count(op)) {
-                continue;
-            }
-            operatorsSet.insert(op);
-
-            pos::ThreadStaker::Args stakerParams;
-            auto& operatorId = stakerParams.operatorID;
-            auto& coinbaseScript = stakerParams.coinbaseScript;
-
-            CTxDestination destination = DecodeDestination(op);
-            operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
-            if (operatorId.IsNull()) {
-                LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
-                continue;
-            }
-
-            bool found = false;
-            for (auto wallet : wallets) {
-                if (::IsMine(*wallet, destination) & ISMINE_SPENDABLE) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                LogPrintf("Error: masternode operator (%s) private key is not owned by the wallet\n", op);
-                continue;
-            }
-
-            // determine coinbase script for minting thread
-            auto const customRewardAddressStr = gArgs.GetArg("-rewardaddress", "");
-            CTxDestination const customRewardDest = customRewardAddressStr.empty() ?
-                CNoDestination{} :
-                DecodeDestination(customRewardAddressStr, chainparams);
-
-            CTxDestination ownerDest;
-            CTxDestination rewardDest;
-            auto optMasternodeID = pcustomcsview->GetMasternodeIdByOperator(operatorId);
-            if (optMasternodeID) {
-                auto nodePtr = pcustomcsview->GetMasternode(*optMasternodeID);
-                assert(nodePtr); // this should not happen if MN was found by operator's id
-                ownerDest = FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType);
-                if (nodePtr->rewardAddressType != 0) {
-                    rewardDest = FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, TxDestTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType);
-                }
-            }
-
-            if (IsValidDestination(rewardDest)) {
-                coinbaseScript = GetScriptForDestination(rewardDest);
-                LogPrintf("Minting thread will start with reward address %s\n", EncodeDestination(rewardDest));
-            }
-            else if (IsValidDestination(customRewardDest)) {
-                coinbaseScript = GetScriptForDestination(customRewardDest);
-                LogPrintf("Default minting address was overlapped by -rewardaddress=%s\n", customRewardAddressStr);
-            }
-            else if (IsValidDestination(ownerDest)) {
-                coinbaseScript = GetScriptForDestination(ownerDest);
-                LogPrintf("Minting thread will start with default address %s\n", EncodeDestination(ownerDest));
-            }
-            else {
-                LogPrintf("Minting thread will start with empty coinbase address because masternode does not exist yet. Correct address will be resolved later.\n");
-            }
-            stakersParams.push_back(std::move(stakerParams));
-            atLeastOneRunningOperator = true;
-        }
-
-        if (!atLeastOneRunningOperator) {
-            LogPrintf("Error: there is no valid masternode_operator\n");
+        if (!pos::StartStakingThreads(threadGroup)) {
             return false;
         }
-
-        // Mint proof-of-stake blocks in background
-        threadGroup.emplace_back(TraceThread<std::function<void()>>, "CoinStaker", [=]() {
-            // Run ThreadStaker
-            pos::ThreadStaker threadStaker;
-            threadStaker(stakersParams, chainparams);
-        });
     }
 
     return true;

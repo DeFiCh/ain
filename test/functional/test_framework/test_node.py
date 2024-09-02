@@ -79,7 +79,7 @@ class TestNode:
         extra_args=None,
         use_cli=False,
         start_perf=False,
-        use_valgrind=False
+        use_valgrind=False,
     ):
         """
         Kwargs:
@@ -389,7 +389,7 @@ class TestNode:
             stdout=stdout,
             stderr=stderr,
             cwd=cwd,
-            **kwargs
+            **kwargs,
         )
 
         self.running = True
@@ -444,7 +444,12 @@ class TestNode:
                 self.w3 = Web3(Web3.HTTPProvider(evm_rpc.url))
                 return
             except IOError as e:
-                if e.errno != errno.ECONNREFUSED:  # Port not yet open?
+                if e.errno not in [
+                    None,
+                    0,
+                    errno.ECONNREFUSED,
+                    errno.ECONNRESET,
+                ]:  # Port not yet open?
                     raise  # unknown IO error
             except JSONRPCException as e:  # Initialization phase
                 # -28 RPC in warmup
@@ -653,7 +658,7 @@ class TestNode:
         expected_msg=None,
         match=ErrorMatch.FULL_TEXT,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Attempt to start the node and expect it to raise an error.
 
