@@ -474,7 +474,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         ltc_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
 
         return dfi_balance, ltc_balance
-    
+
     def static_update_same_block(self):
 
         # Rollback block
@@ -533,7 +533,10 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check balance
-        assert_equal(self.nodes[0].getaccount(self.address), ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"])    
+        assert_equal(
+            self.nodes[0].getaccount(self.address),
+            ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"],
+        )
 
         # Check account history
         results = []
