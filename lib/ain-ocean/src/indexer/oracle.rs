@@ -1,6 +1,6 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
-use ain_dftx::oracles::*;
+use ain_dftx::{oracles::*, Currency, Token};
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
@@ -649,8 +649,8 @@ fn map_price_feeds(data: &SetOracleData, ctx: &Context) -> Vec<OraclePriceFeed> 
 fn start_new_bucket(
     services: &Arc<Services>,
     block: &BlockContext,
-    token: String,
-    currency: String,
+    token: Token,
+    currency: Currency,
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
@@ -685,8 +685,8 @@ fn start_new_bucket(
 pub fn index_interval_mapper(
     services: &Arc<Services>,
     block: &BlockContext,
-    token: String,
-    currency: String,
+    token: Token,
+    currency: Currency,
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {

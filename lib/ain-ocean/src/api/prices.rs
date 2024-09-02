@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ain_dftx::COIN;
+use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
@@ -36,8 +36,8 @@ pub struct OraclePriceAggregatedResponse {
     pub id: String,
     pub key: String,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub aggregated: OraclePriceAggregatedAggregatedResponse,
     pub block: BlockContext,
 }
@@ -46,7 +46,7 @@ pub struct OraclePriceAggregatedResponse {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregatedResponse {
     pub amount: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub oracles: OraclePriceActiveNextOracles,
 }
 
@@ -248,10 +248,10 @@ async fn get_feed_with_interval(
 pub struct PriceOracleResponse {
     pub id: String,
     pub key: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub feed: Option<OraclePriceFeedResponse>,
     pub block: BlockContext,
 }

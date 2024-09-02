@@ -1,3 +1,4 @@
+use ain_dftx::{Currency, Token};
 use serde::{Deserialize, Serialize};
 
 use super::{BlockContext, OraclePriceActiveNext};
@@ -11,8 +12,8 @@ pub struct OraclePriceAggregated {
     pub id: OraclePriceAggregatedId,
     pub key: OraclePriceAggregatedKey,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub aggregated: OraclePriceActiveNext,
     pub block: BlockContext,
 }

@@ -1,3 +1,4 @@
+use ain_dftx::{Currency, Token, Weightage};
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -21,8 +22,8 @@ pub struct OraclePriceAggregatedInterval {
     pub id: OraclePriceAggregatedIntervalId,
     pub key: OraclePriceAggregatedIntervalKey,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub aggregated: OraclePriceAggregatedIntervalAggregated,
     pub block: BlockContext,
 }
@@ -31,7 +32,7 @@ pub struct OraclePriceAggregatedInterval {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub count: i32,
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }

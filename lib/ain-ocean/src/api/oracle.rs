@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::COIN;
+use ain_dftx::{Currency, Token, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
@@ -55,8 +55,8 @@ pub struct OraclePriceFeedResponse {
     pub id: String,
     pub key: String,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: Txid,
     pub txid: Txid,
     pub time: i32,
