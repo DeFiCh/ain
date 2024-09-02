@@ -140,11 +140,6 @@ pub enum Error {
     NotFound {
         kind: NotFoundKind,
     },
-    // #[error(
-    //     "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
-    // )]
-    // NotFoundIndex(IndexAction, String, String),
-    NotFoundIndex,
     DecimalConversionError,
     #[snafu(display("Arithmetic overflow"))]
     ArithmeticOverflow {
