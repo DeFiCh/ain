@@ -55,6 +55,9 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Setup test
         self.setup_tests()
 
+        # Test account update on same block as poolswap
+        self.static_update_same_block()
+
         # Test new pool reward with single share
         self.static_reward_single()
 
@@ -471,6 +474,75 @@ class TokenFractionalSplitTest(DefiTestFramework):
         ltc_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
 
         return dfi_balance, ltc_balance
+    
+    def static_update_same_block(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].sendtoaddress(self.address, 1)
+        self.nodes[0].accounttoaccount(self.owner_address, {self.address: "1@DFI"})
+        self.nodes[0].generate(1)
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+
+        # Execute swaps and update account via accounttoaccount on same block
+        self.nodes[0].accounttoaccount(self.address, {self.owner_address: "1@DFI"})
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check balance
+        assert_equal(self.nodes[0].getaccount(self.address), ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"])    
+
+        # Check account history
+        results = []
+        for result in self.nodes[0].listaccounthistory(self.address, {"depth": 1}):
+            if result["type"] == "Commission":
+                results.append(result)
+        assert_equal(len(results), 2)
+        assert_equal(results[0]["amounts"], ["0.00199999@LTC"])
+        assert_equal(results[1]["amounts"], ["0.00199999@DFI"])
 
     def static_commission_single(self):
 
@@ -718,7 +790,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
             {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
             self.address,
         )
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
 
         # Balance started at zero, new balance is the reward
         new_pool_reward = Decimal(

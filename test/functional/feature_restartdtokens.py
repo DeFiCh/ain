@@ -169,7 +169,7 @@ class RestartdTokensTest(DefiTestFramework):
                 },
                 {
                     "owner": self.address,
-                    "values": ["2.45000008@SPY", "2134.61303422@DUSD"],
+                    "values": ["2.45000008@SPY", "2135.10910584@DUSD"],
                 },
                 {
                     "owner": self.address1,
@@ -209,7 +209,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "4.49999499@SPY-DUSD",
                 "455.25657402@USDT",
                 "469.34163902@USDT-DUSD",
-                "60.00000000@DUSD",
+                "60.49607163@DUSD",
                 "631.39609307@DUSD-DFI",
                 "99.99999000@BTC-DFI",
             ],
@@ -584,7 +584,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "3.16226765@SPY-DUSD",
@@ -673,7 +673,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
                 "3.16226765@SPY-DUSD",
@@ -770,7 +770,7 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "1.00000000@SPY-DUSD",
                 "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
@@ -975,7 +975,7 @@ class RestartdTokensTest(DefiTestFramework):
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.56000001@SPY",
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "1.00000000@SPY-DUSD",
                 "105.40025189@DUSD",
                 "127.27921962@DUSD-DFI",
@@ -1281,7 +1281,7 @@ class RestartdTokensTest(DefiTestFramework):
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.50000000@SPY",
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "1.00000000@SPY-DUSD",
                 "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
@@ -1416,12 +1416,12 @@ class RestartdTokensTest(DefiTestFramework):
 
         self.nodes[0].generate(5)
 
-        # account is same (no DFI rewards on pools), FIXME: missing commissions that should have happened during tokenLock
+        # account is same (no DFI rewards on pools)
         assert_equal(
             sorted(self.nodes[0].getaccount(self.address)),
             [
                 "0.50000000@SPY",
-                "0.96000000@BTC",
+                "0.96000006@BTC",
                 "1.00000000@SPY-DUSD",
                 "127.27921962@DUSD-DFI",
                 "22.36066977@USDT-DFI",
