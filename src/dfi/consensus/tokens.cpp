@@ -80,18 +80,14 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
         return result;
     }
 
-    if (!token.IsDAT()) {
+    // Foundation auth no longer used after DF24Height
+    if (!token.IsDAT() || height >= static_cast<uint32_t>(consensus.DF24Height)) {
         return Res::Err("tx must have at least one input from token owner");
     }
 
     // It is a DAT, check founders auth
     if (!HasFoundationAuth()) {
         return Res::Err("token is DAT and tx not from foundation member");
-    }
-
-    // Foundation auth no longer used after DF24Height
-    if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
-        return Res::Err("tx must have at least one input from token owner");
     }
 
     return result;
