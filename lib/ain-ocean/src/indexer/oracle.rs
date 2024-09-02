@@ -11,7 +11,7 @@ use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use crate::{
-    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, OtherSnafu},
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, OtherSnafu, ToPrimitiveSnafu},
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
@@ -803,16 +803,16 @@ pub fn invalidate_oracle_interval(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_u8().context(OtherSnafu {
-                msg: "parse u8 error",
+            weightage: aggregated_weightage.to_u8().context(ToPrimitiveSnafu {
+                msg: "to_u8",
             })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context(OtherSnafu {
-                    msg: "parse i32 error",
+                active: aggregated_active.to_i32().context(ToPrimitiveSnafu {
+                    msg: "to_i32",
                 })?,
-                total: aggregated_total.to_i32().context(OtherSnafu {
-                    msg: "parse i32 error",
+                total: aggregated_total.to_i32().context(ToPrimitiveSnafu {
+                    msg: "to_i32",
                 })?,
             },
         },
@@ -865,16 +865,16 @@ fn forward_aggregate(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_u8().context(OtherSnafu {
-                msg: "parse u8 error",
+            weightage: aggregated_weightage.to_u8().context(ToPrimitiveSnafu {
+                msg: "to_u8",
             })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context(OtherSnafu {
-                    msg: "parse i32 error",
+                active: aggregated_active.to_i32().context(ToPrimitiveSnafu {
+                    msg: "to_i32",
                 })?,
-                total: aggregated_total.to_i32().context(OtherSnafu {
-                    msg: "parse i32 error",
+                total: aggregated_total.to_i32().context(ToPrimitiveSnafu {
+                    msg: "to_i32",
                 })?,
             },
         },

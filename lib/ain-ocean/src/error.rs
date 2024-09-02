@@ -178,6 +178,12 @@ pub enum Error {
     InvalidPoolPairSymbol {
         item: String,
     },
+    #[snafu(display("To primitive error: {msg}"))]
+    ToPrimitiveError {
+        msg: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
     #[snafu(display("error message: {}", msg))]
     Other {
         msg: String,
