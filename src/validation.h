@@ -32,6 +32,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -927,7 +928,7 @@ Res AddNonTxToBurnIndex(const CScript &from, const CBalances &amounts);
 
 void ConsolidateRewards(CCustomCSView &view,
                         int height,
-                        const std::vector<std::pair<CScript, CAmount>> &items,
+                        const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
                         int numWorkers = 0);
 

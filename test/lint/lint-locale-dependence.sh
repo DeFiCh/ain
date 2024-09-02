@@ -30,6 +30,7 @@ KNOWN_VIOLATIONS=(
     "src/validation.cpp:.*stoi"
     "dfi/govvariables/attributes.cpp:.*isspace"
     "dfi/validation.cpp:.*stoi"
+    "src/miner.cpp:.*stoi"
 )
 
 REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue|spv/)"
