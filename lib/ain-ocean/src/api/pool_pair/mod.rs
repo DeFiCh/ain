@@ -28,7 +28,7 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
-    common::{parse_dat_symbol, parse_query_height_txno, parse_pool_pair_symbol},
+    common::{parse_dat_symbol, parse_pool_pair_symbol, parse_query_height_txno},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -262,7 +262,11 @@ impl PoolPairResponse {
     }
 }
 
-async fn map_pool_pair_response(ctx: &Arc<AppContext>, id: String, p: PoolPairInfo) -> Result<PoolPairResponse> {
+async fn map_pool_pair_response(
+    ctx: &Arc<AppContext>,
+    id: String,
+    p: PoolPairInfo,
+) -> Result<PoolPairResponse> {
     let (
         _,
         TokenInfo {
@@ -270,7 +274,11 @@ async fn map_pool_pair_response(ctx: &Arc<AppContext>, id: String, p: PoolPairIn
         },
     ) = get_token_cached(ctx, &p.id_token_a)
         .await?
-        .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_a.clone() } })?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token {
+                id: p.id_token_a.clone(),
+            },
+        })?;
     let (
         _,
         TokenInfo {
@@ -278,7 +286,11 @@ async fn map_pool_pair_response(ctx: &Arc<AppContext>, id: String, p: PoolPairIn
         },
     ) = get_token_cached(ctx, &p.id_token_b)
         .await?
-        .context(NotFoundSnafu { kind: NotFoundKind::Token { id: p.id_token_b.clone() } })?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token {
+                id: p.id_token_b.clone(),
+            },
+        })?;
 
     let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
     let apr = get_apr(ctx, &id, &p).await?;

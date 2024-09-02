@@ -16,7 +16,8 @@ use crate::{
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{
-        DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, NotFoundKind,
+        NotFoundSnafu, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
     model::{BlockContext, PoolSwapAggregatedAggregated},
@@ -69,11 +70,19 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
         let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
         let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
         if p.id_token_a == "0" {
-            total_usd = total_usd.checked_add(reserve_b).context(ArithmeticOverflowSnafu)?;
-            total_dfi = total_dfi.checked_add(reserve_a).context(ArithmeticOverflowSnafu)?;
+            total_usd = total_usd
+                .checked_add(reserve_b)
+                .context(ArithmeticOverflowSnafu)?;
+            total_dfi = total_dfi
+                .checked_add(reserve_a)
+                .context(ArithmeticOverflowSnafu)?;
         } else if p.id_token_b == "0" {
-            total_usd = total_usd.checked_add(reserve_a).context(ArithmeticOverflowSnafu)?;
-            total_dfi = total_dfi.checked_add(reserve_b).context(ArithmeticOverflowSnafu)?;
+            total_usd = total_usd
+                .checked_add(reserve_a)
+                .context(ArithmeticOverflowSnafu)?;
+            total_dfi = total_dfi
+                .checked_add(reserve_b)
+                .context(ArithmeticOverflowSnafu)?;
         }
         Ok((total_usd, total_dfi))
     }
@@ -87,7 +96,9 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     };
 
     if !total_usd.is_zero() {
-        let res = total_usd.checked_div(total_dfi).context(ArithmeticUnderflowSnafu)?;
+        let res = total_usd
+            .checked_div(total_dfi)
+            .context(ArithmeticUnderflowSnafu)?;
         return Ok(res);
     };
 
@@ -122,9 +133,13 @@ async fn get_total_liquidity_usd_by_best_path(
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
-    let a = a_token_rate.checked_mul(reserve_a).context(ArithmeticOverflowSnafu)?;
+    let a = a_token_rate
+        .checked_mul(reserve_a)
+        .context(ArithmeticOverflowSnafu)?;
 
-    let b = b_token_rate.checked_mul(reserve_b).context(ArithmeticOverflowSnafu)?;
+    let b = b_token_rate
+        .checked_mul(reserve_b)
+        .context(ArithmeticOverflowSnafu)?;
 
     let res = a.checked_add(b).context(ArithmeticOverflowSnafu)?;
 
@@ -138,11 +153,15 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
     if ["DUSD", "USDT", "USDC"].contains(&a.as_str()) {
-        return reserve_a.checked_mul(dec!(2)).context(ArithmeticOverflowSnafu);
+        return reserve_a
+            .checked_mul(dec!(2))
+            .context(ArithmeticOverflowSnafu);
     };
 
     if ["DUSD", "USDT", "USDC"].contains(&b.as_str()) {
-        return reserve_b.checked_mul(dec!(2)).context(ArithmeticOverflowSnafu);
+        return reserve_b
+            .checked_mul(dec!(2))
+            .context(ArithmeticOverflowSnafu);
     };
 
     let usdt_per_dfi = get_usd_per_dfi(ctx).await?;
@@ -183,7 +202,9 @@ fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Dec
             .and_then(|v| v.checked_mul(dec!(365)))
             .and_then(|v| v.checked_mul(dfi_price_usdt))
             .context(ArithmeticOverflowSnafu)?;
-        accumulate.checked_add(yearly).context(ArithmeticOverflowSnafu)
+        accumulate
+            .checked_add(yearly)
+            .context(ArithmeticOverflowSnafu)
     })?;
     Ok(rewards)
 }
@@ -262,8 +283,12 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
             if amount <= dec!(0.00001) {
                 return Ok(dec!(0));
             };
-            block_subsidy = block_subsidy.checked_sub(amount).context(ArithmeticUnderflowSnafu)?;
-            reductions = reductions.checked_sub(dec!(1)).context(ArithmeticUnderflowSnafu)?;
+            block_subsidy = block_subsidy
+                .checked_sub(amount)
+                .context(ArithmeticUnderflowSnafu)?;
+            reductions = reductions
+                .checked_sub(dec!(1))
+                .context(ArithmeticUnderflowSnafu)?;
         }
     };
 
@@ -342,7 +367,9 @@ async fn gather_amount(
                 .unwrap_or(dec!(0));
 
             let amount = if let Some(amount) = aggregated.get(token_id) {
-                amount.checked_add(from_amount).context(ArithmeticOverflowSnafu)?
+                amount
+                    .checked_add(from_amount)
+                    .context(ArithmeticOverflowSnafu)?
             } else {
                 from_amount
             };
@@ -357,7 +384,11 @@ async fn gather_amount(
         let token_price = get_token_usd_value(ctx, token_id).await?;
         let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
         volume = volume
-            .checked_add(token_price.checked_mul(amount).context(ArithmeticOverflowSnafu)?)
+            .checked_add(
+                token_price
+                    .checked_mul(amount)
+                    .context(ArithmeticOverflowSnafu)?,
+            )
             .context(ArithmeticOverflowSnafu)?;
     }
 
@@ -417,7 +448,9 @@ pub async fn get_apr(
         .checked_div(total_liquidity_usd)
         .context(ArithmeticUnderflowSnafu)?;
 
-    let total = reward.checked_add(commission).context(ArithmeticOverflowSnafu)?;
+    let total = reward
+        .checked_add(commission)
+        .context(ArithmeticOverflowSnafu)?;
 
     Ok(PoolPairAprResponse {
         reward,
@@ -459,9 +492,13 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if a == "DUSD" {
-            return reserve_a.checked_div(reserve_b).context(ArithmeticUnderflowSnafu);
+            return reserve_a
+                .checked_div(reserve_b)
+                .context(ArithmeticUnderflowSnafu);
         };
-        return reserve_b.checked_div(reserve_a).context(ArithmeticUnderflowSnafu);
+        return reserve_b
+            .checked_div(reserve_a)
+            .context(ArithmeticUnderflowSnafu);
     }
 
     let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;

@@ -12,7 +12,9 @@ use crate::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
     },
-    error::{NotFoundKind, NotFoundSnafu, OtherSnafu, ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
+    error::{
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu,
+    },
     network::Network,
     Error, Result, TokenIdentifier,
 };

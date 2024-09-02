@@ -8,7 +8,11 @@ use rust_decimal_macros::dec;
 
 use super::Context;
 use crate::{
-    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu}, indexer::{tx_result, Index, Result}, model::{self, PoolSwapResult, TxResult}, storage::{RepositoryOps, SecondaryIndex, SortOrder}, Error, Services
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
+    indexer::{tx_result, Index, Result},
+    model::{self, PoolSwapResult, TxResult},
+    storage::{RepositoryOps, SecondaryIndex, SortOrder},
+    Error, Services,
 };
 use snafu::OptionExt;
 

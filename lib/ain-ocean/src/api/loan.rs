@@ -22,7 +22,10 @@ use snafu::OptionExt;
 
 use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
-    common::{from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price, parse_query_height_txno, Paginate},
+    common::{
+        from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price,
+        parse_query_height_txno, Paginate,
+    },
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -298,9 +301,7 @@ async fn get_loan_token(
         .transpose()?
     else {
         return Err(Error::NotFound {
-            kind: NotFoundKind::Token {
-                id: token_id,
-            },
+            kind: NotFoundKind::Token { id: token_id },
         });
     };
 

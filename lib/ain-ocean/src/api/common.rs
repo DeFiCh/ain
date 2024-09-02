@@ -8,7 +8,10 @@ use std::str::FromStr;
 
 use super::query::PaginationQuery;
 use crate::{
-    error::{InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu},
+    error::{
+        InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu, InvalidPoolPairSymbolSnafu,
+        InvalidTokenCurrencySnafu,
+    },
     hex_encoder::as_sha256,
     Result,
 };
@@ -98,12 +101,8 @@ pub fn parse_amount(item: &str) -> Result<(String, String)> {
 
 pub fn parse_query_height_txno(item: &str) -> Result<(u32, usize)> {
     let mut parts = item.split('-');
-    let height = parts
-        .next()
-        .context(InvalidAmountSnafu { item })?;
-    let txno = parts
-        .next()
-        .context(InvalidAmountSnafu { item })?;
+    let height = parts.next().context(InvalidAmountSnafu { item })?;
+    let txno = parts.next().context(InvalidAmountSnafu { item })?;
 
     let height = height.parse::<u32>()?;
     let txno = txno.parse::<usize>()?;
