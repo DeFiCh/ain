@@ -803,17 +803,17 @@ pub fn invalidate_oracle_interval(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_u8().context(ToPrimitiveSnafu {
-                msg: "to_u8",
-            })?,
+            weightage: aggregated_weightage
+                .to_u8()
+                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context(ToPrimitiveSnafu {
-                    msg: "to_i32",
-                })?,
-                total: aggregated_total.to_i32().context(ToPrimitiveSnafu {
-                    msg: "to_i32",
-                })?,
+                active: aggregated_active
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
+                total: aggregated_total
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
         block: previous.block.clone(),
@@ -865,17 +865,17 @@ fn forward_aggregate(
         currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
-            weightage: aggregated_weightage.to_u8().context(ToPrimitiveSnafu {
-                msg: "to_u8",
-            })?,
+            weightage: aggregated_weightage
+                .to_u8()
+                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                active: aggregated_active.to_i32().context(ToPrimitiveSnafu {
-                    msg: "to_i32",
-                })?,
-                total: aggregated_total.to_i32().context(ToPrimitiveSnafu {
-                    msg: "to_i32",
-                })?,
+                active: aggregated_active
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
+                total: aggregated_total
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
         block: previous.block.clone(),

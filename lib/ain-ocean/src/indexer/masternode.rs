@@ -32,8 +32,7 @@ impl Index for CreateMasternode {
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
             return Err("Missing owner address".into());
         };
-        let collateral =
-            Decimal::from_f64(ctx.tx.vout[1].value).context(DecimalConversionSnafu)?;
+        let collateral = Decimal::from_f64(ctx.tx.vout[1].value).context(DecimalConversionSnafu)?;
 
         let masternode = Masternode {
             id: txid,
