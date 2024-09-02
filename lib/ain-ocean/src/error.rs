@@ -157,31 +157,31 @@ pub enum Error {
     BadRequest {
         msg: String,
     },
-    #[snafu(display("Invalid token currency format: {item}"))]
+    #[snafu(display("Invalid token currency format: {}", item))]
     InvalidTokenCurrency {
         item: String,
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("Invalid fixed interval price format: {item}"))]
+    #[snafu(display("Invalid fixed interval price format: {}", item))]
     InvalidFixedIntervalPrice {
         item: String,
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("Invalid amount format: {item}"))]
+    #[snafu(display("Invalid amount format: {}", item))]
     InvalidAmount {
         item: String,
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("Invalid pool pair symbol format: {item}"))]
+    #[snafu(display("Invalid pool pair symbol format: {}", item))]
     InvalidPoolPairSymbol {
         item: String,
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("To primitive error: {msg}"))]
+    #[snafu(display("To primitive error: {}", msg))]
     ToPrimitiveError {
         msg: String,
         #[snafu(implicit)]
