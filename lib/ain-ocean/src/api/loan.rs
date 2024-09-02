@@ -449,7 +449,9 @@ async fn get_vault(
     Path(vault_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<VaultResponse>> {
-    let vault = ctx.client.get_vault(vault_id, Some(false)).await?;
+    let vault = ctx.client.get_vault(vault_id, Some(false))
+        .await
+        .map_err(|_| Error::NotFound { kind: NotFoundKind::Vault })?;
     let res = match vault {
         VaultResult::VaultActive(vault) => {
             VaultResponse::Active(map_vault_active(&ctx, vault).await?)
