@@ -245,7 +245,6 @@ dependencies = [
  "ain-db",
  "ain-dftx",
  "ain-macros",
- "anyhow",
  "axum 0.7.5",
  "bincode",
  "bitcoin",
@@ -278,7 +277,6 @@ dependencies = [
  "snafu",
  "tempdir",
  "tempfile",
- "thiserror",
  "tokio",
 ]
 
