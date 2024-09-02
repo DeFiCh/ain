@@ -989,7 +989,7 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
         if (targetHeight >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
             const auto beginNewHeight =
-                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight;
+                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight - 1;
             CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, targetHeight);
         }
 
