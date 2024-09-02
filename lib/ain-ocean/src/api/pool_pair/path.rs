@@ -12,7 +12,7 @@ use crate::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
     },
-    error::{NotFoundKind, NotFoundSnafu, OtherSnafu},
+    error::{NotFoundKind, NotFoundSnafu, OtherSnafu, ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
     network::Network,
     Error, Result, TokenIdentifier,
 };
@@ -450,56 +450,40 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
 
         estimated_return = estimated_return
             .checked_mul(price_ratio)
-            .context(OtherSnafu {
-                msg: "estimated_return overflow",
-            })?;
+            .context(ArithmeticOverflowSnafu)?;
 
         // less commission fee
         let commission_fee_in_pct = Decimal::from_str(pool.commission_fee_in_pct.as_str())?;
         let commission_fee = estimated_return_less_dex_fees
             .checked_mul(commission_fee_in_pct)
-            .context(OtherSnafu {
-                msg: "commission_fee overflow",
-            })?;
+            .context(ArithmeticOverflowSnafu)?;
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(commission_fee)
-            .context(OtherSnafu {
-                msg: "estimated_return_less_dex_fees underflow",
-            })?;
+            .context(ArithmeticUnderflowSnafu)?;
 
         // less dex fee from_token
         let from_token_estimated_dex_fee = from_token_fee_pct
             .unwrap_or_default()
             .checked_mul(estimated_return_less_dex_fees)
-            .context(OtherSnafu {
-                msg: "from_token_fee_pct overflow",
-            })?;
+            .context(ArithmeticOverflowSnafu)?;
 
         estimated_return_less_dex_fees = estimated_return_less_dex_fees
             .checked_sub(from_token_estimated_dex_fee)
-            .context(OtherSnafu {
-                msg: "estimated_return_less_dex_fees underflow",
-            })?;
+            .context(ArithmeticUnderflowSnafu)?;
 
         // convert to to_token
         let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees
             .checked_mul(price_ratio)
-            .context(OtherSnafu {
-                msg: "from_token_estimated_return_less_dex_fee overflow",
-            })?;
+            .context(ArithmeticOverflowSnafu)?;
         let to_token_estimated_dex_fee = to_token_fee_pct
             .unwrap_or_default()
             .checked_mul(from_token_estimated_return_less_dex_fee)
-            .context(OtherSnafu {
-                msg: "to_token_estimated_dex_fee overflow",
-            })?;
+            .context(ArithmeticOverflowSnafu)?;
 
         // less dex fee to_token
         estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee
             .checked_sub(to_token_estimated_dex_fee)
-            .context(OtherSnafu {
-                msg: "estimated_return_less_dex_fees underflow",
-            })?;
+            .context(ArithmeticUnderflowSnafu)?;
     }
 
     Ok(EstimatedLessDexFeeInfo {

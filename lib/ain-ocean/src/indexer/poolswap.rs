@@ -8,11 +8,9 @@ use rust_decimal_macros::dec;
 
 use super::Context;
 use crate::{
-    indexer::{tx_result, Index, Result},
-    model::{self, PoolSwapResult, TxResult},
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
-    Error, Services,
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu}, indexer::{tx_result, Index, Result}, model::{self, PoolSwapResult, TxResult}, storage::{RepositoryOps, SecondaryIndex, SortOrder}, Error, Services
 };
+use snafu::OptionExt;
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
     PoolSwapAggregatedInterval::OneDay as u32,
@@ -72,7 +70,7 @@ fn index_swap_aggregated(
 
             let aggregated_amount = amount
                 .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
-                .ok_or(Error::OverflowError)?;
+                .context(ArithmeticOverflowSnafu)?;
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),
@@ -137,7 +135,7 @@ fn invalidate_swap_aggregated(
 
             let aggregated_amount = amount
                 .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
-                .ok_or(Error::UnderflowError)?;
+                .context(ArithmeticUnderflowSnafu)?;
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),

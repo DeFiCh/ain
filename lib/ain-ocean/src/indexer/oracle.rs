@@ -11,7 +11,7 @@ use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use crate::{
-    error::OtherSnafu,
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, OtherSnafu},
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
@@ -20,7 +20,7 @@ use crate::{
         OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
-    Error, Services,
+    Services,
 };
 
 pub const AGGREGATED_INTERVALS: [OracleIntervalSeconds; 3] = [
@@ -439,9 +439,7 @@ fn map_price_aggregated(
             );
             let weighted_amount = Decimal::from(feed.amount)
                 .checked_mul(Decimal::from(oracle.weightage))
-                .context(OtherSnafu {
-                    msg: "weighted_amount overflow",
-                })?;
+                .context(ArithmeticOverflowSnafu)?;
             aggregated_total += weighted_amount;
         }
     }
@@ -900,7 +898,7 @@ fn forward_aggregate_value(
 ) -> Result<Decimal> {
     (last_value * count + new_value)
         .checked_div(count + dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .context(ArithmeticUnderflowSnafu)
 }
 
 fn backward_aggregate_value(
@@ -910,7 +908,7 @@ fn backward_aggregate_value(
 ) -> Result<Decimal> {
     (last_value * count - new_value)
         .checked_div(count - dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .context(ArithmeticUnderflowSnafu)
 }
 
 fn get_previous_oracle_history_list(

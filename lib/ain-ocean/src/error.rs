@@ -7,6 +7,13 @@ use serde::Serialize;
 use serde_json::json;
 use snafu::{Location, Snafu};
 
+// #[macro_export]
+// macro_rules! over_underflow_msg {
+//     ($op:expr, $k1:expr, $v1:expr, $k2:expr, $v2:expr) => {
+//         format!("Try to {} {}: {:?} with {}: {:?}", $op, $k1, $v1, $k2, $v2)
+//     }
+// }
+
 #[derive(Debug)]
 pub enum IndexAction {
     Index,
@@ -141,8 +148,18 @@ pub enum Error {
     // NotFoundIndex(IndexAction, String, String),
     NotFoundIndex,
     DecimalConversionError,
-    OverflowError,
-    UnderflowError,
+    #[snafu(display("Arithmetic overflow"))]
+    ArithmeticOverflow {
+        // msg: String, // TODO(canonbrother): less complicated atm
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Arithmetic underflow"))]
+    ArithmeticUnderflow {
+        // msg: String, // TODO(canonbrother): less complicated atm
+        #[snafu(implicit)]
+        location: Location,
+    },
     SecondaryIndex,
     BadRequest {
         msg: String,

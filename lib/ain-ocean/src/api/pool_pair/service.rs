@@ -16,8 +16,7 @@ use crate::{
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{
-        DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, OverflowSnafu,
-        UnderflowSnafu,
+        DecimalConversionSnafu, NotFoundKind, NotFoundSnafu, OtherSnafu, ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu
     },
     indexer::PoolSwapAggregatedInterval,
     model::{BlockContext, PoolSwapAggregatedAggregated},
@@ -70,11 +69,11 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
         let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
         let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
         if p.id_token_a == "0" {
-            total_usd = total_usd.checked_add(reserve_b).context(OverflowSnafu)?;
-            total_dfi = total_dfi.checked_add(reserve_a).context(OverflowSnafu)?;
+            total_usd = total_usd.checked_add(reserve_b).context(ArithmeticOverflowSnafu)?;
+            total_dfi = total_dfi.checked_add(reserve_a).context(ArithmeticOverflowSnafu)?;
         } else if p.id_token_b == "0" {
-            total_usd = total_usd.checked_add(reserve_a).context(OverflowSnafu)?;
-            total_dfi = total_dfi.checked_add(reserve_b).context(OverflowSnafu)?;
+            total_usd = total_usd.checked_add(reserve_a).context(ArithmeticOverflowSnafu)?;
+            total_dfi = total_dfi.checked_add(reserve_b).context(ArithmeticOverflowSnafu)?;
         }
         Ok((total_usd, total_dfi))
     }
@@ -88,7 +87,7 @@ pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     };
 
     if !total_usd.is_zero() {
-        let res = total_usd.checked_div(total_dfi).context(UnderflowSnafu)?;
+        let res = total_usd.checked_div(total_dfi).context(ArithmeticUnderflowSnafu)?;
         return Ok(res);
     };
 
@@ -123,11 +122,11 @@ async fn get_total_liquidity_usd_by_best_path(
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
-    let a = a_token_rate.checked_mul(reserve_a).context(OverflowSnafu)?;
+    let a = a_token_rate.checked_mul(reserve_a).context(ArithmeticOverflowSnafu)?;
 
-    let b = b_token_rate.checked_mul(reserve_b).context(OverflowSnafu)?;
+    let b = b_token_rate.checked_mul(reserve_b).context(ArithmeticOverflowSnafu)?;
 
-    let res = a.checked_add(b).context(OverflowSnafu)?;
+    let res = a.checked_add(b).context(ArithmeticOverflowSnafu)?;
 
     Ok(res)
 }
@@ -139,11 +138,11 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
 
     if ["DUSD", "USDT", "USDC"].contains(&a.as_str()) {
-        return reserve_a.checked_mul(dec!(2)).context(OverflowSnafu);
+        return reserve_a.checked_mul(dec!(2)).context(ArithmeticOverflowSnafu);
     };
 
     if ["DUSD", "USDT", "USDC"].contains(&b.as_str()) {
-        return reserve_b.checked_mul(dec!(2)).context(OverflowSnafu);
+        return reserve_b.checked_mul(dec!(2)).context(ArithmeticOverflowSnafu);
     };
 
     let usdt_per_dfi = get_usd_per_dfi(ctx).await?;
@@ -154,17 +153,17 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     if a == "DFI" {
         return reserve_a
             .checked_mul(dec!(2))
-            .context(OverflowSnafu)?
+            .context(ArithmeticOverflowSnafu)?
             .checked_mul(usdt_per_dfi)
-            .context(OverflowSnafu);
+            .context(ArithmeticOverflowSnafu);
     };
 
     if b == "DFI" {
         return reserve_b
             .checked_mul(dec!(2))
-            .context(OverflowSnafu)?
+            .context(ArithmeticOverflowSnafu)?
             .checked_mul(usdt_per_dfi)
-            .context(OverflowSnafu);
+            .context(ArithmeticOverflowSnafu);
     };
 
     let res = get_total_liquidity_usd_by_best_path(ctx, p).await?;
@@ -183,12 +182,8 @@ fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Dec
             .checked_mul(dec!(2880))
             .and_then(|v| v.checked_mul(dec!(365)))
             .and_then(|v| v.checked_mul(dfi_price_usdt))
-            .context(OtherSnafu {
-                msg: "".to_string(),
-            })?;
-        accumulate.checked_add(yearly).context(OtherSnafu {
-            msg: "".to_string(),
-        })
+            .context(ArithmeticOverflowSnafu)?;
+        accumulate.checked_add(yearly).context(ArithmeticOverflowSnafu)
     })?;
     Ok(rewards)
 }
@@ -239,11 +234,11 @@ async fn get_yearly_reward_pct_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> R
     let reward_pct = Decimal::from_f64(p.reward_pct).unwrap_or_default();
     reward_pct
         .checked_mul(daily_dfi_reward)
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dec!(365))
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dfi_price_usd)
-        .context(OverflowSnafu)
+        .context(ArithmeticOverflowSnafu)
 }
 
 async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
@@ -255,20 +250,20 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
         let reduction_amount = dec!(0.01658); // 1.658%
         let mut reductions = height
             .checked_sub(eunos_height)
-            .context(UnderflowSnafu)?
+            .context(ArithmeticUnderflowSnafu)?
             .checked_div(dec!(32690))
-            .context(UnderflowSnafu)?
+            .context(ArithmeticUnderflowSnafu)?
             .floor();
 
         while reductions >= dec!(0) {
             let amount = reduction_amount
                 .checked_mul(block_subsidy)
-                .context(OverflowSnafu)?;
+                .context(ArithmeticOverflowSnafu)?;
             if amount <= dec!(0.00001) {
                 return Ok(dec!(0));
             };
-            block_subsidy = block_subsidy.checked_sub(amount).context(UnderflowSnafu)?;
-            reductions = reductions.checked_sub(dec!(1)).context(UnderflowSnafu)?;
+            block_subsidy = block_subsidy.checked_sub(amount).context(ArithmeticUnderflowSnafu)?;
+            reductions = reductions.checked_sub(dec!(1)).context(ArithmeticUnderflowSnafu)?;
         }
     };
 
@@ -305,13 +300,13 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
 
     loan_emission
         .checked_mul(split) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dec!(2880)) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dec!(365)) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dfi_price_usd) // 60 * 60 * 24 / 30, 30 seconds = 1 block
-        .context(OverflowSnafu)
+        .context(ArithmeticOverflowSnafu)
 }
 
 async fn gather_amount(
@@ -347,7 +342,7 @@ async fn gather_amount(
                 .unwrap_or(dec!(0));
 
             let amount = if let Some(amount) = aggregated.get(token_id) {
-                amount.checked_add(from_amount).context(OverflowSnafu)?
+                amount.checked_add(from_amount).context(ArithmeticOverflowSnafu)?
             } else {
                 from_amount
             };
@@ -362,8 +357,8 @@ async fn gather_amount(
         let token_price = get_token_usd_value(ctx, token_id).await?;
         let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
         volume = volume
-            .checked_add(token_price.checked_mul(amount).context(OverflowSnafu)?)
-            .context(OverflowSnafu)?;
+            .checked_add(token_price.checked_mul(amount).context(ArithmeticOverflowSnafu)?)
+            .context(ArithmeticOverflowSnafu)?;
     }
 
     Ok(volume)
@@ -387,9 +382,9 @@ async fn get_yearly_commission_estimate(
     let commission = Decimal::from_f64(p.commission).unwrap_or_default();
     commission
         .checked_mul(volume.h24)
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_mul(dec!(365))
-        .context(OverflowSnafu)
+        .context(ArithmeticOverflowSnafu)
 }
 
 pub async fn get_apr(
@@ -404,9 +399,9 @@ pub async fn get_apr(
 
     let yearly_usd = custom_usd
         .checked_add(pct_usd)
-        .context(OverflowSnafu)?
+        .context(ArithmeticOverflowSnafu)?
         .checked_add(loan_usd)
-        .context(OverflowSnafu)?;
+        .context(ArithmeticOverflowSnafu)?;
 
     if yearly_usd.is_zero() {
         return Ok(PoolPairAprResponse::default());
@@ -415,14 +410,14 @@ pub async fn get_apr(
     // 1 == 100%, 0.1 = 10%
     let reward = yearly_usd
         .checked_div(total_liquidity_usd)
-        .context(UnderflowSnafu)?;
+        .context(ArithmeticUnderflowSnafu)?;
 
     let yearly_commission = get_yearly_commission_estimate(ctx, id, p).await?;
     let commission = yearly_commission
         .checked_div(total_liquidity_usd)
-        .context(UnderflowSnafu)?;
+        .context(ArithmeticUnderflowSnafu)?;
 
-    let total = reward.checked_add(commission).context(OverflowSnafu)?;
+    let total = reward.checked_add(commission).context(ArithmeticOverflowSnafu)?;
 
     Ok(PoolPairAprResponse {
         reward,
@@ -464,9 +459,9 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         let reserve_a = Decimal::from_f64(p.reserve_a).context(DecimalConversionSnafu)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).context(DecimalConversionSnafu)?;
         if a == "DUSD" {
-            return reserve_a.checked_div(reserve_b).context(UnderflowSnafu);
+            return reserve_a.checked_div(reserve_b).context(ArithmeticUnderflowSnafu);
         };
-        return reserve_b.checked_div(reserve_a).context(UnderflowSnafu);
+        return reserve_b.checked_div(reserve_a).context(ArithmeticUnderflowSnafu);
     }
 
     let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;
@@ -477,15 +472,15 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         if p.id_token_a == *"0" {
             return reserve_a
                 .checked_div(reserve_b)
-                .context(UnderflowSnafu)?
+                .context(ArithmeticUnderflowSnafu)?
                 .checked_mul(usd_per_dfi)
-                .context(OverflowSnafu);
+                .context(ArithmeticOverflowSnafu);
         }
         return reserve_b
             .checked_div(reserve_a)
-            .context(UnderflowSnafu)?
+            .context(ArithmeticUnderflowSnafu)?
             .checked_mul(usd_per_dfi)
-            .context(OverflowSnafu);
+            .context(ArithmeticOverflowSnafu);
     }
 
     Ok(dec!(0))
@@ -502,9 +497,9 @@ pub async fn get_aggregated_in_usd(
         let amount = Decimal::from_str(amount)?;
         value = value
             .checked_add(token_price)
-            .context(OverflowSnafu)?
+            .context(ArithmeticOverflowSnafu)?
             .checked_mul(amount)
-            .context(OverflowSnafu)?
+            .context(ArithmeticOverflowSnafu)?
     }
 
     Ok(value)
