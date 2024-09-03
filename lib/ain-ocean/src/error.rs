@@ -42,7 +42,7 @@ pub enum NotFoundKind {
     RawTx,
     #[snafu(display("scheme"))]
     Scheme,
-    #[snafu(display("token {:?}", id))]
+    #[snafu(display("token {}", id))]
     Token { id: String },
     #[snafu(display("vault"))]
     Vault,
