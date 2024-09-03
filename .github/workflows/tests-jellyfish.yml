@@ -84,7 +84,7 @@ jobs:
         run: ./make.sh ci-export-vars
 
       - name: Download binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: defi-bins
           path: ./build/
