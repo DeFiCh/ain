@@ -63,6 +63,7 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("InvalidDefiAddress"))]
     BitcoinAddressParseError {
         #[snafu(source)]
         error: bitcoin::address::error::ParseError,
