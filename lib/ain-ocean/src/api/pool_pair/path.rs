@@ -171,8 +171,10 @@ pub struct BestSwapPathResponse {
     pub from_token: TokenIdentifier,
     pub to_token: TokenIdentifier,
     pub best_path: Vec<SwapPathPoolPair>,
-    pub estimated_return: String,
-    pub estimated_return_less_dex_fees: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub estimated_return: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub estimated_return_less_dex_fees: Decimal,
 }
 
 pub async fn get_best_path(
@@ -202,8 +204,8 @@ pub async fn get_best_path(
                 from_token,
                 to_token,
                 best_path: path,
-                estimated_return: format_number(estimated_return),
-                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
+                estimated_return: estimated_return.round_dp(8),
+                estimated_return_less_dex_fees: estimated_return_less_dex_fees.round_dp(8),
             });
         };
 
@@ -221,8 +223,8 @@ pub async fn get_best_path(
         from_token,
         to_token,
         best_path,
-        estimated_return: format_number(best_return),
-        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
+        estimated_return: best_return.round_dp(8),
+        estimated_return_less_dex_fees: best_return_less_dex_fees.round_dp(8),
     })
 }
 

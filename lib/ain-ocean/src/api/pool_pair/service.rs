@@ -120,14 +120,14 @@ async fn get_total_liquidity_usd_by_best_path(
         let BestSwapPathResponse {
             estimated_return, ..
         } = get_best_path(ctx, &p.id_token_a, &usdt_id).await?;
-        a_token_rate = Decimal::from_str(estimated_return.as_str())?;
+        a_token_rate = estimated_return;
     }
 
     if p.id_token_a != usdt_id {
         let BestSwapPathResponse {
             estimated_return, ..
         } = get_best_path(ctx, &p.id_token_b, &usdt_id).await?;
-        b_token_rate = Decimal::from_str(estimated_return.as_str())?;
+        b_token_rate = estimated_return;
     }
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();

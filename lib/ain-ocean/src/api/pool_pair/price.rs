@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use defichain_rpc::json::token::TokenInfo;
 use serde::Serialize;
 use snafu::OptionExt;
+use rust_decimal::Decimal;
 
 use super::{path::get_best_path, AppContext};
 use crate::{
@@ -18,7 +19,8 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct DexPrice {
     pub token: TokenIdentifier,
-    pub denomination_price: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub denomination_price: Decimal,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
