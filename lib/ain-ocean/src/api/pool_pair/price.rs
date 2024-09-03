@@ -1,9 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use defichain_rpc::json::token::TokenInfo;
+use rust_decimal::Decimal;
 use serde::Serialize;
 use snafu::OptionExt;
-use rust_decimal::Decimal;
 
 use super::{path::get_best_path, AppContext};
 use crate::{

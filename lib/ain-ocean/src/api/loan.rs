@@ -90,10 +90,10 @@ async fn get_scheme(
         .client
         .get_loan_scheme(scheme_id)
         .await
-        .map_err(|_| Error::NotFound { kind: NotFoundKind::Scheme })?;
-    Ok(Response::new(
-        scheme.into(),
-    ))
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::Scheme,
+        })?;
+    Ok(Response::new(scheme.into()))
 }
 
 #[derive(Serialize)]
@@ -158,7 +158,9 @@ async fn list_collateral_token(
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
                 .context(NotFoundSnafu {
-                    kind: NotFoundKind::Token { id: v.token_id.clone() },
+                    kind: NotFoundKind::Token {
+                        id: v.token_id.clone(),
+                    },
                 })?;
             let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
@@ -454,9 +456,13 @@ async fn get_vault(
     Path(vault_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<VaultResponse>> {
-    let vault = ctx.client.get_vault(vault_id, Some(false))
+    let vault = ctx
+        .client
+        .get_vault(vault_id, Some(false))
         .await
-        .map_err(|_| Error::NotFound { kind: NotFoundKind::Vault })?;
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::Vault,
+        })?;
     let res = match vault {
         VaultResult::VaultActive(vault) => {
             VaultResponse::Active(map_vault_active(&ctx, vault).await?)

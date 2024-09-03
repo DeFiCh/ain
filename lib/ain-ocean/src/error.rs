@@ -45,7 +45,7 @@ pub enum NotFoundKind {
     #[snafu(display("token {:?}", id))]
     Token { id: String },
     #[snafu(display("vault"))]
-    Vault
+    Vault,
 }
 
 #[derive(Debug, Snafu)]
@@ -414,12 +414,10 @@ impl IntoResponse for ApiError {
 impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            Error::RpcError { error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)), .. } => {
-                (
-                    StatusCode::NOT_FOUND,
-                    e.message.to_string(),
-                )
-            },
+            Error::RpcError {
+                error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)),
+                ..
+            } => (StatusCode::NOT_FOUND, e.message.to_string()),
             Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
             Error::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
             Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
