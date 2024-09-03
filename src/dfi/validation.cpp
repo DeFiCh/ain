@@ -1753,6 +1753,18 @@ static Res PoolSplits(CCustomCSView &view,
             newPoolPair.reserveB = 0;
             newPoolPair.totalLiquidity = 0;
 
+            // Migrate swap events. Can currently only happen on dtoken restart
+            // as pool swaps are disabled for normal token splits.
+            if (pindex->nHeight >= consensus.DF24Height) {
+                PoolHeightKey poolKey = {oldPoolId, std::numeric_limits<uint32_t>::max()};
+                const auto swapValue = ReadValueAt<CPoolPairView::ByPoolSwap, PoolSwapValue>(&view, poolKey);
+                if (swapValue.swapEvent) {
+                    newPoolPair.blockCommissionA = CalculateNewAmount(multiplier, oldPoolPair->blockCommissionA);
+                    newPoolPair.blockCommissionB = CalculateNewAmount(multiplier, oldPoolPair->blockCommissionB);
+                    newPoolPair.swapEvent = true;
+                }
+            }
+
             res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
             if (!res) {
                 throw std::runtime_error(strprintf("SetPoolPair on new pool pair: %s", res.msg));
