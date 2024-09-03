@@ -12,17 +12,26 @@
 export LC_ALL=C
 
 EXIT_CODE=0
+
 for SHELL_SCRIPT in $(git ls-files -- "*.sh" | grep -vE "src/(secp256k1|univalue)/"); do
-    if grep -q "# This script is intentionally locale dependent by not setting \"export LC_ALL=C\"" "${SHELL_SCRIPT}"; then
-        continue
-    fi    
-    FIRST_NON_COMMENT_LINE=$(grep -vE '^(#.*)?$' "${SHELL_SCRIPT}" | head -1)
-    
-    if [[ ${FIRST_NON_COMMENT_LINE} != "export LC_ALL=C" ]] && \
-       [[ ${FIRST_NON_COMMENT_LINE} != "export LC_ALL=C.UTF-8" ]] && \
-       [[ ${FIRST_NON_COMMENT_LINE} != "export LC_ALL=en_US.UTF-8" ]]; then
-        echo "Missing \"export LC_ALL=C\" (to avoid locale dependence) as first non-comment non-empty line in ${SHELL_SCRIPT}"
-        EXIT_CODE=1
-    fi
+    CURRENT_LINE_NO=0
+    while IFS= read -r line; do
+        if [[ ${line} == "# This script is intentionally locale dependent by not setting \"export LC_ALL=C\"" ]]; then
+            continue 2
+        fi
+        if [[ ${line} =~ ^(#.*)?$ ]]; then
+            continue
+        fi
+        if [[ ${line} == "export LC_ALL=C" ]] ||
+            [[ ${line} == "export LC_ALL=C.UTF-8" ]] ||
+            [[ ${line} == "export LC_ALL=en_US.UTF-8" ]]; then
+            continue 2
+        fi
+        ((CURRENT_LINE_NO++))
+        if [[ ${CURRENT_LINE_NO} > 10 ]]; then break; fi
+    done <"$SHELL_SCRIPT"
+
+    echo "Missing \"export LC_ALL=<C|C.UTF-8|en_US.UTF-8>\" (to avoid locale dependence) within first 10 non-empty lines in ${SHELL_SCRIPT}"
+    EXIT_CODE=1
 done
 exit ${EXIT_CODE}

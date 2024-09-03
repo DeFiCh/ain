@@ -10,6 +10,7 @@
 #   https://wiki.musl-libc.org/functional-differences-from-glibc.html#Default-locale
 # - We also do not support muslc at this point due to issues like:
 #   https://wiki.musl-libc.org/functional-differences-from-glibc.html#Floating-point-and-mathematical-library
+
 set -Eeuo pipefail
 export LC_ALL=en_US.UTF-8
 
