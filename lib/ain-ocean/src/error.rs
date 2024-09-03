@@ -34,7 +34,7 @@ pub enum NotFoundKind {
     Masternode,
     #[snafu(display("oracle"))]
     Oracle,
-    #[snafu(display("token"))]
+    #[snafu(display("poolpair"))]
     PoolPair,
     #[snafu(display("proposal"))]
     Proposal,
