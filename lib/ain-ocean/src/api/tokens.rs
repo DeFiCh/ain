@@ -48,7 +48,6 @@ pub struct TokenData {
     creation: TxHeight,
     destruction: TxHeight,
     display_symbol: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     collateral_address: Option<String>,
 }
 
