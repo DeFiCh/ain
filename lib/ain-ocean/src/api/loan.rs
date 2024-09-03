@@ -179,13 +179,19 @@ async fn get_collateral_token(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<CollateralToken>> {
-    let collateral_token = ctx.client.get_collateral_token(token_id)
+    let collateral_token = ctx
+        .client
+        .get_collateral_token(token_id)
         .await
-        .map_err(|_| Error::NotFound { kind: NotFoundKind::CollateralToken })?;
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::CollateralToken,
+        })?;
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
         .context(NotFoundSnafu {
-            kind: NotFoundKind::Token { id: collateral_token.token_id.clone() },
+            kind: NotFoundKind::Token {
+                id: collateral_token.token_id.clone(),
+            },
         })?;
     let active_price =
         get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;

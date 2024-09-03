@@ -89,7 +89,9 @@ async fn get_account_history(
         .client
         .get_account_history(&address, height, txno)
         .await
-        .map_err(|_| Error::Other { msg: "Record not found".to_string() })?;
+        .map_err(|_| Error::Other {
+            msg: "Record not found".to_string(),
+        })?;
 
     Ok(Response::new(res.into()))
 }
