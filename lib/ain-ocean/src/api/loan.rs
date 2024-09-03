@@ -281,7 +281,13 @@ async fn get_loan_token(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanToken>> {
-    let loan_token_result = ctx.client.get_loan_token(token_id.clone()).await?;
+    let loan_token_result = ctx
+        .client
+        .get_loan_token(token_id.clone())
+        .await
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::LoanToken,
+        })?;
     let Some(token) = loan_token_result
         .token
         .0
