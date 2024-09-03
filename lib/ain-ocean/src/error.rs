@@ -422,6 +422,7 @@ impl Error {
             Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
             Error::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
             Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
+            Error::Other { msg } => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)

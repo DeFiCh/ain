@@ -88,7 +88,8 @@ async fn get_account_history(
     let res = ctx
         .client
         .get_account_history(&address, height, txno)
-        .await?;
+        .await
+        .map_err(|_| Error::Other { msg: "Record not found".to_string() })?;
 
     Ok(Response::new(res.into()))
 }
