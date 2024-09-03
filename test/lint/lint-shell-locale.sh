@@ -16,7 +16,7 @@ LINES_TO_CHECK=5
 
 for SHELL_SCRIPT in $(git ls-files -- "*.sh" | grep -vE "src/(secp256k1|univalue)/"); do
     CURRENT_LINE_NO=0
-    while IFS= read -r line; do
+    while read -r line; do
         if [[ ${line} == "export LC_ALL=C" ]] ||
             [[ ${line} == "export LC_ALL=C.UTF-8" ]] ||
             [[ ${line} == "export LC_ALL=en_US.UTF-8" ]]; then
@@ -31,7 +31,7 @@ for SHELL_SCRIPT in $(git ls-files -- "*.sh" | grep -vE "src/(secp256k1|univalue
             continue
         fi
 
-        if [[ ${CURRENT_LINE_NO} > ${LINES_TO_CHECK} ]]; then break; fi
+        if [[ ${CURRENT_LINE_NO} -gt ${LINES_TO_CHECK} ]]; then break; fi
         ((CURRENT_LINE_NO++))
     done <"$SHELL_SCRIPT"
 
