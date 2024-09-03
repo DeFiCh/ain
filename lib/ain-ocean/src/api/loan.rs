@@ -86,8 +86,13 @@ async fn get_scheme(
     Path(scheme_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanSchemeData>> {
+    let scheme = ctx
+        .client
+        .get_loan_scheme(scheme_id)
+        .await
+        .map_err(|_| Error::NotFound { kind: NotFoundKind::Scheme })?;
     Ok(Response::new(
-        ctx.client.get_loan_scheme(scheme_id).await?.into(),
+        scheme.into(),
     ))
 }
 

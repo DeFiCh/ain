@@ -147,6 +147,9 @@ pub enum Error {
     NotFound {
         kind: NotFoundKind,
     },
+    NotFoundMessage {
+        msg: String,
+    },
     DecimalConversionError,
     #[snafu(display("Arithmetic overflow"))]
     ArithmeticOverflow {
@@ -418,6 +421,7 @@ impl Error {
                 )
             },
             Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
+            Error::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
             Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
