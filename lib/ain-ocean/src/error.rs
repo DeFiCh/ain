@@ -51,18 +51,21 @@ pub enum NotFoundKind {
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum Error {
+    #[snafu(context(false))] // allows using the ? operator directly on the underlying error
     BincodeError {
         #[snafu(source)]
         error: bincode::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     BitcoinAddressError {
         #[snafu(source)]
         error: bitcoin::address::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     #[snafu(display("InvalidDefiAddress"))]
     BitcoinAddressParseError {
         #[snafu(source)]
@@ -70,74 +73,84 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     BitcoinConsensusEncodeError {
         #[snafu(source)]
         error: bitcoin::consensus::encode::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     BitcoinHexToArrayError {
         #[snafu(source)]
         error: bitcoin::hex::HexToArrayError,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     DecimalError {
         #[snafu(source)]
         error: rust_decimal::Error,
         #[snafu(implicit)]
         location: Location,
     },
-    // #[snafu(context(false))]
-    // #[snafu(transparent)]
+    #[snafu(context(false))]
     DBError {
         #[snafu(source)]
         error: ain_db::DBError,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     FromHexError {
         #[snafu(source)]
         error: hex::FromHexError,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     IOError {
         #[snafu(source)]
         error: std::io::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     JsonrpseeError {
         #[snafu(source)]
         error: jsonrpsee::core::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     ParseIntError {
         #[snafu(source)]
         error: std::num::ParseIntError,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     ParseFloatError {
         #[snafu(source)]
         error: std::num::ParseFloatError,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     RpcError {
         #[snafu(source)]
         error: defichain_rpc::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     SerdeJsonError {
         #[snafu(source)]
         error: serde_json::Error,
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(context(false))]
     TryFromIntError {
         #[snafu(source)]
         error: std::num::TryFromIntError,
@@ -202,141 +215,6 @@ pub enum Error {
     Other {
         msg: String,
     },
-}
-
-impl From<bincode::Error> for Error {
-    fn from(error: bincode::Error) -> Self {
-        Self::BincodeError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<bitcoin::address::Error> for Error {
-    fn from(error: bitcoin::address::Error) -> Self {
-        Self::BitcoinAddressError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<bitcoin::address::error::ParseError> for Error {
-    fn from(error: bitcoin::address::error::ParseError) -> Self {
-        Self::BitcoinAddressParseError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<bitcoin::consensus::encode::Error> for Error {
-    fn from(error: bitcoin::consensus::encode::Error) -> Self {
-        Self::BitcoinConsensusEncodeError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<bitcoin::hex::HexToArrayError> for Error {
-    fn from(error: bitcoin::hex::HexToArrayError) -> Self {
-        Self::BitcoinHexToArrayError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<rust_decimal::Error> for Error {
-    fn from(error: rust_decimal::Error) -> Self {
-        Self::DecimalError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<ain_db::DBError> for Error {
-    fn from(error: ain_db::DBError) -> Self {
-        Self::DBError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<hex::FromHexError> for Error {
-    fn from(error: hex::FromHexError) -> Self {
-        Self::FromHexError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Self::IOError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<jsonrpsee::core::Error> for Error {
-    fn from(error: jsonrpsee::core::Error) -> Self {
-        Self::JsonrpseeError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<std::num::ParseIntError> for Error {
-    fn from(error: std::num::ParseIntError) -> Self {
-        Self::ParseIntError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<std::num::ParseFloatError> for Error {
-    fn from(error: std::num::ParseFloatError) -> Self {
-        Self::ParseFloatError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<defichain_rpc::Error> for Error {
-    fn from(error: defichain_rpc::Error) -> Self {
-        Self::RpcError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<serde_json::Error> for Error {
-    fn from(error: serde_json::Error) -> Self {
-        Self::SerdeJsonError {
-            error,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<std::num::TryFromIntError> for Error {
-    fn from(error: std::num::TryFromIntError) -> Self {
-        Self::TryFromIntError {
-            error,
-            location: snafu::location!(),
-        }
-    }
 }
 
 impl From<Box<dyn std::error::Error>> for Error {
