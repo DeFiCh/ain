@@ -128,7 +128,7 @@ async fn get_token(
         .call("gettoken", &[id.as_str().into()])
         .await
         .map_err(|_| Error::NotFoundMessage {
-            msg: format!("Token {:?} does not exist!", id),
+            msg: "Unable to find token".to_string(),
         })?;
 
     let res =
