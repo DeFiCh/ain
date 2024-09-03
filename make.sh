@@ -3,10 +3,15 @@
 # Copyright (c) DeFi Blockchain Developers
 # Maker script
 
-# Note: Ideal to use POSIX C.UTF-8, however Apple systems don't have
-# this locale and throws a fit, so en-US.UTF-8 is reasonable middle ground.
-export LC_ALL=en_US.UTF-8
+# Notes:
+# - Ideal to use POSIX C.UTF-8, however Apple systems don't have
+#   this locale and throws a fit, so en-US.UTF-8 is reasonable middle ground.
+# - Note that this has cascaded effects such as affecting glibc behavior:
+#   https://wiki.musl-libc.org/functional-differences-from-glibc.html#Default-locale
+# - We also do not support muslc at this point due to issues like:
+#   https://wiki.musl-libc.org/functional-differences-from-glibc.html#Floating-point-and-mathematical-library
 set -Eeuo pipefail
+export LC_ALL=en_US.UTF-8
 
 setup_vars() {
     IMAGE_PREFIX=${IMAGE_PREFIX:-"defichain"}
