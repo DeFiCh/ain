@@ -1108,33 +1108,22 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
 static auto GetLoanTokensForLock(CCustomCSView &cache) {
     LoanTokenCollection loanTokens;
     const auto attributes = cache.GetAttributes();
-    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
-        if (!loanToken.mintable) {
+    attributes->ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+            if (attr.type != AttributeTypes::Token) {
+                return false;
+            }
+
+            if (attr.key == TokenKeys::LoanMintingEnabled) {
+                auto tokenId = DCT_ID{attr.typeId};
+                if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                    loanTokens.emplace_back(tokenId, *loanToken);
+                }
+            }
+
             return true;
-        }
-
-        loanTokens.emplace_back(id, loanToken);
-        return true;
-    });
-
-    if (loanTokens.empty()) {
-        attributes->ForEach(
-            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
-                if (attr.type != AttributeTypes::Token) {
-                    return false;
-                }
-
-                if (attr.key == TokenKeys::LoanMintingEnabled) {
-                    auto tokenId = DCT_ID{attr.typeId};
-                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
-                        loanTokens.emplace_back(tokenId, *loanToken);
-                    }
-                }
-
-                return true;
-            },
-            CDataStructureV0{AttributeTypes::Token});
-    }
+        },
+        CDataStructureV0{AttributeTypes::Token});
 
     return loanTokens;
 }
@@ -1143,42 +1132,28 @@ static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes)
     LoanTokenCollection loanTokens;
 
     CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
-    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
-        tokenKey.typeId = id.v;
-        const auto enabled = attributes.GetValue(tokenKey, true);
-        if (!enabled) {
-            return true;
-        }
+    attributes.ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+            if (attr.type != AttributeTypes::Token) {
+                return false;
+            }
 
-        loanTokens.emplace_back(id, loanToken);
-
-        return true;
-    });
-
-    if (loanTokens.empty()) {
-        attributes.ForEach(
-            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
-                if (attr.type != AttributeTypes::Token) {
-                    return false;
-                }
-
-                tokenKey.typeId = attr.typeId;
-                const auto enabled = attributes.GetValue(tokenKey, true);
-                if (!enabled) {
-                    return true;
-                }
-
-                if (attr.key == TokenKeys::LoanMintingEnabled) {
-                    auto tokenId = DCT_ID{attr.typeId};
-                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
-                        loanTokens.emplace_back(tokenId, *loanToken);
-                    }
-                }
-
+            tokenKey.typeId = attr.typeId;
+            const auto enabled = attributes.GetValue(tokenKey, true);
+            if (!enabled) {
                 return true;
-            },
-            CDataStructureV0{AttributeTypes::Token});
-    }
+            }
+
+            if (attr.key == TokenKeys::LoanMintingEnabled) {
+                auto tokenId = DCT_ID{attr.typeId};
+                if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                    loanTokens.emplace_back(tokenId, *loanToken);
+                }
+            }
+
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Token});
 
     return loanTokens;
 }
