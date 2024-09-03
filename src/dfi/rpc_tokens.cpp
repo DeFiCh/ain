@@ -860,7 +860,7 @@ UniValue minttokens(const JSONRPCRequest &request) {
                 }
             }
 
-            if (!auths.empty()) {
+            if (authCoin.IsSpent()) {
                 // Get token owner auth if present
                 authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(token->creationTx, 1));
                 if (IsMineCached(*pwallet, authCoin.out.scriptPubKey)) {
