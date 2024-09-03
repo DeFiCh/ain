@@ -197,7 +197,7 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("error message: {}", msg))]
+    #[snafu(display("{}", msg))]
     Other {
         msg: String,
     },

@@ -43,7 +43,7 @@ pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<De
 
     if is_untradable_token(&denomination_token_info) {
         return Err(Error::Other {
-            msg: format!("{} is not tradable", denomination_token_info.symbol),
+            msg: format!("Token {} is invalid as it is not tradable", denomination_token_info.symbol),
         });
     };
 
