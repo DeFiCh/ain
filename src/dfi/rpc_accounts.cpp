@@ -198,12 +198,13 @@ static void onPoolRewards(CCustomCSView &view,
 
         if (end >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
-            auto beginNewHeight =
-                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight;
-            // End must be above start and then one more beyond the range.
+            auto beginNewHeight = beginHeight < Params().GetConsensus().DF24Height
+                                      ? Params().GetConsensus().DF24Height - 1
+                                      : beginHeight - 1;
+            // End must be above start
             auto newEndHeight = beginNewHeight + 2;
             // Loop over one block a time to build account history with correct height records
-            for (; beginNewHeight < end; ++beginNewHeight, ++newEndHeight) {
+            for (; newEndHeight <= end; ++beginNewHeight, ++newEndHeight) {
                 view.CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, newEndHeight);
             }
         }
