@@ -58,5 +58,4 @@ substrate-bn.workspace = true
 rocksdb = { workspace = true, default-features = false }
 
 [dev-dependencies]
-tempdir.workspace = true
 once_cell.workspace = true
