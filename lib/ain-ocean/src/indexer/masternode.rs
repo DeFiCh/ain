@@ -117,13 +117,13 @@ impl Index for UpdateMasternode {
                 match update.r#type {
                     0x1 => {
                         if let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses {
-                            mn.owner_address.clone_from(&addresses[0])
+                            mn.owner_address.clone_from(&addresses[0]);
                         }
                     }
                     0x2 => {
                         if let Some(hash) = update.address.address_pub_key_hash {
                             mn.operator_address =
-                                get_operator_script(&hash, update.address.r#type)?.to_hex_string()
+                                get_operator_script(&hash, update.address.r#type)?.to_hex_string();
                         }
                     }
                     _ => (),

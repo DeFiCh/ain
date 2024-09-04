@@ -27,7 +27,7 @@ mod tests {
         let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
-            Err(error) => panic!("Failed to create OceanStore: {}", error),
+            Err(error) => panic!("Failed to create OceanStore: {error}"),
         };
 
         let services = Arc::new(Services::new(ocean_store));
@@ -62,8 +62,8 @@ mod tests {
                 )
                 .unwrap(),
                 height: 121,
-                time: 1714980074,
-                median_time: 1714980074,
+                time: 1_714_980_074,
+                median_time: 1_714_980_074,
             },
         };
 
@@ -95,7 +95,7 @@ mod tests {
         let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
-            Err(error) => panic!("Failed to create OceanStore: {}", error),
+            Err(error) => panic!("Failed to create OceanStore: {error}"),
         };
         let services = Arc::new(Services::new(ocean_store));
         let feeds = vec![
@@ -107,13 +107,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 110000000,
+                time: 1_714_980_187,
+                amount: 110_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -124,13 +124,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 210000000,
+                time: 1_714_980_187,
+                amount: 210_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -141,13 +141,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 310000000,
+                time: 1_714_980_187,
+                amount: 310_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -158,13 +158,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 410000000,
+                time: 1_714_980_187,
+                amount: 410_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
 		];
@@ -191,7 +191,7 @@ mod tests {
                 && currency.eq(&feeds[0].currency)
                 && oracle_id.eq(&feeds[0].oracle_id)
             {
-                println!("Found matching feed: {:?}", feed);
+                println!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -208,7 +208,7 @@ mod tests {
         let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
-            Err(error) => panic!("Failed to create OceanStore: {}", error),
+            Err(error) => panic!("Failed to create OceanStore: {error}"),
         };
         let services = Arc::new(Services::new(ocean_store));
         let feeds = vec![
@@ -220,13 +220,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 110000000,
+                time: 1_714_980_187,
+                amount: 110_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -237,13 +237,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 210000000,
+                time: 1_714_980_187,
+                amount: 210_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -254,13 +254,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 310000000,
+                time: 1_714_980_187,
+                amount: 310_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -271,13 +271,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 410000000,
+                time: 1_714_980_187,
+                amount: 410_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
 		];
@@ -291,13 +291,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 100000000,
+                time: 1_714_980_243,
+                amount: 100_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -308,13 +308,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 200000000,
+                time: 1_714_980_243,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -325,13 +325,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 300000000,
+                time: 1_714_980_243,
+                amount: 300_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
 		];
@@ -345,13 +345,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 100000000,
+                time: 1_714_980_270,
+                amount: 100_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
             OraclePriceFeed {
@@ -362,13 +362,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 200000000,
+                time: 1_714_980_270,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
 		];
@@ -411,7 +411,7 @@ mod tests {
                 && currency.eq(&feeds[1].currency)
                 && oracle_id.eq(&feeds[1].oracle_id)
             {
-                println!("Found matching feed: {:?}", feed);
+                println!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -428,7 +428,7 @@ mod tests {
         let ocean_store_result = OceanStore::new(path);
         let ocean_store = match ocean_store_result {
             Ok(store) => Arc::new(store),
-            Err(error) => panic!("Failed to create OceanStore: {}", error),
+            Err(error) => panic!("Failed to create OceanStore: {error}"),
         };
         let services = Arc::new(Services::new(ocean_store));
         let feeds = vec![
@@ -440,13 +440,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 110000000,
+                time: 1_714_980_187,
+                amount: 110_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -457,13 +457,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 210000000,
+                time: 1_714_980_187,
+                amount: 210_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -474,13 +474,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 310000000,
+                time: 1_714_980_187,
+                amount: 310_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -491,13 +491,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 410000000,
+                time: 1_714_980_187,
+                amount: 410_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
 		];
@@ -511,13 +511,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 100000000,
+                time: 1_714_980_243,
+                amount: 100_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -528,13 +528,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 200000000,
+                time: 1_714_980_243,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -545,13 +545,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 300000000,
+                time: 1_714_980_243,
+                amount: 300_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
 		];
@@ -565,13 +565,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 100000000,
+                time: 1_714_980_270,
+                amount: 100_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
             OraclePriceFeed {
@@ -582,13 +582,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 200000000,
+                time: 1_714_980_270,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
 		];
@@ -631,7 +631,7 @@ mod tests {
                 && currency.eq(&feeds[1].currency)
                 && oracle_id.eq(&feeds[1].oracle_id)
             {
-                println!("Found matching feed: {:?}", feed);
+                println!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -648,7 +648,7 @@ mod tests {
         let ocean_store = match ocean_store_result {
             Ok(ocean_store) => Arc::new(ocean_store),
             Err(error) => {
-                panic!("Failed to create OceanStore: {}", error);
+                panic!("Failed to create OceanStore: {error}");
             }
         };
 
@@ -661,13 +661,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 110000000,
+                time: 1_714_980_187,
+                amount: 110_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -678,13 +678,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 210000000,
+                time: 1_714_980_187,
+                amount: 210_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -695,13 +695,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 310000000,
+                time: 1_714_980_187,
+                amount: 310_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
             OraclePriceFeed {
@@ -712,13 +712,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980187,
-                amount: 410000000,
+                time: 1_714_980_187,
+                amount: 410_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("175b254878fba4ec32b9de754330b4cc6c577d1999439ffa37e6348109c779fb").unwrap(),
                     height: 124,
-                    time: 1714980187,
-                    median_time: 1714980136,
+                    time: 1_714_980_187,
+                    median_time: 1_714_980_136,
                 }
             },
 		];
@@ -732,13 +732,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 100000000,
+                time: 1_714_980_243,
+                amount: 100_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -749,13 +749,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 200000000,
+                time: 1_714_980_243,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
             OraclePriceFeed {
@@ -766,13 +766,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980243,
-                amount: 300000000,
+                time: 1_714_980_243,
+                amount: 300_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("a93730388be038ac52d1f0ed869877a5b0189bb786a9809c0205a45d98b0d948").unwrap(),
                     height: 125,
-                    time: 1714980243,
-                    median_time: 1714980167,
+                    time: 1_714_980_243,
+                    median_time: 1_714_980_167,
                 }
             },
 		];
@@ -786,13 +786,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 120000000,
+                time: 1_714_980_270,
+                amount: 120_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
             OraclePriceFeed {
@@ -803,13 +803,13 @@ mod tests {
                 currency: "USD".to_string(),
                 oracle_id: Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(),
                 txid: Txid::from_str("d6f95f423f09cf03f17bbdc9ae03fca6d3a2aedbc5e0615a7a2d27bf85ae7c29").unwrap(),
-                time: 1714980270,
-                amount: 200000000,
+                time: 1_714_980_270,
+                amount: 200_000_000,
                 block: BlockContext {
                     hash: BlockHash::from_str("134894c63b9469a18f2ab314b10012baf658a122cae877d62cfbbfae3ab64ec2").unwrap(),
                     height: 126,
-                    time: 1714980270,
-                    median_time: 1714980187,
+                    time: 1_714_980_270,
+                    median_time: 1_714_980_187,
                 }
             },
 		];
@@ -818,10 +818,10 @@ mod tests {
         for feed in feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: feed.key,
-                key: (feed.token.to_owned(), feed.currency.to_owned(), 0),
+                key: (feed.token.clone(), feed.currency.clone(), 0),
 
-                token: feed.token.to_owned(),
-                currency: feed.currency.to_owned(),
+                token: feed.token.clone(),
+                currency: feed.currency.clone(),
                 oracle_id: feed.oracle_id,
                 weightage: 1,
                 block: feed.block.clone(),
@@ -855,7 +855,7 @@ mod tests {
 
             let set_oracle = SetOracleData {
                 oracle_id: feed.oracle_id,
-                timestamp: feed.time as i64,
+                timestamp: i64::from(feed.time),
                 token_prices: vec![TokenPrice {
                     token: feed.token,
                     prices: vec![TokenAmount {
@@ -994,7 +994,7 @@ mod tests {
             .price_ticker
             .by_id
             .get(&("TA".to_string(), "USD".to_string()));
-        println!("{:?}", result);
+        println!("{result:?}");
     }
 
     #[test]
@@ -1005,7 +1005,7 @@ mod tests {
         let ocean_store = match ocean_store_result {
             Ok(ocean_store) => Arc::new(ocean_store),
             Err(error) => {
-                panic!("Failed to create OceanStore: {}", error);
+                panic!("Failed to create OceanStore: {error}");
             }
         };
 
@@ -1042,8 +1042,8 @@ mod tests {
                 )
                 .unwrap(),
                 height: 121,
-                time: 1714980074,
-                median_time: 1714980074,
+                time: 1_714_980_074,
+                median_time: 1_714_980_074,
             },
         };
         services.oracle.by_id.put(&oracle.id, &oracle).unwrap();
@@ -1054,8 +1054,8 @@ mod tests {
             )
             .unwrap(),
             height: 10,
-            time: 123456789,
-            median_time: 123456789,
+            time: 123_456_789,
+            median_time: 123_456_789,
         };
 
         let transaction = Transaction {

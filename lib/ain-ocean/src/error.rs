@@ -16,8 +16,8 @@ pub enum IndexAction {
 impl std::fmt::Display for IndexAction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            IndexAction::Index => write!(f, "index"),
-            IndexAction::Invalidate => write!(f, "invalidate"),
+            Self::Index => write!(f, "index"),
+            Self::Invalidate => write!(f, "invalidate"),
         }
     }
 }
@@ -254,7 +254,7 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    pub fn new(status: StatusCode, message: String, url: String) -> Self {
+    #[must_use] pub fn new(status: StatusCode, message: String, url: String) -> Self {
         let current_time = std::time::SystemTime::now();
         let at = current_time
             .duration_since(std::time::UNIX_EPOCH)
@@ -291,16 +291,16 @@ impl IntoResponse for ApiError {
 }
 
 impl Error {
-    pub fn into_code_and_message(self) -> (StatusCode, String) {
+    #[must_use] pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            Error::RpcError {
+            Self::RpcError {
                 error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)),
                 ..
             } => (StatusCode::NOT_FOUND, e.message.to_string()),
-            Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
-            Error::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
-            Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
-            Error::Other { msg } => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            Self::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
+            Self::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
+            Self::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
+            Self::Other { msg } => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)

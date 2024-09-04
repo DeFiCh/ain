@@ -117,8 +117,8 @@ impl Serialize for TransactionResponse {
         S: Serializer,
     {
         match *self {
-            TransactionResponse::HexString(ref s) => serializer.serialize_str(s),
-            TransactionResponse::TransactionDetails(ref details) => details.serialize(serializer),
+            Self::HexString(ref s) => serializer.serialize_str(s),
+            Self::TransactionDetails(ref details) => details.serialize(serializer),
         }
     }
 }
@@ -166,7 +166,7 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
         return Ok(());
     }
     let data = hex::decode(hex)?;
-    println!("decode_hex {:?}", data);
+    println!("decode_hex {data:?}");
     let trx = deserialize::<Transaction>(&data)?;
     let bytes = trx.output[0].clone().script_pubkey.into_bytes();
     let tx: Option<DfTx> = if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
@@ -198,7 +198,7 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
                 if pool_pair_info.id_token_a.eq(&tokio_id)
                     || pool_pair_info.id_token_b.eq(&tokio_id)
                 {
-                    println!("Found a match: {:?}", pool_pair_info);
+                    println!("Found a match: {pool_pair_info:?}");
                 }
             }
             Ok(())

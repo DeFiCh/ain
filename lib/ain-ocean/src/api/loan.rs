@@ -77,7 +77,7 @@ async fn list_scheme(
         .map(Into::into)
         .collect();
     Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
-        loan_scheme.id.to_owned()
+        loan_scheme.id.clone()
     }))
 }
 
@@ -170,7 +170,7 @@ async fn list_collateral_token(
     let res = try_join_all(fut).await?;
 
     Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
-        loan_scheme.token_id.to_owned()
+        loan_scheme.token_id.clone()
     }))
 }
 
@@ -230,7 +230,7 @@ async fn list_loan_token(
 
     let res = tokens
         .into_iter()
-        .flat_map(|el| {
+        .filter_map(|el| {
             el.token
                 .0
                 .into_iter()
@@ -253,7 +253,7 @@ async fn list_loan_token(
             let repo = &ctx.services.oracle_price_active;
             let key = repo
                 .by_key
-                .get(&(token.to_string(), currency.to_string()))?;
+                .get(&(token, currency))?;
             let active_price = if let Some(key) = key {
                 repo.by_id.get(&key)?
             } else {
@@ -272,7 +272,7 @@ async fn list_loan_token(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
-        loan_scheme.token_id.to_owned()
+        loan_scheme.token_id.clone()
     }))
 }
 
@@ -300,7 +300,7 @@ async fn get_loan_token(
             let repo = &ctx.services.oracle_price_active;
             let key = repo
                 .by_key
-                .get(&(token.to_string(), currency.to_string()))?;
+                .get(&(token, currency))?;
             let active_price = if let Some(key) = key {
                 repo.by_id.get(&key)?
             } else {
@@ -331,7 +331,7 @@ pub async fn get_all_vaults(
     query: &PaginationQuery,
 ) -> Result<Vec<VaultResponse>> {
     let pagination = VaultPagination {
-        start: query.next.to_owned(),
+        start: query.next.clone(),
         including_start: None,
         limit: if query.size > 30 {
             Some(30)
@@ -351,7 +351,7 @@ pub async fn get_all_vaults(
                 VaultResponse::Liquidated(map_vault_liquidation(ctx, vault).await?)
             }
         };
-        list.push(each)
+        list.push(each);
     }
 
     Ok(list)
@@ -459,8 +459,8 @@ impl Serialize for VaultResponse {
         S: Serializer,
     {
         match self {
-            VaultResponse::Active(v) => v.serialize(serializer),
-            VaultResponse::Liquidated(v) => v.serialize(serializer),
+            Self::Active(v) => v.serialize(serializer),
+            Self::Liquidated(v) => v.serialize(serializer),
         }
     }
 }
@@ -635,7 +635,7 @@ async fn map_liquidation_batches(
                 .cloned(),
             froms,
             highest_bid,
-        })
+        });
     }
     Ok(vec)
 }
@@ -650,7 +650,7 @@ async fn map_token_amounts(
     let amount_token_symbols = amounts
         .into_iter()
         .map(|amount| {
-            let amount = amount.to_owned();
+            let amount = amount;
             let (amount, token_symbol) = parse_amount(&amount)?;
             Ok::<[String; 2], Error>([amount, token_symbol])
         })
@@ -688,7 +688,7 @@ async fn map_token_amounts(
             symbol_key: token_info.symbol_key,
             name: token_info.name,
             active_price: active_price.first().cloned(),
-        })
+        });
     }
 
     Ok(vault_token_amounts)
@@ -732,7 +732,7 @@ async fn list_auctions(
             liquidation_penalty: vault.liquidation_penalty,
             batch_count: vault.batch_count,
         };
-        vaults.push(res)
+        vaults.push(res);
     }
 
     Ok(ApiPagedResponse::of(vaults, query.size, |auction| {

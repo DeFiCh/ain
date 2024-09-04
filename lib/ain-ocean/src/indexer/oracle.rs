@@ -81,13 +81,13 @@ impl Index for AppointOracle {
             let oracle_token_currency = OracleTokenCurrency {
                 id,
                 key: (
-                    token_currency.token.to_owned(),
-                    token_currency.currency.to_owned(),
+                    token_currency.token.clone(),
+                    token_currency.currency.clone(),
                     ctx.block.height,
                 ),
 
-                token: token_currency.token.to_owned(),
-                currency: token_currency.currency.to_owned(),
+                token: token_currency.token.clone(),
+                currency: token_currency.currency.clone(),
                 oracle_id,
                 weightage: self.weightage,
                 block: ctx.block.clone(),
@@ -114,15 +114,15 @@ impl Index for AppointOracle {
             context.tx.txid,
         ))?;
         services.oracle_history.by_key.delete(&(oracle_id))?;
-        for currency_pair in self.price_feeds.as_ref().iter() {
+        for currency_pair in self.price_feeds.as_ref() {
             let token_currency_id = (
-                currency_pair.token.to_owned(),
-                currency_pair.currency.to_owned(),
+                currency_pair.token.clone(),
+                currency_pair.currency.clone(),
                 oracle_id,
             );
             let token_currency_key = (
-                currency_pair.token.to_owned(),
-                currency_pair.currency.to_owned(),
+                currency_pair.token.clone(),
+                currency_pair.currency.clone(),
                 context.block.height,
             );
             services
@@ -146,13 +146,13 @@ impl Index for RemoveOracle {
         for oracle_history in &previous_oracle {
             for price_feed_item in &oracle_history.price_feeds {
                 let deletion_id = (
-                    price_feed_item.token.to_owned(),
-                    price_feed_item.currency.to_owned(),
+                    price_feed_item.token.clone(),
+                    price_feed_item.currency.clone(),
                     oracle_history.oracle_id,
                 );
                 let deletion_key = (
-                    price_feed_item.token.to_owned(),
-                    price_feed_item.currency.to_owned(),
+                    price_feed_item.token.clone(),
+                    price_feed_item.currency.clone(),
                     oracle_history.block.height,
                 );
                 services.oracle_token_currency.by_id.delete(&deletion_id)?;
@@ -193,7 +193,7 @@ impl Index for RemoveOracle {
                         context.block.height,
                     ),
                     token: prev_token_currency.token,
-                    currency: prev_token_currency.currency.to_owned(),
+                    currency: prev_token_currency.currency.clone(),
                     oracle_id,
                     weightage: oracle.weightage,
                     block: oracle.block.clone(),
@@ -357,7 +357,7 @@ impl Index for UpdateOracle {
                         context.block.height,
                     ),
                     token: prev_token_currency.token.clone(),
-                    currency: prev_token_currency.currency.to_owned(),
+                    currency: prev_token_currency.currency.clone(),
                     oracle_id,
                     weightage: oracle.weightage,
                     block: oracle.block.clone(),
@@ -484,7 +484,7 @@ fn index_set_oracle_data(
     let oracle_repo = &services.oracle_price_aggregated;
     let ticker_repo = &services.price_ticker;
 
-    for pair in pairs.into_iter() {
+    for pair in pairs {
         let price_aggregated = map_price_aggregated(services, context, pair)?;
 
         let Some(price_aggregated) = price_aggregated else {
@@ -533,7 +533,7 @@ fn index_set_oracle_data_interval(
     context: &Context,
     pairs: HashSet<(String, String)>,
 ) -> Result<()> {
-    for (token, currency) in pairs.into_iter() {
+    for (token, currency) in pairs {
         let aggregated = services.oracle_price_aggregated.by_id.get(&(
             token.clone(),
             currency.clone(),
@@ -590,7 +590,7 @@ impl Index for SetOracleData {
             feed_repo.by_key.delete(&feed.key)?;
         }
 
-        for (token, currency) in pairs.iter() {
+        for (token, currency) in &pairs {
             let key = (token.clone(), currency.clone());
             let id = (key.0.clone(), key.1.clone(), context.block.height);
 
@@ -608,7 +608,7 @@ impl Index for SetOracleData {
                     currency,
                     &aggregated,
                     &interval,
-                )?
+                )?;
             }
 
             // invalidate_set_oracle_data
@@ -705,8 +705,8 @@ pub fn index_interval_mapper(
         return start_new_bucket(
             services,
             block,
-            token.clone(),
-            currency.clone(),
+            token,
+            currency,
             aggregated,
             interval,
         );
@@ -719,8 +719,8 @@ pub fn index_interval_mapper(
                 return start_new_bucket(
                     services,
                     block,
-                    token.clone(),
-                    currency.clone(),
+                    token,
+                    currency,
                     aggregated,
                     interval,
                 );

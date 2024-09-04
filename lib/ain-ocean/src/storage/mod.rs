@@ -5,13 +5,14 @@ mod ocean_store;
 
 use std::sync::Arc;
 
-use crate::{define_table, model, Error, Result};
 use ain_db::{Column, ColumnName, DBError, LedgerColumn, Result as DBResult, TypedColumn};
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 pub use ocean_store::OceanStore;
 use rocksdb::Direction;
 
-#[derive(Debug, PartialEq, Clone)]
+use crate::{define_table, model, Error, Result};
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SortOrder {
     Ascending,
     Descending,
@@ -20,8 +21,8 @@ pub enum SortOrder {
 impl From<SortOrder> for Direction {
     fn from(sort_order: SortOrder) -> Self {
         match sort_order {
-            SortOrder::Ascending => Direction::Forward,
-            SortOrder::Descending => Direction::Reverse,
+            SortOrder::Ascending => Self::Forward,
+            SortOrder::Descending => Self::Reverse,
         }
     }
 }

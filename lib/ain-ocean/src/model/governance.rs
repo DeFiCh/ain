@@ -53,7 +53,7 @@ pub struct ApiProposalVoteInfo {
 
 impl From<ProposalInfo> for ApiProposalInfo {
     fn from(proposal: ProposalInfo) -> Self {
-        ApiProposalInfo {
+        Self {
             proposal_id: proposal.proposal_id,
             title: proposal.title,
             context: proposal.context,
@@ -69,7 +69,7 @@ impl From<ProposalInfo> for ApiProposalInfo {
             approval_threshold: proposal.approval_threshold,
             quorum: proposal.quorum,
             confidence_vote: ApiProposalConfidenceVote {
-                amount: proposal.amount.map(|a| format!("{:.8}", a)),
+                amount: proposal.amount.map(|a| format!("{a:.8}")),
                 payout_address: proposal.payout_address,
             },
             vote_info: ApiProposalVoteInfo {

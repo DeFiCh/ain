@@ -26,7 +26,7 @@ async fn get_transaction(
     Path(TransactionId { id }): Path<TransactionId>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<Transaction>>> {
-    format!("Details of transaction with id {}", id);
+    println!("Details of transaction with id {id}");
     let transactions = ctx.services.transaction.by_id.get(&id)?;
     Ok(Response::new(transactions))
 }
@@ -40,7 +40,7 @@ async fn get_vins(
     let next = query
         .next
         .clone()
-        .unwrap_or(TransactionVinStorage::initial_key(id));
+        .unwrap_or_else(|| TransactionVinStorage::initial_key(id));
 
     let list = ctx
         .services

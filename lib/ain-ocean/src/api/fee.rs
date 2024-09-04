@@ -29,7 +29,7 @@ async fn estimate_fee(
         )
         .await?;
 
-    Ok(Response::new(estimation.feerate.unwrap_or(0.00005000)))
+    Ok(Response::new(estimation.feerate.unwrap_or(0.000_050_00)))
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

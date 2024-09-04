@@ -44,7 +44,7 @@ async fn not_found(req: Request<axum::body::Body>) -> impl IntoResponse {
     let method = req.method().clone();
     let path = req.uri().path().to_string();
 
-    let message = format!("Cannot {} {}", method, path);
+    let message = format!("Cannot {method} {path}");
     (
         StatusCode::NOT_FOUND,
         Json(NotFound {

@@ -332,7 +332,7 @@ async fn list_transactions(
             Some((hid.clone(), next.0, next.1, next.2, next.3)),
             SortOrder::Descending,
         )?
-        .skip(query.next.is_some() as usize)
+        .skip(usize::from(query.next.is_some()))
         .take(query.size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == hid,
@@ -431,7 +431,7 @@ async fn list_transaction_unspent(
             Some((hid.clone(), next.0, next.1, next.2)),
             SortOrder::Ascending,
         )?
-        .skip(query.next.is_some() as usize)
+        .skip(usize::from(query.next.is_some()))
         .take(query.size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == hid.clone(),
@@ -493,7 +493,7 @@ async fn list_tokens(
 
         let address_token = AddressToken {
             id,
-            amount: format!("{:.8}", v),
+            amount: format!("{v:.8}"),
             display_symbol: parse_display_symbol(&info),
             symbol: info.symbol,
             symbol_key: info.symbol_key,
@@ -502,7 +502,7 @@ async fn list_tokens(
             is_lps: info.is_lps,
             is_loan_token: info.is_loan_token,
         };
-        vec.push(address_token)
+        vec.push(address_token);
     }
 
     Ok(ApiPagedResponse::of(vec, query.size, |item| {

@@ -14,6 +14,7 @@ macro_rules! define_table {
         // Repository definition
         $(#[$meta])*
         $vis struct $name {
+            #[allow(unused)]
             pub store: Arc<OceanStore>,
             col: LedgerColumn<$name>,
         }

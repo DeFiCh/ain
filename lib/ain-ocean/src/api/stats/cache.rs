@@ -315,7 +315,7 @@ pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
         .masternode
         .stats
         .get_latest()?
-        .map_or(Decimal::zero(), |mn| mn.stats.tvl);
+        .map_or_else(Decimal::zero, |mn| mn.stats.tvl);
     masternodes *= usd;
 
     // loan

@@ -21,12 +21,12 @@ impl From<(u8, usize)> for TxResult {
 
         match dftx {
             CustomTxType::PoolSwap | CustomTxType::PoolSwapV2 => {
-                TxResult::PoolSwap(unsafe { *(result_ptr as *const PoolSwapResult) })
+                Self::PoolSwap(unsafe { *(result_ptr as *const PoolSwapResult) })
             }
             CustomTxType::CreatePoolPair => {
-                TxResult::CreatePoolPair(unsafe { *(result_ptr as *const u32) })
+                Self::CreatePoolPair(unsafe { *(result_ptr as *const u32) })
             }
-            _ => TxResult::None,
+            _ => Self::None,
         }
     }
 }

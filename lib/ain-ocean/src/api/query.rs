@@ -64,7 +64,7 @@ where
             return Ok(Self(T::default()));
         }
         match serde_urlencoded::from_str(query) {
-            Ok(v) => Ok(Query(v)),
+            Ok(v) => Ok(Self(v)),
             Err(e) => Err(ApiError::new(
                 StatusCode::BAD_REQUEST,
                 format!("Invalid query parameter value for {query}. {e}"),

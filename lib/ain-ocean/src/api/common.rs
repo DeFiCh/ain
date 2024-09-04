@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use ain_dftx::{Currency, Token};
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
-use std::str::FromStr;
 
 use super::query::PaginationQuery;
 use crate::{
@@ -16,6 +17,7 @@ use crate::{
     Result,
 };
 
+#[must_use]
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {
         let tokens: Vec<&str> = token_info.symbol.split('-').collect();
@@ -33,13 +35,14 @@ pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     token_info.symbol.clone()
 }
 
+#[must_use]
 pub fn parse_dat_symbol(symbol: &str) -> String {
     let special_symbols = ["DUSD", "DFI", "csETH"];
 
     if special_symbols.contains(&symbol) {
         symbol.to_string()
     } else {
-        format!("d{}", symbol)
+        format!("d{symbol}")
     }
 }
 
@@ -110,11 +113,12 @@ pub fn parse_query_height_txno(item: &str) -> Result<(u32, usize)> {
     Ok((height, txno))
 }
 
+#[must_use]
 pub fn format_number(v: Decimal) -> String {
     if v == dec!(0) {
         "0".to_string()
     } else {
-        format!("{:.8}", v)
+        format!("{v:.8}")
     }
 }
 
@@ -166,6 +170,7 @@ pub fn address_to_hid(address: &str, network: Network) -> Result<String> {
 /// # Returns
 ///
 /// The balance of the specified token symbol if found; otherwise, returns 0.
+#[must_use]
 pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
     tokens
         .iter()
@@ -211,7 +216,6 @@ pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
 ///     None => false,
 ///     Some(v) => v != &el.id,
 /// };
-
 /// let res: Vec<_> = ctx
 ///     .client
 ///     .list_loan_schemes()
@@ -248,11 +252,14 @@ where
     {
         Box::new(
             self.skip_while(skip_while)
-                .skip(query.next.is_some() as usize)
+                .skip(usize::from(query.next.is_some()))
                 .take(query.size),
         )
     }
     fn paginate(self, query: &PaginationQuery) -> Box<dyn Iterator<Item = T> + 'a> {
-        Box::new(self.skip(query.next.is_some() as usize).take(query.size))
+        Box::new(
+            self.skip(usize::from(query.next.is_some()))
+                .take(query.size),
+        )
     }
 }

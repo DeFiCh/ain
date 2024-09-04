@@ -30,7 +30,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
     let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
-    for vout in ctx.tx.vout.clone().into_iter() {
+    for vout in ctx.tx.vout.clone() {
         let tx_vout = TransactionVout {
             id: format!("{}{:x}", txid, vout.n),
             txid,
@@ -52,7 +52,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
     }
 
     // Indexing transaction vin
-    for vin in ctx.tx.vin.clone().into_iter() {
+    for vin in ctx.tx.vin.clone() {
         if is_evm {
             continue;
         }

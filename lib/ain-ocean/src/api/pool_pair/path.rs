@@ -97,7 +97,7 @@ impl StackSet {
     }
 
     fn of(value: u32, is_cycle: bool) -> Self {
-        let mut set = StackSet::new();
+        let mut set = Self::new();
         if !is_cycle {
             set.push(value);
         } else {
@@ -239,12 +239,12 @@ fn all_simple_paths(
     let graph = &ctx.services.token_graph;
     if !graph.lock().contains_node(from_token_id) {
         return Err(Error::Other {
-            msg: format!("from_token_id not found: {:?}", from_token_id),
+            msg: format!("from_token_id not found: {from_token_id:?}"),
         });
     }
     if !graph.lock().contains_node(to_token_id) {
         return Err(Error::Other {
-            msg: format!("to_token_id not found: {:?}", to_token_id),
+            msg: format!("to_token_id not found: {to_token_id:?}"),
         });
     }
 
@@ -258,7 +258,7 @@ fn all_simple_paths(
 
     let mut paths: Vec<Vec<u32>> = Vec::new();
     while !stack.is_empty() {
-        let child = stack.last_mut().and_then(|s| s.pop());
+        let child = stack.last_mut().and_then(std::vec::Vec::pop);
         if let Some(child) = child {
             if visited.has(&child) {
                 continue;
@@ -277,7 +277,7 @@ fn all_simple_paths(
                         .lock()
                         .neighbors_directed(child, petgraph::Direction::Outgoing)
                         .collect::<Vec<_>>(),
-                )
+                );
             } else {
                 visited.pop();
             }
@@ -364,9 +364,7 @@ pub async fn compute_paths_between_tokens(
                 .edge_weight(token_a, token_b)
                 .context(OtherSnafu {
                     msg: format!(
-                        "Unexpected error encountered during path finding - could not find edge between {} and {}",
-                        token_a,
-                        token_b
+                        "Unexpected error encountered during path finding - could not find edge between {token_a} and {token_b}"
                     )
                 })?
                 .to_string();

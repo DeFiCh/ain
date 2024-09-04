@@ -35,9 +35,9 @@ impl<'de> Deserialize<'de> for HashOrHeight {
     {
         let s = String::deserialize(deserializer)?;
         if let Ok(height) = s.parse::<u32>() {
-            Ok(HashOrHeight::Height(height))
+            Ok(Self::Height(height))
         } else if let Ok(id) = s.parse::<BlockHash>() {
-            Ok(HashOrHeight::Id(id))
+            Ok(Self::Id(id))
         } else {
             Err(serde::de::Error::custom("Error parsing HashOrHeight"))
         }
@@ -66,7 +66,7 @@ pub struct TransactionResponse {
 
 impl From<Transaction> for TransactionResponse {
     fn from(v: Transaction) -> Self {
-        TransactionResponse {
+        Self {
             id: v.id,
             txid: v.id,
             order: v.order,

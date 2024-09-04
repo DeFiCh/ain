@@ -213,7 +213,7 @@ impl PoolPairResponse {
             name: p.name,
             status: p.status,
             token_a: PoolPairTokenResponse {
-                symbol: a.to_string(),
+                symbol: a,
                 display_symbol: a_parsed,
                 id: p.id_token_a,
                 name: a_token_name,
@@ -226,7 +226,7 @@ impl PoolPairResponse {
                 }),
             },
             token_b: PoolPairTokenResponse {
-                symbol: b.to_string(),
+                symbol: b,
                 display_symbol: b_parsed,
                 id: p.id_token_b,
                 name: b_token_name,
@@ -517,7 +517,7 @@ async fn list_pool_swap_aggregates(
     for aggregated in aggregates {
         let usd = get_aggregated_in_usd(&ctx, &aggregated.aggregated).await?;
         let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregated, usd);
-        aggregated_usd.push(aggregate_with_usd)
+        aggregated_usd.push(aggregate_with_usd);
     }
 
     Ok(ApiPagedResponse::of(
@@ -563,7 +563,7 @@ async fn get_swappable_tokens(
     token_ids.remove(&token_id.parse::<u32>()?);
 
     let mut swappable_tokens = Vec::new();
-    for id in token_ids.into_iter() {
+    for id in token_ids {
         let token = get_token_identifier(&ctx, &id.to_string()).await?;
         swappable_tokens.push(token);
     }

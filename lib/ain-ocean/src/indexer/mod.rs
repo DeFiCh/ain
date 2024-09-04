@@ -35,7 +35,7 @@ use crate::{
     Result, Services,
 };
 
-pub(crate) trait Index {
+pub trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
     // TODO: allow dead_code at the moment
@@ -93,7 +93,7 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
                 .map(|e| repository.by_key.retrieve_primary_value(e))
                 .collect::<Result<Vec<_>>>()?;
 
-            let bucket = get_bucket(block, interval as i64);
+            let bucket = get_bucket(block, i64::from(interval));
 
             if prevs.len() == 1 && prevs[0].bucket >= bucket {
                 break;
@@ -152,11 +152,11 @@ fn find_tx_vout(
                 id: format!("{}{:x}", tx.txid, vin.vout),
                 txid: tx.txid,
                 n: vout.n,
-                value: format!("{:.8}", value),
+                value: format!("{value:.8}"),
                 token_id: vout.token_id,
                 script: TransactionVoutScript {
                     r#type: vout.script_pub_key.r#type.clone(),
-                    hex: vout.script_pub_key.hex.clone(),
+                    hex: vout.script_pub_key.hex,
                 },
             };
             return Ok(Some(tx_vout));
@@ -166,10 +166,10 @@ fn find_tx_vout(
 }
 
 fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in block.tx.iter() {
+    for tx in &block.tx {
         let is_evm_tx = check_if_evm_tx(tx);
 
-        for vin in tx.vin.iter() {
+        for vin in &tx.vin {
             if is_evm_tx {
                 continue;
             }
@@ -221,10 +221,10 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 vin.txid,
                 vin.vout,
             );
-            services.script_activity.by_id.put(&id, &script_activity)?
+            services.script_activity.by_id.put(&id, &script_activity)?;
         }
 
-        for vout in tx.vout.iter() {
+        for vout in &tx.vout {
             if vout.script_pub_key.hex.starts_with(&[0x6a]) {
                 continue;
             }
@@ -266,7 +266,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
                 tx.txid,
                 vout.n,
             );
-            services.script_activity.by_id.put(&id, &script_activity)?
+            services.script_activity.by_id.put(&id, &script_activity)?;
         }
     }
 
@@ -317,10 +317,10 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         }
     }
 
-    for tx in block.tx.iter() {
+    for tx in &block.tx {
         let is_evm_tx = check_if_evm_tx(tx);
 
-        for vin in tx.vin.iter() {
+        for vin in &tx.vin {
             if is_evm_tx {
                 continue;
             }
@@ -342,7 +342,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             record.insert(aggregation.hid.clone(), aggregation);
         }
 
-        for vout in tx.vout.iter() {
+        for vout in &tx.vout {
             if vout.script_pub_key.hex.starts_with(&[0x6a]) {
                 continue;
             }
@@ -360,7 +360,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         }
     }
 
-    for (_, mut aggregation) in record.clone().into_iter() {
+    for (_, mut aggregation) in record.clone() {
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
@@ -399,10 +399,10 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
 }
 
 fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in block.tx.iter() {
+    for tx in &block.tx {
         let is_evm_tx = check_if_evm_tx(tx);
 
-        for vin in tx.vin.iter() {
+        for vin in &tx.vin {
             if is_evm_tx {
                 continue;
             }
@@ -415,11 +415,11 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             let id = services.script_unspent.by_key.get(&key)?;
             if let Some(id) = id {
                 services.script_unspent.by_id.delete(&id)?;
-                services.script_unspent.by_key.delete(&key)?
+                services.script_unspent.by_key.delete(&key)?;
             }
         }
 
-        for vout in tx.vout.iter() {
+        for vout in &tx.vout {
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
                 id: format!("{}{}", tx.txid, hex::encode(vout.n.to_be_bytes())),
@@ -456,7 +456,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             );
             let key = (block.height, tx.txid, vout.n);
             services.script_unspent.by_key.put(&key, &id)?;
-            services.script_unspent.by_id.put(&id, &script_unspent)?
+            services.script_unspent.by_id.put(&id, &script_unspent)?;
         }
     }
 
@@ -553,7 +553,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         masternode: block.masternode,
         minter: block.minter,
         minter_block_count: block.minted_blocks,
-        stake_modifier: block.stake_modifier.to_owned(),
+        stake_modifier: block.stake_modifier.clone(),
         merkleroot: block.merkleroot,
         size: block.size,
         size_stripped: block.strippedsize,

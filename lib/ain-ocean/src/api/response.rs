@@ -146,7 +146,7 @@ mod tests {
             .page
             .unwrap()
             .next;
-        assert_eq!(next, "c".to_string())
+        assert_eq!(next, "c".to_string());
     }
 
     #[test]
@@ -154,6 +154,6 @@ mod tests {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
         let page = ApiPagedResponse::of(items, 3, |item| item.clone().sort).page;
-        assert_eq!(page, None)
+        assert_eq!(page, None);
     }
 }

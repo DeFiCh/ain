@@ -5,6 +5,7 @@ use bitcoin::{BlockHash, Txid};
 use log::debug;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use snafu::OptionExt;
 
 use super::Context;
 use crate::{
@@ -14,7 +15,6 @@ use crate::{
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Error, Services,
 };
-use snafu::OptionExt;
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
     PoolSwapAggregatedInterval::OneDay as u32,
@@ -76,10 +76,10 @@ fn index_swap_aggregated(
                 .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
                 .context(ArithmeticOverflowSnafu)?;
 
-            aggregated.aggregated.amounts.insert(
-                from_token_id.to_string(),
-                format!("{:.8}", aggregated_amount),
-            );
+            aggregated
+                .aggregated
+                .amounts
+                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
@@ -143,7 +143,7 @@ fn invalidate_swap_aggregated(
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),
-                format!("{:.8}", aggregated_amount),
+                format!("{aggregated_amount:.8}"),
             );
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
@@ -190,7 +190,7 @@ impl Index for PoolSwap {
         };
 
         let swap = model::PoolSwap {
-            id: format!("{}-{}", pool_id, txid),
+            id: format!("{pool_id}-{txid}"),
             // TODO: use hex::encode eg: sort: hex::encode(ctx.block.height + idx)
             sort: format!("{}-{}", ctx.block.height, idx),
             txid,
@@ -273,7 +273,7 @@ impl Index for CompositeSwap {
 
         for pool_id in pool_ids {
             let swap = model::PoolSwap {
-                id: format!("{}-{}", pool_id, txid),
+                id: format!("{pool_id}-{txid}"),
                 sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
                 txid,
                 txno: ctx.tx_idx,

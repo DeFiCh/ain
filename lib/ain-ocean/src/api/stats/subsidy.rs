@@ -19,20 +19,20 @@ pub struct CoinbaseSubsidyOptions {
 
 #[allow(dead_code)]
 pub static MAIN_NET_COINBASE_SUBSIDY_OPTIONS: CoinbaseSubsidyOptions = CoinbaseSubsidyOptions {
-    eunos_height: 894000,
-    genesis_block_subsidy: 59100003000000000,
-    pre_eunos_block_subsidy: 20000000000,
-    eunos_base_block_subsidy: 40504000000,
-    eunos_foundation_burn: 26859289307829046,
+    eunos_height: 894_000,
+    genesis_block_subsidy: 59_100_003_000_000_000,
+    pre_eunos_block_subsidy: 20_000_000_000,
+    eunos_base_block_subsidy: 40_504_000_000,
+    eunos_foundation_burn: 26_859_289_307_829_046,
     emission_reduction: 1658,
     emission_reduction_interval: 32690,
 };
 
 pub static TEST_NET_COINBASE_SUBSIDY_OPTIONS: CoinbaseSubsidyOptions = CoinbaseSubsidyOptions {
-    eunos_height: 354950,
-    genesis_block_subsidy: 30400004000000000,
-    pre_eunos_block_subsidy: 20000000000,
-    eunos_base_block_subsidy: 40504000000,
+    eunos_height: 354_950,
+    genesis_block_subsidy: 30_400_004_000_000_000,
+    pre_eunos_block_subsidy: 20_000_000_000,
+    eunos_base_block_subsidy: 40_504_000_000,
     eunos_foundation_burn: 0,
     emission_reduction: 1658,
     emission_reduction_interval: 32690,
@@ -46,10 +46,10 @@ pub struct BlockSubsidy {
 
 impl BlockSubsidy {
     pub fn new(options: CoinbaseSubsidyOptions) -> Self {
-        let reduction_block_subsidies = BlockSubsidy::compute_block_reduction_subsidies(&options);
+        let reduction_block_subsidies = Self::compute_block_reduction_subsidies(&options);
         let reduction_supply_milestones =
-            BlockSubsidy::compute_reduction_supply_milestones(&reduction_block_subsidies, &options);
-        BlockSubsidy {
+            Self::compute_reduction_supply_milestones(&reduction_block_subsidies, &options);
+        Self {
             reduction_block_subsidies,
             reduction_supply_milestones,
             options,
@@ -123,7 +123,7 @@ impl BlockSubsidy {
     fn compute_block_reduction_subsidies(options: &CoinbaseSubsidyOptions) -> Vec<u64> {
         let mut subsidy_reductions: Vec<u64> = vec![options.eunos_base_block_subsidy];
         while let Some(&last_subsidy) = subsidy_reductions.last() {
-            let amount = last_subsidy * options.emission_reduction / 100000;
+            let amount = last_subsidy * options.emission_reduction / 100_000;
             if amount == 0 {
                 break;
             }

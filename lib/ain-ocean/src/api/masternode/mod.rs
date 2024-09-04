@@ -63,7 +63,7 @@ pub struct MasternodeData {
 
 impl MasternodeData {
     fn from_with_state(v: Masternode, state: MasternodeState) -> Self {
-        MasternodeData {
+        Self {
             id: v.id.to_string(),
             sort: format!("{:08x}{}", v.block.height, v.id),
             state,
@@ -81,7 +81,7 @@ impl MasternodeData {
                 tx,
                 height: match v.resign_height {
                     None => -1,
-                    Some(v) => v as i64,
+                    Some(v) => i64::from(v),
                 },
             }),
             timelock: v.timelock,

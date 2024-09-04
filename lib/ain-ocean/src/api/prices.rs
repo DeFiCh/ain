@@ -74,7 +74,7 @@ impl From<PriceTicker> for PriceTickerResponse {
                 token: price_ticker.price.token,
                 currency: price_ticker.price.currency,
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount: format!("{:.8}", amount),
+                    amount: format!("{amount:.8}"),
                     weightage: price_ticker.price.aggregated.weightage,
                     oracles: price_ticker.price.aggregated.oracles,
                 },
@@ -139,7 +139,7 @@ async fn get_price(
         .services
         .price_ticker
         .by_id
-        .get(&(token.to_string(), currency.to_string()))?;
+        .get(&(token, currency))?;
 
     let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));
@@ -189,7 +189,7 @@ async fn get_feed_active(
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let key = (token.to_string(), currency.to_string());
+    let key = (token, currency);
     let repo = &ctx.services.oracle_price_active;
     let price_active = ctx
         .services
@@ -224,7 +224,7 @@ async fn get_feed_with_interval(
         "86400" => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid interval")),
     };
-    let key = (token.to_string(), currency.to_string(), interval.clone());
+    let key = (token, currency, interval);
     let repo = &ctx.services.oracle_price_aggregated_interval;
     let prices = repo
         .by_key
@@ -331,9 +331,9 @@ async fn get_oracles(
                 txid: f.txid,
                 time: f.time,
                 amount: f.amount.to_string(),
-                block: f.block.clone(),
+                block: f.block,
             }),
-        })
+        });
     }
 
     Ok(ApiPagedResponse::of(prices, query.size, |price| {

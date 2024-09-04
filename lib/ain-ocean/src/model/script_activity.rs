@@ -13,8 +13,8 @@ pub enum ScriptActivityType {
 impl fmt::Display for ScriptActivityType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ScriptActivityType::Vin => write!(f, "vin"),
-            ScriptActivityType::Vout => write!(f, "vout"),
+            Self::Vin => write!(f, "vin"),
+            Self::Vout => write!(f, "vout"),
         }
     }
 }
@@ -28,8 +28,8 @@ pub enum ScriptActivityTypeHex {
 impl fmt::Display for ScriptActivityTypeHex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ScriptActivityTypeHex::Vin => write!(f, "00"),
-            ScriptActivityTypeHex::Vout => write!(f, "01"),
+            Self::Vin => write!(f, "00"),
+            Self::Vout => write!(f, "01"),
         }
     }
 }

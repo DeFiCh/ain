@@ -229,7 +229,7 @@ async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
 
     let reward = gov
         .get("LP_DAILY_DFI_REWARD")
-        .and_then(|v| v.as_f64()) // eg: { "LP_DAILY_DFI_REWARD": 3664.80000000 }
+        .and_then(serde_json::Value::as_f64) // eg: { "LP_DAILY_DFI_REWARD": 3664.80000000 }
         .unwrap_or_default();
 
     let daily_dfi_reward = Decimal::from_f64(reward).context(DecimalConversionSnafu)?;
@@ -315,7 +315,7 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
     let split = value
         .as_object()
         .and_then(|obj| obj.get(id))
-        .and_then(|v| v.as_f64())
+        .and_then(serde_json::Value::as_f64)
         .unwrap_or_default();
     let split = Decimal::from_f64(split).context(DecimalConversionSnafu)?;
 
@@ -382,7 +382,7 @@ async fn gather_amount(
 
     for token_id in aggregated.keys() {
         let token_price = get_token_usd_value(ctx, token_id).await?;
-        let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
+        let amount = aggregated.get(token_id).copied().unwrap_or(dec!(0));
         volume = volume
             .checked_add(
                 token_price
@@ -452,11 +452,7 @@ pub async fn get_apr(
         .checked_add(commission)
         .context(ArithmeticOverflowSnafu)?;
 
-    Ok(PoolPairAprResponse {
-        reward,
-        commission,
-        total,
-    })
+    Ok(PoolPairAprResponse { total, reward, commission })
 }
 
 async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option<PoolPairInfo>> {
@@ -536,7 +532,7 @@ pub async fn get_aggregated_in_usd(
             .checked_add(token_price)
             .context(ArithmeticOverflowSnafu)?
             .checked_mul(amount)
-            .context(ArithmeticOverflowSnafu)?
+            .context(ArithmeticOverflowSnafu)?;
     }
 
     Ok(value)
@@ -675,7 +671,7 @@ pub async fn find_swap_to(
             return Ok(Some(PoolSwapFromToData {
                 address: history.owner,
                 amount: format!("{:.8}", value.abs()),
-                symbol: symbol.to_string(),
+                symbol,
                 display_symbol,
             }));
         }

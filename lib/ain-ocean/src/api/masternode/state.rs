@@ -21,7 +21,7 @@ pub struct MasternodeService {
 
 impl MasternodeService {
     pub fn new(network: Network) -> Self {
-        MasternodeService { network }
+        Self { network }
     }
 
     fn get_mn_activation_delay(&self, height: u32) -> u32 {

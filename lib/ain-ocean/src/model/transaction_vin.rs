@@ -19,7 +19,7 @@ impl TransactionVin {
     pub fn from_vin_and_txid(vin: Vin, txid: Txid, vouts: &[TransactionVout]) -> Self {
         match vin {
             Vin::Coinbase(v) => Self {
-                id: format!("{}00", txid),
+                id: format!("{txid}00"),
                 txid,
                 coinbase: Some(v.coinbase),
                 sequence: v.sequence,
@@ -33,7 +33,7 @@ impl TransactionVin {
                     value: vout.value.clone(),
                     n: vout.n,
                     token_id: vout.token_id,
-                    script: vout.script.hex.to_owned(),
+                    script: vout.script.hex.clone(),
                 });
                 Self {
                     id: format!("{}{}{:x}", txid, v.txid, v.vout),
