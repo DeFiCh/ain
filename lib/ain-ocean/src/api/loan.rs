@@ -33,7 +33,6 @@ use super::{
     AppContext,
 };
 use crate::{
-    api::prices::PriceTickerResponse,
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
@@ -104,7 +103,7 @@ pub struct CollateralToken {
     factor: String,
     activate_after_block: u32,
     fixed_interval_price_id: String,
-    active_price: Option<PriceTickerResponse>,
+    active_price: Option<OraclePriceActive>,
 }
 
 impl CollateralToken {
@@ -112,7 +111,7 @@ impl CollateralToken {
         id: String,
         detail: CollateralTokenDetail,
         info: TokenInfo,
-        active_price: Option<PriceTickerResponse>,
+        active_price: Option<OraclePriceActive>,
     ) -> Self {
         Self {
             token_id: detail.token_id,
@@ -128,15 +127,31 @@ impl CollateralToken {
 async fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
-) -> Result<Option<PriceTickerResponse>> {
+) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-    let price = ctx.services.price_ticker.by_id.get(&(token, currency))?;
+    let repo = &ctx.services.oracle_price_active;
+    let keys = repo
+        .by_key
+        .list(Some((token, currency)), SortOrder::Descending)?
+        .take(1)
+        .flatten()
+        .collect::<Vec<_>>();
 
-    let Some(active_price) = price else {
+    if keys.is_empty() {
+        return Ok(None);
+    }
+
+    let Some((_, id)) = keys.first() else {
         return Ok(None);
     };
 
-    Ok(Some(PriceTickerResponse::from(active_price)))
+    let price = repo.by_id.get(id)?;
+
+    let Some(price) = price else {
+        return Ok(None);
+    };
+
+    Ok(Some(price))
 }
 
 #[ocean_endpoint]
