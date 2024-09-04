@@ -201,7 +201,7 @@ static void onPoolRewards(CCustomCSView &view,
             auto beginNewHeight = beginHeight < Params().GetConsensus().DF24Height
                                       ? Params().GetConsensus().DF24Height - 1
                                       : beginHeight - 1;
-            // End must be above start
+            // End must be above start and then one more beyond the range.
             auto newEndHeight = beginNewHeight + 2;
             // Loop over one block a time to build account history with correct height records
             for (; newEndHeight <= end; ++beginNewHeight, ++newEndHeight) {
