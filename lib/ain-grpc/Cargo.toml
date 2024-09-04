@@ -23,7 +23,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 parking_lot.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tonic.workspace = true
 ethereum.workspace = true
 ethereum-types.workspace = true
 hex.workspace = true
