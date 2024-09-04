@@ -50,11 +50,11 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
                 pos::CalcKernelHash(stakeModifier, 1, coinstakeTime, mnID));
 
     uint32_t target = 0x1effffff;
-    CheckContextState ctxState;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState));
+    CheckContextState ctxState{0};
+    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, target, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), 0, ctxState));
 
     uint32_t unattainableTarget = 0x00ffffff;
-    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), {0, 0, 0, 0}, 0, ctxState));
+    BOOST_CHECK(!pos::CheckKernelHash(stakeModifier, unattainableTarget, 1, coinstakeTime, 0, mnID, Params().GetConsensus(), 0, ctxState));
 
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
@@ -170,38 +170,6 @@ BOOST_AUTO_TEST_CASE(sign_pos_block)
     BOOST_CHECK_THROW(pos::SignPosBlock(block, minterKey), std::logic_error);
 
     BOOST_CHECK(!pos::CheckProofOfStake(*(CBlockHeader*)block.get(), ::ChainActive().Tip(), Params().GetConsensus(), pcustomcsview.get()));
-}
-
-BOOST_AUTO_TEST_CASE(check_subnode)
-{
-    const auto stakeModifier = uint256S(std::string(64, '1'));
-    const auto masternodeID = stakeModifier;
-    uint32_t nBits{486604799};
-    int64_t creationHeight{0};
-    uint64_t blockHeight{10000000};
-    const std::vector<int64_t> subNodesBlockTime{0, 0, 0, 0};
-    const uint16_t timelock{520}; // 10 year timelock
-    CheckContextState ctxState;
-
-    // Subnode 0
-    int64_t coinstakeTime{7};
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
-    BOOST_CHECK_EQUAL(ctxState.subNode, 0);
-
-    // Subnode 1
-    coinstakeTime = 0;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
-    BOOST_CHECK_EQUAL(ctxState.subNode, 1);
-
-    // Subnode 2
-    coinstakeTime = 23;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
-    BOOST_CHECK_EQUAL(ctxState.subNode, 2);
-
-    // Subnode 3
-    coinstakeTime = 5;
-    BOOST_CHECK(pos::CheckKernelHash(stakeModifier, nBits, creationHeight, coinstakeTime, blockHeight, masternodeID, Params().GetConsensus(), subNodesBlockTime, timelock, ctxState));
-    BOOST_CHECK_EQUAL(ctxState.subNode, 3);
 }
 
 

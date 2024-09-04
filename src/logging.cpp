@@ -162,6 +162,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::RPCCACHE, "rpccache"},
     {BCLog::CUSTOMTXBENCH, "customtxbench"},
     {BCLog::SWAPRESULT, "swapresult"},
+    {BCLog::CONNECT, "connect"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };

@@ -592,7 +592,7 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID &keyID,
         }
 
         // If no values set for pre-fork MN use the fork time
-        const uint8_t loops = timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+        const auto loops = GetTimelockLoops(timelock);
         for (uint8_t i{0}; i < loops; ++i) {
             if (!subNodesBlockTime[i]) {
                 subNodesBlockTime[i] = block->GetBlockTime();
@@ -981,16 +981,16 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
 
         if (beginHeight < Params().GetConsensus().DF24Height) {
             // Calculate just up to the fork height
-            const auto targetNewHeight = targetHeight >= Params().GetConsensus().DF24Height
-                                             ? Params().GetConsensus().DF24Height - 1
-                                             : targetHeight;
+            const auto targetNewHeight =
+                targetHeight >= Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : targetHeight;
             CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetNewHeight, onReward);
         }
 
         if (targetHeight >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
-            const auto beginNewHeight =
-                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : beginHeight;
+            const auto beginNewHeight = beginHeight < Params().GetConsensus().DF24Height
+                                            ? Params().GetConsensus().DF24Height - 1
+                                            : beginHeight - 1;
             CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, targetHeight);
         }
 

@@ -159,34 +159,55 @@ UniValue outputEntryToJSON(const CCustomCSView &view,
 
 static void onPoolRewards(CCustomCSView &view,
                           const CScript &owner,
-                          uint32_t begin,
-                          uint32_t end,
-                          std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
+                          const uint32_t begin,
+                          const uint32_t end,
+                          std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> addToResult) {
     CCustomCSView mnview(view);
     static const uint32_t eunosHeight = Params().GetConsensus().DF8EunosHeight;
+
     view.ForEachPoolId([&](DCT_ID const &poolId) {
-        auto height = view.GetShare(poolId, owner);
+        const auto height = view.GetShare(poolId, owner);
         if (!height || *height >= end) {
             return true;  // no share or target height is before a pool share' one
         }
         auto onLiquidity = [&]() -> CAmount { return mnview.GetBalance(owner, poolId).nValue; };
-        uint32_t firstHeight = 0;
-        auto beginHeight = std::max(*height, begin);
-        view.CalculatePoolRewards(
-            poolId, onLiquidity, beginHeight, end, [&](RewardType type, CTokenAmount amount, uint32_t height) {
-                if (amount.nValue == 0) {
-                    return;
-                }
-                onReward(height, poolId, type, amount);
-                // prior Eunos account balance includes rewards
-                // thus we don't need to increment it by first one
-                if (!firstHeight) {
-                    firstHeight = height;
-                }
-                if (height >= eunosHeight || firstHeight != height) {
-                    mnview.AddBalance(owner, amount);  // update owner liquidity
-                }
-            });
+        uint32_t firstHeight{};
+        const auto beginHeight = std::max(*height, begin);
+
+        auto onReward = [&](RewardType type, CTokenAmount amount, uint32_t height) {
+            if (amount.nValue == 0) {
+                return;
+            }
+            addToResult(height, poolId, type, amount);
+            // prior Eunos account balance includes rewards
+            // thus we don't need to increment it by first one
+            if (!firstHeight) {
+                firstHeight = height;
+            }
+            if (height >= eunosHeight || firstHeight != height) {
+                mnview.AddBalance(owner, amount);  // update owner liquidity
+            }
+        };
+
+        if (beginHeight < Params().GetConsensus().DF24Height) {
+            // Calculate just up to the fork height
+            const auto endNewHeight =
+                end >= Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : end;
+            view.CalculatePoolRewards(poolId, onLiquidity, beginHeight, endNewHeight, onReward);
+        }
+
+        if (end >= Params().GetConsensus().DF24Height) {
+            // Calculate from the fork height
+            auto beginNewHeight =
+                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight;
+            // End must be above start and then one more beyond the range.
+            auto newEndHeight = beginNewHeight + 2;
+            // Loop over one block a time to build account history with correct height records
+            for (; beginNewHeight < end; ++beginNewHeight, ++newEndHeight) {
+                view.CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, newEndHeight);
+            }
+        }
+
         return true;
     });
 }

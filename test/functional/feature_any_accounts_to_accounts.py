@@ -122,12 +122,11 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
             self.nodes[0].generate(1)
 
             for token in tokens:
+                token_bal = minterAccountBalances[token["tokenId"]]
                 if i == wallet1_accs_count - 1:  # last account
-                    amount = minterAccountBalances[token["tokenId"]]
+                    amount = token_bal
                 else:
-                    amount = random.randint(
-                        0, minterAccountBalances[token["tokenId"]] // 2
-                    )
+                    amount = random.randint(0, int(token_bal // 2))
 
                 if amount == 0:
                     continue

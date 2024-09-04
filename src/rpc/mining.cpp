@@ -10,7 +10,9 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
+#include <dfi/accountshistory.h>
 #include <dfi/masternodes.h>
+#include <dfi/vaulthistory.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -102,17 +104,10 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
     return GetNetworkHashPS(!request.params[0].isNull() ? request.params[0].get_int() : 120, !request.params[1].isNull() ? request.params[1].get_int() : -1);
 }
 
-static UniValue generateBlocks(const CScript& coinbase_script, const CKey & minterKey, const CKeyID & operatorID, int nGenerate, int64_t nMaxTries)
+static UniValue generateBlocks(const pos::ThreadStaker::Args &stakerParams, const int nGenerate, const int64_t nMaxTries)
 {
     using namespace pos;
     UniValue nMintedBlocksCount(UniValue::VNUM);
-
-    ThreadStaker::Args stakerParams{};
-    stakerParams.nMint = nGenerate;
-    stakerParams.nMaxTries = nMaxTries;
-    stakerParams.coinbaseScript = coinbase_script;
-    stakerParams.minterKey = minterKey;
-    stakerParams.operatorID = operatorID;
 
     pos::Staker staker{};
     int32_t nMinted = 0;
@@ -125,9 +120,6 @@ static UniValue generateBlocks(const CScript& coinbase_script, const CKey & mint
             auto status = staker.init(Params());
             if (status == Staker::Status::stakeReady) {
                 status = staker.stake(Params(), stakerParams);
-            }
-            if (status == Staker::Status::error) {
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "GenerateBlocks: Terminated due to a staking error");
             }
             if (status == Staker::Status::minted) {
                 LogPrintf("GenerateBlocks: minted a block!\n");
@@ -188,29 +180,59 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
     }
 
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    const uint8_t subNode{};
+    const auto blockHeight = view->GetLastHeight() + 1;
+
     CKeyID passedID = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
-    auto myAllMNs = pcustomcsview->GetOperatorsMulti();
+    auto myAllMNs = view->GetOperatorsMulti();
     if (myAllMNs.empty()) {
-      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: I am not masternode operator");
     }
 
-    CKeyID operatorID;
-    auto mnForPassedID = pcustomcsview->GetMasternodeIdByOperator(passedID);
-    // check mnForPassedID is in myAllMNs
+    auto [operatorID, masternodeID] = *myAllMNs.begin();
+
+    auto mnForPassedID = view->GetMasternodeIdByOperator(passedID);
+    std::optional<CMasternode> nodePtr;
+
+    // Check mnForPassedID is in myAllMNs
     if (mnForPassedID && myAllMNs.count(std::make_pair(passedID, *mnForPassedID))) {
-      operatorID = passedID;
+        nodePtr = view->GetMasternode(masternodeID);
+        if (nodePtr && nodePtr->IsActive(blockHeight, *view)) {
+            operatorID = passedID;
+            masternodeID = *mnForPassedID;
+        }
     } else {
-      operatorID = myAllMNs.begin()->first;
+        // Look up masternode by owner address
+        mnForPassedID = view->GetMasternodeIdByOwner(passedID);
+        if (mnForPassedID) {
+            nodePtr = view->GetMasternode(*mnForPassedID);
+            if (nodePtr && nodePtr->IsActive(blockHeight, *view) && myAllMNs.count(std::make_pair(nodePtr->operatorAuthAddress, *mnForPassedID))) {
+                operatorID = nodePtr->operatorAuthAddress;
+                masternodeID = *mnForPassedID;
+            }
+        }
     }
+
+    if (!nodePtr) {
+        nodePtr = view->GetMasternode(masternodeID);
+        if (!nodePtr || !nodePtr->IsActive(blockHeight, *view)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode not active");
+        }
+    }
+
+    const auto creationHeight = nodePtr->creationHeight;
 
     CScript coinbase_script = GetScriptForDestination(destination);
     CKey minterKey;
     {
         std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
-        if (wallets.size() == 0)
+        if (wallets.size() == 0) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: wallets not found");
+        }
 
-        bool found =false;
+        bool found = false;
         for (auto&& wallet : wallets) {
             if (wallet->GetKey(operatorID, minterKey)) {
                 found = true;
@@ -221,7 +243,17 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: masternode operator private key not found");
 
     }
-    return generateBlocks(coinbase_script, minterKey, operatorID, nGenerate, nMaxTries);
+
+    pos::ThreadStaker::Args stakerParams{
+        coinbase_script,
+        minterKey,
+        operatorID,
+        subNode,
+        creationHeight,
+        masternodeID,
+    };
+
+    return generateBlocks(stakerParams, nGenerate, nMaxTries);
 }
 
 // Returns the mining information of all local masternodes
@@ -304,7 +336,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
             if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
-                const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
+                const auto loops = GetTimelockLoops(*timelock);
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
