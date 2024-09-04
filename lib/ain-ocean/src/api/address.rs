@@ -96,6 +96,8 @@ async fn get_account_history(
     Ok(Response::new(res.into()))
 }
 
+// NOTE(canonbrother): deprecated its never being used
+// due to unfriendly complicated pagination handling internally
 // async fn list_account_history(Path(Address { address }): Path<Address>) -> String {
 //     format!("List account history for address {}", address)
 // }
