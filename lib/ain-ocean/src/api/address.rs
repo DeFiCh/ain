@@ -205,10 +205,6 @@ async fn get_aggregation(
     Ok(Response::new(aggregation))
 }
 
-// async fn list_token(Path(Address { address }): Path<Address>) -> String {
-//     format!("List tokens for address {}", address)
-// }
-
 #[ocean_endpoint]
 async fn list_vaults(
     Path(Address { address }): Path<Address>,
