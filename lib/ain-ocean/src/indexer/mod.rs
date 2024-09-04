@@ -134,23 +134,15 @@ fn list_pool_pairs_by_height(services: &Arc<Services>) -> Result<Vec<PoolCreatio
 }
 
 fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let repository = &services.pool_swap_aggregated;
-
     let pool_pairs = list_pool_pairs_by_height(services)?;
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
-            let bucket = get_bucket(block, interval as i64);
-            let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
             let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
-
-            repository
+            services
+                .pool_swap_aggregated
                 .by_id
                 .delete(&pool_swap_aggregated_id)?;
-
-            repository
-                .by_key
-                .delete(&pool_swap_aggregated_key)?
         }
     }
 
@@ -652,9 +644,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
                 tx.txid,
                 hex::encode(vout.n.to_be_bytes()),
             );
-            let key = (block.height, tx.txid, vout.n);
             services.script_unspent.by_id.delete(&id)?;
-            services.script_unspent.by_key.delete(&key)?
         }
     }
 
@@ -683,7 +673,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         median_time: block.mediantime,
     };
 
-    // dftx
     index_block_start(services, &block)?;
 
     index_script_activity(services, &block)?;
