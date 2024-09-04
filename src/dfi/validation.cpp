@@ -3139,7 +3139,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
 
     // Ocean archive
-    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
         const UniValue b = blockToJSON(cache, block, ::ChainActive().Tip(), pindex, true, 2);
         CrossBoundaryResult result;
 
