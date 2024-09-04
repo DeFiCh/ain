@@ -663,7 +663,6 @@ async fn map_token_amounts(
     let amount_token_symbols = amounts
         .into_iter()
         .map(|amount| {
-            let amount = amount;
             let (amount, token_symbol) = parse_amount(&amount)?;
             Ok::<[String; 2], Error>([amount, token_symbol])
         })

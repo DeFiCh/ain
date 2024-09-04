@@ -3,7 +3,6 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
-use log::trace;
 use serde::Deserialize;
 
 use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
