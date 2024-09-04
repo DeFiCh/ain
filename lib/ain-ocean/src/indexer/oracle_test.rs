@@ -10,6 +10,7 @@ mod tests {
     };
     use bitcoin::{BlockHash, ScriptBuf, Txid};
     use defichain_rpc::json::blockchain::Transaction;
+    use log::trace;
     use tempfile::tempdir;
 
     use crate::{
@@ -191,7 +192,7 @@ mod tests {
                 && currency.eq(&feeds[0].currency)
                 && oracle_id.eq(&feeds[0].oracle_id)
             {
-                println!("Found matching feed: {feed:?}");
+                trace!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -411,7 +412,7 @@ mod tests {
                 && currency.eq(&feeds[1].currency)
                 && oracle_id.eq(&feeds[1].oracle_id)
             {
-                println!("Found matching feed: {feed:?}");
+                trace!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -631,7 +632,7 @@ mod tests {
                 && currency.eq(&feeds[1].currency)
                 && oracle_id.eq(&feeds[1].oracle_id)
             {
-                println!("Found matching feed: {feed:?}");
+                trace!("Found matching feed: {feed:?}");
             }
         }
         assert!(
@@ -994,7 +995,7 @@ mod tests {
             .price_ticker
             .by_id
             .get(&("TA".to_string(), "USD".to_string()));
-        println!("{result:?}");
+        trace!("{result:?}");
     }
 
     #[test]

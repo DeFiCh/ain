@@ -452,7 +452,11 @@ pub async fn get_apr(
         .checked_add(commission)
         .context(ArithmeticOverflowSnafu)?;
 
-    Ok(PoolPairAprResponse { total, reward, commission })
+    Ok(PoolPairAprResponse {
+        total,
+        reward,
+        commission,
+    })
 }
 
 async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option<PoolPairInfo>> {

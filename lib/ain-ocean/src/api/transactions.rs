@@ -3,6 +3,7 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
+use log::trace;
 use serde::Deserialize;
 
 use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
@@ -26,7 +27,7 @@ async fn get_transaction(
     Path(TransactionId { id }): Path<TransactionId>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<Transaction>>> {
-    println!("Details of transaction with id {id}");
+    trace!("Details of transaction with id {id}");
     let transactions = ctx.services.transaction.by_id.get(&id)?;
     Ok(Response::new(transactions))
 }

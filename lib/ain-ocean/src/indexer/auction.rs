@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::vault::PlaceAuctionBid;
-use log::debug;
+use log::trace;
 
 use super::Context;
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 
 impl Index for PlaceAuctionBid {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[PlaceAuctionBid] Indexing...");
+        trace!("[PlaceAuctionBid] Indexing...");
 
         let auction = VaultAuctionBatchHistory {
             id: format!("{}-{}-{}", self.vault_id, self.index, ctx.tx.txid),
@@ -26,7 +26,7 @@ impl Index for PlaceAuctionBid {
             token_id: self.token_amount.token.0,
             block: ctx.block.clone(),
         };
-        debug!("auction : {:?}", auction);
+        trace!("auction : {:?}", auction);
 
         let key = (self.vault_id, self.index, ctx.tx.txid);
         services.auction.by_id.put(&key, &auction)?;
@@ -37,7 +37,7 @@ impl Index for PlaceAuctionBid {
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[PlaceAuctionBid] Invalidating...");
+        trace!("[PlaceAuctionBid] Invalidating...");
         services
             .auction
             .by_id

@@ -135,11 +135,7 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let price_ticker = ctx
-        .services
-        .price_ticker
-        .by_id
-        .get(&(token, currency))?;
+    let price_ticker = ctx.services.price_ticker.by_id.get(&(token, currency))?;
 
     let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));

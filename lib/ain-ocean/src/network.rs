@@ -11,7 +11,8 @@ pub enum Network {
 }
 
 impl Network {
-    #[must_use] pub fn as_str(&self) -> &'static str {
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Mainnet => "mainnet",
             Self::Mocknet => "mocknet",
@@ -73,18 +74,17 @@ pub struct NetworkParams {
 }
 
 impl Network {
-    #[must_use] pub fn params(&self) -> NetworkParams {
+    #[must_use]
+    pub fn params(&self) -> NetworkParams {
         match self {
-            Self::Mainnet
-            | Self::Testnet
-            | Self::Devnet
-            | Self::Changi
-            | Self::Mocknet => NetworkParams {
-                activation_delay: 10,
-                new_activation_delay: 1008,
-                resign_delay: 60,
-                new_resign_delay: 2016,
-            },
+            Self::Mainnet | Self::Testnet | Self::Devnet | Self::Changi | Self::Mocknet => {
+                NetworkParams {
+                    activation_delay: 10,
+                    new_activation_delay: 1008,
+                    resign_delay: 60,
+                    new_resign_delay: 2016,
+                }
+            }
             Self::Regtest => NetworkParams {
                 activation_delay: 10,
                 new_activation_delay: 20,
@@ -124,18 +124,19 @@ pub struct ForkHeight {
 }
 
 impl Network {
-    #[must_use] pub fn fork_heights(&self) -> ForkHeight {
+    #[must_use]
+    pub fn fork_heights(&self) -> ForkHeight {
         match self {
             Self::Mainnet | Self::Mocknet => ForkHeight {
-                df1_amk_height: 356_500,                        // Oct 12th, 2020.,
-                df2_bayfront_height: 405_000,                   // Nov 2nd, 2020.,
-                df3_bayfront_marina_height: 465_150,            // Nov 28th, 2020.,
-                df4_bayfront_gardens_height: 488_300,           // Dec 8th, 2020.,
-                df5_clarke_quay_height: 595_738,                // Jan 24th, 2021.,
-                df6_dakota_height: 678_000,                     // Mar 1st, 2021.,
-                df7_dakota_crescent_height: 733_000,            // Mar 25th, 2021.,
-                df8_eunos_height: 894_000,                      // Jun 3rd, 2021.,
-                df9_eunos_kampung_height: 895_743,              // Jun 4th, 2021.,
+                df1_amk_height: 356_500,                         // Oct 12th, 2020.,
+                df2_bayfront_height: 405_000,                    // Nov 2nd, 2020.,
+                df3_bayfront_marina_height: 465_150,             // Nov 28th, 2020.,
+                df4_bayfront_gardens_height: 488_300,            // Dec 8th, 2020.,
+                df5_clarke_quay_height: 595_738,                 // Jan 24th, 2021.,
+                df6_dakota_height: 678_000,                      // Mar 1st, 2021.,
+                df7_dakota_crescent_height: 733_000,             // Mar 25th, 2021.,
+                df8_eunos_height: 894_000,                       // Jun 3rd, 2021.,
+                df9_eunos_kampung_height: 895_743,               // Jun 4th, 2021.,
                 df10_eunos_paya_height: 1_072_000,               // Aug 5th, 2021.,
                 df11_fort_canning_height: 1_367_000,             // Nov 15th, 2021.,
                 df12_fort_canning_museum_height: 1_430_640,      // Dec 7th, 2021.,

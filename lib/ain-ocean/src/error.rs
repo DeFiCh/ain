@@ -254,7 +254,8 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    #[must_use] pub fn new(status: StatusCode, message: String, url: String) -> Self {
+    #[must_use]
+    pub fn new(status: StatusCode, message: String, url: String) -> Self {
         let current_time = std::time::SystemTime::now();
         let at = current_time
             .duration_since(std::time::UNIX_EPOCH)
@@ -291,7 +292,8 @@ impl IntoResponse for ApiError {
 }
 
 impl Error {
-    #[must_use] pub fn into_code_and_message(self) -> (StatusCode, String) {
+    #[must_use]
+    pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
             Self::RpcError {
                 error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)),

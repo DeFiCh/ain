@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{pool::*, COIN};
 use bitcoin::{BlockHash, Txid};
-use log::debug;
+use log::trace;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
@@ -141,10 +141,10 @@ fn invalidate_swap_aggregated(
                 .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
                 .context(ArithmeticUnderflowSnafu)?;
 
-            aggregated.aggregated.amounts.insert(
-                from_token_id.to_string(),
-                format!("{aggregated_amount:.8}"),
-            );
+            aggregated
+                .aggregated
+                .amounts
+                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
@@ -167,7 +167,7 @@ fn invalidate_swap_aggregated(
 
 impl Index for PoolSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[Poolswap] Indexing...");
+        trace!("[Poolswap] Indexing...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
         let from = self.from_script;
@@ -204,7 +204,7 @@ impl Index for PoolSwap {
             to,
             block: ctx.block.clone(),
         };
-        debug!("swap : {:?}", swap);
+        trace!("swap : {:?}", swap);
 
         services
             .pool
@@ -241,7 +241,7 @@ impl Index for PoolSwap {
 
 impl Index for CompositeSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[CompositeSwap] Indexing...");
+        trace!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
         let from_token_id = self.pool_swap.from_token_id.0;
         let from_amount = self.pool_swap.from_amount;
@@ -250,7 +250,7 @@ impl Index for CompositeSwap {
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
             services.result.get(&txid)?
         else {
-            debug!("Missing swap result for {}", txid.to_string());
+            trace!("Missing swap result for {}", txid.to_string());
             return Err("Missing swap result".into());
         };
 

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ain_dftx::masternode::*;
 use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
-use log::debug;
+use log::trace;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
 
@@ -27,7 +27,7 @@ fn get_operator_script(hash: &PubkeyHash, r#type: u8) -> Result<ScriptBuf> {
 
 impl Index for CreateMasternode {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[CreateMasternode] Indexing...");
+        trace!("[CreateMasternode] Indexing...");
         let txid = ctx.tx.txid;
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
             return Err("Missing owner address".into());
@@ -59,7 +59,7 @@ impl Index for CreateMasternode {
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[CreateMasternode] Invalidating...");
+        trace!("[CreateMasternode] Invalidating...");
         services.masternode.by_id.delete(&ctx.tx.txid)?;
         services
             .masternode
@@ -105,7 +105,7 @@ fn index_stats(
 
 impl Index for UpdateMasternode {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[UpdateMasternode] Indexing...");
+        trace!("[UpdateMasternode] Indexing...");
         if let Some(mut mn) = services.masternode.by_id.get(&self.node_id)? {
             mn.history.push(HistoryItem {
                 owner_address: mn.owner_address.clone(),
@@ -113,7 +113,7 @@ impl Index for UpdateMasternode {
             });
 
             for update in self.updates.as_ref() {
-                debug!("update : {:?}", update);
+                trace!("update : {:?}", update);
                 match update.r#type {
                     0x1 => {
                         if let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses {
@@ -136,7 +136,7 @@ impl Index for UpdateMasternode {
     }
 
     fn invalidate(&self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
-        debug!("[UpdateMasternode] Invalidating...");
+        trace!("[UpdateMasternode] Invalidating...");
         if let Some(mut mn) = services.masternode.by_id.get(&self.node_id)? {
             if let Some(history_item) = mn.history.pop() {
                 mn.owner_address = history_item.owner_address;
@@ -151,7 +151,7 @@ impl Index for UpdateMasternode {
 
 impl Index for ResignMasternode {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        debug!("[ResignMasternode] Indexing...");
+        trace!("[ResignMasternode] Indexing...");
         if let Some(mn) = services.masternode.by_id.get(&self.node_id)? {
             services.masternode.by_id.put(
                 &self.node_id,
@@ -166,7 +166,7 @@ impl Index for ResignMasternode {
     }
 
     fn invalidate(&self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
-        debug!("[ResignMasternode] Invalidating...");
+        trace!("[ResignMasternode] Invalidating...");
         if let Some(mn) = services.masternode.by_id.get(&self.node_id)? {
             services.masternode.by_id.put(
                 &self.node_id,

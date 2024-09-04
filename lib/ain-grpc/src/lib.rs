@@ -35,7 +35,7 @@ use anyhow::{format_err, Result};
 use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee_server::ServerBuilder;
-use log::{debug, info};
+use log::info;
 use logging::CppLogTarget;
 use tower_http::cors::CorsLayer;
 
@@ -138,7 +138,6 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
         )
         .await?,
     );
-    debug!("client : {:?}", client);
     let network = ain_cpp_imports::get_network();
 
     let ocean_router = ain_ocean::ocean_router(&OCEAN_SERVICES, client, network).await?;

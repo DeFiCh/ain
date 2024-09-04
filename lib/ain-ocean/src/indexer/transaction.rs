@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::debug;
+use log::trace;
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
@@ -19,7 +19,7 @@ use crate::{
 };
 
 pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
-    debug!("[index_transaction] Indexing...");
+    trace!("[index_transaction] Indexing...");
     let idx = ctx.tx_idx;
     let is_evm = check_if_evm_tx(&ctx.tx);
 

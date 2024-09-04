@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{oracles::*, Currency, Token};
 use bitcoin::Txid;
-use log::debug;
+use log::trace;
 use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
@@ -414,7 +414,7 @@ fn map_price_aggregated(
     let oracles_len = oracles.len();
     for oracle in oracles {
         if oracle.weightage == 0 {
-            debug!("Skipping oracle with zero weightage: {:?}", oracle);
+            trace!("Skipping oracle with zero weightage: {:?}", oracle);
             continue;
         }
 
@@ -432,7 +432,7 @@ fn map_price_aggregated(
         if Decimal::abs(&time_diff) < dec!(3600) {
             aggregated_count += 1;
             aggregated_weightage += oracle.weightage;
-            log::debug!(
+            log::trace!(
                 "SetOracleData weightage: {:?} * oracle_price.amount: {:?}",
                 aggregated_weightage,
                 feed.amount
@@ -702,28 +702,14 @@ pub fn index_interval_mapper(
         .collect::<Vec<_>>();
 
     if previous.is_empty() {
-        return start_new_bucket(
-            services,
-            block,
-            token,
-            currency,
-            aggregated,
-            interval,
-        );
+        return start_new_bucket(services, block, token, currency, aggregated, interval);
     }
 
     for (_, id) in previous {
         let aggregated_interval = repo.by_id.get(&id)?;
         if let Some(aggregated_interval) = aggregated_interval {
             if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
-                return start_new_bucket(
-                    services,
-                    block,
-                    token,
-                    currency,
-                    aggregated,
-                    interval,
-                );
+                return start_new_bucket(services, block, token, currency, aggregated, interval);
             }
 
             forward_aggregate(services, &aggregated_interval, aggregated)?;

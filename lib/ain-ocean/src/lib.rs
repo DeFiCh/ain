@@ -151,7 +151,8 @@ pub struct Services {
 }
 
 impl Services {
-    #[must_use] pub fn new(store: Arc<OceanStore>) -> Self {
+    #[must_use]
+    pub fn new(store: Arc<OceanStore>) -> Self {
         Self {
             masternode: MasternodeService {
                 by_id: Masternode::new(Arc::clone(&store)),

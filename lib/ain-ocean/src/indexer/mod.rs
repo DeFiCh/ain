@@ -15,7 +15,7 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
-use log::debug;
+use log::trace;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
@@ -52,7 +52,7 @@ pub struct Context {
 
 fn log_elapsed(previous: Instant, msg: &str) {
     let now = Instant::now();
-    debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
+    trace!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
 fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
@@ -469,7 +469,7 @@ fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()>
 }
 
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
-    debug!("[index_block] Indexing block...");
+    trace!("[index_block] Indexing block...");
     let start = Instant::now();
     let block_hash = block.hash;
     let transaction_count = block.tx.len();
@@ -515,9 +515,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         };
         let raw_tx = &bytes[offset..];
         match deserialize::<Stack>(raw_tx) {
-            Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
-                println!("Discarding invalid marker");
-            }
+            Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => (),
             Err(e) => return Err(e.into()),
             Ok(Stack { dftx, .. }) => {
                 match dftx {

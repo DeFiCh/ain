@@ -16,7 +16,7 @@ use defichain_rpc::{
     LoanRPC, VaultRPC,
 };
 use futures::future::try_join_all;
-use log::debug;
+use log::trace;
 use serde::{Serialize, Serializer};
 use snafu::OptionExt;
 
@@ -251,9 +251,7 @@ async fn list_loan_token(
             let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
-            let key = repo
-                .by_key
-                .get(&(token, currency))?;
+            let key = repo.by_key.get(&(token, currency))?;
             let active_price = if let Some(key) = key {
                 repo.by_id.get(&key)?
             } else {
@@ -298,9 +296,7 @@ async fn get_loan_token(
             let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
-            let key = repo
-                .by_key
-                .get(&(token, currency))?;
+            let key = repo.by_key.get(&(token, currency))?;
             let active_price = if let Some(key) = key {
                 repo.by_id.get(&key)?
             } else {
@@ -495,9 +491,11 @@ async fn list_vault_auction_history(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<VaultAuctionBatchHistory>> {
-    debug!(
+    trace!(
         "Auction history for vault id {}, height {}, batch index {}",
-        vault_id, height, batch_index
+        vault_id,
+        height,
+        batch_index
     );
     let next = query
         .next
@@ -668,7 +666,7 @@ async fn map_token_amounts(
             .by_key
             .list(None, SortOrder::Descending)?
             .collect::<Vec<_>>();
-        log::debug!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
+        log::trace!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
         let active_price = repo
             .by_key
             .list(None, SortOrder::Descending)?

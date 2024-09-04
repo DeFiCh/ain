@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::pool::CreatePoolPair;
-use log::debug;
+use log::trace;
 
 use crate::{
     indexer::{Context, Index, Result},
@@ -16,9 +16,11 @@ impl Index for CreatePoolPair {
             return Err("[CreatePoolPair] Missing result".into());
         };
 
-        debug!(
+        trace!(
             "[CreatePoolPair] Indexing {} {} id {}",
-            ctx.block.height, ctx.tx_idx, &pool_id
+            ctx.block.height,
+            ctx.tx_idx,
+            &pool_id
         );
         let id_a = self.token_a.0 as u32;
         let id_b = self.token_b.0 as u32;
