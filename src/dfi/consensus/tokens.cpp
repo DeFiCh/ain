@@ -115,7 +115,8 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    if (token.IsDAT() && !HasFoundationAuth() && !HasGovernanceAuth()) {
+    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    if (token.IsDAT() && !authCheck.HasAnyAuth()) {
         return Res::Err("tx not from foundation member");
     }
 
@@ -202,8 +203,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         updatedToken.creationHeight = token.creationHeight;
     }
 
-    const auto foundationAuth = HasFoundationAuth();
-    const auto governanceAuth = HasGovernanceAuth();
+    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
 
     Res ownerAuth = Res::Ok();
     if (const auto txid = mnview.GetNewTokenCollateralTXID(tokenID.v); txid != uint256{}) {
@@ -224,22 +224,22 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         if (token.IsDeprecated()) {
             return Res::Err("Token already deprecated");
         }
-        if (!foundationAuth && !governanceAuth && !ownerAuth) {
+        if (!authCheck.HasAnyAuth() && !ownerAuth) {
             return Res::Err("Token deprecation must have auth from the owner, Foundation or Governance");
         }
-        if ((foundationAuth || governanceAuth) && !ownerAuth) {
+        if (authCheck.HasAnyAuth() && !ownerAuth) {
             // Check no other changes are being made
             if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
                 return Res::Err("Token deprecation by Governance or Foundation must not have any other changes");
             }
         }
     } else if (isFoundersToken) {
-        if (!foundationAuth) {
-            return foundationAuth;
+        if (auto res = authCheck.HasFoundationAuth(); !res) {
+            return res;
         }
     } else {
         // Allow Foundation of Governance to undeprecate tokens
-        if (height >= static_cast<uint32_t>(consensus.DF24Height) && !ownerAuth && (foundationAuth || governanceAuth)) {
+        if (height >= static_cast<uint32_t>(consensus.DF24Height) && !ownerAuth && authCheck.HasAnyAuth()) {
             if (!token.IsDeprecated()) {
                 return ownerAuth;
             }

@@ -123,27 +123,79 @@ static Res HasAuthInner(const TransactionContext &txCtx, const std::set<CScript>
     return Res::Err("tx not from foundation member");
 }
 
-Res CCustomTxVisitor::HasFoundationAuth() const {
+Res GovernanceAndFoundationAuth::HasFoundationAuth() {
+    if (foundationAuth) {
+        return *foundationAuth;
+    }
     auto &mnview = blockCtx.GetView();
 
     const auto members = GetFoundationMembers(mnview);
-    return HasAuthInner(txCtx, members);
+    foundationAuth = HasAuthInner(txCtx, members);
+    return *foundationAuth;
 }
 
-Res CCustomTxVisitor::HasGovernanceAuth() const {
+Res GovernanceAndFoundationAuth::HasGovernanceAuth() {
+    if (governanceAuth) {
+        return *governanceAuth;
+    }
+
     auto &mnview = blockCtx.GetView();
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
 
     if (height < consensus.DF24Height) {
-        return Res::Err("Governance cannot be used before the DF24Height");
-    }
-
-    if (HasFoundationAuth()) {
-        return Res::Ok();
+        governanceAuth = Res::Err("Governance cannot be used before the DF24Height");
+        return *governanceAuth;
     }
 
     const auto members = GetGovernanceMembers(mnview);
+    governanceAuth = HasAuthInner(txCtx, members);
+    return *governanceAuth;
+}
+
+Res GovernanceAndFoundationAuth::CanSetGov(const std::vector<std::string> &keys) {
+    if (!HasFoundationAuth() && HasGovernanceAuth()) {
+        bool error{};
+        for (const auto &key : keys) {
+            ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
+                if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
+                    if ((attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation) ||
+                        (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
+                         attrV0->key == DFIPKeys::GovFoundation)) {
+                        error = true;
+                    }
+                }
+                return Res::Ok();
+            });
+        }
+        if (error) {
+            return Res::Err("Foundation cannot be modified by governance");
+        }
+    }
+    return Res::Ok();
+}
+
+Res GovernanceAndFoundationAuth::CanSetGov(const ATTRIBUTES &var) {
+    if (!HasFoundationAuth() && HasGovernanceAuth()) {
+        CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
+        if (var.CheckPartialKey(AttributeTypes::Param, ParamIDs::Foundation) || var.CheckKey(foundationParam)) {
+            return Res::Err("Foundation cannot be modified by governance");
+        }
+    }
+    return Res::Ok();
+}
+
+Res GovernanceAndFoundationAuth::HasAnyAuth() {
+    if (HasFoundationAuth() || HasGovernanceAuth()) {
+        return Res::Ok();
+    }
+    return Res::Err("tx not from foundation member");
+}
+
+Res CCustomTxVisitor::HasFoundationAuth() const {
+    auto &mnview = blockCtx.GetView();
+
+    const auto members = GetFoundationMembers(mnview);
     return HasAuthInner(txCtx, members);
 }
 

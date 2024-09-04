@@ -9,10 +9,9 @@
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // Check foundation auth
-    const auto foundationAuth = HasFoundationAuth();
-    const auto governanceAuth = HasGovernanceAuth();
-    if (!governanceAuth && !foundationAuth) {
-        return Res::Err("tx not from foundation member");
+    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    if (auto res = authCheck.HasAnyAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -40,8 +39,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 return Res::Err("Failed to cast Gov var to ATTRIBUTES");
             }
 
-            CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-
             if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
                 res = newVar->CheckKeys();
                 if (!res) {
@@ -53,15 +50,12 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                     return Res::Err("Cannot export empty attribute map");
                 }
 
-                if (governanceAuth && !foundationAuth) {
-                    CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
-                    if (newVar->CheckPartialKey(foundationMembers.type, foundationMembers.typeId) ||
-                        newVar->CheckKey(foundationParam)) {
-                        return Res::Err("Foundation cannot be modified by governance");
-                    }
+                if (res = authCheck.CanSetGov(*newVar); !res) {
+                    return res;
                 }
             }
 
+            CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
             res = GovernanceMemberRemoval(*newVar, *govVar, foundationMembers);
             if (!res) {
                 return res;
@@ -114,10 +108,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 
 Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
     // Check foundation auth
-    const auto foundationAuth = HasFoundationAuth();
-    const auto governanceAuth = HasGovernanceAuth();
-    if (!governanceAuth && !foundationAuth) {
-        return Res::Err("tx not from foundation member");
+    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    if (auto res = authCheck.HasAnyAuth(); !res) {
+        return res;
     }
 
     const auto height = txCtx.GetHeight();
@@ -130,23 +123,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
     }
 
     for (const auto &[name, keys] : obj.govs) {
-        if (name == "ATTRIBUTES" && !foundationAuth && governanceAuth) {
-            bool error{};
-            for (const auto &key : keys) {
-                ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
-                    if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
-                        if ((attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation &&
-                             attrV0->key == DFIPKeys::Members) ||
-                            (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
-                             attrV0->key == DFIPKeys::GovFoundation)) {
-                            error = true;
-                        }
-                    }
-                    return Res::Ok();
-                });
-            }
-            if (error) {
-                return Res::Err("Foundation cannot be modified by governance");
+        if (name == "ATTRIBUTES") {
+            if (auto res = authCheck.CanSetGov(keys); !res) {
+                return res;
             }
         }
 
@@ -169,10 +148,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
 
 Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const {
     // Check foundation auth
-    const auto foundationAuth = HasFoundationAuth();
-    const auto governanceAuth = HasGovernanceAuth();
-    if (!governanceAuth && !foundationAuth) {
-        return Res::Err("tx not from foundation member");
+    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    if (auto res = authCheck.HasAnyAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -208,12 +186,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
                 return Res::Err("Cannot export empty attribute map");
             }
 
-            if (governanceAuth && !foundationAuth) {
-                CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
-                if (newVar->CheckPartialKey(AttributeTypes::Param, ParamIDs::Foundation) ||
-                    newVar->CheckKey(foundationParam)) {
-                    return Res::Err("Foundation cannot be modified by governance");
-                }
+            if (res = authCheck.CanSetGov(*newVar); !res) {
+                return res;
             }
         }
 
