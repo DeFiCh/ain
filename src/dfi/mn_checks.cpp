@@ -801,18 +801,14 @@ bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid, cons
     if (CTransactionRef ptx = pool.get(txid)) {
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(*ptx, metadata, true);
-        LogPrintf("XXX IsMempooledCustomTxCreate input %s\n", ToString(txType));
         if (txType == CustomTxType::UpdateTokenAny) {
-            LogPrintf("XXX IsMempooledCustomTxCreate UpdateToken input\n");
             CCustomTxMessage txMessage{CUpdateTokenMessage{}};
             auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
             if (!res) {
-                LogPrintf("XXX IsMempooledCustomTxCreate failed to parse metadata\n");
                 return false;
             }
             auto obj = std::get<CUpdateTokenMessage>(txMessage);
             if (obj.newCollateralAddress) {
-                LogPrintf("XXX IsMempooledCustomTxCreate is collateral update\n");
                 return true;
             }
         }
