@@ -4,7 +4,7 @@ use axum::{
     Json,
 };
 use serde::Serialize;
-use serde_json::{json, value::Index};
+use serde_json::json;
 use snafu::{Location, Snafu};
 
 #[derive(Debug)]
