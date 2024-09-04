@@ -1309,11 +1309,32 @@ class RestartdTokensTest(DefiTestFramework):
             ["4239.07070563@DUSD", "7.19999991@SPY"],
         )
 
-        # check history entries
+        # Check history entries
+
+        # Generate block to populate the history
+        self.nodes[0].generate(1)
+
         # split
         assert_equal(
             len(self.nodes[0].listaccounthistory(self.address, {"txtypes": ["P"]})),
-            10,  # = 5 split "tokens" (2 token, 3 pools)
+            13,  # = 5 split "tokens" (2 token, 3 pools 3 commission)
+        )
+
+        # Check balances
+        assert_equal(
+            sorted(self.nodes[0].getaccount(self.address)),
+            [
+                "0.50000000@SPY",
+                "0.96000006@BTC",
+                "1.00000000@SPY-DUSD",
+                "127.27921962@DUSD-DFI",
+                "22.36066977@USDT-DFI",
+                "39847.97727529@DFI",
+                "62.00000000@DUSD",
+                "855.00507778@USDT",
+                "94.86832881@USDT-DUSD",
+                "99.99999000@BTC-DFI",
+            ],
         )
 
         assert_equal(
@@ -1324,7 +1345,11 @@ class RestartdTokensTest(DefiTestFramework):
                 )
             ],
             [
+                {"h": 1001, "t": "blockReward", "a": ["122.11455925@DFI"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["-5.00000000@SPY/v1"]},
+                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
+                {"h": 1000, "t": "Commission", "a": ["0.13769666@DFI"]},
+                {"h": 1000, "t": "Commission", "a": ["0.07777178@USDT"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["5.00000000@SPY"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["-620.00000000@DUSD/v1"]},
                 {"h": 1000, "t": "TokenSplit", "a": ["620.00000000@DUSD"]},
@@ -1347,16 +1372,12 @@ class RestartdTokensTest(DefiTestFramework):
                         "-853.81495924@USDT-DUSD",
                     ],
                 },
-                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
-                {"h": 1000, "t": "Commission", "a": ["1.23927002@DFI"]},
-                {"h": 1000, "t": "Commission", "a": ["0.69994603@USDT"]},
                 {"h": 1000, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 999, "t": "blockReward", "a": ["122.11455925@DFI"]},
             ],
         )
 
         lockHistory = self.nodes[0].listaccounthistory(self.address, {"txtypes": ["?"]})
-        assert_equal(len(lockHistory), 1)
+        assert_equal(len(lockHistory), 4)
         assert_equal(
             lockHistory[0]["amounts"],
             [
@@ -1412,74 +1433,6 @@ class RestartdTokensTest(DefiTestFramework):
         )  # on lockaddress, every lock is a seperate entry
         assert_equal(
             lockHistory[0]["amounts"], ["7.19999991@SPY", "4239.07070563@DUSD"]
-        )
-
-        # check commission history after blocks (to workaround listhistory bug)
-
-        self.nodes[0].generate(5)
-
-        # account is same (no DFI rewards on pools)
-        assert_equal(
-            sorted(self.nodes[0].getaccount(self.address)),
-            [
-                "0.50000000@SPY",
-                "0.96000006@BTC",
-                "1.00000000@SPY-DUSD",
-                "127.27921962@DUSD-DFI",
-                "22.36066977@USDT-DFI",
-                "39847.97727529@DFI",
-                "62.00000000@DUSD",
-                "855.00507778@USDT",
-                "94.86832881@USDT-DUSD",
-                "99.99999000@BTC-DFI",
-            ],
-        )
-
-        assert_equal(
-            [
-                {"h": entry["blockHeight"], "t": entry["type"], "a": entry["amounts"]}
-                for entry in self.nodes[0].listaccounthistory(
-                    self.address, {"depth": 6}
-                )
-            ],
-            [
-                {"h": 1005, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 1004, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 1003, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 1002, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 1001, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["-5.00000000@SPY/v1"]},
-                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
-                {"h": 1000, "t": "Commission", "a": ["0.13769666@DFI"]},
-                {"h": 1000, "t": "Commission", "a": ["0.07777178@USDT"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["5.00000000@SPY"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["-620.00000000@DUSD/v1"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["620.00000000@DUSD"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["-9.99999000@SPY-DUSD/v1"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["9.99999997@SPY-DUSD"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["-1272.79219613@DUSD-DFI/v1"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["1272.79219613@DUSD-DFI"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["-948.68328805@USDT-DUSD/v1"]},
-                {"h": 1000, "t": "TokenSplit", "a": ["948.68328805@USDT-DUSD"]},
-                {
-                    "h": 1000,
-                    "t": "TokenLock",
-                    "a": [
-                        "547.83957863@DFI",
-                        "844.92730600@USDT",
-                        "-4.50000000@SPY",
-                        "-558.00000000@DUSD",
-                        "-8.99999997@SPY-DUSD",
-                        "-1145.51297651@DUSD-DFI",
-                        "-853.81495924@USDT-DUSD",
-                    ],
-                },
-                {"h": 1000, "t": "Commission", "a": ["0.00000006@BTC"]},
-                {"h": 1000, "t": "Commission", "a": ["1.37696669@DFI"]},
-                {"h": 1000, "t": "Commission", "a": ["0.77771781@USDT"]},
-                {"h": 1000, "t": "blockReward", "a": ["122.11455925@DFI"]},
-                {"h": 999, "t": "blockReward", "a": ["122.11455925@DFI"]},
-            ],
         )
 
     def check_upgrade_fail(self):

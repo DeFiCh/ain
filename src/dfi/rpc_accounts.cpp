@@ -204,7 +204,7 @@ static void onPoolRewards(CCustomCSView &view,
             // End must be above start and then one more beyond the range.
             auto newEndHeight = beginNewHeight + 2;
             // Loop over one block a time to build account history with correct height records
-            for (; beginNewHeight < end; ++beginNewHeight, ++newEndHeight) {
+            for (; newEndHeight <= end; ++beginNewHeight, ++newEndHeight) {
                 view.CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, newEndHeight);
             }
         }
