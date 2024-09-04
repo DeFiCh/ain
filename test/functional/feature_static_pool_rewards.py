@@ -477,7 +477,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         ltc_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
 
         return dfi_balance, ltc_balance
-    
+
     def change_liquidiity_and_check_commission(self):
 
         # Rollback block
@@ -492,8 +492,10 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
 
-
-        self.nodes[0].accounttoaccount(self.address, {self.nodes[0].getnewaddress("", "legacy"): '499.99999000@LTC-DFI'})
+        self.nodes[0].accounttoaccount(
+            self.address,
+            {self.nodes[0].getnewaddress("", "legacy"): "499.99999000@LTC-DFI"},
+        )
         self.nodes[0].poolswap(
             {
                 "from": self.owner_address,
