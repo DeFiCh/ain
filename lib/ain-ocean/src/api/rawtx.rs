@@ -11,6 +11,7 @@ use bitcoin::{Transaction, Txid};
 use defichain_rpc::{PoolPairRPC, RpcApi};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
+use snafu::location;
 
 use super::{query::Query, response::Response, AppContext};
 use crate::{
@@ -52,11 +53,15 @@ async fn send_raw_tx(
     {
         Ok(tx_hash) => Ok(tx_hash.to_string()),
         Err(e) => {
-            eprintln!("Failed to send raw transaction: {:?}", e);
             if e.to_string().contains("TX decode failed") {
-                Err(Error::BadRequest("Transaction decode failed".to_string()))
+                Err(Error::BadRequest {
+                    msg: "Transaction decode failed".to_string(),
+                })
             } else {
-                Err(Error::RpcError(e))
+                Err(Error::RpcError {
+                    error: e,
+                    location: location!(),
+                })
             }
         }
     }
@@ -92,11 +97,15 @@ async fn test_raw_tx(
             Ok(Response::new(results))
         }
         Err(e) => {
-            eprintln!("Failed to send raw transaction: {:?}", e);
             if e.to_string().contains("TX decode failed") {
-                Err(Error::BadRequest("Transaction decode failed".to_string()))
+                Err(Error::BadRequest {
+                    msg: "Transaction decode failed".to_string(),
+                })
             } else {
-                Err(Error::RpcError(e))
+                Err(Error::RpcError {
+                    error: e,
+                    location: location!(),
+                })
             }
         }
     }
@@ -124,18 +133,14 @@ async fn get_raw_tx(
     if !verbose {
         let tx_hex = ctx.client.get_raw_transaction_hex(&tx_hash, None).await.map_err(|e| {
             if e.to_string().contains("No such mempool or blockchain transaction. Use gettransaction for wallet transactions.") {
-                Error::NotFound(NotFoundKind::RawTx)
+                Error::NotFound { kind: NotFoundKind::RawTx }
             } else {
-                Error::RpcError(e)
+                Error::RpcError { error: e, location: location!() }
             }
         })?;
         Ok(TransactionResponse::HexString(tx_hex))
     } else {
-        let tx_info = ctx
-            .client
-            .get_raw_transaction_info(&tx_hash, None)
-            .await
-            .map_err(Error::RpcError)?;
+        let tx_info = ctx.client.get_raw_transaction_info(&tx_hash, None).await?;
         let result = RawTransactionResult {
             in_active_chain: tx_info.in_active_chain,
             hex: tx_info.hex,
@@ -198,9 +203,9 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
             }
             Ok(())
         } else {
-            Err(Error::BadRequest(
-                "Transaction is not a composite swap".to_string(),
-            ))
+            Err(Error::BadRequest {
+                msg: "Transaction is not a composite swap".to_string(),
+            })
         }
     } else {
         Ok(())

@@ -1,3 +1,4 @@
+use ain_dftx::Weightage;
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +14,7 @@ pub struct OracleHistory {
     pub oracle_id: Txid,
     pub sort: String, // height-txid
     pub owner_address: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub price_feeds: Vec<PriceFeedsItem>,
     pub block: BlockContext,
 }

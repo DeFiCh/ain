@@ -3,7 +3,6 @@ use std::sync::Arc;
 mod state;
 
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -11,6 +10,7 @@ use axum::{
 };
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use self::state::{MasternodeService, MasternodeState};
 use super::{
@@ -20,7 +20,7 @@ use super::{
 };
 use crate::{
     api::common::Paginate,
-    error::{ApiError, Error, NotFoundKind},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::Masternode,
     storage::{RepositoryOps, SortOrder},
     Result, SecondaryIndex,
@@ -99,8 +99,8 @@ async fn list_masternodes(
         .next
         .as_ref()
         .map(|q| {
-            let height = q[0..8].parse::<u32>().context("Invalid height")?;
-            let txid = q[8..].parse::<Txid>().context("Invalid txid")?;
+            let height = q[0..8].parse::<u32>()?;
+            let txid = q[8..].parse::<Txid>()?;
 
             Ok::<(u32, bitcoin::Txid), Error>((height, txid))
         })
@@ -152,7 +152,9 @@ async fn get_masternode(
             let state = MasternodeService::new(ctx.network).get_masternode_state(&mn, height);
             MasternodeData::from_with_state(mn, state)
         })
-        .ok_or(Error::NotFound(NotFoundKind::Masternode))?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Masternode,
+        })?;
 
     Ok(Response::new(mn))
 }

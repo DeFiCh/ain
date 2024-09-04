@@ -18,9 +18,10 @@ use helper::check_if_evm_tx;
 use log::debug;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
+use snafu::OptionExt;
 
 use crate::{
-    error::IndexAction,
+    error::{DecimalConversionSnafu, IndexAction},
     hex_encoder::as_sha256,
     index_transaction,
     model::{
@@ -31,7 +32,7 @@ use crate::{
         ScriptUnspentVout, TransactionVout, TransactionVoutScript,
     },
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
-    Error, Result, Services,
+    Result, Services,
 };
 
 pub(crate) trait Index {
@@ -146,7 +147,7 @@ fn find_tx_vout(
         let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
 
         if let Some(vout) = vout {
-            let value = Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
+            let value = Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
             let tx_vout = TransactionVout {
                 id: format!("{}{:x}", tx.txid, vin.vout),
                 txid: tx.txid,

@@ -1,8 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::COIN;
+use ain_dftx::{Currency, Token, COIN};
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -13,6 +12,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    common::parse_token_currency,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -55,8 +55,8 @@ pub struct OraclePriceFeedResponse {
     pub id: String,
     pub key: String,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: Txid,
     pub txid: Txid,
     pub time: i32,
@@ -72,9 +72,7 @@ async fn get_feed(
 ) -> Result<ApiPagedResponse<OraclePriceFeedResponse>> {
     let txid = Txid::from_str(&oracle_id)?;
 
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let key = (token, currency, txid);
 

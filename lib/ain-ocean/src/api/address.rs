@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, hex::DisplayHex, BlockHash, Txid};
 use defichain_rpc::{
@@ -90,7 +89,9 @@ async fn get_account_history(
         .client
         .get_account_history(&address, height, txno)
         .await
-        .context("Record not found")?;
+        .map_err(|_| Error::Other {
+            msg: "Record not found".to_string(),
+        })?;
 
     Ok(Response::new(res.into()))
 }

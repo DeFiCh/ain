@@ -12,11 +12,7 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{
-    error::{ApiError, Error, NotFoundKind},
-    model::ApiProposalInfo,
-    Result,
-};
+use crate::{error::ApiError, model::ApiProposalInfo, Result};
 
 #[derive(Deserialize, Default)]
 pub struct GovernanceQuery {
@@ -65,9 +61,7 @@ async fn get_gov_proposal(
     Extension(ctx): Extension<Arc<AppContext>>,
     Path(proposal_id): Path<String>,
 ) -> Result<Response<ApiProposalInfo>> {
-    let txid: Txid = proposal_id
-        .parse()
-        .map_err(|_| Error::NotFound(NotFoundKind::Proposal))?;
+    let txid: Txid = proposal_id.parse()?;
 
     let proposal = ctx.client.get_gov_proposal(txid).await?;
     Ok(Response::new(proposal.into()))
@@ -79,9 +73,7 @@ async fn list_gov_proposal_votes(
     Query(query): Query<GovernanceQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<ListVotesResult>> {
-    let proposal_id: Txid = proposal_id
-        .parse()
-        .map_err(|_| Error::NotFound(NotFoundKind::Proposal))?;
+    let proposal_id: Txid = proposal_id.parse()?;
 
     let size = match query.all {
         Some(true) => 0,

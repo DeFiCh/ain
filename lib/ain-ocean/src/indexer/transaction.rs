@@ -5,10 +5,11 @@ use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
 };
+use snafu::OptionExt;
 
 use super::{helper::check_if_evm_tx, Context};
 use crate::{
-    error::Error,
+    error::DecimalConversionSnafu,
     indexer::Result,
     model::{
         Transaction as TransactionMapper, TransactionVin, TransactionVout, TransactionVoutScript,
@@ -46,7 +47,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
             .vout_by_id
             .put(&(txid, vout.n), &tx_vout)?;
 
-        total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
+        total_vout_value += Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
         vouts.push(tx_vout);
     }
 

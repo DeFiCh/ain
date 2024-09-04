@@ -24,6 +24,10 @@ use self::{
 };
 use crate::custom_tx::CustomTxType;
 
+pub type Token = String;
+pub type Currency = String;
+pub type Weightage = u8;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum DfTx {
     AccountToAccount(AccountToAccount),

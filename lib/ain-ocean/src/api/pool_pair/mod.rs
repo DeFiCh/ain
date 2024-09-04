@@ -4,7 +4,6 @@ use std::{
 };
 
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     json::{poolpair::PoolPairInfo, token::TokenInfo},
@@ -25,17 +24,18 @@ use service::{
     check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
     get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
+use snafu::OptionExt;
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
-    common::parse_dat_symbol,
+    common::{parse_dat_symbol, parse_pool_pair_symbol, parse_query_height_txno},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -44,11 +44,6 @@ use crate::{
 pub mod path;
 pub mod price;
 pub mod service;
-
-// #[derive(Deserialize)]
-// struct PoolPair {
-//     id: String,
-// }
 
 #[derive(Deserialize)]
 struct SwapAggregate {
@@ -207,12 +202,9 @@ impl PoolPairResponse {
         apr: PoolPairAprResponse,
         volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
-        let mut parts = p.symbol.split('-');
-        let a = parts.next().context("Missing symbol a")?;
-        let b = parts.next().context("Missing symbol b")?;
-
-        let a_parsed = parse_dat_symbol(a);
-        let b_parsed = parse_dat_symbol(b);
+        let (a, b) = parse_pool_pair_symbol(&p.symbol)?;
+        let a_parsed = parse_dat_symbol(&a);
+        let b_parsed = parse_dat_symbol(&b);
 
         Ok(Self {
             id,
@@ -270,6 +262,52 @@ impl PoolPairResponse {
     }
 }
 
+async fn map_pool_pair_response(
+    ctx: &Arc<AppContext>,
+    id: String,
+    p: PoolPairInfo,
+) -> Result<PoolPairResponse> {
+    let (
+        _,
+        TokenInfo {
+            name: a_token_name, ..
+        },
+    ) = get_token_cached(ctx, &p.id_token_a)
+        .await?
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token {
+                id: p.id_token_a.clone(),
+            },
+        })?;
+    let (
+        _,
+        TokenInfo {
+            name: b_token_name, ..
+        },
+    ) = get_token_cached(ctx, &p.id_token_b)
+        .await?
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token {
+                id: p.id_token_b.clone(),
+            },
+        })?;
+
+    let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
+    let apr = get_apr(ctx, &id, &p).await?;
+    let volume = get_usd_volume(ctx, &id).await?;
+    let res = PoolPairResponse::from_with_id(
+        id,
+        p,
+        a_token_name,
+        b_token_name,
+        total_liquidity_usd,
+        apr,
+        volume,
+    )?;
+
+    Ok(res)
+}
+
 #[ocean_endpoint]
 async fn list_pool_pairs(
     Query(query): Query<PaginationQuery>,
@@ -300,35 +338,7 @@ async fn list_pool_pairs(
         .into_iter()
         .filter(|(_, p)| !p.symbol.starts_with("BURN-"))
         .map(|(id, p)| async {
-            let (
-                _,
-                TokenInfo {
-                    name: a_token_name, ..
-                },
-            ) = get_token_cached(&ctx, &p.id_token_a)
-                .await?
-                .context("None is not valid")?;
-            let (
-                _,
-                TokenInfo {
-                    name: b_token_name, ..
-                },
-            ) = get_token_cached(&ctx, &p.id_token_b)
-                .await?
-                .context("None is not valid")?;
-
-            let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
-            let apr = get_apr(&ctx, &id, &p).await?;
-            let volume = get_usd_volume(&ctx, &id).await?;
-            let res = PoolPairResponse::from_with_id(
-                id,
-                p,
-                a_token_name,
-                b_token_name,
-                total_liquidity_usd,
-                apr,
-                volume,
-            )?;
+            let res = map_pool_pair_response(&ctx, id, p).await?;
             Ok::<PoolPairResponse, Error>(res)
         })
         .collect::<Vec<_>>();
@@ -345,39 +355,14 @@ async fn get_pool_pair(
     Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PoolPairResponse>>> {
-    if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
-        let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
-        let apr = get_apr(&ctx, &id, &pool).await?;
-        let volume = get_usd_volume(&ctx, &id).await?;
-        let (
-            _,
-            TokenInfo {
-                name: a_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &pool.id_token_a)
-            .await?
-            .context("None is not valid")?;
-        let (
-            _,
-            TokenInfo {
-                name: b_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &pool.id_token_b)
-            .await?
-            .context("None is not valid")?;
-        let res = PoolPairResponse::from_with_id(
-            id,
-            pool,
-            a_token_name,
-            b_token_name,
-            total_liquidity_usd,
-            apr,
-            volume,
-        )?;
+    if let Some((id, p)) = get_pool_pair_cached(&ctx, id).await? {
+        let res = map_pool_pair_response(&ctx, id, p).await?;
         return Ok(Response::new(Some(res)));
     };
 
-    Err(Error::NotFound(NotFoundKind::PoolPair))
+    Err(Error::NotFound {
+        kind: NotFoundKind::PoolPair,
+    })
 }
 
 #[ocean_endpoint]
@@ -390,15 +375,8 @@ async fn list_pool_swaps(
         .next
         .as_ref()
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((id, height, txno))
+            let (height, txno) = parse_query_height_txno(q)?;
+            Ok::<(u32, u32, usize), Error>((id, height, txno))
         })
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));
@@ -436,15 +414,8 @@ async fn list_pool_swaps_verbose(
         .next
         .as_ref()
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((id, height, txno))
+            let (height, txno) = parse_query_height_txno(q)?;
+            Ok::<(u32, u32, usize), Error>((id, height, txno))
         })
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));

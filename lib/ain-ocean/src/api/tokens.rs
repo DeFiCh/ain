@@ -17,7 +17,10 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{error::ApiError, Result};
+use crate::{
+    error::{ApiError, Error},
+    Result,
+};
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct TxHeight {
@@ -48,7 +51,6 @@ pub struct TokenData {
     creation: TxHeight,
     destruction: TxHeight,
     display_symbol: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     collateral_address: Option<String>,
 }
 
@@ -121,7 +123,13 @@ async fn get_token(
     Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<TokenData>>> {
-    let mut v: TokenResult = ctx.client.call("gettoken", &[id.as_str().into()]).await?;
+    let mut v: TokenResult = ctx
+        .client
+        .call("gettoken", &[id.as_str().into()])
+        .await
+        .map_err(|_| Error::NotFoundMessage {
+            msg: "Unable to find token".to_string(),
+        })?;
 
     let res =
         v.0.remove(&id)

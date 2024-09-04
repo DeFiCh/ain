@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use ain_dftx::COIN;
+use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
-use anyhow::Context;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -12,15 +11,17 @@ use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use super::{
+    common::parse_token_currency,
     oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error},
+    error::{ApiError, Error, OtherSnafu},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
         OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker,
@@ -35,8 +36,8 @@ pub struct OraclePriceAggregatedResponse {
     pub id: String,
     pub key: String,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub aggregated: OraclePriceAggregatedAggregatedResponse,
     pub block: BlockContext,
 }
@@ -45,7 +46,7 @@ pub struct OraclePriceAggregatedResponse {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregatedResponse {
     pub amount: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub oracles: OraclePriceActiveNextOracles,
 }
 
@@ -114,7 +115,9 @@ async fn list_prices(
                 .price_ticker
                 .by_id
                 .get(&id)?
-                .context("Missing price ticker index")?;
+                .context(OtherSnafu {
+                    msg: "Missing price ticker index",
+                })?;
 
             Ok(PriceTickerResponse::from(price_ticker))
         })
@@ -130,9 +133,7 @@ async fn get_price(
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PriceTickerResponse>>> {
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let price_ticker = ctx
         .services
@@ -155,9 +156,7 @@ async fn get_feed(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let repo = &ctx.services.oracle_price_aggregated;
     let id = (token.to_string(), currency.to_string(), u32::MAX);
@@ -188,9 +187,7 @@ async fn get_feed_active(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let key = (token.to_string(), currency.to_string());
     let repo = &ctx.services.oracle_price_active;
@@ -219,9 +216,7 @@ async fn get_feed_with_interval(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let interval = match interval.as_str() {
         "900" => OracleIntervalSeconds::FifteenMinutes,
@@ -253,10 +248,10 @@ async fn get_feed_with_interval(
 pub struct PriceOracleResponse {
     pub id: String,
     pub key: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub feed: Option<OraclePriceFeedResponse>,
     pub block: BlockContext,
 }
@@ -267,9 +262,7 @@ async fn get_oracles(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceOracleResponse>> {
-    let mut parts = key.split('-');
-    let token = parts.next().context("Missing token")?;
-    let currency = parts.next().context("Missing currency")?;
+    let (token, currency) = parse_token_currency(&key)?;
 
     let id = (
         token.to_string(),

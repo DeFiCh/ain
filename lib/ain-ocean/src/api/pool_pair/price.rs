@@ -1,7 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use defichain_rpc::json::token::TokenInfo;
+use rust_decimal::Decimal;
 use serde::Serialize;
+use snafu::OptionExt;
 
 use super::{path::get_best_path, AppContext};
 use crate::{
@@ -9,7 +11,7 @@ use crate::{
         cache::{get_token_cached, list_tokens_cached},
         common::parse_display_symbol,
     },
-    error::{Error, NotFoundKind},
+    error::{Error, NotFoundKind, NotFoundSnafu},
     Result, TokenIdentifier,
 };
 
@@ -17,7 +19,8 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct DexPrice {
     pub token: TokenIdentifier,
-    pub denomination_price: String,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub denomination_price: Decimal,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq)]
@@ -34,10 +37,17 @@ fn is_untradable_token(token: &TokenInfo) -> bool {
 pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<DexPriceResponse> {
     let (denomination_token_id, denomination_token_info) = get_token_cached(ctx, &symbol)
         .await?
-        .ok_or(Error::NotFound(NotFoundKind::Token))?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token { id: symbol },
+        })?;
 
     if is_untradable_token(&denomination_token_info) {
-        return Err(Error::UntradeableTokenError(denomination_token_info.symbol));
+        return Err(Error::Other {
+            msg: format!(
+                "Token \"{}\" is invalid as it is not tradeable",
+                denomination_token_info.symbol
+            ),
+        });
     };
 
     let tokens = list_tokens_cached(ctx)

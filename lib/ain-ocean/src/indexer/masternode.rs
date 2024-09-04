@@ -4,10 +4,11 @@ use ain_dftx::masternode::*;
 use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
 use log::debug;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
+use snafu::OptionExt;
 
 use super::Context;
 use crate::{
-    error::Error,
+    error::DecimalConversionSnafu,
     indexer::{Index, Result},
     model::{HistoryItem, Masternode, MasternodeStats, MasternodeStatsData, TimelockStats},
     storage::RepositoryOps,
@@ -31,8 +32,7 @@ impl Index for CreateMasternode {
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
             return Err("Missing owner address".into());
         };
-        let collateral =
-            Decimal::from_f64(ctx.tx.vout[1].value).ok_or(Error::DecimalConversionError)?;
+        let collateral = Decimal::from_f64(ctx.tx.vout[1].value).context(DecimalConversionSnafu)?;
 
         let masternode = Masternode {
             id: txid,

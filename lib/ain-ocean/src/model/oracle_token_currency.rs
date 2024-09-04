@@ -1,3 +1,4 @@
+use ain_dftx::{Currency, Token, Weightage};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
@@ -10,9 +11,9 @@ pub type OracleTokenCurrencyKey = (String, String, u32); //token-currency-height
 pub struct OracleTokenCurrency {
     pub id: OracleTokenCurrencyId,
     pub key: OracleTokenCurrencyKey,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: Txid,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub block: BlockContext,
 }

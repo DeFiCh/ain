@@ -1,7 +1,6 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
-use ain_dftx::oracles::*;
-use anyhow::Context as _;
+use ain_dftx::{oracles::*, Currency, Token};
 use bitcoin::Txid;
 use log::debug;
 use rust_decimal::{
@@ -9,8 +8,10 @@ use rust_decimal::{
     Decimal,
 };
 use rust_decimal_macros::dec;
+use snafu::OptionExt;
 
 use crate::{
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, OtherSnafu, ToPrimitiveSnafu},
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
@@ -19,7 +20,7 @@ use crate::{
         OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
-    Error, Services,
+    Services,
 };
 
 pub const AGGREGATED_INTERVALS: [OracleIntervalSeconds; 3] = [
@@ -438,7 +439,7 @@ fn map_price_aggregated(
             );
             let weighted_amount = Decimal::from(feed.amount)
                 .checked_mul(Decimal::from(oracle.weightage))
-                .context("weighted_amount overflow")?;
+                .context(ArithmeticOverflowSnafu)?;
             aggregated_total += weighted_amount;
         }
     }
@@ -648,8 +649,8 @@ fn map_price_feeds(data: &SetOracleData, ctx: &Context) -> Vec<OraclePriceFeed> 
 fn start_new_bucket(
     services: &Arc<Services>,
     block: &BlockContext,
-    token: String,
-    currency: String,
+    token: Token,
+    currency: Currency,
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
@@ -684,8 +685,8 @@ fn start_new_bucket(
 pub fn index_interval_mapper(
     services: &Arc<Services>,
     block: &BlockContext,
-    token: String,
-    currency: String,
+    token: Token,
+    currency: Currency,
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
@@ -754,7 +755,9 @@ pub fn invalidate_oracle_interval(
                 .oracle_price_aggregated_interval
                 .by_id
                 .get(&id)?
-                .context("Missing oracle price aggregated interval index")?;
+                .context(OtherSnafu {
+                    msg: "Missing oracle price aggregated interval index",
+                })?;
             Ok(price)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -802,13 +805,15 @@ pub fn invalidate_oracle_interval(
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
                 .to_u8()
-                .context("Err: Decimal.to_u8()")?,
+                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active
                     .to_i32()
-                    .context("Err: Decimal.to_i32()")?,
-                total: aggregated_total.to_i32().context("Err: Decimal.to_i32()")?,
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
+                total: aggregated_total
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
         block: previous.block.clone(),
@@ -862,13 +867,15 @@ fn forward_aggregate(
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
                 .to_u8()
-                .context("Err: Decimal.to_u8()")?,
+                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active
                     .to_i32()
-                    .context("Err: Decimal.to_i32()")?,
-                total: aggregated_total.to_i32().context("Err: Decimal.to_i32()")?,
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
+                total: aggregated_total
+                    .to_i32()
+                    .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
         block: previous.block.clone(),
@@ -891,7 +898,7 @@ fn forward_aggregate_value(
 ) -> Result<Decimal> {
     (last_value * count + new_value)
         .checked_div(count + dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .context(ArithmeticUnderflowSnafu)
 }
 
 fn backward_aggregate_value(
@@ -901,7 +908,7 @@ fn backward_aggregate_value(
 ) -> Result<Decimal> {
     (last_value * count - new_value)
         .checked_div(count - dec!(1))
-        .ok_or_else(|| Error::UnderflowError)
+        .context(ArithmeticUnderflowSnafu)
 }
 
 fn get_previous_oracle_history_list(
@@ -918,7 +925,9 @@ fn get_previous_oracle_history_list(
                 .oracle_history
                 .by_id
                 .get(&id)?
-                .context("Missing oracle previous history index")?;
+                .context(OtherSnafu {
+                    msg: "Missing oracle previous history index",
+                })?;
 
             Ok(b)
         })

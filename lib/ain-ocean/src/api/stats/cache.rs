@@ -1,6 +1,5 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use anyhow::Context;
 use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client,
@@ -12,19 +11,21 @@ use rust_decimal::{
 };
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use super::{subsidy::BLOCK_SUBSIDY, COIN};
 use crate::{
     api::{
         cache::list_pool_pairs_cached,
-        common::find_token_balance,
+        common::{find_token_balance, parse_amount},
         pool_pair::service::{get_total_liquidity_usd, get_usd_per_dfi},
         stats::get_block_reward_distribution,
         AppContext,
     },
+    error::{DecimalConversionSnafu, OtherSnafu},
     model::MasternodeStatsData,
     storage::{RepositoryOps, SortOrder},
-    Error, Result,
+    Result,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -46,11 +47,10 @@ pub struct Burned {
 pub async fn get_burned(client: &Client) -> Result<Burned> {
     let burn_info = client.get_burn_info().await?;
 
-    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
-    let emission =
-        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
-    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
-    let auction = Decimal::from_f64(burn_info.auctionburn).ok_or(Error::DecimalConversionError)?;
+    let utxo = Decimal::from_f64(burn_info.amount).context(DecimalConversionSnafu)?;
+    let emission = Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
+    let fee = Decimal::from_f64(burn_info.feeburn).context(DecimalConversionSnafu)?;
+    let auction = Decimal::from_f64(burn_info.auctionburn).context(DecimalConversionSnafu)?;
 
     let account = find_token_balance(burn_info.tokens, "DFI");
     let address = utxo + account;
@@ -133,28 +133,24 @@ lazy_static::lazy_static! {
     convert = r#"{ format!("burned_total") }"#
 )]
 pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
-    let burn_address = BURN_ADDRESS
-        .get(ctx.network.as_str())
-        .context("Missing burn address")?;
+    let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).context(OtherSnafu {
+        msg: "Missing burn address",
+    })?;
     let accounts = ctx
         .client
         .get_account(burn_address, None, Some(true))
         .await?;
     let burn_info = ctx.client.get_burn_info().await?;
 
-    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
-    let emission =
-        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
-    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
+    let utxo = Decimal::from_f64(burn_info.amount).context(DecimalConversionSnafu)?;
+    let emission = Decimal::from_f64(burn_info.emissionburn).context(DecimalConversionSnafu)?;
+    let fee = Decimal::from_f64(burn_info.feeburn).context(DecimalConversionSnafu)?;
     let account_balance = if let AccountAmount::List(accounts) = accounts {
         for account in accounts {
-            let mut parts = account.split('@');
-
-            let amount = parts.next().context("Missing amount")?;
-            let token_id = parts.next().context("Missing token_id")?;
+            let (amount, token_id) = parse_amount(&account)?;
 
             if token_id == "DFI" {
-                return Ok(Decimal::from_str(amount).unwrap_or_default());
+                return Ok(Decimal::from_str(&amount).unwrap_or_default());
             }
         }
         dec!(0)
@@ -183,7 +179,7 @@ pub struct Emission {
 )]
 pub fn get_emission(height: u32) -> Result<Emission> {
     let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
-        .ok_or(Error::DecimalConversionError)?;
+        .context(DecimalConversionSnafu)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let masternode = distribution.masternode;

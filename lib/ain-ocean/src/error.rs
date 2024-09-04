@@ -1,19 +1,11 @@
-use std::{
-    fmt,
-    num::{ParseFloatError, ParseIntError},
-};
-
-use ain_db::DBError;
-use anyhow::format_err;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
 use serde_json::json;
-use thiserror::Error;
+use snafu::{Location, Snafu};
 
 #[derive(Debug)]
 pub enum IndexAction {
@@ -21,8 +13,8 @@ pub enum IndexAction {
     Invalidate,
 }
 
-impl fmt::Display for IndexAction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for IndexAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             IndexAction::Index => write!(f, "index"),
             IndexAction::Invalidate => write!(f, "invalidate"),
@@ -30,78 +22,213 @@ impl fmt::Display for IndexAction {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum NotFoundKind {
-    #[error("proposal")]
-    Proposal,
-    #[error("masternode")]
+    #[snafu(display("auction"))]
+    Auction,
+    #[snafu(display("collateral token"))]
+    CollateralToken,
+    #[snafu(display("loan token"))]
+    LoanToken,
+    #[snafu(display("masternode"))]
     Masternode,
-    #[error("scheme")]
-    Scheme,
-    #[error("oracle")]
+    #[snafu(display("oracle"))]
     Oracle,
-    #[error("token")]
-    Token,
-    #[error("poolpair")]
+    #[snafu(display("poolpair"))]
     PoolPair,
-    #[error("rawtx")]
+    #[snafu(display("proposal"))]
+    Proposal,
+    #[snafu(display("rawtx"))]
     RawTx,
+    #[snafu(display("scheme"))]
+    Scheme,
+    #[snafu(display("token {}", id))]
+    Token { id: String },
+    #[snafu(display("vault"))]
+    Vault,
 }
 
-#[derive(Error, Debug)]
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
 pub enum Error {
-    #[error("Ocean: Bincode error: {0:?}")]
-    BincodeError(#[from] bincode::Error),
-    #[error("Ocean: HexToArrayError error: {0:?}")]
-    HexToArrayError(#[from] HexToArrayError),
-    #[error("Ocean: ParseIntError error: {0:?}")]
-    ParseIntError(#[from] ParseIntError),
-    #[error("Ocean: ParseFloatError error: {0:?}")]
-    ParseFloatError(#[from] ParseFloatError),
-    #[error("Ocean: DBError error: {0:?}")]
-    DBError(#[from] DBError),
-    #[error("Ocean: IO error: {0:?}")]
-    IOError(#[from] std::io::Error),
-    #[error("Ocean: FromHexError error: {0:?}")]
-    FromHexError(#[from] hex::FromHexError),
-    #[error("Ocean: Consensus encode error: {0:?}")]
-    ConsensusEncodeError(#[from] bitcoin::consensus::encode::Error),
-    #[error("Ocean: jsonrpsee error: {0:?}")]
-    JsonrpseeError(#[from] jsonrpsee::core::Error),
-    #[error("Ocean: serde_json error: {0:?}")]
-    SerdeJSONError(#[from] serde_json::Error),
-    #[error("Ocean: RPC error: {0:?}")]
-    RpcError(#[from] defichain_rpc::Error),
-    #[error("Unable to find {0:}")]
-    NotFound(NotFoundKind),
-    #[error(
-        "attempting to sync: {0:?} but type: {1:?} with id: {2:?} cannot be found in the index"
-    )]
-    NotFoundIndex(IndexAction, String, String),
-    #[error("Ocean: Decimal error: {0:?}")]
-    DecimalError(#[from] rust_decimal::Error),
-    #[error("Decimal conversion error")]
+    #[snafu(context(false))] // allows using the ? operator directly on the underlying error
+    BincodeError {
+        #[snafu(source)]
+        error: bincode::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    BitcoinAddressError {
+        #[snafu(source)]
+        error: bitcoin::address::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    #[snafu(display("InvalidDefiAddress"))]
+    BitcoinAddressParseError {
+        #[snafu(source)]
+        error: bitcoin::address::error::ParseError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    BitcoinConsensusEncodeError {
+        #[snafu(source)]
+        error: bitcoin::consensus::encode::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    BitcoinHexToArrayError {
+        #[snafu(source)]
+        error: bitcoin::hex::HexToArrayError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    DecimalError {
+        #[snafu(source)]
+        error: rust_decimal::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    DBError {
+        #[snafu(source)]
+        error: ain_db::DBError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    FromHexError {
+        #[snafu(source)]
+        error: hex::FromHexError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    IOError {
+        #[snafu(source)]
+        error: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    JsonrpseeError {
+        #[snafu(source)]
+        error: jsonrpsee::core::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    ParseIntError {
+        #[snafu(source)]
+        error: std::num::ParseIntError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    ParseFloatError {
+        #[snafu(source)]
+        error: std::num::ParseFloatError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    RpcError {
+        #[snafu(source)]
+        error: defichain_rpc::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    SerdeJsonError {
+        #[snafu(source)]
+        error: serde_json::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(context(false))]
+    TryFromIntError {
+        #[snafu(source)]
+        error: std::num::TryFromIntError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Unable to find {}", kind))]
+    NotFound {
+        kind: NotFoundKind,
+    },
+    NotFoundMessage {
+        msg: String,
+    },
     DecimalConversionError,
-    #[error("Ocean: Overflow error")]
-    OverflowError,
-    #[error("Ocean: Underflow error")]
-    UnderflowError,
-    #[error("Error fetching primary value")]
+    #[snafu(display("Arithmetic overflow"))]
+    ArithmeticOverflow {
+        // msg: String, // TODO(canonbrother): less complicated atm
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Arithmetic underflow"))]
+    ArithmeticUnderflow {
+        // msg: String, // TODO(canonbrother): less complicated atm
+        #[snafu(implicit)]
+        location: Location,
+    },
     SecondaryIndex,
-    #[error("Token {0:?} is invalid as it is not tradeable")]
-    UntradeableTokenError(String),
-    #[error("Ocean: BitcoinAddressError: {0:?}")]
-    BitcoinAddressError(#[from] bitcoin::address::Error),
-    #[error("Ocean: TryFromIntError: {0:?}")]
-    TryFromIntError(#[from] std::num::TryFromIntError),
-    #[error("{0:}")]
-    AddressParseError(#[from] bitcoin::address::error::ParseError),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-    #[error("Validation error: {0}")]
-    ValidationError(String),
-    #[error("{0}")]
-    BadRequest(String),
+    BadRequest {
+        msg: String,
+    },
+    #[snafu(display("Invalid token currency format: {}", item))]
+    InvalidTokenCurrency {
+        item: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Invalid fixed interval price format: {}", item))]
+    InvalidFixedIntervalPrice {
+        item: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Invalid amount format: {}", item))]
+    InvalidAmount {
+        item: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Invalid pool pair symbol format: {}", item))]
+    InvalidPoolPairSymbol {
+        item: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("To primitive error: {}", msg))]
+    ToPrimitiveError {
+        msg: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("{}", msg))]
+    Other {
+        msg: String,
+    },
+}
+
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(err: Box<dyn std::error::Error>) -> Self {
+        Self::Other {
+            msg: err.to_string(),
+        }
+    }
+}
+
+impl From<&str> for Error {
+    fn from(s: &str) -> Self {
+        Self::Other { msg: s.to_string() }
+    }
 }
 
 #[derive(Serialize)]
@@ -166,33 +293,16 @@ impl IntoResponse for ApiError {
 impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
-                (
-                    StatusCode::NOT_FOUND,
-                    match e {
-                        e if e.message.contains("Cannot find existing loan scheme") => {
-                            format!("{}", Error::NotFound(NotFoundKind::Scheme))
-                        }
-                        _ => e.message.to_string(),
-                    },
-                )
-            }
-            Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{self}")),
-            Error::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            Error::RpcError {
+                error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)),
+                ..
+            } => (StatusCode::NOT_FOUND, e.message.to_string()),
+            Error::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
+            Error::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
+            Error::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
+            Error::Other { msg } => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for Error {
-    fn from(err: Box<dyn std::error::Error>) -> Error {
-        Error::Other(format_err!("{err}"))
-    }
-}
-
-impl From<&str> for Error {
-    fn from(s: &str) -> Self {
-        Error::Other(format_err!("{s}"))
     }
 }

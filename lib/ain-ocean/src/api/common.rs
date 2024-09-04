@@ -1,13 +1,20 @@
-use std::str::FromStr;
-
-use anyhow::Context;
+use ain_dftx::{Currency, Token};
 use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use snafu::OptionExt;
+use std::str::FromStr;
 
 use super::query::PaginationQuery;
-use crate::hex_encoder::as_sha256;
+use crate::{
+    error::{
+        InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu, InvalidPoolPairSymbolSnafu,
+        InvalidTokenCurrencySnafu,
+    },
+    hex_encoder::as_sha256,
+    Result,
+};
 
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {
@@ -36,6 +43,73 @@ pub fn parse_dat_symbol(symbol: &str) -> String {
     }
 }
 
+pub fn parse_pool_pair_symbol(item: &str) -> Result<(String, String)> {
+    let mut parts = item.split('-');
+    let a = parts
+        .next()
+        .context(InvalidPoolPairSymbolSnafu { item })?
+        .to_string();
+    let b = parts
+        .next()
+        .context(InvalidPoolPairSymbolSnafu { item })?
+        .to_string();
+
+    Ok((a, b))
+}
+
+pub fn parse_token_currency(item: &str) -> Result<(Token, Currency)> {
+    let mut parts = item.split('-');
+    let token = parts
+        .next()
+        .context(InvalidTokenCurrencySnafu { item })?
+        .to_string();
+    let currency = parts
+        .next()
+        .context(InvalidTokenCurrencySnafu { item })?
+        .to_string();
+
+    Ok((token, currency))
+}
+
+pub fn parse_fixed_interval_price(item: &str) -> Result<(Token, Currency)> {
+    let mut parts = item.split('/');
+    let token = parts
+        .next()
+        .context(InvalidFixedIntervalPriceSnafu { item })?
+        .to_string();
+    let currency = parts
+        .next()
+        .context(InvalidFixedIntervalPriceSnafu { item })?
+        .to_string();
+
+    Ok((token, currency))
+}
+
+pub fn parse_amount(item: &str) -> Result<(String, String)> {
+    let mut parts = item.split('@');
+    let amount = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?
+        .to_string();
+    let symbol = parts
+        .next()
+        .context(InvalidAmountSnafu { item })?
+        .to_string();
+
+    Ok((amount, symbol))
+}
+
+pub fn parse_query_height_txno(item: &str) -> Result<(u32, usize)> {
+    let mut parts = item.split('-');
+    let height = parts.next().context(InvalidAmountSnafu { item })?;
+    let txno = parts.next().context(InvalidAmountSnafu { item })?;
+
+    let height = height.parse::<u32>()?;
+    let txno = txno.parse::<usize>()?;
+
+    Ok((height, txno))
+}
+
 pub fn format_number(v: Decimal) -> String {
     if v == dec!(0) {
         "0".to_string()
@@ -44,19 +118,19 @@ pub fn format_number(v: Decimal) -> String {
     }
 }
 
-pub fn from_script(script: ScriptBuf, network: Network) -> crate::Result<String> {
+pub fn from_script(script: ScriptBuf, network: Network) -> Result<String> {
     let script = script.as_script();
     let address = Address::from_script(script, network)?.to_string();
     Ok(address)
 }
 
-pub fn to_script(address: &str, network: Network) -> crate::Result<ScriptBuf> {
+pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
     let addr = Address::from_str(address)?.require_network(network)?;
     Ok(ScriptBuf::from(addr))
 }
 
-pub fn address_to_hid(address: &str, network: Network) -> crate::Result<String> {
-    let script = to_script(address, network).context("InvalidDefiAddress")?;
+pub fn address_to_hid(address: &str, network: Network) -> Result<String> {
+    let script = to_script(address, network)?;
     let bytes = script.to_bytes();
     Ok(as_sha256(bytes))
 }

@@ -1,20 +1,20 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{pool::*, COIN};
-use anyhow::format_err;
 use bitcoin::{BlockHash, Txid};
-// use bitcoin::Address;
 use log::debug;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use super::Context;
 use crate::{
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
     indexer::{tx_result, Index, Result},
     model::{self, PoolSwapResult, TxResult},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Error, Services,
 };
+use snafu::OptionExt;
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
     PoolSwapAggregatedInterval::OneDay as u32,
@@ -74,7 +74,7 @@ fn index_swap_aggregated(
 
             let aggregated_amount = amount
                 .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
-                .ok_or(Error::OverflowError)?;
+                .context(ArithmeticOverflowSnafu)?;
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),
@@ -83,7 +83,9 @@ fn index_swap_aggregated(
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
-                return Err(format_err!("Invalid poolswap aggregated id format").into());
+                return Err(Error::Other {
+                    msg: "Invalid poolswap aggregated id format".to_string(),
+                });
             };
             let pool_id = parts[0].parse::<u32>()?;
             let interval = parts[1].parse::<u32>()?;
@@ -137,7 +139,7 @@ fn invalidate_swap_aggregated(
 
             let aggregated_amount = amount
                 .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
-                .ok_or(Error::UnderflowError)?;
+                .context(ArithmeticUnderflowSnafu)?;
 
             aggregated.aggregated.amounts.insert(
                 from_token_id.to_string(),
@@ -146,7 +148,9 @@ fn invalidate_swap_aggregated(
 
             let parts = aggregated.id.split('-').collect::<Vec<&str>>();
             if parts.len() != 3 {
-                return Err(format_err!("Invalid poolswap aggregated id format").into());
+                return Err(Error::Other {
+                    msg: "Invalid poolswap aggregated id format".to_string(),
+                });
             };
             let pool_id = parts[0].parse::<u32>()?;
             let interval = parts[1].parse::<u32>()?;

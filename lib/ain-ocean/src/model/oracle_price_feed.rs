@@ -1,3 +1,4 @@
+use ain_dftx::{Currency, Token};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
@@ -11,8 +12,8 @@ pub struct OraclePriceFeed {
     pub id: OraclePriceFeedId,
     pub key: OraclePriceFeedkey,
     pub sort: String,
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
     pub oracle_id: Txid,
     pub txid: Txid,
     pub time: i32,

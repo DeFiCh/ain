@@ -22,7 +22,6 @@ keccak-hash.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_with.workspace = true
-thiserror.workspace = true
 hex.workspace = true
 ain-dftx.workspace = true
 bitcoin = { workspace = true, features = ["serde"] }
@@ -32,7 +31,6 @@ json = "0.12.4"
 futures = "0.3.29"
 jsonrpsee.workspace = true
 rocksdb.workspace = true
-anyhow.workspace = true
 cached.workspace = true
 lazy_static.workspace = true
 bincode.workspace = true
@@ -48,6 +46,7 @@ petgraph = { version = "0.6.4", features = ["serde-1"] }
 parking_lot.workspace = true
 indexmap.workspace = true
 sha2.workspace = true
+snafu = { version = "0.8.4" }
 
 [dev-dependencies]
 tempdir.workspace = true

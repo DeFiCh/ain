@@ -1,7 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::{format_err, Context};
 use axum::{routing::get, Extension, Router};
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::{
@@ -19,10 +18,14 @@ use defichain_rpc::{
 use futures::future::try_join_all;
 use log::debug;
 use serde::{Serialize, Serializer};
+use snafu::OptionExt;
 
 use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
-    common::{from_script, parse_display_symbol, Paginate},
+    common::{
+        from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price,
+        parse_query_height_txno, Paginate,
+    },
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -31,7 +34,7 @@ use super::{
 };
 use crate::{
     api::prices::PriceTickerResponse,
-    error::{ApiError, Error},
+    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
@@ -83,9 +86,14 @@ async fn get_scheme(
     Path(scheme_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanSchemeData>> {
-    Ok(Response::new(
-        ctx.client.get_loan_scheme(scheme_id).await?.into(),
-    ))
+    let scheme = ctx
+        .client
+        .get_loan_scheme(scheme_id)
+        .await
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::Scheme,
+        })?;
+    Ok(Response::new(scheme.into()))
 }
 
 #[derive(Serialize)]
@@ -121,15 +129,7 @@ async fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
 ) -> Result<Option<PriceTickerResponse>> {
-    let mut parts = fixed_interval_price_id.split('/');
-    let token = parts
-        .next()
-        .context("Invalid fixed interval price id structure")?
-        .to_string();
-    let currency = parts
-        .next()
-        .context("Invalid fixed interval price id structure")?
-        .to_string();
+    let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
     let price = ctx.services.price_ticker.by_id.get(&(token, currency))?;
 
     let Some(active_price) = price else {
@@ -157,7 +157,11 @@ async fn list_collateral_token(
         .map(|v| async {
             let (id, info) = get_token_cached(&ctx, &v.token_id)
                 .await?
-                .context("None is not valid")?;
+                .context(NotFoundSnafu {
+                    kind: NotFoundKind::Token {
+                        id: v.token_id.clone(),
+                    },
+                })?;
             let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
@@ -175,10 +179,20 @@ async fn get_collateral_token(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<CollateralToken>> {
-    let collateral_token = ctx.client.get_collateral_token(token_id).await?;
+    let collateral_token = ctx
+        .client
+        .get_collateral_token(token_id)
+        .await
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::CollateralToken,
+        })?;
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
-        .context("None is not valid")?;
+        .context(NotFoundSnafu {
+            kind: NotFoundKind::Token {
+                id: collateral_token.token_id.clone(),
+            },
+        })?;
     let active_price =
         get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
 
@@ -234,14 +248,7 @@ async fn list_loan_token(
         })
         .map(|flatten_token| {
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
-            let mut parts = fixed_interval_price_id.split('/');
-
-            let token = parts
-                .next()
-                .context("Invalid fixed interval price id structure")?;
-            let currency = parts
-                .next()
-                .context("Invalid fixed interval price id structure")?;
+            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -274,7 +281,13 @@ async fn get_loan_token(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanToken>> {
-    let loan_token_result = ctx.client.get_loan_token(token_id.clone()).await?;
+    let loan_token_result = ctx
+        .client
+        .get_loan_token(token_id.clone())
+        .await
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::LoanToken,
+        })?;
     let Some(token) = loan_token_result
         .token
         .0
@@ -282,13 +295,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let mut parts = fixed_interval_price_id.split('/');
-            let token = parts
-                .next()
-                .context("Invalid fixed interval price id structure")?;
-            let currency = parts
-                .next()
-                .context("Invalid fixed interval price id structure")?;
+            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
             let repo = &ctx.services.oracle_price_active;
             let key = repo
@@ -310,7 +317,9 @@ async fn get_loan_token(
         })
         .transpose()?
     else {
-        return Err(format_err!("Token {:?} does not exist!", token_id).into());
+        return Err(Error::NotFound {
+            kind: NotFoundKind::LoanToken,
+        });
     };
 
     Ok(Response::new(token))
@@ -461,7 +470,13 @@ async fn get_vault(
     Path(vault_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<VaultResponse>> {
-    let vault = ctx.client.get_vault(vault_id, Some(false)).await?;
+    let vault = ctx
+        .client
+        .get_vault(vault_id, Some(false))
+        .await
+        .map_err(|_| Error::NotFound {
+            kind: NotFoundKind::Vault,
+        })?;
     let res = match vault {
         VaultResult::VaultActive(vault) => {
             VaultResponse::Active(map_vault_active(&ctx, vault).await?)
@@ -487,20 +502,11 @@ async fn list_vault_auction_history(
     let next = query
         .next
         .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((height, txno))
+            let (height, txno) = parse_query_height_txno(&q)?;
+            Ok::<(u32, usize), Error>((height, txno))
         })
         .transpose()?
         .unwrap_or_default();
-
-    debug!("next : {:?}", next);
 
     let size = if query.size > 0 { query.size } else { 20 };
 
@@ -525,7 +531,9 @@ async fn list_vault_auction_history(
                 .auction
                 .by_id
                 .get(&id)?
-                .context("Missing auction index")?;
+                .context(NotFoundSnafu {
+                    kind: NotFoundKind::Auction,
+                })?;
 
             Ok(auction)
         })
@@ -643,11 +651,8 @@ async fn map_token_amounts(
         .into_iter()
         .map(|amount| {
             let amount = amount.to_owned();
-            let mut parts = amount.split('@');
-
-            let amount = parts.next().context("Invalid amount structure")?;
-            let token_symbol = parts.next().context("Invalid amount structure")?;
-            Ok::<[String; 2], Error>([amount.to_string(), token_symbol.to_string()])
+            let (amount, token_symbol) = parse_amount(&amount)?;
+            Ok::<[String; 2], Error>([amount, token_symbol])
         })
         .collect::<Result<Vec<_>>>()?;
 

@@ -1,3 +1,4 @@
+use ain_dftx::{Currency, Token, Weightage};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +9,7 @@ use super::BlockContext;
 pub struct Oracle {
     pub id: Txid,
     pub owner_address: String,
-    pub weightage: u8,
+    pub weightage: Weightage,
     pub price_feeds: Vec<PriceFeedsItem>,
     pub block: BlockContext,
 }
@@ -16,6 +17,6 @@ pub struct Oracle {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceFeedsItem {
-    pub token: String,
-    pub currency: String,
+    pub token: Token,
+    pub currency: Currency,
 }
