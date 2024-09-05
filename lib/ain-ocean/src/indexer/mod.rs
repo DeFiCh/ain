@@ -10,7 +10,11 @@ pub mod tx_result;
 
 pub mod helper;
 
-use std::{collections::{HashMap, HashSet}, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
@@ -21,7 +25,7 @@ use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
 
 use crate::{
-    error::{Error, DecimalConversionSnafu, IndexAction},
+    error::{DecimalConversionSnafu, Error, IndexAction},
     hex_encoder::as_sha256,
     index_transaction, invalidate_transaction,
     model::{
@@ -199,13 +203,15 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) { continue };
+                if is_skipped_tx(&vin.txid) {
+                    continue;
+                };
 
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Index,
                     r#type: "Index script activity TransactionVout".to_string(),
                     id: format!("{}-{}", vin.txid, vin.vout),
-                })
+                });
             };
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
@@ -303,20 +309,24 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) { continue };
+                if is_skipped_tx(&vin.txid) {
+                    continue;
+                };
 
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Invalidate,
                     r#type: "Invalidate script activity TransactionVout".to_string(),
                     id: format!("{}-{}", vin.txid, vin.vout),
-                })
+                });
             };
 
             let id = (
@@ -326,10 +336,7 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
                 vin.txid,
                 vin.vout,
             );
-            services
-                .script_activity
-                .by_id
-                .delete(&id)?
+            services.script_activity.by_id.delete(&id)?
         }
 
         for vout in tx.vout.iter() {
@@ -344,10 +351,7 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
                 tx.txid,
                 vout.n,
             );
-            services
-                .script_activity
-                .by_id
-                .delete(&id)?
+            services.script_activity.by_id.delete(&id)?
         }
     }
 
@@ -411,13 +415,15 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) { continue };
+                if is_skipped_tx(&vin.txid) {
+                    continue;
+                };
 
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Index,
                     r#type: "Index script aggregation TransactionVout".to_string(),
                     id: format!("{}-{}", vin.txid, vin.vout),
-                })
+                });
             };
 
             // SPENT (REMOVE)
@@ -484,27 +490,34 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
     Ok(())
 }
 
-fn invalidate_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+fn invalidate_script_aggregation(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+) -> Result<()> {
     let mut hid_set = HashSet::new();
 
     for tx in block.tx.iter() {
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) { continue };
+                if is_skipped_tx(&vin.txid) {
+                    continue;
+                };
 
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Invalidate,
                     r#type: "Invalidate script aggregation TransactionVout".to_string(),
                     id: format!("{}-{}", vin.txid, vin.vout),
-                })
+                });
             };
 
             hid_set.insert(as_sha256(vout.script.hex));
@@ -598,7 +611,9 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
         let is_evm_tx = check_if_evm_tx(tx);
 
         for vin in tx.vin.iter() {
-            if is_evm_tx { continue }
+            if is_evm_tx {
+                continue;
+            }
 
             let Some(vin) = get_vin_standard(vin) else {
                 continue;
@@ -610,7 +625,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
                     action: IndexAction::Invalidate,
                     r#type: "Transaction".to_string(),
                     id: vin.txid.to_string(),
-                })
+                });
             }
             let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
             if vout.is_none() {
@@ -618,7 +633,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
                     action: IndexAction::Invalidate,
                     r#type: "TransactionVout".to_string(),
                     id: format!("{}{}", vin.txid, vin.vout),
-                })
+                });
             }
             let transaction = transaction.unwrap();
             let vout = vout.unwrap();

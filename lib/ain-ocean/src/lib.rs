@@ -9,8 +9,10 @@ use std::{path::PathBuf, sync::Arc};
 pub use api::ocean_router;
 use error::Error;
 pub use indexer::{
-    index_block, invalidate_block, oracle::invalidate_oracle_interval,
-    transaction::{index_transaction, invalidate_transaction}, tx_result, PoolCreationHeight,
+    index_block, invalidate_block,
+    oracle::invalidate_oracle_interval,
+    transaction::{index_transaction, invalidate_transaction},
+    tx_result, PoolCreationHeight,
 };
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
