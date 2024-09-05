@@ -2998,7 +2998,13 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
         if (swap.reserveOut <= swapOutput) {
             return Res::Err("impossible to get needed swap output for DUSD payback");
         }
-        auto swapInput = ((swap.reserveOut * swap.reserveIn) / (swap.reserveOut - swapOutput)) - swap.reserveIn;
+        auto intermediate = ((swap.reserveOut * swap.reserveIn) / (swap.reserveOut - swapOutput));
+        if (intermediate * (swap.reserveOut - swapOutput) != (swap.reserveOut * swap.reserveIn)) {
+            // rounding error, increase neededInput by 1 fi for safety
+            intermediate += 1;
+        }
+        auto swapInput = intermediate - swap.reserveIn;
+
         // resulting needed input= next wanted output
         output = swapInput * swap.feeFactorIn / swap.commission;
     }
@@ -3041,7 +3047,13 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
         arith_uint256 input = totalCollateralUsed;
         for (const auto &swap : swapInfos) {
             auto swapInput = (((input * swap.feeFactorIn) / COIN) * swap.commission) / COIN;
-            auto swapOutput = swap.reserveOut - ((swap.reserveIn * swap.reserveOut) / (swap.reserveIn + swapInput));
+            auto intermediate = ((swap.reserveIn * swap.reserveOut) / (swap.reserveIn + swapInput));
+            if (intermediate < swap.reserveOut &&
+                intermediate * (swap.reserveIn + swapInput) != (swap.reserveIn * swap.reserveOut)) {
+                // rounding error -> remove 1 fi for safety (+1 here removes 1 fi in the output)
+                intermediate += 1;
+            }
+            auto swapOutput = swap.reserveOut - intermediate;
             input = swapOutput * swap.feeFactorOut / COIN;
         }
         LogPrintf("estimating for coll used: %s@%d -> %s@DUSD\n",

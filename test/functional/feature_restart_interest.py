@@ -17,32 +17,13 @@ class RestartInterestTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.df24height = 110
         self.extra_args = [
-            [
+            DefiTestFramework.fork_params_till(21)
+            + [
                 "-txnotokens=0",
                 "-subsidytest=1",
                 "-regtest-minttoken-simulate-mainnet=1",
                 "-jellyfish_regtest=1",
                 "-negativeinterest=1",
-                "-amkheight=1",
-                "-bayfrontheight=1",
-                "-bayfrontmarinaheight=1",
-                "-bayfrontgardensheight=1",
-                "-clarkequayheight=1",
-                "-dakotaheight=1",
-                "-dakotacrescentheight=1",
-                "-eunosheight=1",
-                "-eunospayaheight=1",
-                "-fortcanningheight=1",
-                "-fortcanningmuseumheight=1",
-                "-fortcanningparkheight=1",
-                "-fortcanninghillheight=1",
-                "-fortcanningroadheight=1",
-                "-fortcanningcrunchheight=1",
-                "-fortcanningspringheight=1",
-                "-fortcanninggreatworldheight=1",
-                "-fortcanningepilogueheight=1",
-                "-grandcentralheight=1",
-                "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
                 "-df23height=110",
                 "-df24height={self.df24height}",

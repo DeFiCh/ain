@@ -120,6 +120,7 @@ BASE_SCRIPTS = [
     "feature_reindex.py",
     "feature_abortnode.py",
     # TODO: check timing and position accordingly
+    "feature_restart_interest.py",
     "feature_restartdtokens.py",
     # vv Tests less than 30s vv
     "wallet_keypool_topup.py",
