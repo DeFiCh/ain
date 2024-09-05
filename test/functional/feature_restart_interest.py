@@ -221,7 +221,7 @@ class RestartInterestTest(DefiTestFramework):
         )
         assert_equal(
             self.nodes[0].getaccount(address_coin_1_sat),
-            [f"0.00000000@{self.symbolDUSD}"],
+            [f"0.10000000@{self.symbolDUSD}"],
         )
 
     def interest_paid_by_collateral(self):

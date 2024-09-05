@@ -3634,12 +3634,21 @@ static Res LockToken(CCustomCSView &cache,
     return cache.StoreTokenLockUserValues({owner}, currentLock);
 }
 
+static CAmount calcLockedAmount(const CAmount &input, const CAmount &lockRatio) {
+    auto locked = MultiplyAmounts(input, lockRatio);
+    if (locked < input && DivideAmounts(locked, lockRatio) != input) {
+        // case of rounding error: lock more, cause otherwise you might bypass locking with tiny txs/amounts
+        locked += 1;
+    }
+    return locked;
+};
+
 static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                                             const CBlockIndex *pindex,
                                             CCustomCSView &cache,
                                             BlockContext &blockCtx,
                                             const CAmount lockRatio) {
-    auto lockedAmount = [&](CAmount input) { return MultiplyAmounts(input, lockRatio); };
+    auto lockedAmount = [&](CAmount input) { return calcLockedAmount(input, lockRatio); };
 
     // to have it all in one history
     std::map<CScript, TAmounts> balanceChangePerAddress;
@@ -4718,7 +4727,7 @@ Res ExecuteLockTransferDomain(CCustomCSView &view,
     const auto lockRatio = attributes->GetValue(releaseKey, CAmount{});
 
     if (lockRatio > 0) {
-        const auto lockedAmount = MultiplyAmounts(amount.nValue, lockRatio);
+        const auto lockedAmount = calcLockedAmount(amount.nValue, lockRatio);
 
         CBalances dummyTotalLocked;
         if (auto res = LockToken(view, height, refHash, owner, {amount.nTokenId, lockedAmount}, dummyTotalLocked);
