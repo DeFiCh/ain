@@ -35,8 +35,17 @@ class RestartInterestTest(DefiTestFramework):
         # Set up
         self.setup()
 
-        # Basic test. Single vault with no interest.
-        self.basic_restart()
+        # Check minimal balances after restart
+        self.minimal_balances_after_restart()
+
+        # Interest paid by collateral.
+        self.interest_paid_by_collateral()
+
+        # Interest paid by balance.
+        self.interest_paid_by_balance()
+
+        # Interest paid by balance and collateral.
+        self.interest_paid_by_balance_and_collateral()
 
     def setup(self):
 
@@ -53,7 +62,7 @@ class RestartInterestTest(DefiTestFramework):
         self.setup_test_pools()
 
         # Store rollback block
-        self.rollback_block = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        self.start_block = self.nodes[0].getblockcount()
 
     def setup_test_tokens(self):
 
@@ -104,7 +113,7 @@ class RestartInterestTest(DefiTestFramework):
 
         # Set Oracle prices
         oracle_prices = [
-            {"currency": "USD", "tokenAmount": f"10@{self.symbolDFI}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
@@ -138,7 +147,7 @@ class RestartInterestTest(DefiTestFramework):
 
         # Add pool liquidity
         self.nodes[0].addpoolliquidity(
-            {self.address: ["10000@" + self.symbolDFI, "10000@" + self.symbolDUSD]},
+            {self.address: [f"10000@{self.symbolDFI}", f"10000@{self.symbolDUSD}"]},
             self.address,
         )
         self.nodes[0].generate(1)
@@ -154,10 +163,71 @@ class RestartInterestTest(DefiTestFramework):
         )
         self.nodes[0].generate(2)
 
-    def basic_restart(self):
+    def minimal_balances_after_restart(self):
 
-        # Rollback
-        self.nodes[0].invalidateblock(self.rollback_block)
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Create addresses
+        address_1_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_9_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_10_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_99_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_100_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_101_sat = self.nodes[0].getnewaddress("", "legacy")
+        address_coin_1_sat = self.nodes[0].getnewaddress("", "legacy")
+
+        # Fund addresses
+        self.nodes[0].accounttoaccount(
+            self.address, {address_1_sat: f"0.00000001@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_9_sat: f"0.00000009@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_10_sat: f"0.00000010@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_99_sat: f"0.00000099@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_100_sat: f"0.00000100@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_101_sat: f"0.00000101@{self.symbolDUSD}"}
+        )
+        self.nodes[0].accounttoaccount(
+            self.address, {address_coin_1_sat: f"1.00000001@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check balances
+        assert_equal(self.nodes[0].getaccount(address_1_sat), [])
+        assert_equal(self.nodes[0].getaccount(address_9_sat), [])
+        assert_equal(
+            self.nodes[0].getaccount(address_10_sat), [f"0.00000001@{self.symbolDUSD}"]
+        )
+        assert_equal(
+            self.nodes[0].getaccount(address_99_sat), [f"0.00000009@{self.symbolDUSD}"]
+        )
+        assert_equal(
+            self.nodes[0].getaccount(address_100_sat), [f"0.00000010@{self.symbolDUSD}"]
+        )
+        assert_equal(
+            self.nodes[0].getaccount(address_101_sat), [f"0.00000010@{self.symbolDUSD}"]
+        )
+        assert_equal(
+            self.nodes[0].getaccount(address_coin_1_sat),
+            [f"0.00000000@{self.symbolDUSD}"],
+        )
+
+    def interest_paid_by_collateral(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
 
         # Create vault
         vault_address = self.nodes[0].getnewaddress("", "legacy")
@@ -174,14 +244,100 @@ class RestartInterestTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        print(self.nodes[0].getvault(vault_id))
-        print(self.nodes[0].getaccount(vault_address))
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check vault
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["loanAmounts"], [])
+        assert_equal(  # 200 - Two blocks interest
+            result["collateralAmounts"], [f"199.99980974@{self.symbolDFI}"]
+        )
+        assert_equal(result["interestAmounts"], [])
+
+        # Check balance fully used to  pay back loan
+        assert_equal(self.nodes[0].getaccount(vault_address), [])
+
+        # Check interest zeroed
+        result = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(result["interestToHeight"], "0.000000000000000000000000")
+        assert_equal(result["interestPerBlock"], "0.000000000000000000000000")
+
+    def interest_paid_by_balance(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress("", "legacy")
+        vault_id = self.nodes[0].createvault(vault_address, "LOAN001")
+        self.nodes[0].generate(1)
+
+        # Deposit DFI to vault
+        self.nodes[0].deposittovault(vault_id, self.address, f"200@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Send funds to cover interest
+        self.nodes[0].accounttoaccount(
+            self.address, {vault_address: f"0.00019026@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan(
+            {"vaultId": vault_id, "amounts": f"100@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
 
         # Execute dtoken restart
         self.execute_restart()
 
-        print(self.nodes[0].getvault(vault_id))
-        print(self.nodes[0].getaccount(vault_address))
+        # Check vault
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["loanAmounts"], [])
+        assert_equal(result["collateralAmounts"], [f"200.00000000@{self.symbolDFI}"])
+        assert_equal(result["interestAmounts"], [])
+
+        # Check balance fully used to  pay back loan
+        assert_equal(self.nodes[0].getaccount(vault_address), [])
+
+    def interest_paid_by_balance_and_collateral(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress("", "legacy")
+        vault_id = self.nodes[0].createvault(vault_address, "LOAN001")
+        self.nodes[0].generate(1)
+
+        # Deposit DFI to vault
+        self.nodes[0].deposittovault(vault_id, self.address, f"200@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Send funds to cover one block's interest
+        self.nodes[0].accounttoaccount(
+            self.address, {vault_address: f"0.00009513@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan(
+            {"vaultId": vault_id, "amounts": f"100@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check vault
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["loanAmounts"], [])
+        assert_equal(result["collateralAmounts"], [f"199.99990487@{self.symbolDFI}"])
+        assert_equal(result["interestAmounts"], [])
+
+        # Check balance fully used to  pay back loan
+        assert_equal(self.nodes[0].getaccount(vault_address), [])
 
 
 if __name__ == "__main__":
