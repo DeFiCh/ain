@@ -283,7 +283,7 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         )
         self.nodes[0].clearmempool()
 
-        # Make sure rollback succesful
+        # Make sure rollback successful
         result = self.nodes[0].getmasternode(mnTx)[mnTx]
         assert_equal(result["resignHeight"], -1)
         assert_equal(

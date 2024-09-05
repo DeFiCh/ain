@@ -831,7 +831,7 @@ bool BerkeleyBatch::PeriodicFlush(BerkeleyDatabase& database)
                 // Flush wallet file so it's self contained
                 env->CloseDb(strFile);
                 // don't call lsn_reset at periodic time
-                // it causes performace issues on big wallets
+                // it causes performance issues on big wallets
                 env->CheckpointLSN(strFile, /* lsnReset */ false);
 
                 LogPrint(BCLog::DB, "Flushed %s %dms\n", strFile, GetTimeMillis() - nStart);

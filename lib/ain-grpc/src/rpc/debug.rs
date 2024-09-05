@@ -98,7 +98,7 @@ impl MetachainDebugRPCModule {
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     /// Replays a transaction in the Runtime at a given block height.
-    /// In order to succesfully reproduce the result of the original transaction we need a correct
+    /// In order to successfully reproduce the result of the original transaction we need a correct
     /// state to replay over.
     fn trace_transaction(
         &self,

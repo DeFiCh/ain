@@ -156,7 +156,7 @@ class DepositToVaultTest(DefiTestFramework):
         acBTC = self.nodes[1].getaccount(accountBTC)
         assert_equal(acBTC, ["9.40000000@BTC"])
 
-        # Deposit without breacking 50% DFI condition
+        # Deposit without breaking 50% DFI condition
         self.nodes[1].deposittovault(vaultId1, accountBTC, "0.1@BTC")
         self.nodes[1].generate(1)
 
