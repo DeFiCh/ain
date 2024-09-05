@@ -199,8 +199,11 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
-                continue;
+                return Err(Error::NotFoundIndex {
+                    action: IndexAction::Index,
+                    r#type: "Index script activity TransactionVout".to_string(),
+                    id: format!("{}-{}", vin.txid, vin.vout),
+                })
             };
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
@@ -305,8 +308,11 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
-                continue;
+                return Err(Error::NotFoundIndex {
+                    action: IndexAction::Invalidate,
+                    r#type: "Invalidate script activity TransactionVout".to_string(),
+                    id: format!("{}-{}", vin.txid, vin.vout),
+                })
             };
 
             let id = (
@@ -401,8 +407,11 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Index, vin.txid, vin.vout);
-                continue;
+                return Err(Error::NotFoundIndex {
+                    action: IndexAction::Index,
+                    r#type: "Index script aggregation TransactionVout".to_string(),
+                    id: format!("{}-{}", vin.txid, vin.vout),
+                })
             };
 
             // SPENT (REMOVE)
@@ -483,8 +492,11 @@ fn invalidate_script_aggregation(services: &Arc<Services>, block: &Block<Transac
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                log::error!("attempting to sync: {:?} but type: TransactionVout with id:{}-{} cannot be found in the index", IndexAction::Invalidate, vin.txid, vin.vout);
-                continue;
+                return Err(Error::NotFoundIndex {
+                    action: IndexAction::Invalidate,
+                    r#type: "Invalidate script aggregation TransactionVout".to_string(),
+                    id: format!("{}-{}", vin.txid, vin.vout),
+                })
             };
 
             hid_set.insert(as_sha256(vout.script.hex));
