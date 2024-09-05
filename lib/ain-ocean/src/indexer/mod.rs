@@ -199,6 +199,8 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                if is_skipped_tx(&vin.txid) { continue };
+
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Index,
                     r#type: "Index script activity TransactionVout".to_string(),
@@ -308,6 +310,8 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                if is_skipped_tx(&vin.txid) { continue };
+
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Invalidate,
                     r#type: "Invalidate script activity TransactionVout".to_string(),
@@ -407,6 +411,8 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                if is_skipped_tx(&vin.txid) { continue };
+
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Index,
                     r#type: "Index script aggregation TransactionVout".to_string(),
@@ -492,6 +498,8 @@ fn invalidate_script_aggregation(services: &Arc<Services>, block: &Block<Transac
             };
 
             let Some(vout) = find_tx_vout(services, block, &vin)? else {
+                if is_skipped_tx(&vin.txid) { continue };
+
                 return Err(Error::NotFoundIndex {
                     action: IndexAction::Invalidate,
                     r#type: "Invalidate script aggregation TransactionVout".to_string(),
