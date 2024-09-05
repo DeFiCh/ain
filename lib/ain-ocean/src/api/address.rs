@@ -96,6 +96,8 @@ async fn get_account_history(
     Ok(Response::new(res.into()))
 }
 
+// NOTE(canonbrother): deprecated its never being used
+// due to unfriendly complicated pagination handling internally
 // async fn list_account_history(Path(Address { address }): Path<Address>) -> String {
 //     format!("List account history for address {}", address)
 // }
@@ -204,10 +206,6 @@ async fn get_aggregation(
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     Ok(Response::new(aggregation))
 }
-
-// async fn list_token(Path(Address { address }): Path<Address>) -> String {
-//     format!("List tokens for address {}", address)
-// }
 
 #[ocean_endpoint]
 async fn list_vaults(
