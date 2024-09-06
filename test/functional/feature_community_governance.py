@@ -147,6 +147,7 @@ class CommunityGovernanceTest(DefiTestFramework):
                 {"ATTRIBUTES": {"v0/params/foundation/members": [f"-{member}"]}}
             )
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Check foundation addresses
         assert_equal(
