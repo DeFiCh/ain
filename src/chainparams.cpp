@@ -654,7 +654,7 @@ public:
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
         consensus.DF22MetachainHeight = 1586750;
         consensus.DF23Height = 1985600;
-        consensus.DF24Height = std::numeric_limits<int>::max();
+        consensus.DF24Height = 2241000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
