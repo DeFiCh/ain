@@ -680,10 +680,13 @@ void SetupServerArgs()
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-minerstrategy", "Staking optimisation. Options are none, numeric value indicating the number of subnodes to stake (default: none)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
-#if HAVE_DECL_DAEMON
-    gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+
+#if HAVE_DECL_FORK
+    gArgs.AddArg("-daemon", strprintf("Run in the background as a daemon and accept commands. Will wait until init is complete before returning. (default: %d)", DEFAULT_DAEMON), ArgsManager::ALLOW_BOOL, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-daemonnowait", strprintf("Same as daemon but doesn't wait for init and returns immediately after forking (default: %d)", DEFAULT_DAEMONNOWAIT), ArgsManager::ALLOW_BOOL, OptionsCategory::OPTIONS);
 #else
     hidden_args.emplace_back("-daemon");
+    hidden_args.emplace_back("-daemonnowait");
 #endif
 
     RPCMetadata::SetupArgs(gArgs);
@@ -1611,7 +1614,7 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
         setAutoPort = true;
     }
-    
+
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {

@@ -1365,47 +1365,15 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
-                CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-                auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+                CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+                CDataStructureV0 governanceMembers{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::Members};
 
-                if (!memberRemoval.empty()) {
-                    auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+                GovernanceMemberRemoval(*newVar, *govVar, foundationMembers, false);
+                GovernanceMemberRemoval(*newVar, *govVar, governanceMembers, false);
 
-                    for (auto &member : memberRemoval) {
-                        if (member.empty()) {
-                            continue;
-                        }
-
-                        if (member[0] == '-') {
-                            auto memberCopy{member};
-                            const auto dest = DecodeDestination(memberCopy.erase(0, 1));
-                            if (!IsValidDestination(dest)) {
-                                continue;
-                            }
-                            existingMembers.erase(GetScriptForDestination(dest));
-
-                        } else {
-                            const auto dest = DecodeDestination(member);
-                            if (!IsValidDestination(dest)) {
-                                continue;
-                            }
-                            existingMembers.insert(GetScriptForDestination(dest));
-                        }
-                    }
-
-                    govVar->SetValue(key, existingMembers);
-
-                    // Remove this key and apply any other changes
-                    newVar->EraseKey(key);
-                    if (govVar->Import(newVar->Export()) && govVar->Validate(govCache) &&
-                        govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
-                        govCache.Flush();
-                    }
-                } else {
-                    if (govVar->Import(var->Export()) && govVar->Validate(govCache) &&
-                        govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
-                        govCache.Flush();
-                    }
+                if (govVar->Import(newVar->Export()) && govVar->Validate(govCache) &&
+                    govVar->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*govVar)) {
+                    govCache.Flush();
                 }
             } else if (var->Validate(govCache) && var->Apply(govCache, pindex->nHeight) && govCache.SetVariable(*var)) {
                 govCache.Flush();

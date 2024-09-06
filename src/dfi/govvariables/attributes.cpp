@@ -97,30 +97,32 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
-        {"dfip2201",       ParamIDs::DFIP2201     },
-        {"dfip2203",       ParamIDs::DFIP2203     },
-        {"dfip2206a",      ParamIDs::DFIP2206A    },
+        {"dfip2201",       ParamIDs::DFIP2201       },
+        {"dfip2203",       ParamIDs::DFIP2203       },
+        {"dfip2206a",      ParamIDs::DFIP2206A      },
  // Note: DFIP2206F is currently in beta testing
   // for testnet. May not be enabled on mainnet until testing is complete.
-        {"dfip2206f",      ParamIDs::DFIP2206F    },
-        {"dfip2211f",      ParamIDs::DFIP2211F    },
-        {"feature",        ParamIDs::Feature      },
-        {"foundation",     ParamIDs::Foundation   },
-        {"dtoken_restart", ParamIDs::dTokenRestart},
+        {"dfip2206f",      ParamIDs::DFIP2206F      },
+        {"dfip2211f",      ParamIDs::DFIP2211F      },
+        {"feature",        ParamIDs::Feature        },
+        {"foundation",     ParamIDs::Foundation     },
+        {"governance",     ParamIDs::GovernanceParam},
+        {"dtoken_restart", ParamIDs::dTokenRestart  },
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-        {ParamIDs::DFIP2201,      "dfip2201"      },
-        {ParamIDs::DFIP2203,      "dfip2203"      },
-        {ParamIDs::DFIP2206A,     "dfip2206a"     },
-        {ParamIDs::DFIP2206F,     "dfip2206f"     },
-        {ParamIDs::DFIP2211F,     "dfip2211f"     },
-        {ParamIDs::Feature,       "feature"       },
-        {ParamIDs::Foundation,    "foundation"    },
-        {ParamIDs::dTokenRestart, "dtoken_restart"},
+        {ParamIDs::DFIP2201,        "dfip2201"      },
+        {ParamIDs::DFIP2203,        "dfip2203"      },
+        {ParamIDs::DFIP2206A,       "dfip2206a"     },
+        {ParamIDs::DFIP2206F,       "dfip2206f"     },
+        {ParamIDs::DFIP2211F,       "dfip2211f"     },
+        {ParamIDs::Feature,         "feature"       },
+        {ParamIDs::Foundation,      "foundation"    },
+        {ParamIDs::GovernanceParam, "governance"    },
+        {ParamIDs::dTokenRestart,   "dtoken_restart"},
     };
     return params;
 }
@@ -285,6 +287,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"transferdomain", DFIPKeys::TransferDomain},
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
+             {"governance", DFIPKeys::CommunityGovernance},
+             {"ascending_block_time", DFIPKeys::AscendingBlockTime},
          }},
         {AttributeTypes::EVMType,
          {
@@ -390,6 +394,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TransferDomain, "transferdomain"},
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
+             {DFIPKeys::CommunityGovernance, "governance"},
+             {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -821,6 +827,8 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TransferDomain, VerifyBool},
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
+                 {DFIPKeys::CommunityGovernance, VerifyBool},
+                 {DFIPKeys::AscendingBlockTime, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -991,10 +999,11 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
                 typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
                 typeKey != DFIPKeys::CFPPayout && typeKey != DFIPKeys::EmissionUnusedFund &&
                 typeKey != DFIPKeys::MintTokens && typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                typeKey != DFIPKeys::TransferDomain) {
+                typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::CommunityGovernance &&
+                typeKey != DFIPKeys::AscendingBlockTime) {
                 return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
             }
-        } else if (typeId == ParamIDs::Foundation) {
+        } else if (typeId == ParamIDs::Foundation || typeId == ParamIDs::GovernanceParam) {
             if (typeKey != DFIPKeys::Members) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
@@ -1214,18 +1223,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return res;
         }
 
-        if (type == AttributeTypes::Param) {
-            if (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F) {
-                if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
-                    if (typeId == ParamIDs::DFIP2203) {
-                        futureUpdated = true;
-                    } else {
-                        futureDUSDUpdated = true;
-                    }
-                }
-            }
-        }
-
         attrV0 = CDataStructureV0{type, typeId, typeKey};
     }
 
@@ -1249,7 +1246,8 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
     }
 
     // Tidy into new parseValue map for UniValue
-    if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::Foundation &&
+    if (attrV0.type == AttributeTypes::Param &&
+        (attrV0.typeId == ParamIDs::Foundation || attrV0.typeId == ParamIDs::GovernanceParam) &&
         attrV0.key == DFIPKeys::Members) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
@@ -1497,7 +1495,8 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                         return SetOracleSplit(*this, attribute, splitValue64);
                     }
                     return SetOracleSplit(*this, attribute, splitValue);
-                } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation &&
+                } else if (attrV0->type == AttributeTypes::Param &&
+                           (attrV0->typeId == ParamIDs::Foundation || attrV0->typeId == ParamIDs::GovernanceParam) &&
                            attrV0->key == DFIPKeys::Members) {
                     const auto members = std::get_if<std::set<CScript>>(&value);
                     if (members) {
@@ -1518,6 +1517,17 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                     return Res::Ok();
                 } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
                     interestTokens.insert(attrV0->typeId);
+                }
+
+                if (attrV0->type == AttributeTypes::Param &&
+                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F)) {
+                    if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
+                        if (attrV0->typeId == ParamIDs::DFIP2203) {
+                            futureUpdated = true;
+                        } else {
+                            futureDUSDUpdated = true;
+                        }
+                    }
                 }
 
                 // apply DFI via old keys
@@ -2077,6 +2087,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                             return Res::Err("Cannot be set before MetachainHeight");
                         }
+                    } else if (attrV0->key == DFIPKeys::CommunityGovernance ||
+                               attrV0->key == DFIPKeys::AscendingBlockTime) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                            return Res::Err("Cannot be set before DF24Height");
+                        }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
@@ -2110,6 +2125,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (*blockPeriod < samplingPeriod) {
                             return DeFiErrors::GovVarValidateBlockPeriod();
                         }
+                    }
+                } else if (attrV0->typeId == ParamIDs::GovernanceParam) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                        return Res::Err("Cannot be set before DF24Height");
                     }
                 } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
@@ -2549,6 +2568,68 @@ Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::st
         if (!res) {
             return res;
         }
+    }
+
+    return Res::Ok();
+}
+
+Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
+                            ATTRIBUTES &prevVar,
+                            const CDataStructureV0 &memberKey,
+                            const bool canFail) {
+    auto memberRemoval = newVar.GetValue(memberKey, std::set<std::string>{});
+
+    if (!memberRemoval.empty()) {
+        auto existingMembers = prevVar.GetValue(memberKey, std::set<CScript>{});
+
+        for (auto &member : memberRemoval) {
+            if (member.empty()) {
+                if (canFail) {
+                    return Res::Err("Invalid address provided");
+                }
+                continue;
+            }
+
+            if (member[0] == '-') {
+                auto memberCopy{member};
+                const auto dest = DecodeDestination(memberCopy.erase(0, 1));
+                if (!IsValidDestination(dest)) {
+                    if (canFail) {
+                        return Res::Err("Invalid address provided");
+                    }
+                    continue;
+                }
+                CScript removeMember = GetScriptForDestination(dest);
+                if (!existingMembers.count(removeMember)) {
+                    if (canFail) {
+                        return Res::Err("Member to remove not present");
+                    }
+                } else {
+                    existingMembers.erase(removeMember);
+                }
+            } else {
+                const auto dest = DecodeDestination(member);
+                if (!IsValidDestination(dest)) {
+                    if (canFail) {
+                        return Res::Err("Invalid address provided");
+                    }
+                    continue;
+                }
+                CScript addMember = GetScriptForDestination(dest);
+                if (existingMembers.count(addMember)) {
+                    if (canFail) {
+                        return Res::Err("Member to add already present");
+                    }
+                } else {
+                    existingMembers.insert(addMember);
+                }
+            }
+        }
+
+        prevVar.SetValue(memberKey, existingMembers);
+
+        // Remove this key and apply any other changes
+        newVar.EraseKey(memberKey);
     }
 
     return Res::Ok();
