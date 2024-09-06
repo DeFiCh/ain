@@ -44,7 +44,8 @@ enum ParamIDs : uint8_t {
     Auction = 'i',
     Foundation = 'j',
     DFIP2211F = 'k',
-    BlockTime = 'l',
+    GovernanceParam = 'l',
+    BlockTime = 'n',
 };
 
 enum OracleIDs : uint8_t {
@@ -125,6 +126,8 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
+    CommunityGovernance = 'C',
+    AscendingBlockTime = 'A',
     EmissionReduction = 'z',
     TargetSpacing = 'B',
     TargetTimespam = 'D',
@@ -404,6 +407,10 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
 bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
+                            ATTRIBUTES &prevVar,
+                            const CDataStructureV0 &memberKey,
+                            const bool canFail = true);
 
 int64_t GetTargetSpacing(const CCustomCSView &view);
 int64_t GetTargetTimespan(const CCustomCSView &view);
@@ -534,6 +541,9 @@ public:
                                const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
 
     void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
+    static Res ProcessVariable(const std::string &key,
+                               const std::optional<UniValue> &value,
+                               std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable);
 
 private:
     friend class CGovView;
@@ -559,9 +569,6 @@ private:
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
         &parseValue();
 
-    Res ProcessVariable(const std::string &key,
-                        const std::optional<UniValue> &value,
-                        std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable);
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 

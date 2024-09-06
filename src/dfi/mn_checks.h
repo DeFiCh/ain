@@ -219,7 +219,7 @@ public:
 };
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
-bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid, const uint32_t height);
 Res RpcInfo(CCustomCSView &view, const CTransaction &tx, uint32_t height, CustomTxType &type, UniValue &results);
 Res CustomMetadataParse(uint32_t height,
                         const Consensus::Params &consensus,
@@ -261,6 +261,9 @@ bool IsMainNetwork();
 
 bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed);
 bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize);
+
+std::set<CScript> GetFoundationMembers(const CCustomCSView &mnview);
+std::set<CScript> GetGovernanceMembers(const CCustomCSView &mnview);
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;

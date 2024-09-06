@@ -110,23 +110,9 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     return Res::Ok();
 }
 
-Res CCustomTxVisitor::HasFoundationAuth() const {
-    auto &mnview = blockCtx.GetView();
+static Res HasAuthInner(const TransactionContext &txCtx, const std::set<CScript> &members) {
     const auto &coins = txCtx.GetCoins();
-    const auto &consensus = txCtx.GetConsensus();
     const auto &tx = txCtx.GetTransaction();
-
-    auto members = consensus.foundationMembers;
-    const auto attributes = mnview.GetAttributes();
-
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
-                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
-            !databaseMembers.empty()) {
-            members = databaseMembers;
-        }
-    }
 
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
@@ -135,6 +121,96 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
         }
     }
     return Res::Err("tx not from foundation member");
+}
+
+Res AuthManager::HasFoundationAuth() {
+    if (foundationAuth) {
+        return *foundationAuth;
+    }
+    auto &mnview = blockCtx.GetView();
+
+    const auto members = GetFoundationMembers(mnview);
+    foundationAuth = HasAuthInner(txCtx, members);
+    return *foundationAuth;
+}
+
+Res AuthManager::HasGovernanceAuth() {
+    if (governanceAuth) {
+        return *governanceAuth;
+    }
+
+    auto &mnview = blockCtx.GetView();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+
+    if (height < consensus.DF24Height) {
+        governanceAuth = Res::Err("Governance cannot be used before the DF24Height");
+        return *governanceAuth;
+    }
+
+    const auto members = GetGovernanceMembers(mnview);
+    governanceAuth = HasAuthInner(txCtx, members);
+    return *governanceAuth;
+}
+
+Res CanSetGovInternal(AuthManager &g, const CAttributeType &attribute) {
+    const auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+    if (!attrV0) {
+        return Res::Err("Attribute type check failed");
+    }
+    if ((attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation) ||
+        (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
+         attrV0->key == DFIPKeys::GovFoundation)) {
+        if (g.HasFoundationAuth()) {
+            return Res::Ok();
+        }
+        return Res::Err("Foundation cannot be modified by governance");
+    } else if (g.HasGovOrFoundationAuth()) {
+        return Res::Ok();
+    }
+    return Res::Err("Invalid authentication");
+}
+
+Res AuthManager::CanSetGov(const std::vector<std::string> &keys) {
+    if (keys.empty()) {
+        return Res::Err("No keys to check");
+    }
+    for (const auto &key : keys) {
+        const auto res = ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
+            return CanSetGovInternal(*this, attribute);
+        });
+        if (!res) {
+            return res;
+        }
+    }
+    return Res::Ok();
+}
+
+Res AuthManager::CanSetGov(const ATTRIBUTES &var) {
+    const auto m = var.GetAttributesMap();
+    if (m.empty()) {
+        return Res::Err("No keys to check in attribute map");
+    }
+    for (const auto &[k, _] : m) {
+        if (const auto res = CanSetGovInternal(*this, k); !res) {
+            return res;
+        }
+    }
+    return Res::Ok();
+}
+
+Res AuthManager::HasGovOrFoundationAuth() {
+    if (HasFoundationAuth() || HasGovernanceAuth()) {
+        return Res::Ok();
+    }
+    return Res::Err("tx not from foundation member");
+}
+
+Res CCustomTxVisitor::HasFoundationAuth() const {
+    auto &mnview = blockCtx.GetView();
+
+    const auto members = GetFoundationMembers(mnview);
+    return HasAuthInner(txCtx, members);
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {

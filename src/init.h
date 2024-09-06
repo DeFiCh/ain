@@ -10,6 +10,11 @@
 #include <string>
 #include <util/system.h>
 
+//! Default value for -daemon option
+static constexpr bool DEFAULT_DAEMON = false;
+//! Default value for -daemonnowait option
+static constexpr bool DEFAULT_DAEMONNOWAIT = false;
+
 namespace interfaces {
 class Chain;
 class ChainClient;

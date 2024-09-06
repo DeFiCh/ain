@@ -291,24 +291,25 @@ static std::vector<CTxIn> GetInputs(const UniValue &inputs) {
     return vin;
 }
 
-std::optional<CScript> AmIFounder(CWallet *const pwallet, CCustomCSView &mnview) {
-    auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = mnview.GetAttributes();
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
-                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
-            !databaseMembers.empty()) {
-            members = databaseMembers;
-        }
-    }
-
+static std::optional<CScript> AmIInner(const std::set<CScript> &members,
+                                       const CWallet *pwallet,
+                                       const CCustomCSView &mnview) {
     for (const auto &script : members) {
         if (IsMineCached(*pwallet, script) == ISMINE_SPENDABLE) {
             return {script};
         }
     }
     return {};
+}
+
+static std::optional<CScript> AmIFounder(const CWallet *pwallet, const CCustomCSView &mnview) {
+    const auto members = GetFoundationMembers(mnview);
+    return AmIInner(members, pwallet, mnview);
+}
+
+static std::optional<CScript> AmIGovernance(const CWallet *pwallet, const CCustomCSView &mnview) {
+    const auto members = GetGovernanceMembers(mnview);
+    return AmIInner(members, pwallet, mnview);
 }
 
 static std::optional<CTxIn> GetAuthInputOnly(
@@ -381,22 +382,11 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker &pwallet,
     return fund(mtx, pwallet, {}, &coinControl, coinSelectOpts), sign(mtx, pwallet, {});
 }
 
-static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet, CCustomCSView &mnview) {
-    auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = mnview.GetAttributes();
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
-                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
-            !databaseMembers.empty()) {
-            members = databaseMembers;
-        }
-    }
-
-    for (const auto &founderScript : members) {
-        if (IsMineCached(*pwallet, founderScript) == ISMINE_SPENDABLE) {
+static std::optional<CTxIn> GetAnyAuthInner(const std::set<CScript> &members, CWalletCoinsUnlocker &pwallet) {
+    for (const auto &script : members) {
+        if (IsMineCached(*pwallet, script) == ISMINE_SPENDABLE) {
             CTxDestination destination;
-            if (ExtractDestination(founderScript, destination)) {
+            if (ExtractDestination(script, destination)) {
                 if (auto auth = GetAuthInputOnly(pwallet, destination)) {
                     return auth;
                 }
@@ -406,6 +396,16 @@ static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwal
     return {};
 }
 
+static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet, const CCustomCSView &mnview) {
+    const auto members = GetFoundationMembers(mnview);
+    return GetAnyAuthInner(members, pwallet);
+}
+
+static std::optional<CTxIn> GetAnyGovernanceAuthInput(CWalletCoinsUnlocker &pwallet, const CCustomCSView &mnview) {
+    std::set<CScript> members = GetGovernanceMembers(mnview);
+    return GetAnyAuthInner(members, pwallet);
+}
+
 std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       int32_t txVersion,
                                       std::set<CScript> &auths,
@@ -413,7 +413,8 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
                                       CTransactionRef &optAuthTx,
                                       const UniValue &explicitInputs,
                                       CCustomCSView &mnview,
-                                      const CoinSelectionOptions &coinSelectOpts) {
+                                      const CoinSelectionOptions &coinSelectOpts,
+                                      bool needGovernanceAuth) {
     if (!explicitInputs.isNull() && !explicitInputs.empty()) {
         return GetInputs(explicitInputs);
     }
@@ -437,16 +438,27 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
             notFoundYet.insert(auth);
         }
     }
+
     // Look for founder's auth. minttoken may already have an auth in result.
     if (needFounderAuth && result.empty()) {
-        auto anyFounder = AmIFounder(pwallet, mnview);
-        if (anyFounder) {
+        if (auto anyFounder = AmIFounder(pwallet, mnview)) {
             auths.insert(anyFounder.value());
-            auto authInput = GetAnyFoundationAuthInput(pwallet, mnview);
-            if (authInput) {
+            if (auto authInput = GetAnyFoundationAuthInput(pwallet, mnview)) {
                 result.push_back(authInput.value());
             } else {
                 notFoundYet.insert(anyFounder.value());
+            }
+        }
+    }
+
+    // Look for Governance auth
+    if (needGovernanceAuth && result.empty()) {
+        if (auto anyGovernance = AmIGovernance(pwallet, mnview)) {
+            auths.insert(anyGovernance.value());
+            if (auto authInput = GetAnyGovernanceAuthInput(pwallet, mnview)) {
+                result.push_back(authInput.value());
+            } else {
+                notFoundYet.insert(anyGovernance.value());
             }
         }
     }
@@ -629,7 +641,7 @@ UniValue setgov(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     CCoinControl coinControl;
 
@@ -732,7 +744,7 @@ UniValue unsetgov(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     CCoinControl coinControl;
 
@@ -842,7 +854,7 @@ UniValue setgovheight(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     CCoinControl coinControl;
 
