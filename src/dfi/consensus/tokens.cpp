@@ -235,6 +235,13 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         updatedToken.creationHeight = token.creationHeight;
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
+        // Check for isDAT change
+        if (obj.token.IsDAT() != token.IsDAT()) {
+            // We disallow this for now since we don't yet support dynamic migration
+            // of non DAT to EVM if it's suddenly turned into a DAT.
+            return Res::Err("Cannot change isDAT flag after DF23Height");
+        }
+
         auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
 
         const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
@@ -282,20 +289,8 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             if (auto res = CheckTokenCreationTx(false); !res) {
                 return res;
             }
-
             mnview.EraseNewTokenCollateral(tokenID.v);
             mnview.SetNewTokenCollateral(hash, tokenID.v);
-        }
-
-        // Check for isDAT change
-        if (obj.token.IsDAT() != token.IsDAT()) {
-            if (height >= static_cast<uint32_t>(consensus.DF23Height)) {
-                // We disallow this for now since we don't yet support dynamic migration
-                // of non DAT to EVM if it's suddenly turned into a DAT.
-                return Res::Err("Cannot change isDAT flag after DF23Height");
-            } else if (height >= static_cast<uint32_t>(consensus.DF3BayfrontMarinaHeight) && !HasFoundationAuth()) {
-                return Res::Err("Foundation auth required to change isDAT flag");
-            }
         }
 
         UpdateTokenContext ctx{updatedToken, blockCtx, true, false, true, hash};
