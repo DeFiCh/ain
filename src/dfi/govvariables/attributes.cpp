@@ -2092,7 +2092,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     } else if (attrV0->key == DFIPKeys::CommunityGovernance ||
                                attrV0->key == DFIPKeys::AscendingBlockTime) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
-                            return Res::Err("Cannot be set before DF24Height");
+                            return DeFiErrors::GovVarValidateDF24Height();
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
