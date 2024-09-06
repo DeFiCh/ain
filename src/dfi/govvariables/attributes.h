@@ -124,6 +124,7 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
+    AscendingBlockTime = 'A',
 };
 
 enum GovernanceKeys : uint8_t {
