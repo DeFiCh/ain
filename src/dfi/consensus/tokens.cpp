@@ -8,6 +8,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <cstdint>
 
 Res CTokensConsensus::CheckTokenCreationTx(const bool creation) const {
     const auto height = txCtx.GetHeight();
@@ -178,10 +179,64 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         return Res::Err("token %s is the LPS token! Can't alter pool share's tokens!", obj.tokenTx.ToString());
     }
 
-    if (height < Params().GetConsensus().DF24Height) {
+    if (height >= Params().GetConsensus().DF24Height) {
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
+        updatedToken.creationHeight = token.creationHeight;
+        updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+
+        // Check for isDAT change
+        if (updatedToken.IsDAT() != token.IsDAT()) {
+            // We disallow this for now since we don't yet support dynamic migration
+            // of non DAT to EVM if it's suddenly turned into a DAT.
+            return Res::Err("Cannot change isDAT flag after DF23Height");
+        }
+
+        auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+        const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
+        Res ownerAuth = HasCollateralAuth(newCollateralTx == uint256{} ? token.creationTx : newCollateralTx);
+
+        if (!ownerAuth) {
+            // Governance or foundation can still mark/unmark token deprecation
+            if (auto res = authCheck.HasAnyAuth(); res) {
+                // Allow only deprecation. We disallow changes like name or symbol
+                // as a token holder shouldn't be misrepresented by governance.
+                // Governance can choose completely discard it by deprecating it
+                // or keep it in the form as intended by the owner.
+
+                const auto toggledFlags = static_cast<uint8_t>(updatedToken.flags ^ token.flags);
+                const auto hasDisallowedFlagToggle =
+                    toggledFlags != static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+
+                const auto disallowedChanges = hasDisallowedFlagToggle || updatedToken.symbol != token.symbol ||
+                                               updatedToken.name != token.name || obj.newCollateralAddress;
+
+                if (disallowedChanges) {
+                    return Res::Err("Only token deprecation toggle is allowed by governance");
+                }
+            } else {
+                return Res::Err("Authentication failed for token owner");
+            }
+        }
+
+        if (obj.newCollateralAddress) {
+            if (auto res = CheckTokenCreationTx(false); !res) {
+                return res;
+            }
+            mnview.EraseNewTokenCollateral(tokenID.v);
+            mnview.SetNewTokenCollateral(hash, tokenID.v);
+        }
+
+        UpdateTokenContext ctx{updatedToken, blockCtx, true, false, true, hash};
+        return mnview.UpdateToken(ctx);
+    } else {
         if (obj.newCollateralAddress) {
             return Res::Err("Collateral address update is not allowed before DF24Height");
         }
+
+        // Old code path below, untouched
         // check auth, depends from token's "origins"
         const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
@@ -226,66 +281,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 
         const auto checkSymbol = height >= static_cast<uint32_t>(consensus.DF23Height);
         UpdateTokenContext ctx{updatedToken, blockCtx, true, false, checkSymbol, hash};
-        return mnview.UpdateToken(ctx);
-    } else {
-        CTokenImplementation updatedToken{obj.token};
-        updatedToken.creationTx = token.creationTx;
-        updatedToken.destructionTx = token.destructionTx;
-        updatedToken.destructionHeight = token.destructionHeight;
-        updatedToken.creationHeight = token.creationHeight;
-        updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-
-        // Check for isDAT change
-        if (updatedToken.IsDAT() != token.IsDAT()) {
-            // We disallow this for now since we don't yet support dynamic migration
-            // of non DAT to EVM if it's suddenly turned into a DAT.
-            return Res::Err("Cannot change isDAT flag after DF23Height");
-        }
-
-        auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
-
-        const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
-        Res ownerAuth = HasCollateralAuth(newCollateralTx == uint256{} ? token.creationTx : newCollateralTx);
-
-        const auto deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
-        const auto disallowedChanges =
-            updatedToken.symbol != token.symbol || updatedToken.name != token.name || obj.newCollateralAddress;
-
-        // Foundation or Governance can deprecate tokens
-        if (updatedToken.IsDeprecated()) {
-            if (token.IsDeprecated()) {
-                return Res::Err("Token already deprecated");
-            }
-            if (!ownerAuth) {
-                if (!authCheck.HasAnyAuth()) {
-                    return Res::Err("Token deprecation requires governance auth");
-                }
-                // Check no other changes are being made
-                if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
-                    return Res::Err("Token deprecation must not have any other changes");
-                }
-            }
-        } else if (auto res = authCheck.HasFoundationAuth(); res) {
-            return res;
-        } else {
-            if (!ownerAuth) {
-                // Check no other changes are being made
-                if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
-                    return Res::Err("Token undeprecation must not have any other changes");
-                }
-                return ownerAuth;
-            }
-        }
-
-        if (obj.newCollateralAddress) {
-            if (auto res = CheckTokenCreationTx(false); !res) {
-                return res;
-            }
-            mnview.EraseNewTokenCollateral(tokenID.v);
-            mnview.SetNewTokenCollateral(hash, tokenID.v);
-        }
-
-        UpdateTokenContext ctx{updatedToken, blockCtx, true, false, true, hash};
         return mnview.UpdateToken(ctx);
     }
 }
