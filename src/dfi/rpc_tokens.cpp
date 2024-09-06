@@ -218,7 +218,7 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                     {"deprecate",
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
-                     "Whether to add deprecation prefix to symbol (bool, optional)"},
+                     "Marks a token as deprecated and attaches end of life prefix to symbol (bool, optional)"},
                     {"collateralAddress",
                      RPCArg::Type::STR,
                      RPCArg::Optional::OMITTED,
@@ -436,7 +436,7 @@ UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplemen
         tokenObj.pushKV("isDAT", token.IsDAT());
         tokenObj.pushKV("isLPS", token.IsPoolShare());
         tokenObj.pushKV("finalized", token.IsFinalized());
-        tokenObj.pushKV("deprecated", token.IsDeprecated());
+        // tokenObj.pushKV("deprecated", token.IsDeprecated());
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
             auto attributes = view.GetAttributes();

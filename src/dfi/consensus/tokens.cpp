@@ -230,7 +230,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         if (authCheck.HasAnyAuth() && !ownerAuth) {
             // Check no other changes are being made
             if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
-                return Res::Err("Token deprecation by Governance or Foundation must not have any other changes");
+                return Res::Err("Token deprecation must not have any other changes");
             }
         }
     } else if (isFoundersToken) {
@@ -245,7 +245,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             }
             // Check no other changes are being made
             if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
-                return Res::Err("Token undeprecation by Governance or Foundation must not have any other changes");
+                return Res::Err("Token undeprecation must not have any other changes");
             }
         } else if (!ownerAuth) {
             return ownerAuth;
