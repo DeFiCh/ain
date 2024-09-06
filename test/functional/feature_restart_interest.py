@@ -47,6 +47,9 @@ class RestartInterestTest(DefiTestFramework):
         # Interest paid by balance and collateral.
         self.interest_paid_by_balance_and_collateral()
 
+        # Negative interest negated from loan amount.
+        self.negative_interest_negated_from_loan()
+
     def setup(self):
 
         # Get masternode address
@@ -338,6 +341,51 @@ class RestartInterestTest(DefiTestFramework):
 
         # Check balance fully used to  pay back loan
         assert_equal(self.nodes[0].getaccount(vault_address), [])
+
+    def negative_interest_negated_from_loan(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Set negative interest rate. Works out to overall -5% after scheme interest.
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {f"v0/token/{self.idDUSD}/loan_minting_interest": "-10"}}
+        )
+        self.nodes[0].generate(1)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress("", "legacy")
+        vault_id = self.nodes[0].createvault(vault_address, "LOAN001")
+        self.nodes[0].generate(1)
+
+        # Deposit DFI to vault
+        self.nodes[0].deposittovault(vault_id, self.address, f"200@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan(
+            {"vaultId": vault_id, "amounts": f"100@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check vault
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["loanAmounts"], [])
+        assert_equal(result["collateralAmounts"], [f"200.00000000@{self.symbolDFI}"])
+        assert_equal(result["interestAmounts"], [])
+
+        # Check balance leaves amount negated by negative interest
+        assert_equal(
+            self.nodes[0].getaccount(vault_address), [f"0.00001902@{self.symbolDUSD}"]
+        )
+
+        # Check interest zeroed
+        result = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
+        assert_equal(result["interestToHeight"], "0.000000000000000000000000")
+        assert_equal(result["interestPerBlock"], "0.000000000000000000000000")
 
 
 if __name__ == "__main__":
