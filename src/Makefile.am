@@ -279,6 +279,7 @@ DEFI_CORE_H = \
   util/bytevectorhash.h \
   util/error.h \
   util/fees.h \
+  util/tokenpipe.h \
   util/system.h \
   util/moneystr.h \
   util/rbf.h \
@@ -425,6 +426,7 @@ libdefi_server_a_SOURCES = \
   dfi/consensus/proposals.cpp \
   dfi/consensus/smartcontracts.cpp \
   dfi/consensus/tokens.cpp \
+  dfi/consensus/tokenlock.cpp \
   dfi/consensus/txvisitor.cpp \
   dfi/consensus/vaults.cpp \
   dfi/consensus/xvm.cpp \
@@ -701,6 +703,7 @@ libdefi_util_a_SOURCES = \
   util/bytevectorhash.cpp \
   util/error.cpp \
   util/fees.cpp \
+  util/tokenpipe.cpp \
   util/system.cpp \
   util/moneystr.cpp \
   util/rbf.cpp \
