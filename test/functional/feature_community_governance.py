@@ -11,7 +11,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import time
 
 
-token_undepr_exlusive_msg = "Token undeprecation must not have any other changes"
+token_undepr_exclusive_msg = "Token undeprecation must not have any other changes"
 token_depr_exclusive_err_msg = "Token deprecation must not have any other changes"
 
 
@@ -816,7 +816,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Foundation undeprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -826,7 +826,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -836,7 +836,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -846,7 +846,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -932,7 +932,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Governance undeprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -942,7 +942,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -952,7 +952,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -962,7 +962,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exlusive_msg,
+            token_undepr_exclusive_msg,
             self.nodes[1].updatetoken,
             1,
             {
