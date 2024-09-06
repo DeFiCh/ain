@@ -3211,6 +3211,177 @@ UniValue getpendingfutureswaps(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
+UniValue releaselockedtokens(const JSONRPCRequest &request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{
+        "releaselockedtokens",
+        "\nreleases a tranche of locked loan tokens\n",
+        {
+          {
+                "releasePart",
+                RPCArg::Type::NUM,
+                RPCArg::Optional::NO,
+                "Percentagepoints to be released",
+            }, {
+                "inputs",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::OMITTED_NAMED_ARG,
+                "A json array of json objects",
+                {
+                    {
+                        "",
+                        RPCArg::Type::OBJ,
+                        RPCArg::Optional::OMITTED,
+                        "",
+                        {
+                            {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id"},
+                            {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "The output number"},
+                        },
+                    },
+                },
+            }, },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("releaselockedtokens", "3") + HelpExampleRpc("releaselockedtokens", "1.23")},
+    }
+        .Check(request);
+
+    if (pwallet->chain().isInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
+                           "Cannot create transactions while still in Initial Block Download");
+    }
+    pwallet->BlockUntilSyncedToCurrentChain();
+
+    RPCTypeCheck(request.params, {UniValue::VNUM, UniValue::VARR}, true);
+
+    CDataStream varStream(SER_NETWORK, PROTOCOL_VERSION);
+    if (request.params.size() != 1 && !request.params[0].isNum()) {
+        throw JSONRPCError(RPC_INVALID_REQUEST, "Invalid releaseRatio");
+    }
+
+    auto releaseRatio = AmountFromValue(request.params[0]) / 100;
+    CReleaseLockMessage msg{std::move(releaseRatio)};
+
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::TokenLockRelease) << msg;
+
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(metadata);
+
+    int targetHeight = chainHeight(*pwallet->chain().lock()) + 1;
+
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    const UniValue &txInputs = request.params[1];
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths;
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+
+    CCoinControl coinControl;
+
+    // Set change to selected foundation address
+    if (!auths.empty()) {
+        CTxDestination dest;
+        ExtractDestination(*auths.cbegin(), dest);
+        if (IsValidDestination(dest)) {
+            coinControl.destChange = dest;
+        }
+    }
+
+    fund(rawTx, pwallet, optAuthTx, &coinControl, request.metadata.coinSelectOpts);
+
+    // check execution
+    execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+
+    return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
+}
+
+UniValue listlockedtokens(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listlockedtokens",
+        "Get all locked loan tokens.\n",
+        {},
+        RPCResult{"\"json\"      (string) array containing json-objects having following fields:\n"
+                  "    owner  :  \"address\"\n"
+                  "    values : [\"amount1@token1\",\"amount1@token1\"...]\n"},
+        RPCExamples{HelpExampleCli("listlockedtokens", "")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+    UniValue listLockedTokens{UniValue::VARR};
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    view->ForEachTokenLockUserValues(
+        [&, &view = view](const CTokenLockUserKey &key, const CTokenLockUserValue &lockValues) {
+            CTxDestination dest;
+            ExtractDestination(key.owner, dest);
+            if (!IsValidDestination(dest)) {
+                return true;
+            }
+
+            UniValue value{UniValue::VOBJ};
+            value.pushKV("owner", EncodeDestination(dest));
+            UniValue balances{UniValue::VARR};
+            for (const auto tokenAmount : lockValues.balances) {
+                const auto source = view->GetToken(tokenAmount.first);
+                if (!source) {
+                    continue;
+                }
+                balances.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
+            }
+            value.pushKV("values", balances);
+
+            listLockedTokens.push_back(value);
+
+            return true;
+        });
+
+    return GetRPCResultCache().Set(request, listLockedTokens);
+}
+
+UniValue getlockedtokens(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "getlockedtokens",
+        "\nGet specific locked tokens.\n",
+        {
+          {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Address to get all locked tokens"},
+          },
+        RPCResult{"[\"amount1@token1\",\"amount1@token1\"...]\n"},
+        RPCExamples{HelpExampleCli("getlockedtokens", "address")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    const auto owner = DecodeScript(request.params[0].get_str());
+
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    CTokenLockUserKey key{owner};
+    const auto &value = view->GetTokenLockUserValue(key);
+
+    UniValue obj{UniValue::VARR};
+    for (const auto tokenAmount : value.balances) {
+        const auto source = view->GetToken(tokenAmount.first);
+        if (!source) {
+            continue;
+        }
+        obj.push_back(ValueFromAmount(tokenAmount.second).getValStr() + '@' + source->symbol);
+    }
+    return GetRPCResultCache().Set(request, obj);
+}
+
 UniValue logaccountbalances(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logaccountbalances",
@@ -3394,6 +3565,9 @@ static const CRPCCommand commands[] = {
     {"accounts", "listpendingdusdswaps",   &listpendingdusdswaps,   {}                                                          },
     {"accounts", "getpendingdusdswaps",    &getpendingdusdswaps,    {"address"}                                                 },
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
+    {"accounts", "listlockedtokens",       &listlockedtokens,       {}                                                          },
+    {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
+    {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                             },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

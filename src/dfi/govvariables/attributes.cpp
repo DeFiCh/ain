@@ -97,30 +97,32 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     static const std::map<std::string, uint8_t> params{
-        {"dfip2201",   ParamIDs::DFIP2201       },
-        {"dfip2203",   ParamIDs::DFIP2203       },
-        {"dfip2206a",  ParamIDs::DFIP2206A      },
+        {"dfip2201",       ParamIDs::DFIP2201       },
+        {"dfip2203",       ParamIDs::DFIP2203       },
+        {"dfip2206a",      ParamIDs::DFIP2206A      },
  // Note: DFIP2206F is currently in beta testing
   // for testnet. May not be enabled on mainnet until testing is complete.
-        {"dfip2206f",  ParamIDs::DFIP2206F      },
-        {"dfip2211f",  ParamIDs::DFIP2211F      },
-        {"feature",    ParamIDs::Feature        },
-        {"foundation", ParamIDs::Foundation     },
-        {"governance", ParamIDs::GovernanceParam},
+        {"dfip2206f",      ParamIDs::DFIP2206F      },
+        {"dfip2211f",      ParamIDs::DFIP2211F      },
+        {"feature",        ParamIDs::Feature        },
+        {"foundation",     ParamIDs::Foundation     },
+        {"governance",     ParamIDs::GovernanceParam},
+        {"dtoken_restart", ParamIDs::dTokenRestart  },
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-        {ParamIDs::DFIP2201,        "dfip2201"  },
-        {ParamIDs::DFIP2203,        "dfip2203"  },
-        {ParamIDs::DFIP2206A,       "dfip2206a" },
-        {ParamIDs::DFIP2206F,       "dfip2206f" },
-        {ParamIDs::DFIP2211F,       "dfip2211f" },
-        {ParamIDs::Feature,         "feature"   },
-        {ParamIDs::Foundation,      "foundation"},
-        {ParamIDs::GovernanceParam, "governance"},
+        {ParamIDs::DFIP2201,        "dfip2201"      },
+        {ParamIDs::DFIP2203,        "dfip2203"      },
+        {ParamIDs::DFIP2206A,       "dfip2206a"     },
+        {ParamIDs::DFIP2206F,       "dfip2206f"     },
+        {ParamIDs::DFIP2211F,       "dfip2211f"     },
+        {ParamIDs::Feature,         "feature"       },
+        {ParamIDs::Foundation,      "foundation"    },
+        {ParamIDs::GovernanceParam, "governance"    },
+        {ParamIDs::dTokenRestart,   "dtoken_restart"},
     };
     return params;
 }
@@ -420,6 +422,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EconomyKeys::Loans, "loans"},
              {EconomyKeys::TransferDomainStatsLive, "transferdomain"},
              {EconomyKeys::EVMBlockStatsLive, "evm"},
+             {EconomyKeys::TokenLockRatio, "token_lock_ratio"},
+             {EconomyKeys::LockedTokens, "locked_tokens"},
          }},
         {AttributeTypes::Governance,
          {
@@ -1003,7 +1007,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             if (typeKey != DFIPKeys::Members) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
-        } else {
+        } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
         }
     } else if (type == AttributeTypes::EVMType) {
@@ -1189,6 +1193,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
             attrV0 = CDataStructureV0{type, typeId, typeKey};
         }
+    } else if (type == AttributeTypes::Param && typeId == ParamIDs::dTokenRestart) {
+        if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
+            attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedType(type);
+        }
     } else {
         auto ikey = allowedKeys().find(type);
         if (ikey == allowedKeys().end()) {
@@ -1294,6 +1304,17 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue);
+    } else if (attrV0.type == AttributeTypes::Param && attrV0.typeId == ParamIDs::dTokenRestart) {
+        auto attribValue = VerifyPctInt64(value->getValStr());
+        if (!attribValue) {
+            return std::move(attribValue);
+        }
+        auto value = std::get<CAmount>(*attribValue.val);
+        if (value <= 0 || value >= COIN) {
+            return Res::Err("Can't lock none nor all dTokens");
+        }
+        return applyVariable(attrV0, *attribValue);
+
     } else {
         if (value && !value->isStr() && value->getValStr().empty()) {
             return Res::Err("Empty value");
@@ -1497,14 +1518,17 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                     interestTokens.insert(attrV0->typeId);
                 }
 
-                if (attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F)) {
-                    if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
-                        if (attrV0->typeId == ParamIDs::DFIP2203) {
-                            futureUpdated = true;
-                        } else {
-                            futureDUSDUpdated = true;
+                if (attrV0->type == AttributeTypes::Param) {
+                    if (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F) {
+                        if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
+                            if (attrV0->typeId == ParamIDs::DFIP2203) {
+                                futureUpdated = true;
+                            } else {
+                                futureDUSDUpdated = true;
+                            }
                         }
+                    } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
+                        dTokenRestartUpdated = true;
                     }
                 }
 
@@ -1655,11 +1679,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = KeyBuilder(attrV0->typeId);
             }
 
-            const auto v0Key =
-                (attrV0->type == AttributeTypes::Oracles && attrV0->key != OracleKeys::FractionalSplits) ||
-                        attrV0->type == AttributeTypes::Locks
-                    ? KeyBuilder(attrV0->key)
-                    : displayKeys().at(attrV0->type).at(attrV0->key);
+            std::string v0Key;
+            if (((attrV0->type == AttributeTypes::Oracles && attrV0->key != OracleKeys::FractionalSplits) ||
+                 attrV0->type == AttributeTypes::Locks) ||
+                (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::dTokenRestart)) {
+                v0Key = KeyBuilder(attrV0->key);
+            } else {
+                v0Key = displayKeys().at(attrV0->type).at(attrV0->key);
+            }
 
             auto key = KeyBuilder(displayVersions().at(VersionTypes::v0), displayTypes().at(attrV0->type), id, v0Key);
 
@@ -1683,7 +1710,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F || attrV0->typeId == DFIP2211F) &&
+                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
+                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
                      attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
                     ret.pushKV(key, KeyBuilder(*amount));
@@ -2103,6 +2131,21 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 } else if (attrV0->typeId == ParamIDs::GovernanceParam) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
                         return Res::Err("Cannot be set before DF24Height");
+                    }
+                } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                        return DeFiErrors::GovVarValidateDF24Height();
+                    }
+                    // Only perform following checks when block height has been imported.
+                    if (!dTokenRestartUpdated) {
+                        continue;
+                    }
+                    if (attrV0->key <= view.GetLastHeight()) {
+                        return DeFiErrors::GovVarValidateBlockHeight();
+                    }
+                    CDataStructureV0 tokenLock{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TokenLockRatio};
+                    if (const auto checkKey = CheckKey(tokenLock)) {
+                        return DeFiErrors::GovVarValidateRestartExecuted();
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
