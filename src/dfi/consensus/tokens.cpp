@@ -235,8 +235,12 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         if (obj.newCollateralAddress) {
             return Res::Err("Collateral address update is not allowed before DF24Height");
         }
-
+        const auto deprecationMask = static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+        if ((obj.token.flags & deprecationMask) == deprecationMask) {
+            return Res::Err("Token cannot be deprecated below DF24Height");
+        }
         // Old code path below, untouched
+
         // check auth, depends from token's "origins"
         const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
