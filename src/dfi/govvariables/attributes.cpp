@@ -1199,7 +1199,6 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         } else {
             return DeFiErrors::GovVarVariableUnsupportedType(type);
         }
-        dTokenRestartUpdated = true;
     } else {
         auto ikey = allowedKeys().find(type);
         if (ikey == allowedKeys().end()) {
@@ -1519,14 +1518,17 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                     interestTokens.insert(attrV0->typeId);
                 }
 
-                if (attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F)) {
-                    if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
-                        if (attrV0->typeId == ParamIDs::DFIP2203) {
-                            futureUpdated = true;
-                        } else {
-                            futureDUSDUpdated = true;
+                if (attrV0->type == AttributeTypes::Param) {
+                    if (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F) {
+                        if (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock) {
+                            if (attrV0->typeId == ParamIDs::DFIP2203) {
+                                futureUpdated = true;
+                            } else {
+                                futureDUSDUpdated = true;
+                            }
                         }
+                    } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
+                        dTokenRestartUpdated = true;
                     }
                 }
 
