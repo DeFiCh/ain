@@ -14,6 +14,7 @@ import time
 token_undepr_exlusive_msg = "Token undeprecation must not have any other changes"
 token_depr_exclusive_err_msg = "Token deprecation must not have any other changes"
 
+
 class CommunityGovernanceTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
@@ -811,7 +812,6 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Check token deprecated
         assert_equal(self.nodes[0].gettoken(1)["1"]["symbol"], "eol/ETH")
         # assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], True)
-
 
         # Foundation undeprecate and set other values
         assert_raises_rpc_error(
