@@ -797,11 +797,21 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     return {finMsg.btcTxHash, Res::Ok()};
 }
 
-bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
-    CTransactionRef ptx = pool.get(txid);
-    if (ptx) {
-        std::vector<unsigned char> dummy;
-        CustomTxType txType = GuessCustomTxType(*ptx, dummy);
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid, const uint32_t height) {
+    if (CTransactionRef ptx = pool.get(txid)) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(*ptx, metadata, true);
+        if (txType == CustomTxType::UpdateTokenAny) {
+            CCustomTxMessage txMessage{CUpdateTokenMessage{}};
+            auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+            if (!res) {
+                return false;
+            }
+            auto obj = std::get<CUpdateTokenMessage>(txMessage);
+            if (obj.newCollateralAddress) {
+                return true;
+            }
+        }
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
@@ -1561,4 +1571,29 @@ std::pair<Res, CCustomTxMessage> &TransactionContext::GetTxMessage() {
 
 bool TransactionContext::GetMetadataValidation() const {
     return metadataValidation;
+}
+
+std::set<CScript> GetFoundationMembers(const CCustomCSView &mnview) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                             false)) {
+        if (const auto databaseMembers = attributes->GetValue(
+                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+            !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
+    }
+    return members;
+}
+
+std::set<CScript> GetGovernanceMembers(const CCustomCSView &mnview) {
+    std::set<CScript> members;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CommunityGovernance},
+                             false)) {
+        members = attributes->GetValue(
+            CDataStructureV0{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::Members}, members);
+    }
+    return members;
 }

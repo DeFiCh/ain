@@ -25,10 +25,12 @@ Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
 }
 
 Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
-    // check foundation auth
-    if (auto res = HasFoundationAuth(); !res) {
+    // Check foundation auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
+
     if (obj.commission < 0 || obj.commission > COIN) {
         return Res::Err("wrong commission");
     }
@@ -99,8 +101,9 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
 }
 
 Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
-    // check foundation auth
-    if (auto res = HasFoundationAuth(); !res) {
+    // Check foundation auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 

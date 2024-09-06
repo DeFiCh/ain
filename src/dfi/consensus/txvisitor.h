@@ -11,6 +11,7 @@
 #include <dfi/res.h>
 #include <dfi/vault.h>
 
+class ATTRIBUTES;
 class BlockContext;
 struct CBalances;
 class CCoinsViewCache;
@@ -78,6 +79,24 @@ protected:
                                               const CBalances &collaterals,
                                               bool useNextPrice,
                                               bool requireLivePrice) const;
+};
+
+class AuthManager {
+    std::optional<Res> foundationAuth;
+    std::optional<Res> governanceAuth;
+    BlockContext &blockCtx;
+    const TransactionContext &txCtx;
+
+public:
+    AuthManager(BlockContext &blockCtx, const TransactionContext &txCtx)
+        : blockCtx(blockCtx),
+          txCtx(txCtx){};
+
+    Res HasFoundationAuth();
+    Res HasGovernanceAuth();
+    Res HasGovOrFoundationAuth();
+    Res CanSetGov(const std::vector<std::string> &keys);
+    Res CanSetGov(const ATTRIBUTES &var);
 };
 
 #endif  // DEFI_DFI_CONSENSUS_TXVISITOR_H
