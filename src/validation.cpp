@@ -5070,8 +5070,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader &block,
                              "bad-fork-prior-to-checkpoint");
     }
 
+    const auto attributes = pcustomcsview->GetAttributes();
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
+
     // Check timestamp against prev
-    if (nHeight >= consensusParams.DF24Height) {
+    if (attributes->GetValue(enabledKey, false)) {
         if (block.GetBlockTime() <= pindexPrev->GetBlockTime()) {
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
                                  false,
