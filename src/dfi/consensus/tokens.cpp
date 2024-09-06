@@ -236,7 +236,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
         // Check for isDAT change
-        if (obj.token.IsDAT() != token.IsDAT()) {
+        if (updatedToken.IsDAT() != token.IsDAT()) {
             // We disallow this for now since we don't yet support dynamic migration
             // of non DAT to EVM if it's suddenly turned into a DAT.
             return Res::Err("Cannot change isDAT flag after DF23Height");
@@ -253,9 +253,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 
         // Foundation or Governance can deprecate tokens
         if (updatedToken.IsDeprecated()) {
-            if (height < static_cast<uint32_t>(consensus.DF24Height)) {
-                return Res::Err("Token cannot be deprecated below DF24Height");
-            }
             if (token.IsDeprecated()) {
                 return Res::Err("Token already deprecated");
             }
