@@ -176,7 +176,7 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
         return res;
     }
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }
@@ -274,7 +274,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
         return res;
     }
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }
@@ -380,7 +380,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
         return res;
     }
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }
@@ -491,7 +491,7 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
         return res;
     }
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }
@@ -577,7 +577,7 @@ Res CLoansConsensus::operator()(const CDefaultLoanSchemeMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }
@@ -610,7 +610,7 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
         return res;
     }
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (auto res = authCheck.HasAnyAuth(); !res) {
         return res;
     }

@@ -81,14 +81,14 @@ protected:
                                               bool requireLivePrice) const;
 };
 
-class GovernanceAndFoundationAuth {
+class KnownAuthIdentities {
     std::optional<Res> foundationAuth;
     std::optional<Res> governanceAuth;
     BlockContext &blockCtx;
     const TransactionContext &txCtx;
 
 public:
-    GovernanceAndFoundationAuth(BlockContext &blockCtx, const TransactionContext &txCtx)
+    KnownAuthIdentities(BlockContext &blockCtx, const TransactionContext &txCtx)
         : blockCtx(blockCtx),
           txCtx(txCtx){};
 

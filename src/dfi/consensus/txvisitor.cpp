@@ -123,7 +123,7 @@ static Res HasAuthInner(const TransactionContext &txCtx, const std::set<CScript>
     return Res::Err("tx not from foundation member");
 }
 
-Res GovernanceAndFoundationAuth::HasFoundationAuth() {
+Res KnownAuthIdentities::HasFoundationAuth() {
     if (foundationAuth) {
         return *foundationAuth;
     }
@@ -134,7 +134,7 @@ Res GovernanceAndFoundationAuth::HasFoundationAuth() {
     return *foundationAuth;
 }
 
-Res GovernanceAndFoundationAuth::HasGovernanceAuth() {
+Res KnownAuthIdentities::HasGovernanceAuth() {
     if (governanceAuth) {
         return *governanceAuth;
     }
@@ -153,39 +153,53 @@ Res GovernanceAndFoundationAuth::HasGovernanceAuth() {
     return *governanceAuth;
 }
 
-Res GovernanceAndFoundationAuth::CanSetGov(const std::vector<std::string> &keys) {
-    if (!HasFoundationAuth() && HasGovernanceAuth()) {
-        bool error{};
-        for (const auto &key : keys) {
-            ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
-                if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
-                    if ((attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation) ||
-                        (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
-                         attrV0->key == DFIPKeys::GovFoundation)) {
-                        error = true;
-                    }
-                }
-                return Res::Ok();
-            });
+Res CanSetGovInternal(KnownAuthIdentities &g, const CAttributeType &attribute) {
+    const auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
+    if (!attrV0) {
+        return Res::Err("Attribute type check failed");
+    }
+    if ((attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation) ||
+        (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
+         attrV0->key == DFIPKeys::GovFoundation)) {
+        if (g.HasFoundationAuth()) {
+            return Res::Ok();
         }
-        if (error) {
-            return Res::Err("Foundation cannot be modified by governance");
+        return Res::Err("Foundation cannot be modified by governance");
+    } else if (g.HasGovernanceAuth()) {
+        return Res::Ok();
+    }
+    return Res::Err("Invalid authentication");
+}
+
+Res KnownAuthIdentities::CanSetGov(const std::vector<std::string> &keys) {
+    if (keys.empty()) {
+        return Res::Err("No keys to check");
+    }
+    for (const auto &key : keys) {
+        const auto res = ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
+            return CanSetGovInternal(*this, attribute);
+        });
+        if (!res) {
+            return res;
         }
     }
     return Res::Ok();
 }
 
-Res GovernanceAndFoundationAuth::CanSetGov(const ATTRIBUTES &var) {
-    if (!HasFoundationAuth() && HasGovernanceAuth()) {
-        CDataStructureV0 foundationParam{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation};
-        if (var.CheckPartialKey(AttributeTypes::Param, ParamIDs::Foundation) || var.CheckKey(foundationParam)) {
-            return Res::Err("Foundation cannot be modified by governance");
+Res KnownAuthIdentities::CanSetGov(const ATTRIBUTES &var) {
+    const auto m = var.GetAttributesMap();
+    if (m.empty()) {
+        return Res::Err("No keys to check in attribute map");
+    }
+    for (const auto &[k, _] : m) {
+        if (const auto res = CanSetGovInternal(*this, k); !res) {
+            return res;
         }
     }
     return Res::Ok();
 }
 
-Res GovernanceAndFoundationAuth::HasAnyAuth() {
+Res KnownAuthIdentities::HasAnyAuth() {
     if (HasFoundationAuth() || HasGovernanceAuth()) {
         return Res::Ok();
     }

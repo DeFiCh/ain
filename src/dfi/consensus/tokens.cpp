@@ -116,7 +116,7 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
     if (token.IsDAT() && !authCheck.HasAnyAuth()) {
         return Res::Err("tx not from foundation member");
     }
@@ -194,7 +194,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             return Res::Err("Cannot change isDAT flag after DF23Height");
         }
 
-        auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+        auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
         const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
         Res ownerAuth = HasCollateralAuth(newCollateralTx == uint256{} ? token.creationTx : newCollateralTx);
 
