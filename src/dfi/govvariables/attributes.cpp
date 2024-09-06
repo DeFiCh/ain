@@ -102,12 +102,12 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"dfip2206a",  ParamIDs::DFIP2206A      },
  // Note: DFIP2206F is currently in beta testing
   // for testnet. May not be enabled on mainnet until testing is complete.
-        {"dfip2206f",  ParamIDs::DFIP2206F },
-        {"dfip2211f",  ParamIDs::DFIP2211F },
-        {"feature",    ParamIDs::Feature   },
-        {"foundation", ParamIDs::Foundation},
+        {"dfip2206f",  ParamIDs::DFIP2206F      },
+        {"dfip2211f",  ParamIDs::DFIP2211F      },
+        {"feature",    ParamIDs::Feature        },
+        {"foundation", ParamIDs::Foundation     },
         {"governance", ParamIDs::GovernanceParam},
-        {"block_time", ParamIDs::BlockTime },
+        {"block_time", ParamIDs::BlockTime      },
     };
     return params;
 }
@@ -122,7 +122,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::Feature,         "feature"   },
         {ParamIDs::Foundation,      "foundation"},
         {ParamIDs::GovernanceParam, "governance"},
-        {ParamIDs::BlockTime,  "block_time"},
+        {ParamIDs::BlockTime,       "block_time"},
     };
     return params;
 }
