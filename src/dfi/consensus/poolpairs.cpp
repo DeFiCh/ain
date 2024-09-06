@@ -26,8 +26,8 @@ Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
 
 Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     // Check foundation auth
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -102,8 +102,8 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
 
 Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
     // Check foundation auth
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 

@@ -22,8 +22,8 @@ Res COraclesConsensus::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &
 }
 
 Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -37,8 +37,8 @@ Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
 }
 
 Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const {
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -53,8 +53,8 @@ Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const 
 }
 
 Res COraclesConsensus::operator()(const CRemoveOracleAppointMessage &obj) const {
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 

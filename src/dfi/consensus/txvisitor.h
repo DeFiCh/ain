@@ -81,20 +81,20 @@ protected:
                                               bool requireLivePrice) const;
 };
 
-class KnownAuthIdentities {
+class AuthManager {
     std::optional<Res> foundationAuth;
     std::optional<Res> governanceAuth;
     BlockContext &blockCtx;
     const TransactionContext &txCtx;
 
 public:
-    KnownAuthIdentities(BlockContext &blockCtx, const TransactionContext &txCtx)
+    AuthManager(BlockContext &blockCtx, const TransactionContext &txCtx)
         : blockCtx(blockCtx),
           txCtx(txCtx){};
 
     Res HasFoundationAuth();
     Res HasGovernanceAuth();
-    Res HasAnyAuth();
+    Res HasGovOrFoundationAuth();
     Res CanSetGov(const std::vector<std::string> &keys);
     Res CanSetGov(const ATTRIBUTES &var);
 };

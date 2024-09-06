@@ -9,8 +9,8 @@
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // Check foundation auth
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -108,8 +108,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 
 Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
     // Check foundation auth
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -148,8 +148,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
 
 Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const {
     // Check foundation auth
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (auto res = authCheck.HasAnyAuth(); !res) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 

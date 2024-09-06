@@ -116,8 +116,8 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
-    if (token.IsDAT() && !authCheck.HasAnyAuth()) {
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (token.IsDAT() && !authCheck.HasGovOrFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
 
@@ -194,13 +194,13 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             return Res::Err("Cannot change isDAT flag after DF23Height");
         }
 
-        auto authCheck = KnownAuthIdentities(blockCtx, txCtx);
+        auto authCheck = AuthManager(blockCtx, txCtx);
         const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
         Res ownerAuth = HasCollateralAuth(newCollateralTx == uint256{} ? token.creationTx : newCollateralTx);
 
         if (!ownerAuth) {
             // Governance or foundation can still mark/unmark token deprecation
-            if (auto res = authCheck.HasAnyAuth(); res) {
+            if (auto res = authCheck.HasGovOrFoundationAuth(); res) {
                 // Allow only deprecation. We disallow changes like name or symbol
                 // as a token holder shouldn't be misrepresented by governance.
                 // Governance can choose completely discard it by deprecating it
