@@ -484,17 +484,6 @@ public:
         return attributes.count(key) > 0;
     }
 
-    [[nodiscard]] bool CheckPartialKey(const uint8_t type, const uint8_t typeId) const {
-        for (const auto &[key, value] : attributes) {
-            if (auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                if (attrV0->type == type && attrV0->typeId == typeId) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     template <typename C, typename K>
     void ForEach(const C &callback, const K &key) const {
         static_assert(std::is_convertible_v<K, CAttributeType>);
@@ -565,8 +554,8 @@ private:
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<std::string, uint8_t> &allowedRulesIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
-    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
-        &parseValue();
+    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
+    parseValue();
 
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
