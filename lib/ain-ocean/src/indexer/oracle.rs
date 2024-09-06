@@ -106,6 +106,7 @@ impl Index for AppointOracle {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        trace!("[AppointOracle] Invalidating...");
         let oracle_id = context.tx.txid;
         services.oracle.by_id.delete(&oracle_id)?;
         services.oracle_history.by_id.delete(&(
@@ -113,26 +114,16 @@ impl Index for AppointOracle {
             context.block.height,
             context.tx.txid,
         ))?;
-        services.oracle_history.by_key.delete(&(oracle_id))?;
         for currency_pair in self.price_feeds.as_ref() {
             let token_currency_id = (
                 currency_pair.token.clone(),
                 currency_pair.currency.clone(),
                 oracle_id,
             );
-            let token_currency_key = (
-                currency_pair.token.clone(),
-                currency_pair.currency.clone(),
-                context.block.height,
-            );
             services
                 .oracle_token_currency
                 .by_id
                 .delete(&token_currency_id)?;
-            services
-                .oracle_token_currency
-                .by_key
-                .delete(&token_currency_key)?;
         }
         Ok(())
     }
@@ -167,6 +158,7 @@ impl Index for RemoveOracle {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        trace!("[RemoveOracle] Invalidating...");
         let oracle_id = context.tx.txid;
         let previous_oracle_history = get_previous_oracle_history_list(services, oracle_id)?;
 
@@ -316,8 +308,8 @@ impl Index for UpdateOracle {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        trace!("[UpdateOracle] Invalidating...");
         let oracle_id = context.tx.txid;
-        services.oracle_history.by_key.delete(&oracle_id)?;
         services.oracle_history.by_id.delete(&(
             oracle_id,
             context.block.height,
@@ -580,21 +572,18 @@ impl Index for SetOracleData {
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_repo = &services.oracle_price_aggregated;
-        let feed_repo = &services.oracle_price_feed;
 
         let mut pairs = HashSet::new();
         let feeds = map_price_feeds(self, context);
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
-            feed_repo.by_id.delete(&feed.id)?;
-            feed_repo.by_key.delete(&feed.key)?;
         }
 
         for (token, currency) in &pairs {
             let key = (token.clone(), currency.clone());
             let id = (key.0.clone(), key.1.clone(), context.block.height);
 
-            let aggregated = services.oracle_price_aggregated.by_id.get(&id)?;
+            let aggregated = oracle_repo.by_id.get(&id)?;
 
             let Some(aggregated) = aggregated else {
                 continue;
@@ -611,9 +600,7 @@ impl Index for SetOracleData {
                 )?;
             }
 
-            // invalidate_set_oracle_data
             oracle_repo.by_id.delete(&id)?;
-            oracle_repo.by_key.delete(&key)?;
         }
         Ok(())
     }

@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::loans::SetLoanToken;
+use log::trace;
 use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
@@ -20,16 +21,13 @@ impl Index for SetLoanToken {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        trace!("[SetLoanToken] Invalidating...");
         let ticker_id = (
             self.currency_pair.token.clone(),
             self.currency_pair.currency.clone(),
             context.block.height,
         );
         services.oracle_price_active.by_id.delete(&ticker_id)?;
-        services
-            .oracle_price_active
-            .by_key
-            .delete(&(ticker_id.0, ticker_id.1))?;
         Ok(())
     }
 }
@@ -132,6 +130,34 @@ fn map_active_price(
         is_live: is_live(active_price, next_price),
         block: block.clone(),
     }
+}
+
+pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    let network = ain_cpp_imports::get_network();
+    let block_interval = match Network::from_str(&network)? {
+        Network::Regtest => 6,
+        _ => 120,
+    };
+    if block.height % block_interval == 0 {
+        let pt = services
+            .price_ticker
+            .by_id
+            .list(None, SortOrder::Descending)?
+            .map(|item| {
+                let (_, priceticker) = item?;
+                Ok(priceticker)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        for ticker in pt {
+            services
+                .oracle_price_active
+                .by_id
+                .delete(&(ticker.id.0, ticker.id.1, block.height))?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn perform_active_price_tick(

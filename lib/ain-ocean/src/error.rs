@@ -164,6 +164,17 @@ pub enum Error {
     NotFoundMessage {
         msg: String,
     },
+    #[snafu(display(
+        "attempting to sync: {:?} but type: {} with id: {} cannot be found in the index",
+        action,
+        r#type,
+        id
+    ))]
+    NotFoundIndex {
+        action: IndexAction,
+        r#type: String,
+        id: String,
+    },
     DecimalConversionError,
     #[snafu(display("Arithmetic overflow"))]
     ArithmeticOverflow {

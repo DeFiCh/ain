@@ -217,6 +217,7 @@ impl Index for PoolSwap {
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+        trace!("[PoolSwap] Invalidating...");
         let txid = ctx.tx.txid;
         let from_token_id = self.from_token_id.0;
         let from_amount = self.from_amount;
@@ -298,6 +299,7 @@ impl Index for CompositeSwap {
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+        trace!("[ComposoteSwap] Invalidating...");
         let from_token_id = self.pool_swap.from_token_id.0;
         let from_amount = self.pool_swap.from_amount;
         let txid = ctx.tx.txid;
