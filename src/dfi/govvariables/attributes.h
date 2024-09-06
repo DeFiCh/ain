@@ -44,7 +44,7 @@ enum ParamIDs : uint8_t {
     Auction = 'i',
     Foundation = 'j',
     DFIP2211F = 'k',
-    dTokenRestart = 'l',
+    dTokenRestart = 'm',
 };
 
 enum OracleIDs : uint8_t {
