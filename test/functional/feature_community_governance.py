@@ -11,8 +11,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import time
 
 
-token_undepr_exclusive_msg = "Token undeprecation must not have any other changes"
-token_depr_exclusive_err_msg = "Token deprecation must not have any other changes"
+token_depr_gov_err_msg = "Only token deprecation toggle is allowed by governance"
 
 
 class CommunityGovernanceTest(DefiTestFramework):
@@ -20,89 +19,34 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.num_nodes = 3
         self.setup_clean_chain = True
         self.df24height = 250
-        self.extra_args = [
-            [
-                "-txnotokens=0",
-                "-subsidytest=1",
-                "-regtest-minttoken-simulate-mainnet=1",
-                "-amkheight=1",
-                "-bayfrontheight=1",
-                "-bayfrontmarinaheight=1",
-                "-bayfrontgardensheight=1",
-                "-clarkequayheight=1",
-                "-dakotaheight=1",
-                "-dakotacrescentheight=1",
-                "-eunosheight=1",
-                "-eunospayaheight=1",
-                "-fortcanningheight=1",
-                "-fortcanningmuseumheight=1",
-                "-fortcanningparkheight=1",
-                "-fortcanninghillheight=1",
-                "-fortcanningroadheight=1",
-                "-fortcanningcrunchheight=1",
-                "-fortcanningspringheight=1",
-                "-fortcanninggreatworldheight=1",
-                "-grandcentralheight=1",
-                "-grandcentralepilogueheight=1",
-                "-metachainheight=105",
-                "-df23height=110",
-                f"-df24height={self.df24height}",
-            ],
-            [
-                "-txnotokens=0",
-                "-subsidytest=1",
-                "-regtest-minttoken-simulate-mainnet=1",
-                "-amkheight=1",
-                "-bayfrontheight=1",
-                "-bayfrontmarinaheight=1",
-                "-bayfrontgardensheight=1",
-                "-clarkequayheight=1",
-                "-dakotaheight=1",
-                "-dakotacrescentheight=1",
-                "-eunosheight=1",
-                "-eunospayaheight=1",
-                "-fortcanningheight=1",
-                "-fortcanningmuseumheight=1",
-                "-fortcanningparkheight=1",
-                "-fortcanninghillheight=1",
-                "-fortcanningroadheight=1",
-                "-fortcanningcrunchheight=1",
-                "-fortcanningspringheight=1",
-                "-fortcanninggreatworldheight=1",
-                "-grandcentralheight=1",
-                "-grandcentralepilogueheight=1",
-                "-metachainheight=105",
-                "-df23height=110",
-                f"-df24height={self.df24height}",
-            ],
-            [
-                "-txnotokens=0",
-                "-subsidytest=1",
-                "-regtest-minttoken-simulate-mainnet=1",
-                "-amkheight=1",
-                "-bayfrontheight=1",
-                "-bayfrontmarinaheight=1",
-                "-bayfrontgardensheight=1",
-                "-clarkequayheight=1",
-                "-dakotaheight=1",
-                "-dakotacrescentheight=1",
-                "-eunosheight=1",
-                "-eunospayaheight=1",
-                "-fortcanningheight=1",
-                "-fortcanningmuseumheight=1",
-                "-fortcanningparkheight=1",
-                "-fortcanninghillheight=1",
-                "-fortcanningroadheight=1",
-                "-fortcanningcrunchheight=1",
-                "-fortcanningspringheight=1",
-                "-fortcanninggreatworldheight=1",
-                "-grandcentralheight=1",
-                "-grandcentralepilogueheight=1",
-                "-metachainheight=105",
-                "-df23height=110",
-                f"-df24height={self.df24height}",
-            ],
+        args = [
+            "-txnotokens=0",
+            "-subsidytest=1",
+            "-regtest-minttoken-simulate-mainnet=1",
+            "-amkheight=1",
+            "-bayfrontheight=1",
+            "-bayfrontmarinaheight=1",
+            "-bayfrontgardensheight=1",
+            "-clarkequayheight=1",
+            "-dakotaheight=1",
+            "-dakotacrescentheight=1",
+            "-eunosheight=1",
+            "-eunospayaheight=1",
+            "-fortcanningheight=1",
+            "-fortcanningmuseumheight=1",
+            "-fortcanningparkheight=1",
+            "-fortcanninghillheight=1",
+            "-fortcanningroadheight=1",
+            "-fortcanningcrunchheight=1",
+            "-fortcanningspringheight=1",
+            "-fortcanninggreatworldheight=1",
+            "-grandcentralheight=1",
+            "-grandcentralepilogueheight=1",
+            "-metachainheight=105",
+            "-df23height=110",
+            f"-df24height={self.df24height}",
         ]
+        self.extra_args = [args, args, args]
 
     def run_test(self):
 
@@ -761,7 +705,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Foundation deprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -771,7 +715,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -781,7 +725,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -791,7 +735,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -816,7 +760,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Foundation undeprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -826,7 +770,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -836,7 +780,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -846,7 +790,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[0].updatetoken,
             1,
             {
@@ -877,7 +821,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Governance deprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -887,7 +831,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -897,7 +841,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -907,7 +851,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_depr_exclusive_err_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -932,7 +876,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Governance undeprecate and set other values
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -942,7 +886,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -952,7 +896,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
@@ -962,7 +906,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            token_undepr_exclusive_msg,
+            token_depr_gov_err_msg,
             self.nodes[1].updatetoken,
             1,
             {
