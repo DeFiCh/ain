@@ -1132,28 +1132,42 @@ static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes)
     LoanTokenCollection loanTokens;
 
     CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
-    attributes.ForEach(
-        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
-            if (attr.type != AttributeTypes::Token) {
-                return false;
-            }
-
-            tokenKey.typeId = attr.typeId;
-            const auto enabled = attributes.GetValue(tokenKey, true);
-            if (!enabled) {
-                return true;
-            }
-
-            if (attr.key == TokenKeys::LoanMintingEnabled) {
-                auto tokenId = DCT_ID{attr.typeId};
-                if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
-                    loanTokens.emplace_back(tokenId, *loanToken);
-                }
-            }
-
+    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
+        tokenKey.typeId = id.v;
+        const auto enabled = attributes.GetValue(tokenKey, true);
+        if (!enabled) {
             return true;
-        },
-        CDataStructureV0{AttributeTypes::Token});
+        }
+
+        loanTokens.emplace_back(id, loanToken);
+
+        return true;
+    });
+
+    if (loanTokens.empty()) {
+        attributes.ForEach(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
+                }
+
+                tokenKey.typeId = attr.typeId;
+                const auto enabled = attributes.GetValue(tokenKey, true);
+                if (!enabled) {
+                    return true;
+                }
+
+                if (attr.key == TokenKeys::LoanMintingEnabled) {
+                    auto tokenId = DCT_ID{attr.typeId};
+                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                        loanTokens.emplace_back(tokenId, *loanToken);
+                    }
+                }
+
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
+    }
 
     return loanTokens;
 }
