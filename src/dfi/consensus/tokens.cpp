@@ -256,10 +256,10 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             if (token.IsDeprecated()) {
                 return Res::Err("Token already deprecated");
             }
-            if (!authCheck.HasAnyAuth() && !ownerAuth) {
-                return Res::Err("Token deprecation must have auth from the owner, Foundation or Governance");
-            }
-            if (authCheck.HasAnyAuth() && !ownerAuth) {
+            if (!ownerAuth) {
+                if (!authCheck.HasAnyAuth()) {
+                    return Res::Err("Token deprecation requires governance auth");
+                }
                 // Check no other changes are being made
                 if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
                     return Res::Err("Token deprecation must not have any other changes");
@@ -268,16 +268,11 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         } else if (auto res = authCheck.HasFoundationAuth(); res) {
             return res;
         } else {
-            // Allow Foundation of Governance to undeprecate tokens
-            if (!ownerAuth && authCheck.HasAnyAuth()) {
-                if (!token.IsDeprecated()) {
-                    return ownerAuth;
-                }
+            if (!ownerAuth) {
                 // Check no other changes are being made
                 if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
                     return Res::Err("Token undeprecation must not have any other changes");
                 }
-            } else if (!ownerAuth) {
                 return ownerAuth;
             }
         }
