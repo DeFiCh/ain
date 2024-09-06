@@ -167,6 +167,32 @@ struct CFuturesUserValue {
     }
 };
 
+struct CReleaseLockMessage {
+    CAmount releasePart;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(releasePart);
+    }
+};
+
+struct CTokenLockUserKey {
+    CScript owner;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(owner);
+    }
+
+    bool operator<(const CFuturesUserKey &o) const { return owner < o.owner; }
+};
+
+struct CTokenLockUserValue : CBalances {};
+
 class CAccountsView : public virtual CStorageView {
 public:
     void ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start = {});
@@ -197,6 +223,13 @@ public:
                                                             {},
                                                             std::numeric_limits<uint32_t>::max()});
 
+    CTokenLockUserValue GetTokenLockUserValue(const CTokenLockUserKey &key) const;
+    Res StoreTokenLockUserValues(const CTokenLockUserKey &key, const CTokenLockUserValue &futures);
+    Res EraseTokenLockUserValues(const CTokenLockUserKey &key);
+    void ForEachTokenLockUserValues(
+        std::function<bool(const CTokenLockUserKey &, const CTokenLockUserValue &)> callback,
+        const CTokenLockUserKey &start = {{}});
+
     // tags
     struct ByBalanceKey {
         static constexpr uint8_t prefix() { return 'a'; }
@@ -209,6 +242,9 @@ public:
     };
     struct ByFuturesDUSDKey {
         static constexpr uint8_t prefix() { return 'm'; }
+    };
+    struct ByTokenLockKey {
+        static constexpr uint8_t prefix() { return '8'; }
     };
 
 private:

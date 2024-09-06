@@ -310,6 +310,21 @@ struct PoolHeightKey {
     }
 };
 
+struct PoolSwapValue {
+    bool swapEvent;
+    CAmount blockCommissionA;
+    CAmount blockCommissionB;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(swapEvent);
+        READWRITE(blockCommissionA);
+        READWRITE(blockCommissionB);
+    }
+};
+
 enum RewardType {
     Commission = 127,
     Rewards = 128,
@@ -464,6 +479,15 @@ public:
         static constexpr uint8_t prefix() { return 0x7B; }
     };
 };
+
+template <typename By, typename ReturnType>
+ReturnType ReadValueAt(CPoolPairView *poolView, const PoolHeightKey &poolKey) {
+    auto it = poolView->LowerBound<By>(poolKey);
+    if (it.Valid() && it.Key().poolID == poolKey.poolID) {
+        return it.Value();
+    }
+    return {};
+}
 
 struct CLiquidityMessage {
     CAccounts from;  // from -> balances

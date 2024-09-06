@@ -954,8 +954,11 @@ bool CCustomCSView::CanSpend(const uint256 &txId, int height) const {
         return state == CMasternode::RESIGNED;
     }
 
+    if (NewTokenCollateralExists(txId)) {
+        return false;
+    }
+
     // check if it was token collateral and token already destroyed
-    /// @todo token check for total supply/limit when implemented
     auto pair = GetTokenByCreationTx(txId);
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
@@ -988,8 +991,9 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
 
         if (targetHeight >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
-            const auto beginNewHeight =
-                beginHeight < Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height - 1 : beginHeight;
+            const auto beginNewHeight = beginHeight < Params().GetConsensus().DF24Height
+                                            ? Params().GetConsensus().DF24Height - 1
+                                            : beginHeight - 1;
             CalculateStaticPoolRewards(onLiquidity, onReward, poolId.v, beginNewHeight, targetHeight);
         }
 
@@ -1213,6 +1217,7 @@ uint256 CCustomCSView::MerkleRoot() {
     return ComputeMerkleRoot(std::move(hashes));
 }
 
+// FIXME: this returns true if *any* of the tokenIds is locked. feels wrong.
 bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) const {
     const auto attributes = GetAttributes();
 

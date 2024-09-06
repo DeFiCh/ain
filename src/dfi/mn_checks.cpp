@@ -12,6 +12,7 @@
 #include <dfi/consensus/poolpairs.h>
 #include <dfi/consensus/proposals.h>
 #include <dfi/consensus/smartcontracts.h>
+#include <dfi/consensus/tokenlock.h>
 #include <dfi/consensus/tokens.h>
 #include <dfi/consensus/vaults.h>
 #include <dfi/consensus/xvm.h>
@@ -139,6 +140,10 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::TokenSplit:
             return CCustomTxMessageNone{};
+        case CustomTxType::TokenLock:
+            return CCustomTxMessageNone{};
+        case CustomTxType::TokenLockRelease:
+            return CReleaseLockMessage{};
         case CustomTxType::Reject:
             return CCustomTxMessageNone{};
         case CustomTxType::CreateCfp:
@@ -277,6 +282,8 @@ public:
             return IsHardforkEnabled(consensus.DF20GrandCentralHeight);
         } else if constexpr (IsOneOf<T, CTransferDomainMessage, CEvmTxMessage>()) {
             return IsHardforkEnabled(consensus.DF22MetachainHeight);
+        } else if constexpr (IsOneOf<T, CReleaseLockMessage>()) {
+            return IsHardforkEnabled(consensus.DF24Height);
         } else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>()) {
             return Res::Ok();
         } else {
@@ -358,6 +365,7 @@ public:
                                 CProposalsConsensus,
                                 CSmartContractsConsensus,
                                 CTokensConsensus,
+                                CTokenLockConsensus,
                                 CVaultsConsensus,
                                 CXVMConsensus>(obj);
     }
@@ -797,11 +805,21 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     return {finMsg.btcTxHash, Res::Ok()};
 }
 
-bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid) {
-    CTransactionRef ptx = pool.get(txid);
-    if (ptx) {
-        std::vector<unsigned char> dummy;
-        CustomTxType txType = GuessCustomTxType(*ptx, dummy);
+bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid, const uint32_t height) {
+    if (CTransactionRef ptx = pool.get(txid)) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(*ptx, metadata, true);
+        if (txType == CustomTxType::UpdateTokenAny) {
+            CCustomTxMessage txMessage{CUpdateTokenMessage{}};
+            auto res = CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage);
+            if (!res) {
+                return false;
+            }
+            auto obj = std::get<CUpdateTokenMessage>(txMessage);
+            if (obj.newCollateralAddress) {
+                return true;
+            }
+        }
         return txType == CustomTxType::CreateMasternode || txType == CustomTxType::CreateToken;
     }
     return false;
@@ -1561,4 +1579,29 @@ std::pair<Res, CCustomTxMessage> &TransactionContext::GetTxMessage() {
 
 bool TransactionContext::GetMetadataValidation() const {
     return metadataValidation;
+}
+
+std::set<CScript> GetFoundationMembers(const CCustomCSView &mnview) {
+    auto members = Params().GetConsensus().foundationMembers;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                             false)) {
+        if (const auto databaseMembers = attributes->GetValue(
+                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+            !databaseMembers.empty()) {
+            members = databaseMembers;
+        }
+    }
+    return members;
+}
+
+std::set<CScript> GetGovernanceMembers(const CCustomCSView &mnview) {
+    std::set<CScript> members;
+    const auto attributes = mnview.GetAttributes();
+    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CommunityGovernance},
+                             false)) {
+        members = attributes->GetValue(
+            CDataStructureV0{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::Members}, members);
+    }
+    return members;
 }
