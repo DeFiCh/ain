@@ -126,6 +126,7 @@ enum DFIPKeys : uint8_t {
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
     CommunityGovernance = 'C',
+    AscendingBlockTime = 'A',
 };
 
 enum GovernanceKeys : uint8_t {

@@ -286,6 +286,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
              {"governance", DFIPKeys::CommunityGovernance},
+             {"ascending_block_time", DFIPKeys::AscendingBlockTime},
          }},
         {AttributeTypes::EVMType,
          {
@@ -392,6 +393,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
              {DFIPKeys::CommunityGovernance, "governance"},
+             {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -822,6 +824,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
                  {DFIPKeys::CommunityGovernance, VerifyBool},
+                 {DFIPKeys::AscendingBlockTime, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -993,6 +996,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
                 typeKey != DFIPKeys::CFPPayout && typeKey != DFIPKeys::EmissionUnusedFund &&
                 typeKey != DFIPKeys::MintTokens && typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
                 typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::CommunityGovernance) {
+                typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::AscendingBlockTime) {
                 return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
             }
         } else if (typeId == ParamIDs::Foundation || typeId == ParamIDs::GovernanceParam) {
@@ -2057,7 +2061,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                             return Res::Err("Cannot be set before MetachainHeight");
                         }
-                    } else if (attrV0->key == DFIPKeys::CommunityGovernance) {
+                    } else if (attrV0->key == DFIPKeys::CommunityGovernance || attrV0->key == DFIPKeys::AscendingBlockTime) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
                             return Res::Err("Cannot be set before DF24Height");
                         }
