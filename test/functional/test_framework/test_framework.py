@@ -758,6 +758,7 @@ class DefiTestFramework(metaclass=DefiTestMetaClass):
                     "anchors",
                     "history",
                     "evm",
+                    "indexes",
                 ]:  # Only keep chainstate and blocks folder
                     os.remove(cache_path(entry))
 
