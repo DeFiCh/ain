@@ -173,112 +173,134 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         return Res::Err("Cannot update token during lock");
     }
 
-    if (height < Params().GetConsensus().DF24Height && obj.newCollateralAddress) {
-        return Res::Err("Collateral address update is not allowed before DF24Height");
-    }
-
     // need to check it exectly here cause lps has no collateral auth (that checked next)
     if (token.IsPoolShare()) {
         return Res::Err("token %s is the LPS token! Can't alter pool share's tokens!", obj.tokenTx.ToString());
     }
 
-    // check auth, depends from token's "origins"
-    const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
-
-    bool isFoundersToken{};
-
-    if (height < static_cast<uint32_t>(consensus.DF24Height)) {
-        const auto members = GetFoundationMembers(mnview);
-        isFoundersToken = !members.empty() ? members.count(auth.out.scriptPubKey) > 0
-                                           : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
-    }
-
-    CTokenImplementation updatedToken{obj.token};
-    updatedToken.creationTx = token.creationTx;
-    updatedToken.destructionTx = token.destructionTx;
-    updatedToken.destructionHeight = token.destructionHeight;
-
-    // Set creation height, otherwise invalid symbol check is skipped
-    if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
-        updatedToken.creationHeight = token.creationHeight;
-    }
-
-    auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
-
-    Res ownerAuth = Res::Ok();
-    if (const auto txid = mnview.GetNewTokenCollateralTXID(tokenID.v); txid != uint256{}) {
-        ownerAuth = HasCollateralAuth(txid);
-    } else {
-        ownerAuth = HasCollateralAuth(token.creationTx);
-    }
-
-    const auto deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
-    const auto disallowedChanges =
-        updatedToken.symbol != token.symbol || updatedToken.name != token.name || obj.newCollateralAddress;
-
-    // Foundation or Governance can deprecate tokens
-    if (updatedToken.IsDeprecated()) {
-        if (height < static_cast<uint32_t>(consensus.DF24Height)) {
-            return Res::Err("Token cannot be deprecated below DF24Height");
+    if (height < Params().GetConsensus().DF24Height) {
+        if (obj.newCollateralAddress) {
+            return Res::Err("Collateral address update is not allowed before DF24Height");
         }
-        if (token.IsDeprecated()) {
-            return Res::Err("Token already deprecated");
+        // check auth, depends from token's "origins"
+        const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
+
+        const auto attributes = mnview.GetAttributes();
+        std::set<CScript> databaseMembers;
+        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                                 false)) {
+            databaseMembers = attributes->GetValue(
+                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
         }
-        if (!authCheck.HasAnyAuth() && !ownerAuth) {
-            return Res::Err("Token deprecation must have auth from the owner, Foundation or Governance");
-        }
-        if (authCheck.HasAnyAuth() && !ownerAuth) {
-            // Check no other changes are being made
-            if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
-                return Res::Err("Token deprecation must not have any other changes");
+        bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
+                                                        : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
+
+        if (isFoundersToken) {
+            if (auto res = HasFoundationAuth(); !res) {
+                return res;
+            }
+        } else {
+            if (auto res = HasCollateralAuth(token.creationTx); !res) {
+                return res;
             }
         }
-    } else if (isFoundersToken) {
-        if (auto res = authCheck.HasFoundationAuth(); !res) {
-            return res;
+
+        // Check for isDAT change
+        if (obj.token.IsDAT() != token.IsDAT()) {
+            if (height >= static_cast<uint32_t>(consensus.DF23Height)) {
+                // We disallow this for now since we don't yet support dynamic migration
+                // of non DAT to EVM if it's suddenly turned into a DAT.
+                return Res::Err("Cannot change isDAT flag after DF23Height");
+            } else if (height >= static_cast<uint32_t>(consensus.DF3BayfrontMarinaHeight) && !HasFoundationAuth()) {
+                return Res::Err("Foundation auth required to change isDAT flag");
+            }
         }
+
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
+        if (static_cast<int>(height) >= consensus.DF11FortCanningHeight) {
+            updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        }
+
+        const auto checkSymbol = height >= static_cast<uint32_t>(consensus.DF23Height);
+        UpdateTokenContext ctx{updatedToken, blockCtx, true, false, checkSymbol, hash};
+        return mnview.UpdateToken(ctx);
     } else {
-        // Allow Foundation of Governance to undeprecate tokens
-        if (height >= static_cast<uint32_t>(consensus.DF24Height) && !ownerAuth && authCheck.HasAnyAuth()) {
-            if (!token.IsDeprecated()) {
+        CTokenImplementation updatedToken{obj.token};
+        updatedToken.creationTx = token.creationTx;
+        updatedToken.destructionTx = token.destructionTx;
+        updatedToken.destructionHeight = token.destructionHeight;
+        updatedToken.creationHeight = token.creationHeight;
+        updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+
+        auto authCheck = GovernanceAndFoundationAuth(blockCtx, txCtx);
+
+        const auto newCollateralTx = mnview.GetNewTokenCollateralTXID(tokenID.v);
+        Res ownerAuth = HasCollateralAuth(newCollateralTx == uint256{} ? token.creationTx : newCollateralTx);
+
+        const auto deprecatedMask = ~static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+        const auto disallowedChanges =
+            updatedToken.symbol != token.symbol || updatedToken.name != token.name || obj.newCollateralAddress;
+
+        // Foundation or Governance can deprecate tokens
+        if (updatedToken.IsDeprecated()) {
+            if (height < static_cast<uint32_t>(consensus.DF24Height)) {
+                return Res::Err("Token cannot be deprecated below DF24Height");
+            }
+            if (token.IsDeprecated()) {
+                return Res::Err("Token already deprecated");
+            }
+            if (!authCheck.HasAnyAuth() && !ownerAuth) {
+                return Res::Err("Token deprecation must have auth from the owner, Foundation or Governance");
+            }
+            if (authCheck.HasAnyAuth() && !ownerAuth) {
+                // Check no other changes are being made
+                if (disallowedChanges || (updatedToken.flags & deprecatedMask) != token.flags) {
+                    return Res::Err("Token deprecation must not have any other changes");
+                }
+            }
+        } else if (auto res = authCheck.HasFoundationAuth(); res) {
+            return res;
+        } else {
+            // Allow Foundation of Governance to undeprecate tokens
+            if (!ownerAuth && authCheck.HasAnyAuth()) {
+                if (!token.IsDeprecated()) {
+                    return ownerAuth;
+                }
+                // Check no other changes are being made
+                if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
+                    return Res::Err("Token undeprecation must not have any other changes");
+                }
+            } else if (!ownerAuth) {
                 return ownerAuth;
             }
-            // Check no other changes are being made
-            if (disallowedChanges || updatedToken.flags != (token.flags & deprecatedMask)) {
-                return Res::Err("Token undeprecation must not have any other changes");
+        }
+
+        if (obj.newCollateralAddress) {
+            if (auto res = CheckTokenCreationTx(false); !res) {
+                return res;
             }
-        } else if (!ownerAuth) {
-            return ownerAuth;
-        }
-    }
 
-    if (obj.newCollateralAddress) {
-        if (auto res = CheckTokenCreationTx(false); !res) {
-            return res;
+            mnview.EraseNewTokenCollateral(tokenID.v);
+            mnview.SetNewTokenCollateral(hash, tokenID.v);
         }
 
-        mnview.EraseNewTokenCollateral(tokenID.v);
-        mnview.SetNewTokenCollateral(hash, tokenID.v);
-    }
-
-    // Check for isDAT change
-    if (obj.token.IsDAT() != token.IsDAT()) {
-        if (height >= static_cast<uint32_t>(consensus.DF23Height)) {
-            // We disallow this for now since we don't yet support dynamic migration
-            // of non DAT to EVM if it's suddenly turned into a DAT.
-            return Res::Err("Cannot change isDAT flag after DF23Height");
-        } else if (height >= static_cast<uint32_t>(consensus.DF3BayfrontMarinaHeight) && !HasFoundationAuth()) {
-            return Res::Err("Foundation auth required to change isDAT flag");
+        // Check for isDAT change
+        if (obj.token.IsDAT() != token.IsDAT()) {
+            if (height >= static_cast<uint32_t>(consensus.DF23Height)) {
+                // We disallow this for now since we don't yet support dynamic migration
+                // of non DAT to EVM if it's suddenly turned into a DAT.
+                return Res::Err("Cannot change isDAT flag after DF23Height");
+            } else if (height >= static_cast<uint32_t>(consensus.DF3BayfrontMarinaHeight) && !HasFoundationAuth()) {
+                return Res::Err("Foundation auth required to change isDAT flag");
+            }
         }
-    }
 
-    if (static_cast<int>(height) >= consensus.DF11FortCanningHeight) {
-        updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        UpdateTokenContext ctx{updatedToken, blockCtx, true, false, true, hash};
+        return mnview.UpdateToken(ctx);
     }
-
-    const auto checkSymbol = height >= static_cast<uint32_t>(consensus.DF23Height);
-    UpdateTokenContext ctx{updatedToken, blockCtx, true, false, checkSymbol, hash};
-    return mnview.UpdateToken(ctx);
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
