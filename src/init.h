@@ -12,8 +12,8 @@
 
 //! Default value for -daemon option
 static constexpr bool DEFAULT_DAEMON = false;
-//! Default value for -daemonnowait option
-static constexpr bool DEFAULT_DAEMONNOWAIT = false;
+//! Default value for -daemonwait option
+static constexpr bool DEFAULT_DAEMONWAIT = false;
 
 namespace interfaces {
 class Chain;
