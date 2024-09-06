@@ -126,8 +126,8 @@ enum DFIPKeys : uint8_t {
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
     EmissionReduction = 'z',
-    TargetSpacing = 'A',
-    TargetTimespam = 'B',
+    TargetSpacing = 'B',
+    TargetTimespam = 'D',
 };
 
 enum GovernanceKeys : uint8_t {
