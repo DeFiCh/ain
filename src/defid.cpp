@@ -224,7 +224,7 @@ static bool AppInit(int argc, char* argv[])
             // InitError will have been called with detailed error, which ends up on console
             return false;
         }
-        if (gArgs.GetBoolArg("-daemon", DEFAULT_DAEMON) || gArgs.GetBoolArg("-daemonnowait", DEFAULT_DAEMONNOWAIT))
+        if (gArgs.GetBoolArg("-daemon", false) || gArgs.GetBoolArg("-daemonwait", DEFAULT_DAEMONWAIT))
         {
 #if HAVE_DECL_FORK
             tfm::format(std::cout, PACKAGE_NAME " starting\n");
@@ -232,8 +232,8 @@ static bool AppInit(int argc, char* argv[])
             // Daemonize
             switch (fork_daemon(1, 0, daemon_ep)) { // don't chdir (1), do close FDs (0)
             case 0: // Child: continue.
-                // If -daemon is not enabled, immediately send a success token the parent.
-                if (!gArgs.GetBoolArg("-daemon", DEFAULT_DAEMON)) {
+                // If -daemonwait is not enabled, immediately send a success token the parent.
+                if (!gArgs.GetBoolArg("-daemonwait", DEFAULT_DAEMONWAIT)) {
                     daemon_ep.TokenWrite(1);
                     daemon_ep.Close();
                 }

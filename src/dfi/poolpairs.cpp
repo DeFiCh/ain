@@ -10,21 +10,6 @@
 
 #include <tuple>
 
-struct PoolSwapValue {
-    bool swapEvent;
-    CAmount blockCommissionA;
-    CAmount blockCommissionB;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(swapEvent);
-        READWRITE(blockCommissionA);
-        READWRITE(blockCommissionB);
-    }
-};
-
 struct PoolReservesValue {
     CAmount reserveA;
     CAmount reserveB;
@@ -58,15 +43,6 @@ std::string RewardTypeToString(RewardType type) {
         default:
             return "Unknown";
     }
-}
-
-template <typename By, typename ReturnType>
-ReturnType ReadValueAt(CPoolPairView *poolView, const PoolHeightKey &poolKey) {
-    auto it = poolView->LowerBound<By>(poolKey);
-    if (it.Valid() && it.Key().poolID == poolKey.poolID) {
-        return it.Value();
-    }
-    return {};
 }
 
 Res CPoolPairView::SetPoolPair(DCT_ID const &poolId, uint32_t height, const CPoolPair &pool) {

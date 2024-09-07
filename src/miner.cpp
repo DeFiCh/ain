@@ -122,6 +122,16 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
+    DCT_ID newId{};
+    mnview.ForEachToken(
+        [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
+            if (currentId < CTokensView::DCT_ID_START) {
+                newId.v = currentId.v + 1;
+            }
+            return currentId < CTokensView::DCT_ID_START;
+        },
+        newId);
+
     for (const auto &[id, splitData] : splitMap) {
         const auto &[multiplier, creationTx] = splitData;
 
@@ -130,40 +140,31 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
             continue;
         }
 
-        DCT_ID newId{};
-        mnview.ForEachToken(
-            [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
-                if (currentId < CTokensView::DCT_ID_START) {
-                    newId.v = currentId.v + 1;
-                }
-                return currentId < CTokensView::DCT_ID_START;
-            },
-            newId);
-
-        if (newId == CTokensView::DCT_ID_START) {
-            newId = mnview.IncrementLastDctId();
-        }
-
         std::string newTokenSuffix = "/v";
         auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
         if (!res) {
             continue;
         }
 
-        const auto tokenSymbol = oldToken->symbol;
+        if (newId == CTokensView::DCT_ID_START) {
+            newId = mnview.IncrementLastDctId();
+        }
+
+        auto tokenSymbol = oldToken->symbol;
         oldToken->symbol += newTokenSuffix;
 
         uint256 hash{};
         CrossBoundaryResult result;
         evm_try_unsafe_rename_dst20(result,
                                     evmTemplate->GetTemplate(),
-                                    hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                    hash.GetByteArray(),
                                     DST20TokenInfo{
                                         id,
                                         oldToken->name,
                                         oldToken->symbol,
                                     });
         if (!result.ok) {
+            LogPrintf("AddSplitEVMTxs evm_try_unsafe_rename_dst20 error: %s\n", result.reason.c_str());
             continue;
         }
 
@@ -176,8 +177,11 @@ static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
                                         tokenSymbol,
                                     });
         if (!result.ok) {
+            LogPrintf("AddSplitEVMTxs evm_try_unsafe_create_dst20 error: %s\n", result.reason.c_str());
             continue;
         }
+
+        newId.v++;
     }
 }
 
@@ -419,6 +423,84 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     if (nHeight >= chainparams.GetConsensus().DF23Height) {
         // Add token split TXs
         AddSplitEVMTxs(blockCtx, splitMap);
+    }
+
+    if (nHeight >= chainparams.GetConsensus().DF24Height) {
+        // Add token lock creations TXs: duplicate code from AddSplitDVMTxs.
+        // TODO: refactor
+
+        CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
+        CDataStructureV0 lockKey{AttributeTypes::Param, ParamIDs::dTokenRestart, static_cast<uint32_t>(nHeight)};
+        const auto lockedTokens = attributes->GetValue(lockedTokenKey, CBalances{});
+        const auto lockRatio = attributes->GetValue(lockKey, CAmount{});
+
+        // Check all collaterals are currently valid
+        auto tokenPricesValid{true};
+
+        auto checkLivePrice = [&](const CTokenCurrencyPair &currencyPair) {
+            if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(currencyPair)) {
+                if (!fixedIntervalPrice.val->isLive(mnview.GetPriceDeviation())) {
+                    tokenPricesValid = false;
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        attributes->ForEach(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
+                }
+                if (attr.key == TokenKeys::LoanCollateralEnabled) {
+                    if (auto collateralToken = mnview.GetCollateralTokenFromAttributes({attr.typeId})) {
+                        return checkLivePrice(collateralToken->fixedIntervalPriceId);
+                    }
+                } else if (attr.key == TokenKeys::LoanMintingEnabled) {
+                    if (auto loanToken = mnview.GetLoanTokenFromAttributes({attr.typeId})) {
+                        return checkLivePrice(loanToken->fixedIntervalPriceId);
+                    }
+                }
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
+
+        if (lockedTokens.balances.empty() && lockRatio && tokenPricesValid) {
+            SplitMap lockSplitMapEVM;
+            auto createTokenLockSplitTx = [&](const uint32_t id, const bool isToken) {
+                CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+                int64_t multiplier = COIN;
+                metadata << (isToken ? 0 : 1) << id << multiplier;
+
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(1);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                auto tx = MakeTransactionRef(std::move(mTx));
+                if (isToken) {
+                    lockSplitMapEVM[id] = std::make_pair(multiplier, tx->GetHash());
+                }
+                pblock->vtx.push_back(tx);
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
+                                                        GetLegacySigOpCount(*pblock->vtx.back()));
+                LogPrintf("Add creation TX ID: %d isToken: %d Hash: %s\n", id, isToken, tx->GetHash().GetHex());
+            };
+            ForEachLockTokenAndPool(
+                [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+                    createTokenLockSplitTx(id.v, true);
+                    return true;
+                },
+                [&](const DCT_ID &id, const CPoolPair &token) {
+                    createTokenLockSplitTx(id.v, false);
+                    return true;
+                },
+                mnview);
+            AddSplitEVMTxs(blockCtx, lockSplitMapEVM);
+        }
     }
 
     XVM xvm{};

@@ -153,7 +153,8 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CCreateProposalMessage,
                                       CProposalVoteMessage,
                                       CTransferDomainMessage,
-                                      CEvmTxMessage>;
+                                      CEvmTxMessage,
+                                      CReleaseLockMessage>;
 
 class BlockContext {
     std::shared_ptr<CCustomCSView> cache;

@@ -1217,6 +1217,7 @@ uint256 CCustomCSView::MerkleRoot() {
     return ComputeMerkleRoot(std::move(hashes));
 }
 
+// FIXME: this returns true if *any* of the tokenIds is locked. feels wrong.
 bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) const {
     const auto attributes = GetAttributes();
 

@@ -298,6 +298,12 @@ public:
 
     static Res GovVarValidateBlockPeriod() { return Res::Err("Block period must be more than sampling period"); }
 
+    static Res GovVarValidateBlockHeight() { return Res::Err("Block height must be more than current height"); }
+
+    static Res GovVarValidateRestartExecuted() {
+        return Res::Err("dToken restart has already been executed and cannot be set again");
+    }
+
     static Res GovVarValidateUnsupportedKey() { return Res::Err("Unsupported key"); }
 
     static Res GovVarValidateSplitDFI() { return Res::Err("Tokenised DFI cannot be split"); }
@@ -338,6 +344,10 @@ public:
     static Res AccountsFuturesStore() { return Res::Err("Failed to store futures"); }
 
     static Res AccountsFuturesErase() { return Res::Err("Failed to erase futures"); }
+
+    static Res AccountsTokenLockStore() { return Res::Err("Failed to store futures"); }
+
+    static Res AccountsTokenLockErase() { return Res::Err("Failed to erase futures"); }
 
     static Res TransferDomainNotEnoughBalance(const std::string address) {
         return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", address);

@@ -694,6 +694,10 @@ public:
     }
 
     void operator()(const CCustomTxMessageNone &) const {}
+
+    void operator()(const CReleaseLockMessage &obj) const {
+        rpcInfo.pushKV("releasePart", GetDecimalString(obj.releasePart));
+    }
 };
 
 Res RpcInfo(CCustomCSView &view, const CTransaction &tx, uint32_t height, CustomTxType &txType, UniValue &results) {
