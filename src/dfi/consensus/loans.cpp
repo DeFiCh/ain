@@ -176,8 +176,9 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
         return res;
     }
 
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -273,8 +274,9 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
         return res;
     }
 
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -378,8 +380,9 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
         return res;
     }
 
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -488,8 +491,9 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
         return res;
     }
 
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     if (obj.ratio < 100) {
@@ -573,8 +577,9 @@ Res CLoansConsensus::operator()(const CDefaultLoanSchemeMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     if (obj.identifier.empty() || obj.identifier.length() > 8) {
@@ -605,8 +610,9 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
         return res;
     }
 
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member!");
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     if (obj.identifier.empty() || obj.identifier.length() > 8) {

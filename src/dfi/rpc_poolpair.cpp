@@ -703,7 +703,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     CCoinControl coinControl;
 
@@ -849,7 +849,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     CUpdatePoolPairMessage msg;
     msg.poolId = poolId;

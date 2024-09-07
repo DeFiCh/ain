@@ -185,7 +185,7 @@ UniValue setcollateraltoken(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -411,7 +411,7 @@ UniValue setloantoken(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
     CTxOut collateralOutput(1, *auths.cbegin());
@@ -567,7 +567,7 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, true);
 
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
@@ -735,8 +735,15 @@ UniValue createloanscheme(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[3], *view, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(pwallet,
+                                   rawTx.nVersion,
+                                   auths,
+                                   true,
+                                   optAuthTx,
+                                   request.params[3],
+                                   *view,
+                                   request.metadata.coinSelectOpts,
+                                   true);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -827,8 +834,15 @@ UniValue updateloanscheme(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[4], *view, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(pwallet,
+                                   rawTx.nVersion,
+                                   auths,
+                                   true,
+                                   optAuthTx,
+                                   request.params[4],
+                                   *view,
+                                   request.metadata.coinSelectOpts,
+                                   true);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -905,8 +919,15 @@ UniValue setdefaultloanscheme(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[1], *view, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(pwallet,
+                                   rawTx.nVersion,
+                                   auths,
+                                   true,
+                                   optAuthTx,
+                                   request.params[1],
+                                   *view,
+                                   request.metadata.coinSelectOpts,
+                                   true);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 
@@ -988,8 +1009,15 @@ UniValue destroyloanscheme(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, true, optAuthTx, request.params[2], *view, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(pwallet,
+                                   rawTx.nVersion,
+                                   auths,
+                                   true,
+                                   optAuthTx,
+                                   request.params[2],
+                                   *view,
+                                   request.metadata.coinSelectOpts,
+                                   true);
 
     rawTx.vout.emplace_back(0, scriptMeta);
 

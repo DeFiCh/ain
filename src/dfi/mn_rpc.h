@@ -88,7 +88,8 @@ std::vector<CTxIn> GetAuthInputsSmart(
     CTransactionRef &optAuthTx,
     const UniValue &explicitInputs,
     CCustomCSView &mnview,
-    const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
+    const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault(),
+    bool needGovernanceAuth = false);
 std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet, CCustomCSView &mnview);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,
