@@ -1538,18 +1538,20 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
+        # no tokenlock, just payback
         assert_equal(
-            len(
-                self.nodes[0].listaccounthistory(self.address1, {"txtypes": ["P", "?"]})
-            ),
-            0,
+            [
+                {"h": entry["blockHeight"], "t": entry["type"], "a": entry["amounts"]}
+                for entry in self.nodes[0].listaccounthistory(
+                    self.address1, {"depth": 1}
+                )
+            ],
+            [{"h": 1000, "t": "PaybackLoan", "a": ["-0.09999909@SPY/v1"]}],
         )
 
+        # nothing happening on address2 (only in its vault)
         assert_equal(
-            len(
-                self.nodes[0].listaccounthistory(self.address2, {"txtypes": ["P", "?"]})
-            ),
-            0,
+            len(self.nodes[0].listaccounthistory(self.address2, {"depth": 1})), 0
         )
 
         assert_equal(

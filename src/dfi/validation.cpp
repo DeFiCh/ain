@@ -2790,7 +2790,13 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                CAccountsHistoryWriter subView(mnview,
+                                               height,
+                                               GetNextAccPosition(),
+                                               {},  // TODO: use blockHash?
+                                               uint8_t(CustomTxType::PaybackLoan));
+                res = subView.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                subView.Flush();
 
                 VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
                 VaultHistoryValue subValue{
