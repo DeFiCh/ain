@@ -1224,7 +1224,7 @@ namespace pos {
                 pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
             const auto attributes = pcustomcsview->GetAttributes();
             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
-            ascendingEnabled = attributes->GetValue(enabledKey, false);
+            ascendingEnabled = attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
@@ -1239,7 +1239,7 @@ namespace pos {
                     nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
                 }
             } else {
-                if (gArgs.GetBoolArg("-ascendingstaketime", false) || ascendingEnabled) {
+                if (ascendingEnabled) {
                     // Set time to last block time. New blocks must be after the last block.
                     nLastCoinStakeSearchTime = tip->GetBlockTime();
                 } else {
