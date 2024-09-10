@@ -1224,7 +1224,8 @@ namespace pos {
                 pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
             const auto attributes = pcustomcsview->GetAttributes();
             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
-            ascendingEnabled = attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
+            ascendingEnabled =
+                attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
         }
 
         auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
