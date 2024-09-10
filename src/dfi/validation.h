@@ -42,6 +42,15 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
 Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix);
 
 bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount);
-Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount);
+Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount, bool &includedLock);
+Res ExecuteLockTransferDomain(CCustomCSView &view,
+                              const int height,
+                              const uint256 blockHash,
+                              const CScript &owner,
+                              CTokenAmount &amount);
+
+void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLoanTokenImplementation &)> tokenCallback,
+                             std::function<bool(const DCT_ID &, const CPoolPair &)> poolCallback,
+                             CCustomCSView &cache);
 
 #endif  // DEFI_DFI_VALIDATION_H
