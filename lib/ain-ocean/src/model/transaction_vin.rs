@@ -5,10 +5,16 @@ use serde::{Deserialize, Serialize};
 use super::TransactionVout;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum TransactionVinType {
+    Coinbase(String),
+    Standard((Txid, usize)),
+}
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVin {
-    pub id: String,
+    // pub id: String,
     pub txid: Txid,
-    pub coinbase: Option<String>,
+    pub r#type: TransactionVinType,
+    // pub coinbase: Option<String>,
     pub vout: Option<TransactionVinVout>,
     pub script: Option<String>,
     pub tx_in_witness: Option<Vec<String>>,
@@ -19,9 +25,8 @@ impl TransactionVin {
     pub fn from_vin_and_txid(vin: Vin, txid: Txid, vouts: &[TransactionVout]) -> Self {
         match vin {
             Vin::Coinbase(v) => Self {
-                id: format!("{txid}00"),
+                r#type: TransactionVinType::Coinbase(v.coinbase),
                 txid,
-                coinbase: Some(v.coinbase),
                 sequence: v.sequence,
                 vout: None,
                 script: None,
@@ -36,13 +41,13 @@ impl TransactionVin {
                     script: vout.script.hex.clone(),
                 });
                 Self {
-                    id: format!("{}{}{:x}", txid, v.txid, v.vout),
+                    // id: format!("{}{}{:x}", txid, v.txid, v.vout),
+                    r#type: TransactionVinType::Standard((v.txid, v.vout)),
                     txid,
                     sequence: v.sequence,
                     vout,
                     script: v.script_sig.hex,
                     tx_in_witness: v.txinwitness,
-                    coinbase: None,
                 }
             }
         }

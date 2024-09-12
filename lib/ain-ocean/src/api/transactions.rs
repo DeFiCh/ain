@@ -9,7 +9,10 @@ use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppC
 use crate::{
     api::{common::Paginate, response::Response},
     error::ApiError,
-    model::{Transaction, TransactionVin, TransactionVout, TransactionVoutScript},
+    model::{
+        Transaction, TransactionVin, TransactionVinType, TransactionVinVout, TransactionVout,
+        TransactionVoutScript,
+    },
     storage::{
         InitialKeyProvider, RepositoryOps, SortOrder, TransactionVin as TransactionVinStorage,
     },
@@ -30,12 +33,43 @@ async fn get_transaction(
     Ok(Response::new(transactions))
 }
 
+#[derive(Debug, Serialize)]
+struct TransactionVinResponse {
+    pub id: String,
+    pub txid: Txid,
+    pub coinbase: Option<String>,
+    pub vout: Option<TransactionVinVout>,
+    pub script: Option<String>,
+    pub tx_in_witness: Option<Vec<String>>,
+    pub sequence: i64,
+}
+
+impl From<TransactionVin> for TransactionVinResponse {
+    fn from(v: TransactionVin) -> Self {
+        let (id, coinbase) = match v.r#type {
+            TransactionVinType::Coinbase(coinbase) => (format!("{}00", v.txid), Some(coinbase)),
+            TransactionVinType::Standard((txid, vout)) => {
+                (format!("{}{}{:x}", v.txid, txid, vout), None)
+            }
+        };
+        Self {
+            id,
+            txid: v.txid,
+            coinbase,
+            vout: v.vout,
+            script: v.script,
+            tx_in_witness: v.tx_in_witness,
+            sequence: v.sequence,
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn get_vins(
     Path(TransactionId { id }): Path<TransactionId>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<TransactionVin>> {
+) -> Result<ApiPagedResponse<TransactionVinResponse>> {
     let next = query
         .next
         .clone()
@@ -53,7 +87,7 @@ async fn get_vins(
         })
         .map(|item| {
             let (_, v) = item?;
-            Ok(v)
+            Ok(TransactionVinResponse::from(v))
         })
         .collect::<Result<Vec<_>>>()?;
 
