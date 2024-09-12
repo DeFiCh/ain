@@ -361,9 +361,14 @@ pub struct ScriptUnspentResponse {
 impl From<ScriptUnspent> for ScriptUnspentResponse {
     fn from(v: ScriptUnspent) -> Self {
         Self {
-            id: v.id,
+            id: format!("{}{}", v.id.0, hex::encode(v.id.1)),
             hid: v.hid,
-            sort: v.sort,
+            sort: format!(
+                "{}{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                v.txid,
+                hex::encode(v.vout.n.to_be_bytes())
+            ),
             block: v.block,
             script: ScriptUnspentScriptResponse {
                 r#type: v.script.r#type,

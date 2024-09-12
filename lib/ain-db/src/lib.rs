@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt::Debug,
     iter::Iterator,
     marker::PhantomData,
@@ -6,8 +7,8 @@ use std::{
     sync::Arc,
 };
 pub mod version;
-
 use anyhow::format_err;
+use log::debug;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, Direction,
     IteratorMode, Options, DB,
@@ -67,6 +68,10 @@ impl Rocks {
         Ok(())
     }
 
+    pub fn compact(&self) {
+        self.0.compact_range(None::<&[u8]>, None::<&[u8]>);
+    }
+
     pub fn cf_handle(&self, cf: &str) -> Result<&ColumnFamily> {
         self.0
             .cf_handle(cf)
@@ -97,6 +102,67 @@ impl Rocks {
 
     pub fn flush(&self) -> Result<()> {
         self.0.flush()?;
+        Ok(())
+    }
+
+    pub fn dump_table_sizes(&self, cf_names: &[&'static str]) -> Result<()> {
+        let mut stats: BTreeMap<String, (u64, u64, f64)> = BTreeMap::new(); // (size, entries, avg_size)
+        let mut total_size: u64 = 0;
+        let mut total_entries: u64 = 0;
+
+        for cf_name in cf_names.iter() {
+            if let Some(cf) = self.0.cf_handle(cf_name) {
+                let size = self
+                    .0
+                    .property_int_value_cf(cf, "rocksdb.estimate-live-data-size")?
+                    .unwrap_or(0);
+                let entries = self
+                    .0
+                    .property_int_value_cf(cf, "rocksdb.estimate-num-keys")?
+                    .unwrap_or(0);
+                let avg_size = if entries > 0 {
+                    size as f64 / entries as f64
+                } else {
+                    0.0
+                };
+
+                stats.insert(cf_name.to_string(), (size, entries, avg_size));
+                total_size += size;
+                total_entries += entries;
+            }
+        }
+
+        // Print the results
+        debug!("RocksDB Table Statistics:");
+        debug!("{:-<80}", "");
+        debug!(
+            "{:<30} {:>10} {:>15} {:>15} {:>10}",
+            "Table Name", "Size (MB)", "Entries", "Avg Size (B)", "%% of Total"
+        );
+        debug!("{:-<80}", "");
+
+        for (name, (size, entries, avg_size)) in stats.iter() {
+            let size_mb = *size as f64 / (1024.0 * 1024.0);
+            let percentage = (*size as f64 / total_size as f64) * 100.0;
+            debug!(
+                "{:<30} {:>10.2} {:>15} {:>15.2} {:>9.2}%%",
+                name, size_mb, entries, avg_size, percentage
+            );
+        }
+
+        debug!("{:-<80}", "");
+        let total_avg_size = if total_entries > 0 {
+            total_size as f64 / total_entries as f64
+        } else {
+            0.0
+        };
+        debug!(
+            "Total size: {:.2} MB",
+            total_size as f64 / (1024.0 * 1024.0)
+        );
+        debug!("Total entries: {}", total_entries);
+        debug!("Overall average entry size: {:.2} bytes", total_avg_size);
+
         Ok(())
     }
 }

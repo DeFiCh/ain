@@ -19,7 +19,7 @@ use std::{
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
-use log::trace;
+use log::{debug, trace};
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
@@ -565,14 +565,9 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
         for vout in &tx.vout {
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
-                id: format!("{}{}", tx.txid, hex::encode(vout.n.to_be_bytes())),
+                id: (tx.txid, vout.n.to_be_bytes()),
                 hid: hid.clone(),
-                sort: format!(
-                    "{}{}{}",
-                    hex::encode(block.height.to_be_bytes()),
-                    tx.txid,
-                    hex::encode(vout.n.to_be_bytes())
-                ),
+                txid: tx.txid,
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -590,6 +585,11 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
                     token_id: vout.token_id,
                 },
             };
+
+            debug!(
+                "Size of script_unspent: {} bytes",
+                bincode::serialize(&script_unspent).unwrap().len()
+            );
 
             let id = (
                 hid.clone(),
@@ -641,14 +641,9 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
             let hid = as_sha256(vout.script.hex.clone());
 
             let script_unspent = ScriptUnspent {
-                id: format!("{}{}", vout.txid, hex::encode(vout.n.to_be_bytes())),
+                id: (vout.txid, vout.n.to_be_bytes()),
                 hid: hid.clone(),
-                sort: format!(
-                    "{}{}{}",
-                    hex::encode(transaction.block.height.to_be_bytes()),
-                    transaction.txid,
-                    hex::encode(vout.n.to_be_bytes())
-                ),
+                txid: tx.txid,
                 block: BlockContext {
                     hash: transaction.block.hash,
                     height: transaction.block.height,

@@ -1,6 +1,7 @@
 use std::{fs, marker::PhantomData, path::Path, sync::Arc};
 
 use ain_db::{Column, ColumnName, LedgerColumn, Rocks};
+use log::debug;
 
 use super::COLUMN_NAMES;
 use crate::Result;
@@ -13,7 +14,10 @@ impl OceanStore {
         let path = path.join("ocean");
         fs::create_dir_all(&path)?;
         let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
-
+        debug!("Dumping table size");
+        if let Err(e) = backend.dump_table_sizes(&COLUMN_NAMES) {
+            debug!("e dumping {e}");
+        }
         Ok(Self(backend))
     }
 
@@ -25,5 +29,9 @@ impl OceanStore {
             backend: Arc::clone(&self.0),
             column: PhantomData,
         }
+    }
+
+    pub fn compact(&self) {
+        self.0.compact();
     }
 }

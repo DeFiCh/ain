@@ -41,6 +41,7 @@ class EVMTest(DefiTestFramework):
             "-metachainheight=105",
             "-subsidytest=1",
             "-ethdebug=1",
+            "-oceanarchive",
         ]
         self.extra_args = [args, args]
 
@@ -1696,40 +1697,44 @@ class EVMTest(DefiTestFramework):
         # Fund accounts
         self.setup_accounts()
 
-        # Test block ordering by nonce and Eth RBF
-        self.nonce_order_and_rbf()
+        self.nodes[0].generate(100)
 
-        # Check XVM in coinbase
-        self.validate_xvm_coinbase()
+        assert False
 
-        # EVM rollback
-        self.evm_rollback()
+        # # Test block ordering by nonce and Eth RBF
+        # self.nonce_order_and_rbf()
 
-        # Multiple mempool fee replacement
-        self.multiple_eth_rbf()
+        # # Check XVM in coinbase
+        # self.validate_xvm_coinbase()
 
-        # Test that node should not crash without chainId param
-        self.test_tx_without_chainid()
+        # # EVM rollback
+        # self.evm_rollback()
 
-        # Test evmtx auto nonce
-        self.sendtransaction_auto_nonce()
+        # # Multiple mempool fee replacement
+        # self.multiple_eth_rbf()
 
-        # Toggle EVM
-        self.toggle_evm_enablement()
+        # # Test that node should not crash without chainId param
+        # self.test_tx_without_chainid()
 
-        # Test Eth on encrypted wallet
-        self.encrypt_wallet()
+        # # Test evmtx auto nonce
+        # self.sendtransaction_auto_nonce()
 
-        # Delete state account
-        self.delete_account_from_trie()
+        # # Toggle EVM
+        # self.toggle_evm_enablement()
 
-        # Check attributes values update
-        self.test_attributes_update()
+        # # Test Eth on encrypted wallet
+        # self.encrypt_wallet()
 
-        # self.test_gas_limit()
-        # self.test_gas_target_factor()
+        # # Delete state account
+        # self.delete_account_from_trie()
 
-        self.test_min_rbf()
+        # # Check attributes values update
+        # self.test_attributes_update()
+
+        # # self.test_gas_limit()
+        # # self.test_gas_target_factor()
+
+        # self.test_min_rbf()
 
 
 if __name__ == "__main__":

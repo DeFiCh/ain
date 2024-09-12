@@ -8,9 +8,9 @@ pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_in
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptUnspent {
-    pub id: String,
+    pub id: (Txid, [u8; 8]),
     pub hid: String,
-    pub sort: String,
+    pub txid: Txid,
     pub block: BlockContext,
     pub script: ScriptUnspentScript,
     pub vout: ScriptUnspentVout,

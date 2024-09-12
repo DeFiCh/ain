@@ -11,4 +11,4 @@ bincode.workspace = true
 rocksdb.workspace = true
 anyhow.workspace = true
 num_cpus.workspace = true
-
+log.workspace = true
