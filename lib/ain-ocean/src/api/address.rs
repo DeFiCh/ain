@@ -250,8 +250,31 @@ pub struct ScriptActivityResponse {
 
 impl From<ScriptActivity> for ScriptActivityResponse {
     fn from(v: ScriptActivity) -> Self {
+        let id = match v.type_hex {
+            ScriptActivityTypeHex::Vin => {
+                // TODO put vin instead ScriptActivityType
+                let vin = v.vin.as_ref().unwrap();
+                format!(
+                    "{}{}{}{}",
+                    hex::encode(v.block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vin,
+                    vin.txid,
+                    hex::encode(vin.n.to_be_bytes())
+                )
+            }
+            ScriptActivityTypeHex::Vout => {
+                let vout = v.vout.as_ref().unwrap();
+                format!(
+                    "{}{}{}{}",
+                    hex::encode(v.block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vout,
+                    v.txid,
+                    hex::encode(vout.n.to_be_bytes())
+                )
+            }
+        };
         Self {
-            id: v.id,
+            id,
             hid: v.hid,
             r#type: v.r#type.to_string(),
             type_hex: v.type_hex.to_string(),

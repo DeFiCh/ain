@@ -38,7 +38,6 @@ pub type ScriptActivityId = (String, u32, ScriptActivityTypeHex, Txid, usize); /
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptActivity {
-    pub id: String, // unique id of this output: block height, type, txid(vin/vout), n(vin/vout)
     pub hid: String, // hashed id, for length compatibility reasons this is the hashed id of script
     pub r#type: ScriptActivityType,
     pub type_hex: ScriptActivityTypeHex,
