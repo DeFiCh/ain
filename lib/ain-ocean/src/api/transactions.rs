@@ -3,13 +3,13 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
 use crate::{
     api::{common::Paginate, response::Response},
     error::ApiError,
-    model::{Transaction, TransactionVin, TransactionVout},
+    model::{Transaction, TransactionVin, TransactionVout, TransactionVoutScript},
     storage::{
         InitialKeyProvider, RepositoryOps, SortOrder, TransactionVin as TransactionVinStorage,
     },
@@ -62,13 +62,37 @@ async fn get_vins(
     }))
 }
 
+#[derive(Debug, Serialize)]
+struct TransactionVoutResponse {
+    pub id: String,
+    // pub vout: usize,
+    pub txid: Txid,
+    pub n: usize,
+    pub value: String,
+    pub token_id: Option<u32>,
+    pub script: TransactionVoutScript,
+}
+
+impl From<TransactionVout> for TransactionVoutResponse {
+    fn from(v: TransactionVout) -> Self {
+        Self {
+            id: format!("{}{:x}", v.txid, v.vout),
+            txid: v.txid,
+            n: v.n,
+            value: v.value,
+            token_id: v.token_id,
+            script: v.script,
+        }
+    }
+}
+
 //get list of vout transaction, by passing id which contains txhash + vout_idx
 #[ocean_endpoint]
 async fn get_vouts(
     Path(TransactionId { id }): Path<TransactionId>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<TransactionVout>> {
+) -> Result<ApiPagedResponse<TransactionVoutResponse>> {
     let next = query.next.as_deref().unwrap_or("0").parse::<usize>()?;
 
     let list = ctx
@@ -83,7 +107,7 @@ async fn get_vouts(
         })
         .map(|item| {
             let (_, v) = item?;
-            Ok(v)
+            Ok(TransactionVoutResponse::from(v))
         })
         .collect::<Result<Vec<_>>>()?;
 

@@ -5,7 +5,8 @@ pub type TransactionVoutKey = (Txid, usize);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVout {
-    pub id: String,
+    // pub id: String,
+    pub vout: usize,
     pub txid: Txid,
     pub n: usize,
     pub value: String,

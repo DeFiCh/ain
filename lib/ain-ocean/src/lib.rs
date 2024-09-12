@@ -14,7 +14,7 @@ pub use indexer::{
     transaction::{index_transaction, invalidate_transaction},
     tx_result, PoolCreationHeight,
 };
-use log::debug;
+
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
 use serde::Serialize;

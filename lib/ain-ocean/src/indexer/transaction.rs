@@ -33,7 +33,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
     // Index transaction vout
     for vout in ctx.tx.vout.clone() {
         let tx_vout = TransactionVout {
-            id: format!("{}{:x}", txid, vout.n),
+            vout: vout.n,
             txid,
             n: vout.n,
             value: vout.value.to_string(),

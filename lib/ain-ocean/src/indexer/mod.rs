@@ -173,7 +173,7 @@ fn find_tx_vout(
         if let Some(vout) = vout {
             let value = Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
             let tx_vout = TransactionVout {
-                id: format!("{}{:x}", tx.txid, vin.vout),
+                vout: vin.vout,
                 txid: tx.txid,
                 n: vout.n,
                 value: format!("{value:.8}"),
