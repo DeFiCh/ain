@@ -16,6 +16,13 @@ mod ffi {
         pub rbf_fee_increment: u64,
     }
 
+    pub struct PoolPairCreationHeight {
+       pub id: u32,
+       pub id_token_a: u32,
+       pub id_token_b: u32,
+       pub creation_height: u32,
+    }
+
     pub struct DST20Token {
         pub id: u64,
         pub name: String,
@@ -125,6 +132,10 @@ mod ffi {
         // Just the logs are skipped.
     }
 
+    pub fn getPoolPairs() -> Vec<PoolPairCreationHeight> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+
     #[allow(clippy::ptr_arg)]
     pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
@@ -178,6 +189,7 @@ pub use ffi::Attributes;
 pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;
+pub use ffi::PoolPairCreationHeight;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -337,6 +349,10 @@ pub fn get_attribute_values(mnview_ptr: Option<usize>) -> ffi::Attributes {
 pub fn log_print(message: &str) {
     // TODO: Switch to u8 to avoid intermediate string conversions
     ffi::CppLogPrintf(message.to_owned());
+}
+
+pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
+    ffi::getPoolPairs()
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration
