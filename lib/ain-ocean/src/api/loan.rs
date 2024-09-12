@@ -525,25 +525,22 @@ async fn list_vault_auction_history(
             Some((vault_id, batch_index, next.0, next.1)),
             SortOrder::Descending,
         )?
+        .filter_map(|item| match item {
+            Ok((k, id)) if k.0 == vault_id && k.1 == batch_index => {
+                match ctx.services.auction.by_id.get(&id) {
+                    Ok(Some(auction)) => Some(Ok(auction)),
+                    Ok(None) => Some(Err(NotFoundSnafu {
+                        kind: NotFoundKind::Auction,
+                    }
+                    .build()
+                    .into())),
+                    Err(e) => Some(Err(e.into())),
+                }
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == vault_id && k.1 == batch_index,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, id) = item?;
-
-            let auction = ctx
-                .services
-                .auction
-                .by_id
-                .get(&id)?
-                .context(NotFoundSnafu {
-                    kind: NotFoundKind::Auction,
-                })?;
-
-            Ok(auction)
-        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(auctions, query.size, |auction| {
@@ -617,22 +614,27 @@ async fn map_liquidation_batches(
             batch.index,
             Txid::from_byte_array([0xffu8; 32]),
         );
-        let bids = repo
+
+        let froms = repo
             .by_id
             .list(Some(id), SortOrder::Descending)?
-            .take_while(|item| match item {
-                Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
-                _ => true,
+            .filter_map(|item| match item {
+                Ok(((vid, bindex, _), v))
+                    if vid.to_string() == vault_id && bindex == batch.index =>
+                {
+                    Some(Ok(v))
+                }
+                Ok(_) => None,
+                Err(e) => Some(Err(e.into())),
             })
-            .collect::<Vec<_>>();
-        let froms = bids
-            .into_iter()
-            .map(|bid| {
-                let (_, v) = bid?;
-                let from_addr = from_script(v.from, ctx.network.into())?;
-                Ok::<String, Error>(from_addr)
+            .map(|result| {
+                result.and_then(|v| {
+                    let from_addr = from_script(v.from, ctx.network.into())?;
+                    Ok(from_addr)
+                })
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<Vec<String>>>()?;
+
         vec.push(VaultLiquidatedBatchResponse {
             index: batch.index,
             collaterals: map_token_amounts(ctx, batch.collaterals).await?,

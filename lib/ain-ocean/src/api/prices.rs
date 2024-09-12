@@ -24,7 +24,7 @@ use crate::{
     error::{ApiError, Error, OtherSnafu},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
-        OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker,
+        OraclePriceAggregated, OraclePriceAggregatedInterval, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -159,15 +159,12 @@ async fn get_feed(
     let oracle_aggregated = repo
         .by_id
         .list(Some(id), SortOrder::Descending)?
+        .filter_map(|item| match item {
+            Ok((k, v)) if k.0 == token && k.1 == currency => Some(Ok(v)),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(query.size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == token && k.1 == currency,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            Ok(v)
-        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(
@@ -270,16 +267,13 @@ async fn get_oracles(
         .oracle_token_currency
         .by_id
         .list(Some(id.clone()), SortOrder::Descending)?
+        .filter_map(|item| match item {
+            Ok((k, oracle)) if k.0 == id.0 && k.1 == id.1 => Some(Ok(oracle)),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(query.size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == id.0 && k.1 == id.1,
-            _ => true,
-        })
-        .flat_map(|item| {
-            let (_, oracle) = item?;
-            Ok::<OracleTokenCurrency, Error>(oracle)
-        })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     let mut prices = Vec::new();
     for oracle in oracles {

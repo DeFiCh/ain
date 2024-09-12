@@ -345,12 +345,14 @@ async fn gather_amount(
     let swaps = repository
         .by_key
         .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-        .take(count)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
-            _ => true,
+        .filter_map(|item| match item {
+            Ok(v) if v.0 .0 == pool_id && v.0 .1 == interval => {
+                Some(repository.by_key.retrieve_primary_value(Ok(v)))
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
-        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .take(count)
         .collect::<Result<Vec<_>>>()?;
 
     let mut aggregated = HashMap::<String, Decimal>::new();

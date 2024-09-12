@@ -323,15 +323,12 @@ async fn list_transactions(
             SortOrder::Descending,
         )?
         .skip(usize::from(query.next.is_some()))
+        .filter_map(|item| match item {
+            Ok((k, v)) if k.0 == hid => Some(Ok(v.into())),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(query.size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == hid,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            Ok(v.into())
-        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |item| {
@@ -422,16 +419,12 @@ async fn list_transaction_unspent(
             SortOrder::Ascending,
         )?
         .skip(usize::from(query.next.is_some()))
+        .filter_map(|item| match item {
+            Ok((k, v)) if k.0 == hid => Some(Ok(v.into())),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(query.size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == hid.clone(),
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            let res = v.into();
-            Ok(res)
-        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(res, query.size, |item| {
