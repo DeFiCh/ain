@@ -166,44 +166,32 @@ pub fn perform_active_price_tick(
     block: &BlockContext,
 ) -> Result<()> {
     let repo = &services.oracle_price_aggregated;
-    let prev_keys = repo
+    let Some((_, prev_id)) = repo
         .by_key
         .list(Some(ticker_id.clone()), SortOrder::Descending)?
-        .take(1)
-        .flatten() // return empty vec if none
-        .collect::<Vec<_>>();
-
-    if prev_keys.is_empty() {
-        return Ok(());
-    }
-
-    let Some((_, prev_id)) = prev_keys.first() else {
+        .next()
+        .transpose()?
+    else {
         return Ok(());
     };
 
-    let aggregated_price = repo.by_id.get(prev_id)?;
+    let aggregated_price = repo.by_id.get(&prev_id)?;
 
     let Some(aggregated_price) = aggregated_price else {
         return Ok(());
     };
 
     let repo = &services.oracle_price_active;
-    let prev_keys = repo
+    let Some((_, prev_id)) = repo
         .by_key
         .list(Some(ticker_id.clone()), SortOrder::Descending)?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
-
-    if prev_keys.is_empty() {
-        return Ok(());
-    }
-
-    let Some((_, prev_id)) = prev_keys.first() else {
+        .next()
+        .transpose()?
+    else {
         return Ok(());
     };
 
-    let prev_price = repo.by_id.get(prev_id)?;
+    let prev_price = repo.by_id.get(&prev_id)?;
 
     let Some(prev_price) = prev_price else {
         return Ok(());

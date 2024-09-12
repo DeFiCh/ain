@@ -283,7 +283,7 @@ async fn get_oracles(
 
     let mut prices = Vec::new();
     for oracle in oracles {
-        let feeds = ctx
+        let feed = ctx
             .services
             .oracle_price_feed
             .by_id
@@ -296,18 +296,9 @@ async fn get_oracles(
                 )),
                 SortOrder::Descending,
             )?
-            .take(1)
-            .take_while(|item| match item {
-                Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle.oracle_id,
-                _ => true,
-            })
-            .map(|item| {
-                let (_, data) = item?;
-                Ok(data)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let feed = feeds.first().cloned();
+            .find(|item| matches!(item, Ok((k, _)) if k.0 == token && k.1 == currency && k.2 == oracle.oracle_id))
+            .transpose()?
+            .map(|(_, data)| data);
 
         prices.push(PriceOracleResponse {
             id: format!("{}-{}-{}", oracle.id.0, oracle.id.1, oracle.id.2),
