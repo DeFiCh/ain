@@ -47,6 +47,7 @@ enum ParamIDs : uint8_t {
     GovernanceParam = 'l',
     dTokenRestart = 'm',
     BlockTime = 'n',
+    Anchors = 'o',
 };
 
 enum OracleIDs : uint8_t {
@@ -133,7 +134,9 @@ enum DFIPKeys : uint8_t {
     AscendingBlockTime = 'A',
     EmissionReduction = 'z',
     TargetSpacing = 'B',
-    TargetTimespam = 'D',
+    TargetTimespan = 'D',
+    Frequency = 'E',
+    TeamChange = 'F',
 };
 
 enum GovernanceKeys : uint8_t {

@@ -246,6 +246,10 @@ public:
         return Res::Err("Unsupported key for BlockTime {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedAnchorType(const unsigned char type) {
+        return Res::Err("Unsupported key for Anchor {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedParamType() { return Res::Err("Unsupported Param ID"); }
 
     static Res GovVarVariableUnsupportedGovType() { return Res::Err("Unsupported Governance ID"); }

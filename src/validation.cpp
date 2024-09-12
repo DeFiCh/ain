@@ -3997,7 +3997,7 @@ bool CChainState::ConnectTip(CValidationState &state,
 
     // Update teams every anchoringTeamChange number of blocks
     if (pindexNew->nHeight >= Params().GetConsensus().DF6DakotaHeight &&
-        pindexNew->nHeight % Params().GetConsensus().mn.anchoringTeamChange == 0) {
+        pindexNew->nHeight % pcustomcsview->GetTeamChange() == 0) {
         pcustomcsview->CalcAnchoringTeams(blockConnecting.stakeModifier, pindexNew);
 
         // Delete old and now invalid anchor confirms
@@ -5546,7 +5546,7 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
     team = *teamDakota;
 
     // Calc how far back team changes, do not generate auths below that height.
-    teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
+    teamChange = teamChange % pcustomcsview->GetTeamChange();
 
     int topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
@@ -5554,10 +5554,10 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
         return;
     }
 
+    const auto frequency = pcustomcsview->GetAnchorFrequency();
+
     const CBlockIndex *pindexFork = ::ChainActive().FindFork(oldTip);
-    auto forkHeight = pindexFork && pindexFork->nHeight >= consensus.mn.anchoringFrequency
-                          ? pindexFork->nHeight - consensus.mn.anchoringFrequency
-                          : 0;
+    int forkHeight = pindexFork && pindexFork->nHeight >= frequency ? pindexFork->nHeight - frequency : 0;
     // limit fork height - trim it by the top anchor, if any
     forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
@@ -5580,12 +5580,12 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
     for (const CBlockIndex *pindex = tip; pindex && pindex != pindexFork && teamChange >= 0;
          pindex = pindex->pprev, --teamChange) {
         // Only anchor by specified frequency
-        if (pindex->nHeight % consensus.mn.anchoringFrequency != 0) {
+        if (pindex->nHeight % frequency != 0) {
             continue;
         }
 
         // Get start anchor height
-        int anchorHeight = static_cast<int>(pindex->nHeight) - consensus.mn.anchoringFrequency;
+        int anchorHeight = static_cast<int>(pindex->nHeight) - frequency;
 
         // Get anchor block from specified time depth
         int64_t timeDepth = consensus.mn.anchoringTimeDepth;
@@ -5602,7 +5602,7 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
         }
 
         // Rollback to height consistent with anchoringFrequency
-        while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
+        while (anchorHeight > 0 && anchorHeight % frequency != 0) {
             --anchorHeight;
         }
 
@@ -5728,7 +5728,9 @@ bool ProcessNewBlock(const CChainParams &chainparams,
     if (!::ChainstateActive().IsInitialBlockDownload() && tip && firstRunAfterIBD &&
         spv::pspv)  // spv::pspv not necessary here, but for disabling in old tests
     {
-        int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
+        const auto frequency = pcustomcsview->GetAnchorFrequency();
+
+        int sinceHeight = std::max(::ChainActive().Height() - frequency * 5, uint64_t{});
         LogPrint(BCLog::ANCHORING, "Trying to request some auths after IBD, since %i...\n", sinceHeight);
         RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;

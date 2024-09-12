@@ -108,7 +108,8 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"foundation",     ParamIDs::Foundation     },
         {"governance",     ParamIDs::GovernanceParam},
         {"dtoken_restart", ParamIDs::dTokenRestart  },
-        {"block_time", ParamIDs::BlockTime          },
+        {"block_time",     ParamIDs::BlockTime      },
+        {"anchors",        ParamIDs::Anchors        },
     };
     return params;
 }
@@ -125,6 +126,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::GovernanceParam, "governance"    },
         {ParamIDs::dTokenRestart,   "dtoken_restart"},
         {ParamIDs::BlockTime,       "block_time"    },
+        {ParamIDs::Anchors,         "anchors"       },
     };
     return params;
 }
@@ -293,7 +295,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"ascending_block_time", DFIPKeys::AscendingBlockTime},
              {"emission_reduction", DFIPKeys::EmissionReduction},
              {"target_spacing", DFIPKeys::TargetSpacing},
-             {"target_timespan", DFIPKeys::TargetTimespam},
+             {"target_timespan", DFIPKeys::TargetTimespan},
+             {"frequency", DFIPKeys::Frequency},
+             {"team_change", DFIPKeys::TeamChange},
          }},
         {AttributeTypes::EVMType,
          {
@@ -403,7 +407,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
              {DFIPKeys::EmissionReduction, "emission_reduction"},
              {DFIPKeys::TargetSpacing, "target_spacing"},
-             {DFIPKeys::TargetTimespam, "target_timespan"},
+             {DFIPKeys::TargetTimespan, "target_timespan"},
+             {DFIPKeys::Frequency, "frequency"},
+             {DFIPKeys::TeamChange, "team_change"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -851,7 +857,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::AscendingBlockTime, VerifyBool},
                  {DFIPKeys::EmissionReduction, VerifyMoreThenZeroUInt32},
                  {DFIPKeys::TargetSpacing, VerifyMoreThenZeroInt64},
-                 {DFIPKeys::TargetTimespam, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::TargetTimespan, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::Frequency, VerifyMoreThenZeroUInt64},
+                 {DFIPKeys::TeamChange, VerifyMoreThenZeroUInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -1032,8 +1040,12 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             }
         } else if (typeId == ParamIDs::BlockTime) {
             if (typeKey != DFIPKeys::EmissionReduction && typeKey != DFIPKeys::TargetSpacing &&
-                typeKey != DFIPKeys::TargetTimespam) {
+                typeKey != DFIPKeys::TargetTimespan) {
                 return DeFiErrors::GovVarVariableUnsupportedBlockTimeType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Anchors) {
+            if (typeKey != DFIPKeys::Frequency && typeKey != DFIPKeys::TeamChange) {
+                return DeFiErrors::GovVarVariableUnsupportedAnchorType(typeKey);
             }
         } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
@@ -2156,7 +2168,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return DeFiErrors::GovVarValidateBlockPeriod();
                         }
                     }
-                } else if (attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::GovernanceParam) {
+                } else if (attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::GovernanceParam ||
+                           attrV0->typeId == ParamIDs::Anchors) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
                         return DeFiErrors::GovVarValidateDF24Height();
                     }
@@ -2611,7 +2624,7 @@ int64_t GetTargetSpacing(const CCustomCSView &view) {
 
 int64_t GetTargetTimespan(const CCustomCSView &view) {
     const auto attributes = view.GetAttributes();
-    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetTimespam};
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetTimespan};
     return attributes->GetValue(key, Params().GetConsensus().pos.nTargetTimespanV2);
 }
 

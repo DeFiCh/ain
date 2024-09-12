@@ -650,6 +650,13 @@ CTeamView::CTeam CTeamView::GetCurrentTeam() const {
     return Params().GetGenesisTeam();
 }
 
+uint64_t CTeamView::GetTeamChange() const {
+    auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::TeamChange};
+    return attributes->GetValue(key, static_cast<uint64_t>(Params().GetConsensus().mn.anchoringTeamChange));
+}
+
 void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, const int height) {
     // Called after fork height
     if (height < Params().GetConsensus().DF6DakotaHeight) {
@@ -661,13 +668,11 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
         return;
     }
 
+    const auto teamChange = GetTeamChange();
+
     // Called every on team change intercal from fork height
-    if (height % Params().GetConsensus().mn.anchoringTeamChange != 0) {
-        LogPrint(BCLog::ANCHORING,
-                 "%s: Not called on interval of %d, arg height %d\n",
-                 __func__,
-                 Params().GetConsensus().mn.anchoringTeamChange,
-                 height);
+    if (height % teamChange != 0) {
+        LogPrint(BCLog::ANCHORING, "%s: Not called on interval of %d, arg height %d\n", __func__, teamChange, height);
         return;
     }
 
@@ -681,13 +686,13 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetAuthTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % GetTeamChange();
 
     return ReadBy<AuthTeam, CTeam>(height);
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % GetTeamChange();
 
     return ReadBy<ConfirmTeam, CTeam>(height);
 }
@@ -713,6 +718,13 @@ void CAnchorRewardsView::ForEachAnchorReward(
     std::function<bool(const CAnchorRewardsView::AnchorTxHash &, CLazySerialize<CAnchorRewardsView::RewardTxHash>)>
         callback) {
     ForEach<BtcTx, AnchorTxHash, RewardTxHash>(callback);
+}
+
+uint64_t CAnchorRewardsView::GetAnchorFrequency() const {
+    auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::Frequency};
+    return attributes->GetValue(key, static_cast<uint64_t>(Params().GetConsensus().mn.anchoringFrequency));
 }
 
 /*
