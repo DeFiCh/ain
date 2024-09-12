@@ -1204,7 +1204,11 @@ namespace pos {
         uint32_t mintedBlocks{};
         int64_t blockTime{};
         int64_t subNodeBlockTime{};
+<<<<<<< bush/block-time
         unsigned int nBits{};
+=======
+        bool ascendingEnabled{};
+>>>>>>> master
 
         {
             LOCK(cs_main);
@@ -1222,7 +1226,14 @@ namespace pos {
             }
             subNodeBlockTime =
                 pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
+<<<<<<< bush/block-time
             nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
+=======
+            const auto attributes = pcustomcsview->GetAttributes();
+            CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
+            ascendingEnabled =
+                attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
+>>>>>>> master
         }
 
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
@@ -1236,8 +1247,7 @@ namespace pos {
                     nLastCoinStakeSearchTime = tip->GetMedianTimePast() + 1;
                 }
             } else {
-                if (gArgs.GetBoolArg("-ascendingstaketime", false) ||
-                    blockHeight >= static_cast<int64_t>(Params().GetConsensus().DF24Height)) {
+                if (ascendingEnabled) {
                     // Set time to last block time. New blocks must be after the last block.
                     nLastCoinStakeSearchTime = tip->GetBlockTime();
                 } else {
