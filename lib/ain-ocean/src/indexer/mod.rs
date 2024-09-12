@@ -68,26 +68,22 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
-            let repository = &services.pool_swap_aggregated;
+            let bucket = get_bucket(block, i64::from(interval));
 
-            let prevs = repository
+            let repository = &services.pool_swap_aggregated;
+            if let Some(prev) = repository
                 .by_key
                 .list(
                     Some((pool_pair.id, interval, i64::MAX)),
                     SortOrder::Descending,
                 )?
-                .take(1)
-                .take_while(|item| match item {
-                    Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
-                    _ => true,
-                })
+                .find(|item| matches!(item, Ok((k, _)) if k.0 == pool_pair.id && k.1 == interval))
                 .map(|e| repository.by_key.retrieve_primary_value(e))
-                .collect::<Result<Vec<_>>>()?;
-
-            let bucket = get_bucket(block, i64::from(interval));
-
-            if prevs.len() == 1 && prevs[0].bucket >= bucket {
-                break;
+                .transpose()?
+            {
+                if prev.bucket >= bucket {
+                    break;
+                }
             }
 
             let aggregated = PoolSwapAggregated {
@@ -454,24 +450,16 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
 
     for (_, mut aggregation) in record.clone() {
         let repo = &services.script_aggregation;
-        let latest = repo
+        if let Some(latest) = repo
             .by_id
             .list(
                 Some((aggregation.hid.clone(), u32::MAX)),
                 SortOrder::Descending,
             )?
-            .take(1)
-            .take_while(|item| match item {
-                Ok(((hid, _), _)) => &aggregation.hid == hid,
-                _ => true,
-            })
-            .map(|item| {
-                let (_, v) = item?;
-                Ok(v)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        if let Some(latest) = latest.first().cloned() {
+            .find(|item| matches!(item, Ok(((hid, _), _)) if hid == &aggregation.hid))
+            .transpose()?
+            .map(|(_, v)| v)
+        {
             aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
             aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 

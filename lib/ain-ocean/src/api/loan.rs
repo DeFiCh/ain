@@ -130,22 +130,16 @@ async fn get_active_price(
 ) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
     let repo = &ctx.services.oracle_price_active;
-    let keys = repo
+    let Some((_, id)) = repo
         .by_key
         .list(Some((token, currency)), SortOrder::Descending)?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
-
-    if keys.is_empty() {
-        return Ok(None);
-    }
-
-    let Some((_, id)) = keys.first() else {
+        .next()
+        .transpose()?
+    else {
         return Ok(None);
     };
 
-    let price = repo.by_id.get(id)?;
+    let price = repo.by_id.get(&id)?;
 
     let Some(price) = price else {
         return Ok(None);
@@ -681,16 +675,13 @@ async fn map_token_amounts(
             .list(None, SortOrder::Descending)?
             .collect::<Vec<_>>();
         log::trace!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
+
         let active_price = repo
             .by_key
             .list(None, SortOrder::Descending)?
-            .take(1)
-            .take_while(|item| match item {
-                Ok((k, _)) => k.0 == id,
-                _ => true,
-            })
+            .find(|item| matches!(item, Ok((k, _)) if k.0 == id))
             .map(|el| repo.by_key.retrieve_primary_value(el))
-            .collect::<Result<Vec<_>>>()?;
+            .transpose()?;
 
         vault_token_amounts.push(VaultTokenAmountResponse {
             id,
@@ -699,7 +690,7 @@ async fn map_token_amounts(
             symbol: token_info.symbol,
             symbol_key: token_info.symbol_key,
             name: token_info.name,
-            active_price: active_price.first().cloned(),
+            active_price,
         });
     }
 
