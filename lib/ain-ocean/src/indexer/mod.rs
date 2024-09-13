@@ -250,7 +250,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             }
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                hid: hid,
+                hid,
                 r#type: ScriptActivityType::Vout,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
@@ -357,7 +357,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         } else {
             let aggregation = ScriptAggregation {
                 id: (hid, block.height),
-                hid: hid,
+                hid,
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -413,7 +413,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
             aggregation.statistic.tx_out_count += 1;
             aggregation.amount.tx_out += vout.value.parse::<f64>()?;
-            record.insert(aggregation.hid.clone(), aggregation);
+            record.insert(aggregation.hid, aggregation);
         }
 
         for vout in &tx.vout {
@@ -430,7 +430,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             );
             aggregation.statistic.tx_in_count += 1;
             aggregation.amount.tx_in += vout.value;
-            record.insert(aggregation.hid.clone(), aggregation);
+            record.insert(aggregation.hid, aggregation);
         }
     }
 
@@ -438,10 +438,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         let repo = &services.script_aggregation;
         if let Some(latest) = repo
             .by_id
-            .list(
-                Some((aggregation.hid.clone(), u32::MAX)),
-                SortOrder::Descending,
-            )?
+            .list(Some((aggregation.hid, u32::MAX)), SortOrder::Descending)?
             .find(|item| matches!(item, Ok(((hid, _), _)) if hid == &aggregation.hid))
             .transpose()?
             .map(|(_, v)| v)
@@ -456,10 +453,10 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         aggregation.statistic.tx_count =
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
-        record.insert(aggregation.hid.clone(), aggregation.clone());
+        record.insert(aggregation.hid, aggregation.clone());
 
         repo.by_id
-            .put(&(aggregation.hid.clone(), block.height), &aggregation)?;
+            .put(&(aggregation.hid, block.height), &aggregation)?;
     }
     Ok(())
 }
@@ -540,7 +537,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
                 id: (tx.txid, vout.n.to_be_bytes()),
-                hid: hid.clone(),
+                hid,
                 txid: tx.txid,
                 block: BlockContext {
                     hash: block.hash,
@@ -561,7 +558,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             };
 
             let id = (
-                hid.clone(),
+                hid,
                 hex::encode(block.height.to_be_bytes()),
                 tx.txid,
                 hex::encode(vout.n.to_be_bytes()),
@@ -611,7 +608,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
 
             let script_unspent = ScriptUnspent {
                 id: (vout.txid, vout.n.to_be_bytes()),
-                hid: hid.clone(),
+                hid,
                 txid: tx.txid,
                 block: BlockContext {
                     hash: transaction.block.hash,
@@ -632,7 +629,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
             };
 
             let id = (
-                hid.clone(),
+                hid,
                 hex::encode(transaction.block.height.to_be_bytes()),
                 transaction.txid,
                 hex::encode(vout.n.to_be_bytes()),

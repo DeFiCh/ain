@@ -446,10 +446,7 @@ async fn list_transaction_unspent(
         .services
         .script_unspent
         .by_id
-        .list(
-            Some((hid.clone(), next.0, next.1, next.2)),
-            SortOrder::Ascending,
-        )?
+        .list(Some((hid, next.0, next.1, next.2)), SortOrder::Ascending)?
         .skip(usize::from(query.next.is_some()))
         .filter_map(|item| match item {
             Ok((k, v)) if k.0 == hid => Some(Ok(v.into())),
