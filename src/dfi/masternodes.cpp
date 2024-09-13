@@ -650,11 +650,11 @@ CTeamView::CTeam CTeamView::GetCurrentTeam() const {
     return Params().GetGenesisTeam();
 }
 
-uint64_t CTeamView::GetTeamChange() const {
+int64_t CTeamView::GetTeamChange() const {
     auto view = static_cast<const CCustomCSView *>(this);
     const auto attributes = view->GetAttributes();
     const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::TeamChange};
-    return attributes->GetValue(key, static_cast<uint64_t>(Params().GetConsensus().mn.anchoringTeamChange));
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.anchoringTeamChange));
 }
 
 void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, const int height) {
@@ -720,11 +720,11 @@ void CAnchorRewardsView::ForEachAnchorReward(
     ForEach<BtcTx, AnchorTxHash, RewardTxHash>(callback);
 }
 
-uint64_t CAnchorRewardsView::GetAnchorFrequency() const {
+int64_t CAnchorRewardsView::GetAnchorFrequency() const {
     auto view = static_cast<const CCustomCSView *>(this);
     const auto attributes = view->GetAttributes();
     const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::Frequency};
-    return attributes->GetValue(key, static_cast<uint64_t>(Params().GetConsensus().mn.anchoringFrequency));
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.anchoringFrequency));
 }
 
 /*

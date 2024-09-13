@@ -5730,7 +5730,7 @@ bool ProcessNewBlock(const CChainParams &chainparams,
     {
         const auto frequency = pcustomcsview->GetAnchorFrequency();
 
-        int sinceHeight = std::max(::ChainActive().Height() - frequency * 5, uint64_t{});
+        const auto sinceHeight = std::max(::ChainActive().Height() - frequency * 5, int64_t{});
         LogPrint(BCLog::ANCHORING, "Trying to request some auths after IBD, since %i...\n", sinceHeight);
         RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;

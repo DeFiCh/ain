@@ -375,7 +375,7 @@ public:
     CTeam GetCurrentTeam() const;
     std::optional<CTeam> GetAuthTeam(int height) const;
     std::optional<CTeam> GetConfirmTeam(int height) const;
-    uint64_t GetTeamChange() const;
+    int64_t GetTeamChange() const;
 
     struct AuthTeam {
         static constexpr uint8_t prefix() { return 'v'; }
@@ -398,7 +398,7 @@ public:
     void AddRewardForAnchor(const AnchorTxHash &btcTxHash, const RewardTxHash &rewardTxHash);
     void RemoveRewardForAnchor(const AnchorTxHash &btcTxHash);
     void ForEachAnchorReward(std::function<bool(const AnchorTxHash &, CLazySerialize<RewardTxHash>)> callback);
-    uint64_t GetAnchorFrequency() const;
+    int64_t GetAnchorFrequency() const;
 
     struct BtcTx {
         static constexpr uint8_t prefix() { return 'r'; }

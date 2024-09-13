@@ -858,8 +858,8 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionReduction, VerifyMoreThenZeroUInt32},
                  {DFIPKeys::TargetSpacing, VerifyMoreThenZeroInt64},
                  {DFIPKeys::TargetTimespan, VerifyMoreThenZeroInt64},
-                 {DFIPKeys::Frequency, VerifyMoreThenZeroUInt64},
-                 {DFIPKeys::TeamChange, VerifyMoreThenZeroUInt64},
+                 {DFIPKeys::Frequency, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::TeamChange, VerifyMoreThenZeroInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -1751,9 +1751,11 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
-                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) &&
+                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart ||
+                     attrV0->typeId == ParamIDs::Anchors) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::Frequency ||
+                     attrV0->key == DFIPKeys::TeamChange)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
