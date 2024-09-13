@@ -13,7 +13,8 @@ use crate::{
     error::DecimalConversionSnafu,
     indexer::Result,
     model::{
-        Transaction as TransactionMapper, TransactionVin, TransactionVout, TransactionVoutScript,
+        Transaction as TransactionMapper, TransactionVin, TransactionVinType, TransactionVout,
+        TransactionVoutScript,
     },
     storage::RepositoryOps,
     Services,
@@ -33,7 +34,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
     // Index transaction vout
     for vout in ctx.tx.vout.clone() {
         let tx_vout = TransactionVout {
-            id: format!("{}{:x}", txid, vout.n),
+            vout: vout.n,
             txid,
             n: vout.n,
             value: vout.value.to_string(),
@@ -59,7 +60,17 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         }
 
         let vin = TransactionVin::from_vin_and_txid(vin, txid, &vouts);
-        services.transaction.vin_by_id.put(&vin.id, &vin)?;
+
+        match &vin.r#type {
+            TransactionVinType::Coinbase(_) => {
+                let vin_id = format!("{}00", ctx.tx.txid);
+                services.transaction.vin_by_id.put(&vin_id, &vin)?;
+            }
+            TransactionVinType::Standard((txid, vout)) => {
+                let vin_id = format!("{}{}{:x}", ctx.tx.txid, txid, vout);
+                services.transaction.vin_by_id.put(&vin_id, &vin)?;
+            }
+        }
     }
 
     let order = idx;

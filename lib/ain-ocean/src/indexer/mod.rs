@@ -173,7 +173,7 @@ fn find_tx_vout(
         if let Some(vout) = vout {
             let value = Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
             let tx_vout = TransactionVout {
-                id: format!("{}{:x}", tx.txid, vin.vout),
+                vout: vin.vout,
                 txid: tx.txid,
                 n: vout.n,
                 value: format!("{value:.8}"),
@@ -216,14 +216,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
-                id: format!(
-                    "{}{}{}{}",
-                    hex::encode(block.height.to_be_bytes()),
-                    ScriptActivityTypeHex::Vin,
-                    vin.txid,
-                    hex::encode(vin.vout.to_be_bytes())
-                ),
-                hid: hid.clone(),
+                hid,
                 r#type: ScriptActivityType::Vin,
                 type_hex: ScriptActivityTypeHex::Vin,
                 txid: tx.txid,
@@ -261,14 +254,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             }
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                id: format!(
-                    "{}{}{}{}",
-                    hex::encode(block.height.to_be_bytes()),
-                    ScriptActivityTypeHex::Vout,
-                    tx.txid,
-                    hex::encode(vout.n.to_be_bytes())
-                ),
-                hid: hid.clone(),
+                hid,
                 r#type: ScriptActivityType::Vout,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
@@ -359,10 +345,10 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
 }
 
 fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let mut record: HashMap<String, ScriptAggregation> = HashMap::new();
+    let mut record: HashMap<[u8; 32], ScriptAggregation> = HashMap::new();
 
     fn find_script_aggregation(
-        record: &mut HashMap<String, ScriptAggregation>,
+        record: &mut HashMap<[u8; 32], ScriptAggregation>,
         block: &Block<Transaction>,
         hex: Vec<u8>,
         script_type: String,
@@ -374,8 +360,8 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             aggregation
         } else {
             let aggregation = ScriptAggregation {
-                id: (hid.clone(), block.height),
-                hid: hid.clone(),
+                id: (hid, block.height),
+                hid,
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -431,7 +417,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
                 find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
             aggregation.statistic.tx_out_count += 1;
             aggregation.amount.tx_out += vout.value.parse::<f64>()?;
-            record.insert(aggregation.hid.clone(), aggregation);
+            record.insert(aggregation.hid, aggregation);
         }
 
         for vout in &tx.vout {
@@ -448,7 +434,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             );
             aggregation.statistic.tx_in_count += 1;
             aggregation.amount.tx_in += vout.value;
-            record.insert(aggregation.hid.clone(), aggregation);
+            record.insert(aggregation.hid, aggregation);
         }
     }
 
@@ -456,10 +442,7 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
-            .list(
-                Some((aggregation.hid.clone(), u32::MAX)),
-                SortOrder::Descending,
-            )?
+            .list(Some((aggregation.hid, u32::MAX)), SortOrder::Descending)?
             .take(1)
             .take_while(|item| match item {
                 Ok(((hid, _), _)) => &aggregation.hid == hid,
@@ -482,10 +465,10 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         aggregation.statistic.tx_count =
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
-        record.insert(aggregation.hid.clone(), aggregation.clone());
+        record.insert(aggregation.hid, aggregation.clone());
 
         repo.by_id
-            .put(&(aggregation.hid.clone(), block.height), &aggregation)?;
+            .put(&(aggregation.hid, block.height), &aggregation)?;
     }
     Ok(())
 }
@@ -565,14 +548,9 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
         for vout in &tx.vout {
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_unspent = ScriptUnspent {
-                id: format!("{}{}", tx.txid, hex::encode(vout.n.to_be_bytes())),
-                hid: hid.clone(),
-                sort: format!(
-                    "{}{}{}",
-                    hex::encode(block.height.to_be_bytes()),
-                    tx.txid,
-                    hex::encode(vout.n.to_be_bytes())
-                ),
+                id: (tx.txid, vout.n.to_be_bytes()),
+                hid,
+                txid: tx.txid,
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -592,7 +570,7 @@ fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) ->
             };
 
             let id = (
-                hid.clone(),
+                hid,
                 hex::encode(block.height.to_be_bytes()),
                 tx.txid,
                 hex::encode(vout.n.to_be_bytes()),
@@ -641,14 +619,9 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
             let hid = as_sha256(vout.script.hex.clone());
 
             let script_unspent = ScriptUnspent {
-                id: format!("{}{}", vout.txid, hex::encode(vout.n.to_be_bytes())),
-                hid: hid.clone(),
-                sort: format!(
-                    "{}{}{}",
-                    hex::encode(transaction.block.height.to_be_bytes()),
-                    transaction.txid,
-                    hex::encode(vout.n.to_be_bytes())
-                ),
+                id: (vout.txid, vout.n.to_be_bytes()),
+                hid,
+                txid: tx.txid,
                 block: BlockContext {
                     hash: transaction.block.hash,
                     height: transaction.block.height,
@@ -668,7 +641,7 @@ fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction
             };
 
             let id = (
-                hid.clone(),
+                hid,
                 hex::encode(transaction.block.height.to_be_bytes()),
                 transaction.txid,
                 hex::encode(vout.n.to_be_bytes()),

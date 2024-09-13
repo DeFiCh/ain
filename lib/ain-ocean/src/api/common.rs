@@ -133,7 +133,7 @@ pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
     Ok(ScriptBuf::from(addr))
 }
 
-pub fn address_to_hid(address: &str, network: Network) -> Result<String> {
+pub fn address_to_hid(address: &str, network: Network) -> Result<[u8; 32]> {
     let script = to_script(address, network)?;
     let bytes = script.to_bytes();
     Ok(as_sha256(bytes))

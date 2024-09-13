@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type ScriptAggregationId = (String, u32); // (hid, block.height)
+pub type ScriptAggregationId = ([u8; 32], u32); // (hid, block.height)
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptAggregation {
     pub id: ScriptAggregationId,
-    pub hid: String,
+    pub hid: [u8; 32],
     pub block: BlockContext,
     pub script: ScriptAggregationScript,
     pub statistic: ScriptAggregationStatistic,

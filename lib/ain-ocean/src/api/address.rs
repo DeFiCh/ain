@@ -116,8 +116,12 @@ pub struct ScriptAggregationResponse {
 impl From<ScriptAggregation> for ScriptAggregationResponse {
     fn from(v: ScriptAggregation) -> Self {
         Self {
-            id: format!("{}{}", hex::encode(v.id.1.to_be_bytes()), v.id.0),
-            hid: v.hid,
+            id: format!(
+                "{}{}",
+                hex::encode(v.id.1.to_be_bytes()),
+                hex::encode(v.id.0)
+            ),
+            hid: hex::encode(v.hid),
             block: v.block,
             script: ScriptAggregationScriptResponse {
                 r#type: v.script.r#type,
@@ -162,13 +166,13 @@ pub struct ScriptAggregationAmountResponse {
 
 fn get_latest_aggregation(
     ctx: &Arc<AppContext>,
-    hid: String,
+    hid: [u8; 32],
 ) -> Result<Option<ScriptAggregationResponse>> {
     let latest = ctx
         .services
         .script_aggregation
         .by_id
-        .list(Some((hid.clone(), u32::MAX)), SortOrder::Descending)?
+        .list(Some((hid, u32::MAX)), SortOrder::Descending)?
         .take(1)
         .take_while(|item| match item {
             Ok(((v, _), _)) => v == &hid,
@@ -250,9 +254,32 @@ pub struct ScriptActivityResponse {
 
 impl From<ScriptActivity> for ScriptActivityResponse {
     fn from(v: ScriptActivity) -> Self {
+        let id = match v.type_hex {
+            ScriptActivityTypeHex::Vin => {
+                // TODO put vin instead ScriptActivityType
+                let vin = v.vin.as_ref().unwrap();
+                format!(
+                    "{}{}{}{}",
+                    hex::encode(v.block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vin,
+                    vin.txid,
+                    hex::encode(vin.n.to_be_bytes())
+                )
+            }
+            ScriptActivityTypeHex::Vout => {
+                let vout = v.vout.as_ref().unwrap();
+                format!(
+                    "{}{}{}{}",
+                    hex::encode(v.block.height.to_be_bytes()),
+                    ScriptActivityTypeHex::Vout,
+                    v.txid,
+                    hex::encode(vout.n.to_be_bytes())
+                )
+            }
+        };
         Self {
-            id: v.id,
-            hid: v.hid,
+            id,
+            hid: hex::encode(v.hid),
             r#type: v.r#type.to_string(),
             type_hex: v.type_hex.to_string(),
             txid: v.txid,
@@ -327,7 +354,7 @@ async fn list_transactions(
         .script_activity
         .by_id
         .list(
-            Some((hid.clone(), next.0, next.1, next.2, next.3)),
+            Some((hid, next.0, next.1, next.2, next.3)),
             SortOrder::Descending,
         )?
         .skip(usize::from(query.next.is_some()))
@@ -361,9 +388,14 @@ pub struct ScriptUnspentResponse {
 impl From<ScriptUnspent> for ScriptUnspentResponse {
     fn from(v: ScriptUnspent) -> Self {
         Self {
-            id: v.id,
-            hid: v.hid,
-            sort: v.sort,
+            id: format!("{}{}", v.id.0, hex::encode(v.id.1)),
+            hid: hex::encode(v.hid),
+            sort: format!(
+                "{}{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                v.txid,
+                hex::encode(v.vout.n.to_be_bytes())
+            ),
             block: v.block,
             script: ScriptUnspentScriptResponse {
                 r#type: v.script.r#type,
@@ -425,10 +457,7 @@ async fn list_transaction_unspent(
         .services
         .script_unspent
         .by_id
-        .list(
-            Some((hid.clone(), next.0, next.1, next.2)),
-            SortOrder::Ascending,
-        )?
+        .list(Some((hid, next.0, next.1, next.2)), SortOrder::Ascending)?
         .skip(usize::from(query.next.is_some()))
         .take(query.size)
         .take_while(|item| match item {

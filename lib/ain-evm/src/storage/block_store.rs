@@ -33,7 +33,13 @@ impl BlockStore {
     pub fn new(path: &Path) -> Result<Self> {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
-        let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
+
+        let cf_with_opts = COLUMN_NAMES
+            .into_iter()
+            .zip(std::iter::repeat(None))
+            .collect::<Vec<_>>();
+
+        let backend = Arc::new(Rocks::open(&path, cf_with_opts, None)?);
         let store = Self(backend);
         store.startup()?;
         Ok(store)

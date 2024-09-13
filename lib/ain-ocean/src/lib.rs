@@ -14,6 +14,7 @@ pub use indexer::{
     transaction::{index_transaction, invalidate_transaction},
     tx_result, PoolCreationHeight,
 };
+
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
 use serde::Serialize;
@@ -29,7 +30,6 @@ lazy_static::lazy_static! {
     pub static ref SERVICES: Arc<Services> = {
         let datadir = ain_cpp_imports::get_datadir();
         let store = Arc::new(OceanStore::new(&PathBuf::from(datadir)).expect("Error initialization Ocean services"));
-
         Arc::new(Services::new(store))
     };
 }
@@ -150,6 +150,7 @@ pub struct Services {
     pub script_aggregation: ScriptAggregationService,
     pub script_unspent: ScriptUnspentService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
+    pub store: Arc<OceanStore>,
 }
 
 impl Services {
@@ -230,6 +231,7 @@ impl Services {
                 by_key: ScriptUnspentKey::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
+            store: Arc::clone(&store),
         }
     }
 }
