@@ -64,7 +64,8 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 }
 
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = list_pool_pairs_by_height(services)?;
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
@@ -120,25 +121,9 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
     Ok(())
 }
 
-fn list_pool_pairs_by_height(services: &Arc<Services>) -> Result<Vec<PoolCreationHeight>> {
-    services
-        .poolpair
-        .by_height
-        .list(None, SortOrder::Descending)?
-        .map(|el| {
-            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
-            Ok(PoolCreationHeight {
-                id: pool_id,
-                id_token_a,
-                id_token_b,
-                creation_height: k,
-            })
-        })
-        .collect::<Result<Vec<_>>>()
-}
-
 fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = list_pool_pairs_by_height(services)?;
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
