@@ -532,9 +532,8 @@ async fn list_vault_auction_history(
                     Ok(None) => Some(Err(NotFoundSnafu {
                         kind: NotFoundKind::Auction,
                     }
-                    .build()
-                    .into())),
-                    Err(e) => Some(Err(e.into())),
+                    .build())),
+                    Err(e) => Some(Err(e)),
                 }
             }
             Ok(_) => None,
