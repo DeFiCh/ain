@@ -136,7 +136,6 @@ impl Rocks {
             }
         }
 
-        // Print the results
         debug!("RocksDB Table Statistics:");
         debug!("{:-<80}", "");
         debug!(

@@ -81,13 +81,10 @@ async fn get_vins(
         .vin_by_id
         .list(Some(next), SortOrder::Descending)?
         .paginate(&query)
-        .take_while(|item| match item {
-            Ok((_, vin)) => vin.txid == id,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            Ok(TransactionVinResponse::from(v))
+        .filter_map(|item| match item {
+            Ok((_, vin)) if vin.txid == id => Some(Ok(TransactionVinResponse::from(vin))),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -135,13 +132,10 @@ async fn get_vouts(
         .vout_by_id
         .list(Some((id, next)), SortOrder::Ascending)?
         .paginate(&query)
-        .take_while(|item| match item {
-            Ok((_, vout)) => vout.txid == id,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            Ok(TransactionVoutResponse::from(v))
+        .filter_map(|item| match item {
+            Ok((_, vout)) if vout.txid == id => Some(Ok(TransactionVoutResponse::from(vout))),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
         .collect::<Result<Vec<_>>>()?;
 

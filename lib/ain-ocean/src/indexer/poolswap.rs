@@ -44,57 +44,49 @@ fn index_swap_aggregated(
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS {
         let repository = &services.pool_swap_aggregated;
-        let mut prevs = repository
+        let Some(mut aggregated) = repository
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-            .take(1)
-            .take_while(|item| match item {
-                Ok((k, _)) => k.0 == pool_id && k.1 == interval,
-                _ => true,
-            })
+            .find(|item| matches!(item, Ok((k, _)) if k.0 == pool_id && k.1 == interval))
             .map(|e| repository.by_key.retrieve_primary_value(e))
-            .collect::<Result<Vec<_>>>()?;
-
-        if prevs.is_empty() {
+            .transpose()?
+        else {
             log::error!(
                 "index swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
             );
             continue;
-        }
+        };
 
-        let aggregated = prevs.first_mut();
-        if let Some(aggregated) = aggregated {
-            let amount = aggregated
-                .aggregated
-                .amounts
-                .get(&from_token_id.to_string())
-                .map(|amt| Decimal::from_str(amt))
-                .transpose()?
-                .unwrap_or(dec!(0));
+        let amount = aggregated
+            .aggregated
+            .amounts
+            .get(&from_token_id.to_string())
+            .map(|amt| Decimal::from_str(amt))
+            .transpose()?
+            .unwrap_or(dec!(0));
 
-            let aggregated_amount = amount
-                .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
-                .context(ArithmeticOverflowSnafu)?;
+        let aggregated_amount = amount
+            .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
+            .context(ArithmeticOverflowSnafu)?;
 
-            aggregated
-                .aggregated
-                .amounts
-                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+        aggregated
+            .aggregated
+            .amounts
+            .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
-            let parts = aggregated.id.split('-').collect::<Vec<&str>>();
-            if parts.len() != 3 {
-                return Err(Error::Other {
-                    msg: "Invalid poolswap aggregated id format".to_string(),
-                });
-            };
-            let pool_id = parts[0].parse::<u32>()?;
-            let interval = parts[1].parse::<u32>()?;
-            let hash = parts[2].parse::<BlockHash>()?;
+        let parts = aggregated.id.split('-').collect::<Vec<&str>>();
+        if parts.len() != 3 {
+            return Err(Error::Other {
+                msg: "Invalid poolswap aggregated id format".to_string(),
+            });
+        };
+        let pool_id = parts[0].parse::<u32>()?;
+        let interval = parts[1].parse::<u32>()?;
+        let hash = parts[2].parse::<BlockHash>()?;
 
-            repository
-                .by_id
-                .put(&(pool_id, interval, hash), aggregated)?;
-        }
+        repository
+            .by_id
+            .put(&(pool_id, interval, hash), &aggregated)?;
     }
 
     Ok(())
@@ -109,57 +101,49 @@ fn invalidate_swap_aggregated(
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS {
         let repository = &services.pool_swap_aggregated;
-        let mut prevs = repository
+        let Some(mut aggregated) = repository
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-            .take(1)
-            .take_while(|item| match item {
-                Ok((k, _)) => k.0 == pool_id && k.1 == interval,
-                _ => true,
-            })
+            .find(|item| matches!(item, Ok((k, _)) if k.0 == pool_id && k.1 == interval))
             .map(|e| repository.by_key.retrieve_primary_value(e))
-            .collect::<Result<Vec<_>>>()?;
-
-        if prevs.is_empty() {
+            .transpose()?
+        else {
             log::error!(
                 "invalidate swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
             );
             continue;
-        }
+        };
 
-        let aggregated = prevs.first_mut();
-        if let Some(aggregated) = aggregated {
-            let amount = aggregated
-                .aggregated
-                .amounts
-                .get(&from_token_id.to_string())
-                .map(|amt| Decimal::from_str(amt))
-                .transpose()?
-                .unwrap_or(dec!(0));
+        let amount = aggregated
+            .aggregated
+            .amounts
+            .get(&from_token_id.to_string())
+            .map(|amt| Decimal::from_str(amt))
+            .transpose()?
+            .unwrap_or(dec!(0));
 
-            let aggregated_amount = amount
-                .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
-                .context(ArithmeticUnderflowSnafu)?;
+        let aggregated_amount = amount
+            .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
+            .context(ArithmeticUnderflowSnafu)?;
 
-            aggregated
-                .aggregated
-                .amounts
-                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+        aggregated
+            .aggregated
+            .amounts
+            .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
-            let parts = aggregated.id.split('-').collect::<Vec<&str>>();
-            if parts.len() != 3 {
-                return Err(Error::Other {
-                    msg: "Invalid poolswap aggregated id format".to_string(),
-                });
-            };
-            let pool_id = parts[0].parse::<u32>()?;
-            let interval = parts[1].parse::<u32>()?;
-            let hash = parts[2].parse::<BlockHash>()?;
+        let parts = aggregated.id.split('-').collect::<Vec<&str>>();
+        if parts.len() != 3 {
+            return Err(Error::Other {
+                msg: "Invalid poolswap aggregated id format".to_string(),
+            });
+        };
+        let pool_id = parts[0].parse::<u32>()?;
+        let interval = parts[1].parse::<u32>()?;
+        let hash = parts[2].parse::<BlockHash>()?;
 
-            repository
-                .by_id
-                .put(&(pool_id, interval, hash), aggregated)?;
-        }
+        repository
+            .by_id
+            .put(&(pool_id, interval, hash), &aggregated)?;
     }
 
     Ok(())

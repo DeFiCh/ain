@@ -388,15 +388,12 @@ async fn list_pool_swaps(
         .pool
         .by_id
         .list(Some(next), SortOrder::Descending)?
+        .filter_map(|item| match item {
+            Ok((k, swap)) if k.0 == id => Some(Ok(PoolSwapResponse::from(swap))),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
+        })
         .take(size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == id,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, swap) = item?;
-            Ok(PoolSwapResponse::from(swap))
-        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(swaps, query.size, |swap| {
@@ -427,11 +424,8 @@ async fn list_pool_swaps_verbose(
         .pool
         .by_id
         .list(Some(next), SortOrder::Descending)?
+        .filter(|item| matches!(item, Ok((k, _)) if k.0 == id))
         .take(size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == id,
-            _ => true,
-        })
         .map(|item| async {
             let (_, swap) = item?;
             let from = find_swap_from(&ctx, swap.clone()).await?;
@@ -505,12 +499,14 @@ async fn list_pool_swap_aggregates(
     let aggregates = repository
         .by_key
         .list(Some((pool_id, interval, next)), SortOrder::Descending)?
-        .take(query.size)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
-            _ => true,
+        .filter_map(|item| match item {
+            Ok(k) if k.0 .0 == pool_id && k.0 .1 == interval => {
+                Some(repository.by_key.retrieve_primary_value(Ok(k)))
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
-        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .take(query.size)
         .collect::<Result<Vec<_>>>()?;
 
     let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();

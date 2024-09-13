@@ -46,8 +46,7 @@ fn get_scriptactivity_cf_options() -> Options {
     // Target file size
     options.set_target_file_size_base(32 * 1024 * 1024); // 32 MB
 
-    // hid + block.height + type_hex)
-    options.set_prefix_extractor(SliceTransform::create_fixed_prefix(32));
+    options.set_prefix_extractor(SliceTransform::create_fixed_prefix(32)); // hid length
     options.set_memtable_whole_key_filtering(true);
     options.set_memtable_prefix_bloom_ratio(0.1);
 

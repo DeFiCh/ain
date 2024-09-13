@@ -146,12 +146,15 @@ async fn get_transactions(
     let txs = repository
         .list(Some(next), SortOrder::Ascending)?
         .paginate(&query)
-        .take_while(|item| match item {
-            Ok(((h, _), _)) => h == &hash,
-            _ => true,
+        .filter_map(|item| match item {
+            Ok(v) if v.0 .0 == hash => Some(
+                repository
+                    .retrieve_primary_value(Ok(v))
+                    .map(TransactionResponse::from),
+            ),
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
-        .map(|el| repository.retrieve_primary_value(el))
-        .map(|v| v.map(TransactionResponse::from))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(txs, query.size, |tx| tx.order))

@@ -678,29 +678,25 @@ pub fn index_interval_mapper(
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
     let repo = &services.oracle_price_aggregated_interval;
-    let previous = repo
+    let Some((_, id)) = repo
         .by_key
         .list(
             Some((token.clone(), currency.clone(), interval.clone())),
             SortOrder::Descending,
         )?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
-
-    if previous.is_empty() {
+        .next()
+        .transpose()?
+    else {
         return start_new_bucket(services, block, token, currency, aggregated, interval);
-    }
+    };
 
-    for (_, id) in previous {
-        let aggregated_interval = repo.by_id.get(&id)?;
-        if let Some(aggregated_interval) = aggregated_interval {
-            if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
-                return start_new_bucket(services, block, token, currency, aggregated, interval);
-            }
-
-            forward_aggregate(services, &aggregated_interval, aggregated)?;
+    let aggregated_interval = repo.by_id.get(&id)?;
+    if let Some(aggregated_interval) = aggregated_interval {
+        if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
+            return start_new_bucket(services, block, token, currency, aggregated, interval);
         }
+
+        forward_aggregate(services, &aggregated_interval, aggregated)?;
     }
 
     Ok(())
@@ -721,21 +717,19 @@ pub fn invalidate_oracle_interval(
             Some((token.to_string(), currency.to_string(), interval.clone())),
             SortOrder::Descending,
         )?
-        .take(1)
-        .map(|item| {
-            let (_, id) = item?;
-            let price = services
+        .next()
+        .transpose()?
+        .map(|(_, id)| {
+            services
                 .oracle_price_aggregated_interval
                 .by_id
                 .get(&id)?
                 .context(OtherSnafu {
                     msg: "Missing oracle price aggregated interval index",
-                })?;
-            Ok(price)
+                })
         })
-        .collect::<Result<Vec<_>>>()?;
-
-    let previous = &previous[0];
+        .transpose()?
+        .unwrap(); // TODO assert if safe
 
     if previous.aggregated.count == 1 {
         return repo.by_id.delete(&previous.id);

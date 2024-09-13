@@ -345,12 +345,14 @@ async fn gather_amount(
     let swaps = repository
         .by_key
         .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-        .take(count)
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
-            _ => true,
+        .filter_map(|item| match item {
+            Ok(v) if v.0 .0 == pool_id && v.0 .1 == interval => {
+                Some(repository.by_key.retrieve_primary_value(Ok(v)))
+            }
+            Ok(_) => None,
+            Err(e) => Some(Err(e.into())),
         })
-        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .take(count)
         .collect::<Result<Vec<_>>>()?;
 
     let mut aggregated = HashMap::<String, Decimal>::new();
@@ -543,27 +545,19 @@ pub async fn get_aggregated_in_usd(
 }
 
 fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
-    let vout = ctx
+    let Some(vout) = ctx
         .services
         .transaction
         .vout_by_id
         .list(Some((txid, 0)), SortOrder::Ascending)?
-        .take(1)
-        .take_while(|item| match item {
-            Ok((_, vout)) => vout.txid == txid,
-            _ => true,
-        })
-        .map(|item| {
-            let (_, v) = item?;
-            Ok(v)
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    if vout.is_empty() {
+        .find(|item| matches!(item, Ok((_, vout)) if vout.txid == txid))
+        .transpose()?
+        .map(|(_, v)| v)
+    else {
         return Ok(None);
-    }
+    };
 
-    let bytes = &vout[0].script.hex;
+    let bytes = &vout.script.hex;
     if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
         let offset = 1 + match bytes[1] {
             0x4c => 2,
