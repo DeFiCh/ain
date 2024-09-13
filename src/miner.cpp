@@ -1204,11 +1204,8 @@ namespace pos {
         uint32_t mintedBlocks{};
         int64_t blockTime{};
         int64_t subNodeBlockTime{};
-<<<<<<< bush/block-time
         unsigned int nBits{};
-=======
         bool ascendingEnabled{};
->>>>>>> master
 
         {
             LOCK(cs_main);
@@ -1226,14 +1223,11 @@ namespace pos {
             }
             subNodeBlockTime =
                 pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
-<<<<<<< bush/block-time
             nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
-=======
             const auto attributes = pcustomcsview->GetAttributes();
             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
             ascendingEnabled =
                 attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
->>>>>>> master
         }
 
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
