@@ -40,6 +40,8 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/accountshistory -> dfi/masternodes -> dfi/accountshistory"
     "dfi/accountshistory -> dfi/masternodes -> validation -> dfi/accountshistory"
     "dfi/accountshistory -> flushablestorage -> dfi/snapshotmanager -> dfi/accountshistory"
+    "dfi/anchors -> dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> dfi/anchors"
+    "dfi/anchors -> dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/anchors"
     "dfi/anchors -> dfi/masternodes -> dfi/anchors"
     "dfi/anchors -> dfi/masternodes -> net_processing -> dfi/anchors"
     "dfi/anchors -> spv/spv_wrapper -> dfi/anchors"
