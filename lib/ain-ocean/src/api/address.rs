@@ -116,8 +116,12 @@ pub struct ScriptAggregationResponse {
 impl From<ScriptAggregation> for ScriptAggregationResponse {
     fn from(v: ScriptAggregation) -> Self {
         Self {
-            id: format!("{}{}", hex::encode(v.id.1.to_be_bytes()), v.id.0),
-            hid: v.hid,
+            id: format!(
+                "{}{}",
+                hex::encode(v.id.1.to_be_bytes()),
+                hex::encode(v.id.0)
+            ),
+            hid: hex::encode(v.hid),
             block: v.block,
             script: ScriptAggregationScriptResponse {
                 r#type: v.script.r#type,
@@ -162,13 +166,13 @@ pub struct ScriptAggregationAmountResponse {
 
 fn get_latest_aggregation(
     ctx: &Arc<AppContext>,
-    hid: String,
+    hid: [u8; 32],
 ) -> Result<Option<ScriptAggregationResponse>> {
     let latest = ctx
         .services
         .script_aggregation
         .by_id
-        .list(Some((hid.clone(), u32::MAX)), SortOrder::Descending)?
+        .list(Some((hid, u32::MAX)), SortOrder::Descending)?
         .take(1)
         .take_while(|item| match item {
             Ok(((v, _), _)) => v == &hid,
@@ -275,7 +279,7 @@ impl From<ScriptActivity> for ScriptActivityResponse {
         };
         Self {
             id,
-            hid: v.hid,
+            hid: hex::encode(v.hid),
             r#type: v.r#type.to_string(),
             type_hex: v.type_hex.to_string(),
             txid: v.txid,
@@ -350,7 +354,7 @@ async fn list_transactions(
         .script_activity
         .by_id
         .list(
-            Some((hid.clone(), next.0, next.1, next.2, next.3)),
+            Some((hid, next.0, next.1, next.2, next.3)),
             SortOrder::Descending,
         )?
         .skip(usize::from(query.next.is_some()))
@@ -385,7 +389,7 @@ impl From<ScriptUnspent> for ScriptUnspentResponse {
     fn from(v: ScriptUnspent) -> Self {
         Self {
             id: format!("{}{}", v.id.0, hex::encode(v.id.1)),
-            hid: v.hid,
+            hid: hex::encode(v.hid),
             sort: format!(
                 "{}{}{}",
                 hex::encode(v.block.height.to_be_bytes()),

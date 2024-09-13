@@ -50,10 +50,14 @@ fn get_db_default_options() -> Options {
 pub struct Rocks(DB);
 
 impl Rocks {
-    pub fn open(path: &PathBuf, cf_names: &[&'static str], opts: Option<Options>) -> Result<Self> {
-        let cf_descriptors = cf_names
-            .iter()
-            .map(|cf_name| ColumnFamilyDescriptor::new(*cf_name, Options::default()));
+    pub fn open(
+        path: &PathBuf,
+        cf_names: Vec<(&'static str, Option<Options>)>,
+        opts: Option<Options>,
+    ) -> Result<Self> {
+        let cf_descriptors = cf_names.into_iter().map(|(cf_name, opts)| {
+            ColumnFamilyDescriptor::new(cf_name, opts.unwrap_or_else(Options::default))
+        });
 
         let db_opts = opts.unwrap_or_else(get_db_default_options);
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descriptors)?;

@@ -19,7 +19,7 @@ use std::{
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
-use log::{debug, trace};
+use log::trace;
 pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
@@ -216,7 +216,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
 
             let hid = as_sha256(vout.script.hex.clone()); // as key
             let script_activity = ScriptActivity {
-                hid: hid.clone(),
+                hid,
                 r#type: ScriptActivityType::Vin,
                 type_hex: ScriptActivityTypeHex::Vin,
                 txid: tx.txid,
@@ -254,7 +254,7 @@ fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -
             }
             let hid = as_sha256(vout.script_pub_key.hex.clone());
             let script_activity = ScriptActivity {
-                hid: hid.clone(),
+                hid: hid,
                 r#type: ScriptActivityType::Vout,
                 type_hex: ScriptActivityTypeHex::Vout,
                 txid: tx.txid,
@@ -345,10 +345,10 @@ fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transactio
 }
 
 fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let mut record: HashMap<String, ScriptAggregation> = HashMap::new();
+    let mut record: HashMap<[u8; 32], ScriptAggregation> = HashMap::new();
 
     fn find_script_aggregation(
-        record: &mut HashMap<String, ScriptAggregation>,
+        record: &mut HashMap<[u8; 32], ScriptAggregation>,
         block: &Block<Transaction>,
         hex: Vec<u8>,
         script_type: String,
@@ -360,8 +360,8 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
             aggregation
         } else {
             let aggregation = ScriptAggregation {
-                id: (hid.clone(), block.height),
-                hid: hid.clone(),
+                id: (hid, block.height),
+                hid: hid,
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,

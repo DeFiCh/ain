@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type ScriptUnspentId = (String, String, Txid, String); // hid + hex::encode(block.height) + txid + hex::encode(vout_index)
+pub type ScriptUnspentId = ([u8; 32], String, Txid, String); // hid + hex::encode(block.height) + txid + hex::encode(vout_index)
 pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_index
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptUnspent {
     pub id: (Txid, [u8; 8]),
-    pub hid: String,
+    pub hid: [u8; 32],
     pub txid: Txid,
     pub block: BlockContext,
     pub script: ScriptUnspentScript,
