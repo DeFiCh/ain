@@ -17,10 +17,10 @@ mod ffi {
     }
 
     pub struct PoolPairCreationHeight {
-       pub id: u32,
-       pub id_token_a: u32,
-       pub id_token_b: u32,
-       pub creation_height: u32,
+        pub id: u32,
+        pub id_token_a: u32,
+        pub id_token_b: u32,
+        pub creation_height: u32,
     }
 
     pub struct DST20Token {
@@ -186,10 +186,10 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
+pub use ffi::PoolPairCreationHeight;
 pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;
-pub use ffi::PoolPairCreationHeight;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {

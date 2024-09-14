@@ -355,9 +355,7 @@ rust::vec<PoolPairCreationHeight> getPoolPairs() {
     auto view = pcustomcsview.get();
     view->ForEachPoolPair(
         [&](DCT_ID const &id, const CPoolPair &pool) {
-            pools.emplace_back(PoolPairCreationHeight{
-                id.v, pool.idTokenA.v, pool.idTokenB.v, pool.creationHeight
-            });
+            pools.emplace_back(PoolPairCreationHeight{id.v, pool.idTokenA.v, pool.idTokenB.v, pool.creationHeight});
             return true;
         },
         {0});

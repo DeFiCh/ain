@@ -10,10 +10,10 @@ pub mod ffi {
 
     #[derive(Debug, Clone)]
     pub struct PoolPairCreationHeight {
-       pub id: u32,
-       pub id_token_a: u32,
-       pub id_token_b: u32,
-       pub creation_height: u32,
+        pub id: u32,
+        pub id_token_a: u32,
+        pub id_token_b: u32,
+        pub creation_height: u32,
     }
 
     #[derive(Debug, Clone)]
