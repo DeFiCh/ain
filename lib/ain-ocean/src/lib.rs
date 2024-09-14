@@ -55,11 +55,6 @@ pub struct PoolService {
     by_id: PoolSwap,
 }
 
-pub struct PoolPairService {
-    by_height: PoolPairByHeight,
-    by_id: PoolPair,
-}
-
 pub struct PoolSwapAggregatedService {
     by_id: PoolSwapAggregated,
     by_key: PoolSwapAggregatedKey,
@@ -135,7 +130,6 @@ pub struct Services {
     pub auction: AuctionService,
     pub result: TxResult,
     pub pool: PoolService,
-    pub poolpair: PoolPairService,
     pub pool_swap_aggregated: PoolSwapAggregatedService,
     pub transaction: TransactionService,
     pub oracle: OracleService,
@@ -171,10 +165,6 @@ impl Services {
                 by_height: VaultAuctionHistoryByHeight::new(Arc::clone(&store)),
             },
             result: TxResult::new(Arc::clone(&store)),
-            poolpair: PoolPairService {
-                by_height: PoolPairByHeight::new(Arc::clone(&store)),
-                by_id: PoolPair::new(Arc::clone(&store)),
-            },
             pool: PoolService {
                 by_id: PoolSwap::new(Arc::clone(&store)),
             },

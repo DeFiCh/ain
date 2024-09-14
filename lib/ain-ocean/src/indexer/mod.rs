@@ -3,7 +3,6 @@ pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
-pub mod poolpair;
 pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;
@@ -749,7 +748,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                     DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                     DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
-                    DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                     _ => (),
                 }
@@ -847,7 +845,6 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                     DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?, // check
                     DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
-                    DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.invalidate(services, &ctx)?,
                     _ => (),
                 }

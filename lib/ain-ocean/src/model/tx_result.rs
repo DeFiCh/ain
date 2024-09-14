@@ -11,7 +11,6 @@ pub struct PoolSwapResult {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TxResult {
     PoolSwap(PoolSwapResult),
-    CreatePoolPair(u32),
     None,
 }
 
@@ -22,9 +21,6 @@ impl From<(u8, usize)> for TxResult {
         match dftx {
             CustomTxType::PoolSwap | CustomTxType::PoolSwapV2 => {
                 Self::PoolSwap(unsafe { *(result_ptr as *const PoolSwapResult) })
-            }
-            CustomTxType::CreatePoolPair => {
-                Self::CreatePoolPair(unsafe { *(result_ptr as *const u32) })
             }
             _ => Self::None,
         }

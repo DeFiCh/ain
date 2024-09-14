@@ -98,12 +98,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
         }
     }
 
-    if (auto res = mnview.SetPoolPair(tokenId, height, poolPair); !res) {
-        return res;
-    }
-
-    return OceanSetTxResult(std::make_pair(CustomTxType::CreatePoolPair, tx.GetHash()),
-                            static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&tokenId->v)));
+    return mnview.SetPoolPair(tokenId, height, poolPair);
 }
 
 Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {

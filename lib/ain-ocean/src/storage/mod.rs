@@ -310,22 +310,6 @@ define_table! {
 
 define_table! {
     #[derive(Debug)]
-    pub struct PoolPair {
-        key_type = (u32, u32),
-        value_type = u32,
-    }
-}
-
-define_table! {
-    #[derive(Debug)]
-    pub struct PoolPairByHeight {
-        key_type = (u32, usize),
-        value_type = (u32, u32, u32),
-    }
-}
-
-define_table! {
-    #[derive(Debug)]
     pub struct PriceTicker {
         key_type = model::PriceTickerId,
         value_type = model::PriceTicker,
@@ -486,7 +470,7 @@ define_table! {
     SecondaryIndex = VaultAuctionHistory
 }
 
-pub const COLUMN_NAMES: [&str; 37] = [
+pub const COLUMN_NAMES: [&str; 35] = [
     Block::NAME,
     BlockByHeight::NAME,
     MasternodeStats::NAME,
@@ -508,8 +492,6 @@ pub const COLUMN_NAMES: [&str; 37] = [
     PoolSwapAggregated::NAME,
     PoolSwapAggregatedKey::NAME,
     PoolSwap::NAME,
-    PoolPair::NAME,
-    PoolPairByHeight::NAME,
     PriceTicker::NAME,
     PriceTickerKey::NAME,
     RawBlock::NAME,
