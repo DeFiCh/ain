@@ -34,13 +34,14 @@
 
 class CAccountHistoryStorage;
 class CBlockIndex;
+class CCustomCSView;
 class CMasternodesView;
 class CTransaction;
 class CVaultHistoryStorage;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
-int GetMnActivationDelay(int height);
-int GetMnResignDelay(int height);
+int GetMnActivationDelay(const CCustomCSView &view, const int height);
+int GetMnResignDelay(const CCustomCSView &view, const int height);
 CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee();
 CAmount GetTokenCreationFee(int height);

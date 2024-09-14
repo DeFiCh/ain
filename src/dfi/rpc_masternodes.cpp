@@ -231,7 +231,7 @@ UniValue resignmasternode(const JSONRPCRequest &request) {
         "resignmasternode",
         "\nCreates (and submits to local node and network) a transaction resigning your masternode. Collateral will be "
         "unlocked after " +
-            std::to_string(GetMnResignDelay(view->GetLastHeight())) +
+            std::to_string(GetMnResignDelay(*view, view->GetLastHeight())) +
             " blocks.\n"
             "The last optional argument (may be empty array) is an array of specific UTXOs to spend. One of UTXO's "
             "must belong to the MN's owner (collateral) address" +

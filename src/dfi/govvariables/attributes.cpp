@@ -110,6 +110,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"dtoken_restart", ParamIDs::dTokenRestart  },
         {"block_time",     ParamIDs::BlockTime      },
         {"anchors",        ParamIDs::Anchors        },
+        {"masternodes",    ParamIDs::Masternodes    },
     };
     return params;
 }
@@ -127,6 +128,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::dTokenRestart,   "dtoken_restart"},
         {ParamIDs::BlockTime,       "block_time"    },
         {ParamIDs::Anchors,         "anchors"       },
+        {ParamIDs::Masternodes,     "masternodes"   },
     };
     return params;
 }
@@ -298,6 +300,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"target_timespan", DFIPKeys::TargetTimespan},
              {"frequency", DFIPKeys::Frequency},
              {"team_change", DFIPKeys::TeamChange},
+             {"activation_delay", DFIPKeys::ActivationDelay},
+             {"resign_delay", DFIPKeys::ResignDelay},
          }},
         {AttributeTypes::EVMType,
          {
@@ -410,6 +414,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TargetTimespan, "target_timespan"},
              {DFIPKeys::Frequency, "frequency"},
              {DFIPKeys::TeamChange, "team_change"},
+             {DFIPKeys::ActivationDelay, "activation_delay"},
+             {DFIPKeys::ResignDelay, "resign_delay"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -860,6 +866,8 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TargetTimespan, VerifyMoreThenZeroInt64},
                  {DFIPKeys::Frequency, VerifyMoreThenZeroInt64},
                  {DFIPKeys::TeamChange, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::ActivationDelay, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::ResignDelay, VerifyMoreThenZeroInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -1046,6 +1054,10 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         } else if (typeId == ParamIDs::Anchors) {
             if (typeKey != DFIPKeys::Frequency && typeKey != DFIPKeys::TeamChange) {
                 return DeFiErrors::GovVarVariableUnsupportedAnchorType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Masternodes) {
+            if (typeKey != DFIPKeys::ActivationDelay && typeKey != DFIPKeys::ResignDelay) {
+                return DeFiErrors::GovVarVariableUnsupportedMasternodeType(typeKey);
             }
         } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
@@ -1752,10 +1764,11 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
                      attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart ||
-                     attrV0->typeId == ParamIDs::Anchors) &&
+                     attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
                      attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::Frequency ||
-                     attrV0->key == DFIPKeys::TeamChange)) {
+                     attrV0->key == DFIPKeys::TeamChange || attrV0->key == DFIPKeys::ActivationDelay ||
+                     attrV0->key == DFIPKeys::ResignDelay)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
@@ -2171,7 +2184,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::GovernanceParam ||
-                           attrV0->typeId == ParamIDs::Anchors) {
+                           attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
                         return DeFiErrors::GovVarValidateDF24Height();
                     }

@@ -4360,6 +4360,7 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CChainParams &chainparams,
                            BlockContext &blockCtx) {
     auto &evmTemplate = blockCtx.GetEVMTemplate();
+    auto &mnview = blockCtx.GetView();
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -4375,7 +4376,7 @@ static Res ProcessEVMQueue(const CBlock &block,
         if (!node->collateralTx.IsNull()) {
             const auto idHeight = cache.GetNewCollateral(node->collateralTx);
             assert(idHeight);
-            height = idHeight->blockHeight - GetMnResignDelay(std::numeric_limits<int>::max());
+            height = idHeight->blockHeight - GetMnResignDelay(mnview, std::numeric_limits<int>::max());
             mnID = node->collateralTx;
         }
 

@@ -48,6 +48,7 @@ enum ParamIDs : uint8_t {
     dTokenRestart = 'm',
     BlockTime = 'n',
     Anchors = 'o',
+    Masternodes = 'p',
 };
 
 enum OracleIDs : uint8_t {
@@ -137,6 +138,8 @@ enum DFIPKeys : uint8_t {
     TargetTimespan = 'D',
     Frequency = 'E',
     TeamChange = 'F',
+    ActivationDelay = 'G',
+    ResignDelay = 'H',
 };
 
 enum GovernanceKeys : uint8_t {

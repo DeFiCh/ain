@@ -2428,7 +2428,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         // Create masternode
         CMasternode node;
-        node.creationHeight = chain_active_height - GetMnActivationDelay(chain_active_height);
+        node.creationHeight = chain_active_height - GetMnActivationDelay(*pcustomcsview, chain_active_height);
         node.ownerType = WitV0KeyHashType;
         node.ownerAuthAddress = keyID;
         node.operatorType = WitV0KeyHashType;
