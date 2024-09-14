@@ -432,7 +432,7 @@ async fn list_transaction_unspent(
         .skip(usize::from(query.next.is_some()))
         .take(query.size)
         .take_while(|item| match item {
-            Ok((k, _)) => k.0 == hid.clone(),
+            Ok((k, _)) => k.0 == hid,
             _ => true,
         })
         .map(|item| {
