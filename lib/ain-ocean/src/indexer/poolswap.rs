@@ -248,7 +248,7 @@ impl Index for CompositeSwap {
         let from_amount = self.pool_swap.from_amount;
         let to_token_id = self.pool_swap.to_token_id.0;
 
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
+        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
             services.result.get(&txid)?
         else {
             trace!("Missing swap result for {}", txid.to_string());
@@ -260,13 +260,7 @@ impl Index for CompositeSwap {
         let pools = self.pools.as_ref();
 
         let pool_ids = if pools.is_empty() {
-            let Some(pool_id) = services
-                .poolpair
-                .by_id
-                .get(&(from_token_id as u32, to_token_id as u32))?
-            else {
-                return Err("Missing pool_id".into());
-            };
+            // the pool_id from finals wap is the only swap while pools is empty
             Vec::from([pool_id])
         } else {
             pools.iter().map(|pool| pool.id.0 as u32).collect()
