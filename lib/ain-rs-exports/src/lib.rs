@@ -167,13 +167,6 @@ pub mod ffi {
         pub tx_hash: [u8; 32],
     }
 
-    pub struct PoolCreationHeight {
-        pub id: u32,
-        pub id_token_a: u32,
-        pub id_token_b: u32,
-        pub creation_height: u32,
-    }
-
     extern "Rust" {
         type BlockTemplateWrapper;
         // In-fallible functions

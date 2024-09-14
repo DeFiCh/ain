@@ -348,6 +348,21 @@ uint64_t getEstimateGasErrorRatio() {
     return gArgs.GetArg("-evmestimategaserrorratio", DEFAULT_ESTIMATE_GAS_ERROR_RATIO);
 }
 
+rust::vec<PoolPairCreationHeight> getPoolPairs() {
+    LOCK(cs_main);
+
+    rust::vec<PoolPairCreationHeight> pools;
+    auto view = pcustomcsview.get();
+    view->ForEachPoolPair(
+        [&](DCT_ID const &id, const CPoolPair &pool) {
+            pools.emplace_back(PoolPairCreationHeight{id.v, pool.idTokenA.v, pool.idTokenB.v, pool.creationHeight});
+            return true;
+        },
+        {0});
+
+    return pools;
+}
+
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 

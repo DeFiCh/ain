@@ -9,6 +9,14 @@ pub mod ffi {
     }
 
     #[derive(Debug, Clone)]
+    pub struct PoolPairCreationHeight {
+        pub id: u32,
+        pub id_token_a: u32,
+        pub id_token_b: u32,
+        pub creation_height: u32,
+    }
+
+    #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
         pub name: String,
@@ -49,6 +57,7 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
+        type PoolPairCreationHeight;
         type DST20Token;
         type TransactionData;
         type SystemTxType;
@@ -79,6 +88,7 @@ pub mod ffi {
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
+        fn getPoolPairs() -> Vec<PoolPairCreationHeight>;
         #[allow(clippy::ptr_arg)]
         fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;

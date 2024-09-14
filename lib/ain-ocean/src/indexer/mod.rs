@@ -3,7 +3,6 @@ pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
-pub mod poolpair;
 pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;
@@ -20,7 +19,7 @@ use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
 use log::trace;
-pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use poolswap::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
 
@@ -64,7 +63,8 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 }
 
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = list_pool_pairs_by_height(services)?;
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
@@ -120,25 +120,9 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
     Ok(())
 }
 
-fn list_pool_pairs_by_height(services: &Arc<Services>) -> Result<Vec<PoolCreationHeight>> {
-    services
-        .poolpair
-        .by_height
-        .list(None, SortOrder::Descending)?
-        .map(|el| {
-            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
-            Ok(PoolCreationHeight {
-                id: pool_id,
-                id_token_a,
-                id_token_b,
-                creation_height: k,
-            })
-        })
-        .collect::<Result<Vec<_>>>()
-}
-
 fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let pool_pairs = list_pool_pairs_by_height(services)?;
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
@@ -737,7 +721,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                     DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                     DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
-                    DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                     _ => (),
                 }
@@ -835,7 +818,6 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                     DfTx::PoolSwap(data) => data.invalidate(services, &ctx)?, // check
                     DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
-                    DfTx::CreatePoolPair(data) => data.invalidate(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.invalidate(services, &ctx)?,
                     _ => (),
                 }
