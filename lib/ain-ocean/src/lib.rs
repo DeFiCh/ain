@@ -12,7 +12,7 @@ pub use indexer::{
     index_block, invalidate_block,
     oracle::invalidate_oracle_interval,
     transaction::{index_transaction, invalidate_transaction},
-    tx_result, PoolCreationHeight,
+    tx_result,
 };
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;

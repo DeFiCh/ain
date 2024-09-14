@@ -19,7 +19,7 @@ use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
 use helper::check_if_evm_tx;
 use log::trace;
-pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use poolswap::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use snafu::OptionExt;
 

@@ -27,14 +27,6 @@ pub enum PoolSwapAggregatedInterval {
     OneHour = 60 * 60,
 }
 
-#[derive(Debug, Clone)]
-pub struct PoolCreationHeight {
-    pub id: u32,
-    pub id_token_a: u32,
-    pub id_token_b: u32,
-    pub creation_height: u32,
-}
-
 fn index_swap_aggregated(
     services: &Arc<Services>,
     pool_id: u32,
