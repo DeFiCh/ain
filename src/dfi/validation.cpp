@@ -3425,6 +3425,8 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
                 for (const auto &loan : collAmounts->balances) {
                     LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
                 }
+            } else {
+                LogPrintf("no collaterals: vault %s\n", vaultId.ToString());
             }
         }
         return true;
