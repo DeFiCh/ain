@@ -424,6 +424,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
 
         index_script_activity_vin(services, &vin, &vout, ctx)?;
 
+        // part of index_script_aggregation
         let data = index_script_aggregation_vin(&vout, ctx)?;
         record.extend(data)
     }
@@ -437,6 +438,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
 
         index_script_activity_vout(services, vout, ctx)?;
 
+        // part of index_script_aggregation
         let data = index_script_aggregation_vout(vout, &ctx.block)?;
         record.extend(data)
     }
@@ -478,73 +480,14 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
     Ok(())
 }
 
-fn invalidate_script_activity(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
+fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
     let tx = &ctx.tx;
     let block = &ctx.block;
 
     let is_evm_tx = check_if_evm_tx(tx);
-
-    for vin in tx.vin.iter() {
-        if is_evm_tx {
-            continue;
-        }
-
-        let Some(vin) = get_vin_standard(vin) else {
-            continue;
-        };
-
-        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
-            if is_skipped_tx(&vin.txid) {
-                continue;
-            };
-
-            return Err(Error::NotFoundIndex {
-                action: IndexAction::Invalidate,
-                r#type: "Invalidate script activity TransactionVout".to_string(),
-                id: format!("{}-{}", vin.txid, vin.vout),
-            });
-        };
-
-        let id = (
-            as_sha256(vout.script.hex.clone()),
-            block.height, // hex::encode(block.height.to_be_bytes()),
-            ScriptActivityTypeHex::Vin,
-            vin.txid,
-            vin.vout,
-        );
-        services.script_activity.by_id.delete(&id)?
-    }
-
-    for vout in tx.vout.iter() {
-        if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-            continue;
-        }
-
-        let id = (
-            as_sha256(vout.script_pub_key.hex.clone()),
-            block.height,
-            ScriptActivityTypeHex::Vout,
-            tx.txid,
-            vout.n,
-        );
-        services.script_activity.by_id.delete(&id)?
-    }
-
-    Ok(())
-}
-
-fn invalidate_script_aggregation(
-    services: &Arc<Services>,
-    ctx: &Context,
-    txs: Vec<Transaction>,
-) -> Result<()> {
-    let tx = &ctx.tx;
-    let block = &ctx.block;
 
     let mut hid_set = HashSet::new();
 
-    let is_evm_tx = check_if_evm_tx(tx);
-
     for vin in tx.vin.iter() {
         if is_evm_tx {
             continue;
@@ -554,28 +497,38 @@ fn invalidate_script_aggregation(
             continue;
         };
 
+        invalidate_script_unspent_vin(services, &ctx.tx, &vin)?;
+
         let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
             if is_skipped_tx(&vin.txid) {
-                continue;
+                return Ok(())
             };
 
             return Err(Error::NotFoundIndex {
-                action: IndexAction::Invalidate,
-                r#type: "Invalidate script aggregation TransactionVout".to_string(),
+                action: IndexAction::Index,
+                r#type: "Index script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
-            });
+            })
         };
 
-        hid_set.insert(as_sha256(vout.script.hex));
+        invalidate_script_activity_vin(services, ctx.block.height, &vin, &vout)?;
+
+        hid_set.insert(as_sha256(vout.script.hex)); // part of invalidate_script_aggregation
     }
 
     for vout in tx.vout.iter() {
+        invalidate_script_unspent_vout(services, ctx, vout)?;
+
         if vout.script_pub_key.hex.starts_with(&[0x6a]) {
             continue;
         }
-        hid_set.insert(as_sha256(vout.script_pub_key.hex.clone()));
+
+        invalidate_script_activity_vout(services, ctx, vout)?;
+
+        hid_set.insert(as_sha256(vout.script_pub_key.hex.clone())); // part of invalidate_script_aggregation
     }
 
+    // invalidate_script_aggregation
     for hid in hid_set.into_iter() {
         services
             .script_aggregation
@@ -586,87 +539,99 @@ fn invalidate_script_aggregation(
     Ok(())
 }
 
-fn invalidate_script_unspent(services: &Arc<Services>, ctx: &Context) -> Result<()> {
-    let tx = &ctx.tx;
-    let block = &ctx.block;
+fn invalidate_script_unspent_vin(services: &Arc<Services>, tx: &Transaction, vin: &VinStandard) -> Result<()> {
+    let transaction = services.transaction.by_id.get(&vin.txid)?;
+    if transaction.is_none() {
+        return Err(Error::NotFoundIndex {
+            action: IndexAction::Invalidate,
+            r#type: "Transaction".to_string(),
+            id: vin.txid.to_string(),
+        });
+    }
+    let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
+    if vout.is_none() {
+        return Err(Error::NotFoundIndex {
+            action: IndexAction::Invalidate,
+            r#type: "TransactionVout".to_string(),
+            id: format!("{}{}", vin.txid, vin.vout),
+        });
+    }
+    let transaction = transaction.unwrap();
+    let vout = vout.unwrap();
 
-    let is_evm_tx = check_if_evm_tx(tx);
+    let hid = as_sha256(vout.script.hex.clone());
 
-    for vin in tx.vin.iter() {
-        if is_evm_tx {
-            continue;
-        }
-
-        let Some(vin) = get_vin_standard(vin) else {
-            continue;
-        };
-
-        let transaction = services.transaction.by_id.get(&vin.txid)?;
-        if transaction.is_none() {
-            return Err(Error::NotFoundIndex {
-                action: IndexAction::Invalidate,
-                r#type: "Transaction".to_string(),
-                id: vin.txid.to_string(),
-            });
-        }
-        let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
-        if vout.is_none() {
-            return Err(Error::NotFoundIndex {
-                action: IndexAction::Invalidate,
-                r#type: "TransactionVout".to_string(),
-                id: format!("{}{}", vin.txid, vin.vout),
-            });
-        }
-        let transaction = transaction.unwrap();
-        let vout = vout.unwrap();
-
-        let hid = as_sha256(vout.script.hex.clone());
-
-        let script_unspent = ScriptUnspent {
-            id: (vout.txid, vout.n.to_be_bytes()),
-            hid,
+    let script_unspent = ScriptUnspent {
+        id: (vout.txid, vout.n.to_be_bytes()),
+        hid,
+        txid: tx.txid,
+        block: BlockContext {
+            hash: transaction.block.hash,
+            height: transaction.block.height,
+            median_time: transaction.block.median_time,
+            time: transaction.block.time,
+        },
+        script: ScriptUnspentScript {
+            r#type: vout.script.r#type.clone(),
+            hex: vout.script.hex.clone(),
+        },
+        vout: ScriptUnspentVout {
             txid: tx.txid,
-            block: BlockContext {
-                hash: transaction.block.hash,
-                height: transaction.block.height,
-                median_time: transaction.block.median_time,
-                time: transaction.block.time,
-            },
-            script: ScriptUnspentScript {
-                r#type: vout.script.r#type.clone(),
-                hex: vout.script.hex.clone(),
-            },
-            vout: ScriptUnspentVout {
-                txid: tx.txid,
-                n: vout.n,
-                value: vout.value.parse::<f64>()?,
-                token_id: vout.token_id,
-            },
-        };
+            n: vout.n,
+            value: vout.value.parse::<f64>()?,
+            token_id: vout.token_id,
+        },
+    };
 
-        let id = (
-            hid,
-            hex::encode(transaction.block.height.to_be_bytes()),
-            transaction.txid,
-            hex::encode(vout.n.to_be_bytes()),
-        );
-        let key = (transaction.block.height, transaction.txid, vout.n);
+    let id = (
+        hid,
+        hex::encode(transaction.block.height.to_be_bytes()),
+        transaction.txid,
+        hex::encode(vout.n.to_be_bytes()),
+    );
+    let key = (transaction.block.height, transaction.txid, vout.n);
 
-        services.script_unspent.by_key.put(&key, &id)?;
-        services.script_unspent.by_id.put(&id, &script_unspent)?
-    }
+    services.script_unspent.by_key.put(&key, &id)?;
+    services.script_unspent.by_id.put(&id, &script_unspent)?;
 
-    for vout in tx.vout.iter() {
-        let hid = as_sha256(vout.script_pub_key.hex.clone());
-        let id = (
-            hid,
-            hex::encode(block.height.to_be_bytes()),
-            tx.txid,
-            hex::encode(vout.n.to_be_bytes()),
-        );
-        services.script_unspent.by_id.delete(&id)?;
-    }
+    Ok(())
+}
 
+fn invalidate_script_activity_vin(services: &Arc<Services>, height: u32, vin: &VinStandard, vout: &TransactionVout) -> Result<()> {
+    let id = (
+        as_sha256(vout.script.hex.clone()),
+        height,
+        ScriptActivityTypeHex::Vin,
+        vin.txid,
+        vin.vout,
+    );
+    services.script_activity.by_id.delete(&id)?;
+
+    Ok(())
+}
+
+fn invalidate_script_unspent_vout(services: &Arc<Services>, ctx: &Context, vout: &Vout) -> Result<()> {
+    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let id = (
+        hid,
+        hex::encode(ctx.block.height.to_be_bytes()),
+        ctx.tx.txid,
+        hex::encode(vout.n.to_be_bytes()),
+    );
+    services.script_unspent.by_id.delete(&id)?;
+
+    Ok(())
+}
+
+fn invalidate_script_activity_vout(services: &Arc<Services>, ctx: &Context, vout: &Vout) -> Result<()> {
+    let id = (
+        as_sha256(vout.script_pub_key.hex.clone()),
+        ctx.block.height,
+        ScriptActivityTypeHex::Vout,
+        ctx.tx.txid,
+        vout.n,
+    );
+    services.script_activity.by_id.delete(&id)?;
     Ok(())
 }
 
@@ -840,11 +805,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             }
         }
 
-        invalidate_script_unspent(services, &ctx)?;
-
-        invalidate_script_aggregation(services, &ctx, block.tx.clone())?;
-
-        invalidate_script_activity(services, &ctx, block.tx.clone())?;
+        invalidate_script(services, &ctx, block.tx.clone())?;
 
         invalidate_transaction(services, &ctx)?;
     }
