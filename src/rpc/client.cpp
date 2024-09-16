@@ -320,6 +320,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listburnhistory", 0, "options" },
     { "accounthistorycount", 1, "options" },
 
+    { "releaselockedtokens", 0, "releasePart" },
+
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
