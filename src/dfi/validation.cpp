@@ -2887,8 +2887,8 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     std::vector<CollToLoan> collToLoans;
     // collect all loanValues (in USD) of vaults which contain this collateral
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
-        auto colls = cache.GetVaultCollaterals(vaultId);
-        if (colls->balances.count(collId)) {
+        const auto colls = cache.GetVaultCollaterals(vaultId);
+        if (colls && colls->balances.count(collId)) {
             collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
             collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
             for (const auto &[tokenId, amount] : balances.balances) {
@@ -3304,6 +3304,9 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     std::set<DCT_ID> allUsedCollaterals;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto colls = cache.GetVaultCollaterals(vaultId);
+        if (!colls) {
+            return true;
+        }
         for (const auto &[collId, collAmount] : colls->balances) {
             allUsedCollaterals.insert(collId);
         }
@@ -3389,9 +3392,10 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         if (!gotLoan) {
             return true;
         }
-        auto colls = cache.GetVaultCollaterals(vaultId);
-        for (const auto &[collId, collAmount] : colls->balances) {
-            allUsedCollaterals.insert(collId);
+        if (const auto colls = cache.GetVaultCollaterals(vaultId)) {
+            for (const auto &[collId, collAmount] : colls->balances) {
+                allUsedCollaterals.insert(collId);
+            }
         }
         return true;
     });
@@ -3416,10 +3420,13 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
             for (const auto &loan : loanAmounts->balances) {
                 LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
             }
-            const auto collAmounts = cache.GetVaultCollaterals(vaultId);
-            LogPrintf("%d collaterals: \n", collAmounts->balances.size());
-            for (const auto &loan : collAmounts->balances) {
-                LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+            if (const auto collAmounts = cache.GetVaultCollaterals(vaultId)) {
+                LogPrintf("%d collaterals: \n", collAmounts->balances.size());
+                for (const auto &loan : collAmounts->balances) {
+                    LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+                }
+            } else {
+                LogPrintf("no collaterals: vault %s\n", vaultId.ToString());
             }
         }
         return true;
