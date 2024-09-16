@@ -216,6 +216,7 @@ static void AddTokenRestartTxs(BlockContext &blockCtx,
     };
 
     std::set<uint32_t> loanTokenIds;
+    std::set<uint32_t> collateralTokenIds;
 
     attributes->ForEach(
         [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -224,6 +225,7 @@ static void AddTokenRestartTxs(BlockContext &blockCtx,
             }
             if (attr.key == TokenKeys::LoanCollateralEnabled) {
                 if (auto collateralToken = mnview.GetCollateralTokenFromAttributes({attr.typeId})) {
+                    collateralTokenIds.insert(attr.typeId);
                     return checkLivePrice(collateralToken->fixedIntervalPriceId);
                 }
             } else if (attr.key == TokenKeys::LoanMintingEnabled) {
@@ -240,7 +242,8 @@ static void AddTokenRestartTxs(BlockContext &blockCtx,
 
     bool poolDisabled{false};
     mnview.ForEachPoolPair([&](DCT_ID const &poolId, const CPoolPair &pool) {
-        if (loanTokenIds.count(pool.idTokenA.v) || loanTokenIds.count(pool.idTokenB.v)) {
+        if (loanTokenIds.count(pool.idTokenA.v) || loanTokenIds.count(pool.idTokenB.v) ||
+            collateralTokenIds.count(pool.idTokenA.v) || collateralTokenIds.count(pool.idTokenB.v)) {
             if (!pool.status) {
                 poolDisabled = true;
                 return false;

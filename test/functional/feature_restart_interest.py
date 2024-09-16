@@ -321,8 +321,6 @@ class RestartInterestTest(DefiTestFramework):
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert "v0/live/economy/token_lock_ratio" not in attributes
 
-        assert False
-
     def interest_paid_by_balance(self):
 
         # Rollback block
