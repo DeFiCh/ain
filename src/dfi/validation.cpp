@@ -1628,8 +1628,8 @@ static Res PoolSplits(CCustomCSView &view,
 
     try {
         const std::string oldPoolSuffix = "/v";
+        assert(poolCreationTxs.size());
         for (const auto &[oldPoolId, creationTx] : poolCreationTxs) {
-            assert(poolCreationTxs.size());
             auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
