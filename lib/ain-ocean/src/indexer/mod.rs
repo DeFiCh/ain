@@ -805,9 +805,9 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             }
         }
 
-        invalidate_script(services, &ctx, block.tx.clone())?;
-
         invalidate_transaction(services, &ctx)?;
+
+        invalidate_script(services, &ctx, block.tx.clone())?;
     }
 
     invalidate_block_start(services, &block)?;
