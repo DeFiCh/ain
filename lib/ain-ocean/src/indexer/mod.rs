@@ -265,8 +265,12 @@ fn index_script_aggregation_vin(
 ) -> Result<BTreeMap<[u8; 32], ScriptAggregation>> {
     let mut record = BTreeMap::new();
     // SPENT (REMOVE)
-    let mut aggregation =
-        find_script_aggregation(&mut record, &ctx.block, vout.script.hex.clone(), vout.script.r#type.clone());
+    let mut aggregation = find_script_aggregation(
+        &mut record,
+        &ctx.block,
+        vout.script.hex.clone(),
+        vout.script.r#type.clone(),
+    );
     aggregation.statistic.tx_out_count += 1;
     aggregation.amount.tx_out += vout.value.parse::<f64>()?;
     record.insert(aggregation.hid, aggregation);
@@ -288,11 +292,7 @@ fn index_script_unspent_vin(
     Ok(())
 }
 
-fn index_script_activity_vout(
-    services: &Arc<Services>,
-    vout: &Vout,
-    ctx: &Context,
-) -> Result<()> {
+fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Context) -> Result<()> {
     let tx = &ctx.tx;
     let block = &ctx.block;
 
@@ -351,11 +351,7 @@ fn index_script_aggregation_vout(
     Ok(record)
 }
 
-fn index_script_unspent_vout(
-    services: &Arc<Services>,
-    vout: &Vout,
-    ctx: &Context,
-) -> Result<()> {
+fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Context) -> Result<()> {
     let tx = &ctx.tx;
     let block = &ctx.block;
 
@@ -412,14 +408,14 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
 
         let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(())
+                return Ok(());
             };
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Index,
                 r#type: "Index script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
-            })
+            });
         };
 
         index_script_activity_vin(services, &vin, &vout, ctx)?;
@@ -501,14 +497,14 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transacti
 
         let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(())
+                return Ok(());
             };
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Index,
                 r#type: "Index script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
-            })
+            });
         };
 
         invalidate_script_activity_vin(services, ctx.block.height, &vin, &vout)?;
@@ -539,7 +535,11 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transacti
     Ok(())
 }
 
-fn invalidate_script_unspent_vin(services: &Arc<Services>, tx: &Transaction, vin: &VinStandard) -> Result<()> {
+fn invalidate_script_unspent_vin(
+    services: &Arc<Services>,
+    tx: &Transaction,
+    vin: &VinStandard,
+) -> Result<()> {
     let transaction = services.transaction.by_id.get(&vin.txid)?;
     if transaction.is_none() {
         return Err(Error::NotFoundIndex {
@@ -597,7 +597,12 @@ fn invalidate_script_unspent_vin(services: &Arc<Services>, tx: &Transaction, vin
     Ok(())
 }
 
-fn invalidate_script_activity_vin(services: &Arc<Services>, height: u32, vin: &VinStandard, vout: &TransactionVout) -> Result<()> {
+fn invalidate_script_activity_vin(
+    services: &Arc<Services>,
+    height: u32,
+    vin: &VinStandard,
+    vout: &TransactionVout,
+) -> Result<()> {
     let id = (
         as_sha256(vout.script.hex.clone()),
         height,
@@ -610,7 +615,11 @@ fn invalidate_script_activity_vin(services: &Arc<Services>, height: u32, vin: &V
     Ok(())
 }
 
-fn invalidate_script_unspent_vout(services: &Arc<Services>, ctx: &Context, vout: &Vout) -> Result<()> {
+fn invalidate_script_unspent_vout(
+    services: &Arc<Services>,
+    ctx: &Context,
+    vout: &Vout,
+) -> Result<()> {
     let hid = as_sha256(vout.script_pub_key.hex.clone());
     let id = (
         hid,
@@ -623,7 +632,11 @@ fn invalidate_script_unspent_vout(services: &Arc<Services>, ctx: &Context, vout:
     Ok(())
 }
 
-fn invalidate_script_activity_vout(services: &Arc<Services>, ctx: &Context, vout: &Vout) -> Result<()> {
+fn invalidate_script_activity_vout(
+    services: &Arc<Services>,
+    ctx: &Context,
+    vout: &Vout,
+) -> Result<()> {
     let id = (
         as_sha256(vout.script_pub_key.hex.clone()),
         ctx.block.height,
