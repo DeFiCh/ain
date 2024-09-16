@@ -35,6 +35,9 @@ class RestartInterestTest(DefiTestFramework):
         # Set up
         self.setup()
 
+        # Check restart skips on locked token
+        self.skip_restart_on_lock()
+
         # Check minimal balances after restart
         self.minimal_balances_after_restart()
 
@@ -265,6 +268,32 @@ class RestartInterestTest(DefiTestFramework):
         result = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(result["interestToHeight"], "0.000000000000000000000000")
         assert_equal(result["interestPerBlock"], "0.000000000000000000000000")
+
+    def skip_restart_on_lock(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Set lock
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/locks/token/{self.idDUSD}": "true"}})
+        self.nodes[0].generate(1)
+
+        # Check lock
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes[f"v0/locks/token/{self.idDUSD}"], "true")
+
+        # Calculate restart height
+        restart_height = self.nodes[0].getblockcount() + 2
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check we are at restart height
+        assert_equal(self.nodes[0].getblockcount(), restart_height)
+
+        # Check restart not executed
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert "v0/live/economy/token_lock_ratio" not in attributes
 
     def interest_paid_by_balance(self):
 
