@@ -1626,9 +1626,12 @@ static Res PoolSplits(CCustomCSView &view,
               pindex->nHeight,
               poolCreationTxs.size());
 
+    if (poolCreationTxs.empty()) {
+        return Res::Err("No pool creation transactions found");
+    }
+
     try {
         const std::string oldPoolSuffix = "/v";
-        assert(poolCreationTxs.size());
         for (const auto &[oldPoolId, creationTx] : poolCreationTxs) {
             auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);

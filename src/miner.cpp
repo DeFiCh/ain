@@ -238,7 +238,18 @@ static void AddTokenRestartTxs(BlockContext &blockCtx,
 
     const auto tokensLocked = mnview.AreTokensLocked(loanTokenIds);
 
-    if (!tokenPricesValid || tokensLocked) {
+    bool poolDisabled{false};
+    mnview.ForEachPoolPair([&](DCT_ID const &poolId, const CPoolPair &pool) {
+        if (loanTokenIds.count(pool.idTokenA.v) || loanTokenIds.count(pool.idTokenB.v)) {
+            if (!pool.status) {
+                poolDisabled = true;
+                return false;
+            }
+        }
+        return true;
+    });
+
+    if (!tokenPricesValid || tokensLocked || poolDisabled) {
         return;
     }
 
