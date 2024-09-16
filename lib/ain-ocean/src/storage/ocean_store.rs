@@ -1,5 +1,4 @@
 use ain_db::{Column, ColumnName, LedgerColumn, Rocks};
-use log::debug;
 use rocksdb::{BlockBasedOptions, Cache, Options, SliceTransform};
 use std::{fs, marker::PhantomData, path::Path, sync::Arc};
 
@@ -73,10 +72,6 @@ impl OceanStore {
             .collect::<Vec<_>>();
 
         let backend = Arc::new(Rocks::open(&path, cf_with_opts, None)?);
-        debug!("Dumping table size");
-        if let Err(e) = backend.dump_table_sizes(&COLUMN_NAMES) {
-            debug!("e dumping {e}");
-        }
 
         Ok(Self(backend))
     }
@@ -89,6 +84,10 @@ impl OceanStore {
             backend: Arc::clone(&self.0),
             column: PhantomData,
         }
+    }
+
+    pub fn dump_table_sizes(&self) -> Result<()> {
+        Ok(self.0.dump_table_sizes(&COLUMN_NAMES)?)
     }
 
     pub fn compact(&self) {

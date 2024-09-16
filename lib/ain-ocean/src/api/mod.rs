@@ -1,7 +1,8 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::SocketAddr, str::FromStr, sync::Arc};
 
 use axum::{
-    extract::Request,
+    body::Body,
+    extract::{ConnectInfo, Request},
     http::{HeaderValue, StatusCode},
     middleware::{from_fn, Next},
     response::{IntoResponse, Response},
@@ -12,6 +13,7 @@ mod address;
 mod block;
 mod cache;
 pub mod common;
+mod debug;
 mod fee;
 mod governance;
 mod loan;
@@ -105,24 +107,62 @@ pub async fn ocean_router(
         services: services.clone(),
         network: Network::from_str(&network)?,
     });
+    let main_router = Router::new()
+        .nest("/address/", address::router(Arc::clone(&context)))
+        .nest("/governance", governance::router(Arc::clone(&context)))
+        .nest("/loans", loan::router(Arc::clone(&context)))
+        .nest("/fee", fee::router(Arc::clone(&context)))
+        .nest("/masternodes", masternode::router(Arc::clone(&context)))
+        .nest("/oracles", oracle::router(Arc::clone(&context)))
+        .nest("/poolpairs", pool_pair::router(Arc::clone(&context)))
+        .nest("/prices", prices::router(Arc::clone(&context)))
+        .nest("/rawtx", rawtx::router(Arc::clone(&context)))
+        .nest("/stats", stats::router(Arc::clone(&context)))
+        .nest("/tokens", tokens::router(Arc::clone(&context)))
+        .nest("/transactions", transactions::router(Arc::clone(&context)))
+        .nest("/blocks", block::router(Arc::clone(&context)))
+        .fallback(not_found);
 
-    Ok(Router::new().nest(
-        format!("/v0/{}", context.network).as_str(),
-        Router::new()
-            .nest("/address/", address::router(Arc::clone(&context)))
-            .nest("/governance", governance::router(Arc::clone(&context)))
-            .nest("/loans", loan::router(Arc::clone(&context)))
-            .nest("/fee", fee::router(Arc::clone(&context)))
-            .nest("/masternodes", masternode::router(Arc::clone(&context)))
-            .nest("/oracles", oracle::router(Arc::clone(&context)))
-            .nest("/poolpairs", pool_pair::router(Arc::clone(&context)))
-            .nest("/prices", prices::router(Arc::clone(&context)))
-            .nest("/rawtx", rawtx::router(Arc::clone(&context)))
-            .nest("/stats", stats::router(Arc::clone(&context)))
-            .nest("/tokens", tokens::router(Arc::clone(&context)))
-            .nest("/transactions", transactions::router(Arc::clone(&context)))
-            .nest("/blocks", block::router(Arc::clone(&context)))
-            .fallback(not_found)
-            .layer(from_fn(cors)), // NOTE(canonbrother): the `layer()` calls work in reverse order, hence cors layer must be at bottom
-    ))
+    let debug_router = Router::new()
+        .nest("/debug", debug::router(Arc::clone(&context)))
+        .layer(from_fn(localhost_only));
+
+    Ok(Router::new()
+        .nest(
+            format!("/v0/{}", context.network).as_str(),
+            main_router.merge(debug_router),
+        )
+        .layer(from_fn(cors)))
+}
+
+async fn localhost_only(
+    req: Request<Body>,
+    next: Next,
+) -> std::result::Result<Response, StatusCode> {
+    let is_localhost = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|connect_info| connect_info.ip().is_loopback())
+        .unwrap_or_else(|| {
+            req.headers()
+                .get("X-Forwarded-For")
+                .and_then(|addr| addr.to_str().ok())
+                .map(|addr| addr.split(',').next().unwrap_or("").trim() == "127.0.0.1")
+                .or_else(|| {
+                    req.headers()
+                        .get("Host")
+                        .and_then(|host| host.to_str().ok())
+                        .map(|host| {
+                            host.starts_with("localhost:") || host.starts_with("127.0.0.1:")
+                        })
+                })
+                .unwrap_or(false)
+        });
+
+    if is_localhost {
+        Ok(next.run(req).await)
+    } else {
+        println!("Access denied: Request is not from localhost");
+        Err(StatusCode::FORBIDDEN)
+    }
 }
