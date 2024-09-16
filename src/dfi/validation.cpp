@@ -2059,14 +2059,14 @@ static Res VaultSplits(CCustomCSView &view,
             return res;
         }
 
-        // FIXME: make this clear to be a collateral change
         if (const auto vault = view.GetVault(vaultId)) {
-            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            // no address -> vault collateral
+            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
             VaultHistoryValue subValue{
                 uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
             view.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
 
-            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
             VaultHistoryValue addValue{
                 uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
             view.GetHistoryWriters().WriteVaultHistory(addKey, addValue);
@@ -2790,10 +2790,33 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                CAccountsHistoryWriter subView(mnview,
+                                               height,
+                                               GetNextAccPosition(),
+                                               {},  // TODO: use blockHash?
+                                               uint8_t(CustomTxType::PaybackLoan));
+                res = subView.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                subView.Flush();
+
+                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+                VaultHistoryValue subValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackLoan), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
             } else {
                 // paying back DUSD loan with DUSD collateral -> no need to multiply
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
+
+                // remove collateral
+                VaultHistoryKey subCollKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
+                VaultHistoryValue subCollValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+
+                // reduce loan (address = reduced loan?)
+                VaultHistoryKey subLoanKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+                VaultHistoryValue subLoanValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subLoanKey, subLoanValue);
             }
             if (!res) {
                 return res;
@@ -2853,6 +2876,19 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         if (!res) {
             return res;
         }
+
+        // history
+        //  remove collateral
+        VaultHistoryKey subCollKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
+        VaultHistoryValue subCollValue{
+            uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{dusdToken->first, -subInDUSD}}};
+        mnview.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+
+        // reduce loan (address = reduced loan?)
+        VaultHistoryKey subLoanKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+        VaultHistoryValue subLoanValue{
+            uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+        mnview.GetHistoryWriters().WriteVaultHistory(subLoanKey, subLoanValue);
     }
 
     mnview.Flush();
@@ -3132,6 +3168,17 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
+
+        // history entry
+        VaultHistoryKey subCollKey{blockCtx.GetHeight(), data.vaultId, GetNextAccPosition(), {}};
+        VaultHistoryValue subCollValue{
+            uint256{},
+            static_cast<uint8_t>(CustomTxType::TokenLock),
+            {{collId, -data.usedCollateralAmount}, {dUsdToken.first, dusdResult.nValue}}
+        };
+        cache.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+        // ---
+
         if (data.usedCollateralAmount < data.useableCollateralAmount && dusdResult.nValue < data.totalUSDNeeded) {
             LogPrintf(
                 "didn't use full collateral, but did not get all needed USD. usedColl: %s, availableColl: %s, "
@@ -3798,6 +3845,13 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                 if (!res) {
                     return false;
                 }
+
+                // history entry
+                VaultHistoryKey subCollKey{static_cast<uint32_t>(pindex->nHeight), vaultId, GetNextAccPosition(), {}};
+                VaultHistoryValue subCollValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::TokenLock), {{tokenId, -amountToLock}}};
+                cache.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+                // ---
             }
         }
         return true;

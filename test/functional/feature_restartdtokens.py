@@ -27,6 +27,7 @@ class RestartdTokensTest(DefiTestFramework):
         self.extra_args = [
             DefiTestFramework.fork_params_till(21)
             + [
+                "-vaultindex=1",
                 "-txnotokens=0",
                 "-subsidytest=1",
                 "-metachainheight=105",
@@ -80,8 +81,6 @@ class RestartdTokensTest(DefiTestFramework):
         self.do_and_check_restart()
 
         self.check_token_lock()
-
-        # TODO: check history entries
 
         self.check_upgrade_fail()
 
@@ -1337,6 +1336,154 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
+        # Check split history
+        # vaults
+        assert_equal(
+            [
+                {
+                    "ad": entry["address"],
+                    "h": entry["blockHeight"],
+                    "t": entry["type"],
+                    "a": entry["amounts"],
+                }
+                for entry in self.nodes[0].listvaulthistory(
+                    self.vault_id2_1,
+                    {"maxBlockHeight": self.nodes[0].getblockcount(), "depth": 1},
+                )
+            ],
+            [
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-9.99825838@DUSD/v1"],
+                },
+                {
+                    "ad": self.address2,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-9.99825838@DUSD/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-10.00000900@DUSD/v1"],
+                },
+                {
+                    "ad": self.address2,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-0.10000000@SPY/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "TokenSplit",
+                    "a": ["-20.00173262@DUSD/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "TokenSplit",
+                    "a": ["20.00173262@DUSD"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "TokenLock",
+                    "a": ["-18.00155936@DUSD"],
+                },
+            ],
+        )
+
+        assert_equal(
+            [
+                {
+                    "ad": entry["address"],
+                    "h": entry["blockHeight"],
+                    "t": entry["type"],
+                    "a": entry["amounts"],
+                }
+                for entry in self.nodes[0].listvaulthistory(
+                    self.vault_id1,
+                    {"maxBlockHeight": self.nodes[0].getblockcount(), "depth": 1},
+                )
+            ],
+            [
+                # payback DUSD loan with DUSD collateral
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-1.00000000@DUSD/v1"],
+                },
+                {
+                    "ad": self.address1,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-1.00000000@DUSD/v1"],
+                },
+                # payback SPY loan with funds from address
+                {
+                    "ad": self.address1,
+                    "h": 1000,
+                    "t": "PaybackLoan",
+                    "a": ["-0.09999909@SPY/v1"],
+                },
+                # swap collateral to DUSD and use to paybackwithCollateral, first DFI coll for SPY and part of DUSD loan
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "TokenLock",
+                    "a": ["-30.00000000@DFI", "147.64445053@DUSD/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-90.00009100@DUSD/v1"],
+                },
+                {
+                    "ad": self.address1,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-0.90000091@SPY/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-57.64435953@DUSD/v1"],
+                },
+                {
+                    "ad": self.address1,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-57.64435953@DUSD/v1"],
+                },
+                # now USDT coll for remaining DUSD loan
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "TokenLock",
+                    "a": ["-38.88589949@USDT", "41.33765630@DUSD/v1"],
+                },
+                {
+                    "ad": "vaultCollateral",
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-41.33765627@DUSD/v1"],
+                },
+                {
+                    "ad": self.address1,
+                    "h": 1000,
+                    "t": "PaybackWithCollateral",
+                    "a": ["-41.33765627@DUSD/v1"],
+                },
+            ],
+        )
+        # addresses
         assert_equal(
             [
                 {"h": entry["blockHeight"], "t": entry["type"], "a": entry["amounts"]}
@@ -1391,18 +1538,20 @@ class RestartdTokensTest(DefiTestFramework):
             ],
         )
 
+        # no tokenlock, just payback
         assert_equal(
-            len(
-                self.nodes[0].listaccounthistory(self.address1, {"txtypes": ["P", "?"]})
-            ),
-            0,
+            [
+                {"h": entry["blockHeight"], "t": entry["type"], "a": entry["amounts"]}
+                for entry in self.nodes[0].listaccounthistory(
+                    self.address1, {"depth": 1}
+                )
+            ],
+            [{"h": 1000, "t": "PaybackLoan", "a": ["-0.09999909@SPY/v1"]}],
         )
 
+        # nothing happening on address2 (only in its vault)
         assert_equal(
-            len(
-                self.nodes[0].listaccounthistory(self.address2, {"txtypes": ["P", "?"]})
-            ),
-            0,
+            len(self.nodes[0].listaccounthistory(self.address2, {"depth": 1})), 0
         )
 
         assert_equal(
@@ -2174,7 +2323,6 @@ class RestartdTokensTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-
         # address3
 
         self.vault_id3 = self.nodes[0].createvault(self.address3, "")
