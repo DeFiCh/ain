@@ -10,13 +10,13 @@ pub mod tx_result;
 pub mod helper;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     sync::Arc,
     time::Instant,
 };
 
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
-use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard};
+use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard, Vout};
 use helper::check_if_evm_tx;
 use log::trace;
 pub use poolswap::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
@@ -146,10 +146,10 @@ fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
 
 fn find_tx_vout(
     services: &Arc<Services>,
-    block: &Block<Transaction>,
     vin: &VinStandard,
+    txs: Vec<Transaction>,
 ) -> Result<Option<TransactionVout>> {
-    let tx = block.tx.clone().into_iter().find(|tx| tx.txid == vin.txid);
+    let tx = txs.into_iter().find(|tx| tx.txid == vin.txid);
 
     if let Some(tx) = tx {
         let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
@@ -173,255 +173,275 @@ fn find_tx_vout(
     services.transaction.vout_by_id.get(&(vin.txid, vin.vout))
 }
 
-fn index_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in &block.tx {
-        let is_evm_tx = check_if_evm_tx(tx);
+fn find_script_aggregation(
+    record: &mut BTreeMap<[u8; 32], ScriptAggregation>,
+    block: &BlockContext,
+    hex: Vec<u8>,
+    script_type: String,
+) -> ScriptAggregation {
+    let hid = as_sha256(hex.clone());
+    let aggregation = record.get(&hid).cloned();
 
-        for vin in &tx.vin {
-            if is_evm_tx {
-                continue;
-            }
-
-            let Some(vin) = get_vin_standard(vin) else {
-                continue;
-            };
-
-            let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) {
-                    continue;
-                };
-
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Index,
-                    r#type: "Index script activity TransactionVout".to_string(),
-                    id: format!("{}-{}", vin.txid, vin.vout),
-                });
-            };
-
-            let hid = as_sha256(vout.script.hex.clone()); // as key
-            let script_activity = ScriptActivity {
-                hid,
-                r#type: ScriptActivityType::Vin,
-                type_hex: ScriptActivityTypeHex::Vin,
-                txid: tx.txid,
-                block: BlockContext {
-                    hash: block.hash,
-                    height: block.height,
-                    time: block.time,
-                    median_time: block.mediantime,
-                },
-                script: ScriptActivityScript {
-                    r#type: vout.script.r#type,
-                    hex: vout.script.hex,
-                },
-                vin: Some(ScriptActivityVin {
-                    txid: vin.txid,
-                    n: vin.vout,
-                }),
-                vout: None,
-                value: format!("{:.8}", vout.value.parse::<f32>()?),
-                token_id: vout.token_id,
-            };
-            let id = (
-                hid,
-                block.height,
-                ScriptActivityTypeHex::Vin,
-                vin.txid,
-                vin.vout,
-            );
-            services.script_activity.by_id.put(&id, &script_activity)?;
-        }
-
-        for vout in &tx.vout {
-            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-                continue;
-            }
-            let hid = as_sha256(vout.script_pub_key.hex.clone());
-            let script_activity = ScriptActivity {
-                hid,
-                r#type: ScriptActivityType::Vout,
-                type_hex: ScriptActivityTypeHex::Vout,
-                txid: tx.txid,
-                block: BlockContext {
-                    hash: block.hash,
-                    height: block.height,
-                    time: block.time,
-                    median_time: block.mediantime,
-                },
-                script: ScriptActivityScript {
-                    r#type: vout.script_pub_key.r#type.clone(),
-                    hex: vout.script_pub_key.hex.clone(),
-                },
-                vin: None,
-                vout: Some(ScriptActivityVout {
-                    txid: tx.txid,
-                    n: vout.n,
-                }),
-                value: format!("{:.8}", vout.value),
-                token_id: vout.token_id,
-            };
-            let id = (
-                hid,
-                block.height,
-                ScriptActivityTypeHex::Vout,
-                tx.txid,
-                vout.n,
-            );
-            services.script_activity.by_id.put(&id, &script_activity)?;
-        }
+    if let Some(aggregation) = aggregation {
+        aggregation
+    } else {
+        let aggregation = ScriptAggregation {
+            id: (hid, block.height),
+            hid,
+            block: BlockContext {
+                hash: block.hash,
+                height: block.height,
+                median_time: block.median_time,
+                time: block.time,
+            },
+            script: ScriptAggregationScript {
+                r#type: script_type,
+                hex,
+            },
+            statistic: ScriptAggregationStatistic {
+                tx_count: 0,
+                tx_in_count: 0,
+                tx_out_count: 0,
+            },
+            amount: ScriptAggregationAmount {
+                tx_in: 0.0,
+                tx_out: 0.0,
+                unspent: 0.0,
+            },
+        };
+        record.insert(hid, aggregation.clone());
+        aggregation
     }
+}
+
+fn index_script_activity_vin(
+    services: &Arc<Services>,
+    vin: &VinStandard,
+    vout: &TransactionVout,
+    ctx: &Context,
+) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
+
+    let hid = as_sha256(vout.script.hex.clone()); // as key
+    let script_activity = ScriptActivity {
+        hid,
+        r#type: ScriptActivityType::Vin,
+        type_hex: ScriptActivityTypeHex::Vin,
+        txid: tx.txid,
+        block: BlockContext {
+            hash: block.hash,
+            height: block.height,
+            time: block.time,
+            median_time: block.median_time,
+        },
+        script: ScriptActivityScript {
+            r#type: vout.script.r#type.clone(),
+            hex: vout.script.hex.clone(),
+        },
+        vin: Some(ScriptActivityVin {
+            txid: vin.txid,
+            n: vin.vout,
+        }),
+        vout: None,
+        value: format!("{:.8}", vout.value.parse::<f32>()?),
+        token_id: vout.token_id,
+    };
+    let id = (
+        hid,
+        block.height,
+        ScriptActivityTypeHex::Vin,
+        vin.txid,
+        vin.vout,
+    );
+    services.script_activity.by_id.put(&id, &script_activity)?;
 
     Ok(())
 }
 
-fn invalidate_script_activity(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
+fn index_script_aggregation_vin(
+    vout: &TransactionVout,
+    ctx: &Context,
+) -> Result<BTreeMap<[u8; 32], ScriptAggregation>> {
+    let mut record = BTreeMap::new();
+    // SPENT (REMOVE)
+    let mut aggregation =
+        find_script_aggregation(&mut record, &ctx.block, vout.script.hex.clone(), vout.script.r#type.clone());
+    aggregation.statistic.tx_out_count += 1;
+    aggregation.amount.tx_out += vout.value.parse::<f64>()?;
+    record.insert(aggregation.hid, aggregation);
 
-        for vin in tx.vin.iter() {
-            if is_evm_tx {
-                continue;
-            }
+    Ok(record)
+}
 
-            let Some(vin) = get_vin_standard(vin) else {
-                continue;
-            };
-
-            let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) {
-                    continue;
-                };
-
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Invalidate,
-                    r#type: "Invalidate script activity TransactionVout".to_string(),
-                    id: format!("{}-{}", vin.txid, vin.vout),
-                });
-            };
-
-            let id = (
-                as_sha256(vout.script.hex.clone()),
-                block.height, // hex::encode(block.height.to_be_bytes()),
-                ScriptActivityTypeHex::Vin,
-                vin.txid,
-                vin.vout,
-            );
-            services.script_activity.by_id.delete(&id)?
-        }
-
-        for vout in tx.vout.iter() {
-            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-                continue;
-            }
-
-            let id = (
-                as_sha256(vout.script_pub_key.hex.clone()),
-                block.height,
-                ScriptActivityTypeHex::Vout,
-                tx.txid,
-                vout.n,
-            );
-            services.script_activity.by_id.delete(&id)?
-        }
+fn index_script_unspent_vin(
+    services: &Arc<Services>,
+    vin: &VinStandard,
+    ctx: &Context,
+) -> Result<()> {
+    let key = (ctx.block.height, vin.txid, vin.vout);
+    let id = services.script_unspent.by_key.get(&key)?;
+    if let Some(id) = id {
+        services.script_unspent.by_id.delete(&id)?;
+        services.script_unspent.by_key.delete(&key)?;
     }
-
     Ok(())
 }
 
-fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let mut record: HashMap<[u8; 32], ScriptAggregation> = HashMap::new();
+fn index_script_activity_vout(
+    services: &Arc<Services>,
+    vout: &Vout,
+    ctx: &Context,
+) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
 
-    fn find_script_aggregation(
-        record: &mut HashMap<[u8; 32], ScriptAggregation>,
-        block: &Block<Transaction>,
-        hex: Vec<u8>,
-        script_type: String,
-    ) -> ScriptAggregation {
-        let hid = as_sha256(hex.clone());
-        let aggregation = record.get(&hid).cloned();
+    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let script_activity = ScriptActivity {
+        hid,
+        r#type: ScriptActivityType::Vout,
+        type_hex: ScriptActivityTypeHex::Vout,
+        txid: tx.txid,
+        block: BlockContext {
+            hash: block.hash,
+            height: block.height,
+            time: block.time,
+            median_time: block.median_time,
+        },
+        script: ScriptActivityScript {
+            r#type: vout.script_pub_key.r#type.clone(),
+            hex: vout.script_pub_key.hex.clone(),
+        },
+        vin: None,
+        vout: Some(ScriptActivityVout {
+            txid: tx.txid,
+            n: vout.n,
+        }),
+        value: format!("{:.8}", vout.value),
+        token_id: vout.token_id,
+    };
+    let id = (
+        hid,
+        block.height,
+        ScriptActivityTypeHex::Vout,
+        tx.txid,
+        vout.n,
+    );
+    services.script_activity.by_id.put(&id, &script_activity)?;
+    Ok(())
+}
 
-        if let Some(aggregation) = aggregation {
-            aggregation
-        } else {
-            let aggregation = ScriptAggregation {
-                id: (hid, block.height),
-                hid,
-                block: BlockContext {
-                    hash: block.hash,
-                    height: block.height,
-                    median_time: block.mediantime,
-                    time: block.time,
-                },
-                script: ScriptAggregationScript {
-                    r#type: script_type,
-                    hex,
-                },
-                statistic: ScriptAggregationStatistic {
-                    tx_count: 0,
-                    tx_in_count: 0,
-                    tx_out_count: 0,
-                },
-                amount: ScriptAggregationAmount {
-                    tx_in: 0.0,
-                    tx_out: 0.0,
-                    unspent: 0.0,
-                },
-            };
-            record.insert(hid, aggregation.clone());
-            aggregation
+fn index_script_aggregation_vout(
+    vout: &Vout,
+    block: &BlockContext,
+) -> Result<BTreeMap<[u8; 32], ScriptAggregation>> {
+    let mut record = BTreeMap::new();
+
+    // Unspent (ADD)
+    let mut aggregation = find_script_aggregation(
+        &mut record,
+        block,
+        vout.script_pub_key.hex.clone(),
+        vout.script_pub_key.r#type.clone(),
+    );
+    aggregation.statistic.tx_in_count += 1;
+    aggregation.amount.tx_in += vout.value;
+    record.insert(aggregation.hid, aggregation);
+
+    Ok(record)
+}
+
+fn index_script_unspent_vout(
+    services: &Arc<Services>,
+    vout: &Vout,
+    ctx: &Context,
+) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
+
+    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let script_unspent = ScriptUnspent {
+        id: (tx.txid, vout.n.to_be_bytes()),
+        hid,
+        txid: tx.txid,
+        block: BlockContext {
+            hash: block.hash,
+            height: block.height,
+            median_time: block.median_time,
+            time: block.time,
+        },
+        script: ScriptUnspentScript {
+            r#type: vout.script_pub_key.r#type.clone(),
+            hex: vout.script_pub_key.hex.clone(),
+        },
+        vout: ScriptUnspentVout {
+            txid: tx.txid,
+            n: vout.n,
+            value: vout.value,
+            token_id: vout.token_id,
+        },
+    };
+
+    let id = (
+        hid,
+        hex::encode(block.height.to_be_bytes()),
+        tx.txid,
+        hex::encode(vout.n.to_be_bytes()),
+    );
+    let key = (block.height, tx.txid, vout.n);
+    services.script_unspent.by_key.put(&key, &id)?;
+    services.script_unspent.by_id.put(&id, &script_unspent)?;
+    Ok(())
+}
+
+fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
+    let is_evm_tx = check_if_evm_tx(&ctx.tx);
+
+    let mut record = BTreeMap::new();
+
+    for vin in &ctx.tx.vin {
+        if is_evm_tx {
+            continue;
         }
+
+        let Some(vin) = get_vin_standard(vin) else {
+            continue;
+        };
+
+        index_script_unspent_vin(services, &vin, ctx)?;
+
+        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
+            if is_skipped_tx(&vin.txid) {
+                return Ok(())
+            };
+
+            return Err(Error::NotFoundIndex {
+                action: IndexAction::Index,
+                r#type: "Index script TransactionVout".to_string(),
+                id: format!("{}-{}", vin.txid, vin.vout),
+            })
+        };
+
+        index_script_activity_vin(services, &vin, &vout, ctx)?;
+
+        let data = index_script_aggregation_vin(&vout, ctx)?;
+        record.extend(data)
     }
 
-    for tx in &block.tx {
-        let is_evm_tx = check_if_evm_tx(tx);
+    for vout in &ctx.tx.vout {
+        index_script_unspent_vout(services, vout, ctx)?;
 
-        for vin in &tx.vin {
-            if is_evm_tx {
-                continue;
-            }
-
-            let Some(vin) = get_vin_standard(vin) else {
-                continue;
-            };
-
-            let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) {
-                    continue;
-                };
-
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Index,
-                    r#type: "Index script aggregation TransactionVout".to_string(),
-                    id: format!("{}-{}", vin.txid, vin.vout),
-                });
-            };
-
-            // SPENT (REMOVE)
-            let mut aggregation =
-                find_script_aggregation(&mut record, block, vout.script.hex, vout.script.r#type);
-            aggregation.statistic.tx_out_count += 1;
-            aggregation.amount.tx_out += vout.value.parse::<f64>()?;
-            record.insert(aggregation.hid, aggregation);
+        if vout.script_pub_key.hex.starts_with(&[0x6a]) {
+            return Ok(());
         }
 
-        for vout in &tx.vout {
-            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-                continue;
-            }
+        index_script_activity_vout(services, vout, ctx)?;
 
-            // Unspent (ADD)
-            let mut aggregation = find_script_aggregation(
-                &mut record,
-                block,
-                vout.script_pub_key.hex.clone(),
-                vout.script_pub_key.r#type.clone(),
-            );
-            aggregation.statistic.tx_in_count += 1;
-            aggregation.amount.tx_in += vout.value;
-            record.insert(aggregation.hid, aggregation);
-        }
+        let data = index_script_aggregation_vout(vout, &ctx.block)?;
+        record.extend(data)
     }
 
+    // index_script_aggregation
     for (_, mut aggregation) in record.clone() {
         let repo = &services.script_aggregation;
         let latest = repo
@@ -452,50 +472,108 @@ fn index_script_aggregation(services: &Arc<Services>, block: &Block<Transaction>
         record.insert(aggregation.hid, aggregation.clone());
 
         repo.by_id
-            .put(&(aggregation.hid, block.height), &aggregation)?;
+            .put(&(aggregation.hid, ctx.block.height), &aggregation)?;
     }
+
+    Ok(())
+}
+
+fn invalidate_script_activity(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
+
+    let is_evm_tx = check_if_evm_tx(tx);
+
+    for vin in tx.vin.iter() {
+        if is_evm_tx {
+            continue;
+        }
+
+        let Some(vin) = get_vin_standard(vin) else {
+            continue;
+        };
+
+        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
+            if is_skipped_tx(&vin.txid) {
+                continue;
+            };
+
+            return Err(Error::NotFoundIndex {
+                action: IndexAction::Invalidate,
+                r#type: "Invalidate script activity TransactionVout".to_string(),
+                id: format!("{}-{}", vin.txid, vin.vout),
+            });
+        };
+
+        let id = (
+            as_sha256(vout.script.hex.clone()),
+            block.height, // hex::encode(block.height.to_be_bytes()),
+            ScriptActivityTypeHex::Vin,
+            vin.txid,
+            vin.vout,
+        );
+        services.script_activity.by_id.delete(&id)?
+    }
+
+    for vout in tx.vout.iter() {
+        if vout.script_pub_key.hex.starts_with(&[0x6a]) {
+            continue;
+        }
+
+        let id = (
+            as_sha256(vout.script_pub_key.hex.clone()),
+            block.height,
+            ScriptActivityTypeHex::Vout,
+            tx.txid,
+            vout.n,
+        );
+        services.script_activity.by_id.delete(&id)?
+    }
+
     Ok(())
 }
 
 fn invalidate_script_aggregation(
     services: &Arc<Services>,
-    block: &Block<Transaction>,
+    ctx: &Context,
+    txs: Vec<Transaction>,
 ) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
+
     let mut hid_set = HashSet::new();
 
-    for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
+    let is_evm_tx = check_if_evm_tx(tx);
 
-        for vin in tx.vin.iter() {
-            if is_evm_tx {
-                continue;
-            }
+    for vin in tx.vin.iter() {
+        if is_evm_tx {
+            continue;
+        }
 
-            let Some(vin) = get_vin_standard(vin) else {
+        let Some(vin) = get_vin_standard(vin) else {
+            continue;
+        };
+
+        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
+            if is_skipped_tx(&vin.txid) {
                 continue;
             };
 
-            let Some(vout) = find_tx_vout(services, block, &vin)? else {
-                if is_skipped_tx(&vin.txid) {
-                    continue;
-                };
+            return Err(Error::NotFoundIndex {
+                action: IndexAction::Invalidate,
+                r#type: "Invalidate script aggregation TransactionVout".to_string(),
+                id: format!("{}-{}", vin.txid, vin.vout),
+            });
+        };
 
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Invalidate,
-                    r#type: "Invalidate script aggregation TransactionVout".to_string(),
-                    id: format!("{}-{}", vin.txid, vin.vout),
-                });
-            };
+        hid_set.insert(as_sha256(vout.script.hex));
+    }
 
-            hid_set.insert(as_sha256(vout.script.hex));
+    for vout in tx.vout.iter() {
+        if vout.script_pub_key.hex.starts_with(&[0x6a]) {
+            continue;
         }
-
-        for vout in tx.vout.iter() {
-            if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-                continue;
-            }
-            hid_set.insert(as_sha256(vout.script_pub_key.hex.clone()));
-        }
+        hid_set.insert(as_sha256(vout.script_pub_key.hex.clone()));
     }
 
     for hid in hid_set.into_iter() {
@@ -508,144 +586,85 @@ fn invalidate_script_aggregation(
     Ok(())
 }
 
-fn index_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in &block.tx {
-        let is_evm_tx = check_if_evm_tx(tx);
+fn invalidate_script_unspent(services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    let tx = &ctx.tx;
+    let block = &ctx.block;
 
-        for vin in &tx.vin {
-            if is_evm_tx {
-                continue;
-            }
+    let is_evm_tx = check_if_evm_tx(tx);
 
-            let Some(vin) = get_vin_standard(vin) else {
-                continue;
-            };
-
-            let key = (block.height, vin.txid, vin.vout);
-            let id = services.script_unspent.by_key.get(&key)?;
-            if let Some(id) = id {
-                services.script_unspent.by_id.delete(&id)?;
-                services.script_unspent.by_key.delete(&key)?;
-            }
+    for vin in tx.vin.iter() {
+        if is_evm_tx {
+            continue;
         }
 
-        for vout in &tx.vout {
-            let hid = as_sha256(vout.script_pub_key.hex.clone());
-            let script_unspent = ScriptUnspent {
-                id: (tx.txid, vout.n.to_be_bytes()),
-                hid,
+        let Some(vin) = get_vin_standard(vin) else {
+            continue;
+        };
+
+        let transaction = services.transaction.by_id.get(&vin.txid)?;
+        if transaction.is_none() {
+            return Err(Error::NotFoundIndex {
+                action: IndexAction::Invalidate,
+                r#type: "Transaction".to_string(),
+                id: vin.txid.to_string(),
+            });
+        }
+        let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
+        if vout.is_none() {
+            return Err(Error::NotFoundIndex {
+                action: IndexAction::Invalidate,
+                r#type: "TransactionVout".to_string(),
+                id: format!("{}{}", vin.txid, vin.vout),
+            });
+        }
+        let transaction = transaction.unwrap();
+        let vout = vout.unwrap();
+
+        let hid = as_sha256(vout.script.hex.clone());
+
+        let script_unspent = ScriptUnspent {
+            id: (vout.txid, vout.n.to_be_bytes()),
+            hid,
+            txid: tx.txid,
+            block: BlockContext {
+                hash: transaction.block.hash,
+                height: transaction.block.height,
+                median_time: transaction.block.median_time,
+                time: transaction.block.time,
+            },
+            script: ScriptUnspentScript {
+                r#type: vout.script.r#type.clone(),
+                hex: vout.script.hex.clone(),
+            },
+            vout: ScriptUnspentVout {
                 txid: tx.txid,
-                block: BlockContext {
-                    hash: block.hash,
-                    height: block.height,
-                    median_time: block.mediantime,
-                    time: block.time,
-                },
-                script: ScriptUnspentScript {
-                    r#type: vout.script_pub_key.r#type.clone(),
-                    hex: vout.script_pub_key.hex.clone(),
-                },
-                vout: ScriptUnspentVout {
-                    txid: tx.txid,
-                    n: vout.n,
-                    value: vout.value,
-                    token_id: vout.token_id,
-                },
-            };
+                n: vout.n,
+                value: vout.value.parse::<f64>()?,
+                token_id: vout.token_id,
+            },
+        };
 
-            let id = (
-                hid,
-                hex::encode(block.height.to_be_bytes()),
-                tx.txid,
-                hex::encode(vout.n.to_be_bytes()),
-            );
-            let key = (block.height, tx.txid, vout.n);
-            services.script_unspent.by_key.put(&key, &id)?;
-            services.script_unspent.by_id.put(&id, &script_unspent)?;
-        }
+        let id = (
+            hid,
+            hex::encode(transaction.block.height.to_be_bytes()),
+            transaction.txid,
+            hex::encode(vout.n.to_be_bytes()),
+        );
+        let key = (transaction.block.height, transaction.txid, vout.n);
+
+        services.script_unspent.by_key.put(&key, &id)?;
+        services.script_unspent.by_id.put(&id, &script_unspent)?
     }
 
-    Ok(())
-}
-
-fn invalidate_script_unspent(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    for tx in block.tx.iter() {
-        let is_evm_tx = check_if_evm_tx(tx);
-
-        for vin in tx.vin.iter() {
-            if is_evm_tx {
-                continue;
-            }
-
-            let Some(vin) = get_vin_standard(vin) else {
-                continue;
-            };
-
-            let transaction = services.transaction.by_id.get(&vin.txid)?;
-            if transaction.is_none() {
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Invalidate,
-                    r#type: "Transaction".to_string(),
-                    id: vin.txid.to_string(),
-                });
-            }
-            let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
-            if vout.is_none() {
-                return Err(Error::NotFoundIndex {
-                    action: IndexAction::Invalidate,
-                    r#type: "TransactionVout".to_string(),
-                    id: format!("{}{}", vin.txid, vin.vout),
-                });
-            }
-            let transaction = transaction.unwrap();
-            let vout = vout.unwrap();
-
-            let hid = as_sha256(vout.script.hex.clone());
-
-            let script_unspent = ScriptUnspent {
-                id: (vout.txid, vout.n.to_be_bytes()),
-                hid,
-                txid: tx.txid,
-                block: BlockContext {
-                    hash: transaction.block.hash,
-                    height: transaction.block.height,
-                    median_time: transaction.block.median_time,
-                    time: transaction.block.time,
-                },
-                script: ScriptUnspentScript {
-                    r#type: vout.script.r#type.clone(),
-                    hex: vout.script.hex.clone(),
-                },
-                vout: ScriptUnspentVout {
-                    txid: tx.txid,
-                    n: vout.n,
-                    value: vout.value.parse::<f64>()?,
-                    token_id: vout.token_id,
-                },
-            };
-
-            let id = (
-                hid,
-                hex::encode(transaction.block.height.to_be_bytes()),
-                transaction.txid,
-                hex::encode(vout.n.to_be_bytes()),
-            );
-            let key = (transaction.block.height, transaction.txid, vout.n);
-
-            services.script_unspent.by_key.put(&key, &id)?;
-            services.script_unspent.by_id.put(&id, &script_unspent)?
-        }
-
-        for vout in tx.vout.iter() {
-            let hid = as_sha256(vout.script_pub_key.hex.clone());
-            let id = (
-                hid,
-                hex::encode(block.height.to_be_bytes()),
-                tx.txid,
-                hex::encode(vout.n.to_be_bytes()),
-            );
-            services.script_unspent.by_id.delete(&id)?;
-        }
+    for vout in tx.vout.iter() {
+        let hid = as_sha256(vout.script_pub_key.hex.clone());
+        let id = (
+            hid,
+            hex::encode(block.height.to_be_bytes()),
+            tx.txid,
+            hex::encode(vout.n.to_be_bytes()),
+        );
+        services.script_unspent.by_id.delete(&id)?;
     }
 
     Ok(())
@@ -673,12 +692,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         median_time: block.mediantime,
     };
 
-    index_script_activity(services, &block)?;
-
-    index_script_aggregation(services, &block)?;
-
-    index_script_unspent(services, &block)?;
-
     index_block_start(services, &block)?;
 
     for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
@@ -691,6 +704,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx,
             tx_idx,
         };
+
+        index_script(services, &ctx, block.tx.clone())?;
 
         index_transaction(services, &ctx)?;
 
@@ -825,16 +840,15 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             }
         }
 
+        invalidate_script_unspent(services, &ctx)?;
+
+        invalidate_script_aggregation(services, &ctx, block.tx.clone())?;
+
+        invalidate_script_activity(services, &ctx, block.tx.clone())?;
+
         invalidate_transaction(services, &ctx)?;
     }
 
     invalidate_block_start(services, &block)?;
-
-    invalidate_script_unspent(services, &block)?;
-
-    invalidate_script_aggregation(services, &block)?;
-
-    invalidate_script_activity(services, &block)?;
-
     Ok(())
 }
