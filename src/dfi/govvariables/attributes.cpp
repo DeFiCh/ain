@@ -111,6 +111,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"block_time",     ParamIDs::BlockTime      },
         {"anchors",        ParamIDs::Anchors        },
         {"masternodes",    ParamIDs::Masternodes    },
+        {"icx",            ParamIDs::ICX            },
     };
     return params;
 }
@@ -129,6 +130,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::BlockTime,       "block_time"    },
         {ParamIDs::Anchors,         "anchors"       },
         {ParamIDs::Masternodes,     "masternodes"   },
+        {ParamIDs::ICX,             "icx"           },
     };
     return params;
 }
@@ -302,6 +304,12 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"team_change", DFIPKeys::TeamChange},
              {"activation_delay", DFIPKeys::ActivationDelay},
              {"resign_delay", DFIPKeys::ResignDelay},
+             {"order_default_expiry", DFIPKeys::OrderDefaultExpiry},
+             {"offer_default_expiry", DFIPKeys::OfferDefaultExpiry},
+             {"offer_refund_timeout", DFIPKeys::OfferRefundTimeout},
+             {"submit_min_timeout", DFIPKeys::SubmitMinTimeout},
+             {"submit_min_2nd_timeout", DFIPKeys::SubmitMin2ndTimeout},
+             {"btc_blocks_in_dfi", DFIPKeys::SubmitBTCBlocksInDFI},
          }},
         {AttributeTypes::EVMType,
          {
@@ -416,6 +424,12 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TeamChange, "team_change"},
              {DFIPKeys::ActivationDelay, "activation_delay"},
              {DFIPKeys::ResignDelay, "resign_delay"},
+             {DFIPKeys::OrderDefaultExpiry, "order_default_expiry"},
+             {DFIPKeys::OfferDefaultExpiry, "offer_default_expiry"},
+             {DFIPKeys::OfferRefundTimeout, "offer_refund_timeout"},
+             {DFIPKeys::SubmitMinTimeout, "submit_min_timeout"},
+             {DFIPKeys::SubmitMin2ndTimeout, "submit_min_2nd_timeout"},
+             {DFIPKeys::SubmitBTCBlocksInDFI, "btc_blocks_in_dfi"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -868,6 +882,12 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TeamChange, VerifyMoreThenZeroInt64},
                  {DFIPKeys::ActivationDelay, VerifyMoreThenZeroInt64},
                  {DFIPKeys::ResignDelay, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::OrderDefaultExpiry, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::OfferDefaultExpiry, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::OfferRefundTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitMinTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitMin2ndTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitBTCBlocksInDFI, VerifyMoreThenZeroUInt32},
              }},
             {AttributeTypes::Locks,
              {
@@ -1058,6 +1078,12 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         } else if (typeId == ParamIDs::Masternodes) {
             if (typeKey != DFIPKeys::ActivationDelay && typeKey != DFIPKeys::ResignDelay) {
                 return DeFiErrors::GovVarVariableUnsupportedMasternodeType(typeKey);
+            }
+        } else if (typeId == ParamIDs::ICX) {
+            if (typeKey != DFIPKeys::OrderDefaultExpiry && typeKey != DFIPKeys::OfferDefaultExpiry &&
+                typeKey != DFIPKeys::OfferRefundTimeout && typeKey != DFIPKeys::SubmitMinTimeout &&
+                typeKey != DFIPKeys::SubmitMin2ndTimeout && typeKey != DFIPKeys::SubmitBTCBlocksInDFI) {
+                return DeFiErrors::GovVarVariableUnsupportedICXType(typeKey);
             }
         } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
@@ -2184,7 +2210,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::GovernanceParam ||
-                           attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes) {
+                           attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes ||
+                           attrV0->typeId == ParamIDs::ICX) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
                         return DeFiErrors::GovVarValidateDF24Height();
                     }

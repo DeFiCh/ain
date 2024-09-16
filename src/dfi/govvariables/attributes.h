@@ -49,6 +49,7 @@ enum ParamIDs : uint8_t {
     BlockTime = 'n',
     Anchors = 'o',
     Masternodes = 'p',
+    ICX = 'q',
 };
 
 enum OracleIDs : uint8_t {
@@ -140,6 +141,12 @@ enum DFIPKeys : uint8_t {
     TeamChange = 'F',
     ActivationDelay = 'G',
     ResignDelay = 'H',
+    OrderDefaultExpiry = 'I',
+    OfferDefaultExpiry = 'J',
+    OfferRefundTimeout = 'K',
+    SubmitMinTimeout = 'L',
+    SubmitMin2ndTimeout = 'M',
+    SubmitBTCBlocksInDFI = 'N',
 };
 
 enum GovernanceKeys : uint8_t {

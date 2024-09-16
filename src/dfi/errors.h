@@ -250,6 +250,10 @@ public:
         return Res::Err("Unsupported key for Anchor {%d}", type);
     }
 
+    static Res GovVarVariableUnsupportedICXType(const unsigned char type) {
+        return Res::Err("Unsupported key for ICX {%d}", type);
+    }
+
     static Res GovVarVariableUnsupportedMasternodeType(const unsigned char type) {
         return Res::Err("Unsupported key for Masternode {%d}", type);
     }
