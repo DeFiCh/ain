@@ -55,6 +55,12 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Setup test
         self.setup_tests()
 
+        # Check commission at the same time as a liquidity change
+        self.change_liquidiity_and_check_commission()
+
+        # Test account update on same block as poolswap
+        self.static_update_same_block()
+
         # Test new pool reward with single share
         self.static_reward_single()
 
@@ -324,7 +330,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
 
         # Get current height
-        height = self.nodes[0].getblockcount()
+        height = self.nodes[0].getblockcount() - 1
 
         # Loop over and check account history entries
         for result in self.nodes[0].listaccounthistory(
@@ -472,6 +478,115 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
         return dfi_balance, ltc_balance
 
+    def change_liquidiity_and_check_commission(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+
+        self.nodes[0].accounttoaccount(
+            self.address,
+            {self.nodes[0].getnewaddress("", "legacy"): "499.99999000@LTC-DFI"},
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].generate(10)
+
+        # Check entry shows correct commission
+        for entry in self.nodes[0].listaccounthistory(self.address, {"depth": 10}):
+            if entry["type"] == "Commission":
+                assert_equal(entry["amounts"], ["0.00050000@LTC"])
+
+        # Check commission in account
+        assert_equal(self.nodes[0].getaccount(self.address)[0], "0.00050000@LTC")
+
+    def static_update_same_block(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].sendtoaddress(self.address, 1)
+        self.nodes[0].accounttoaccount(self.owner_address, {self.address: "1@DFI"})
+        self.nodes[0].generate(1)
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+
+        # Execute swaps and update account via accounttoaccount on same block
+        self.nodes[0].accounttoaccount(self.address, {self.owner_address: "1@DFI"})
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 0.1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].generate(2)
+
+        # Check balance
+        assert_equal(
+            self.nodes[0].getaccount(self.address),
+            ["0.00199999@DFI", "0.00199999@LTC", "999.99999000@LTC-DFI"],
+        )
+
+        # Check account history
+        results = []
+        for result in self.nodes[0].listaccounthistory(self.address, {"depth": 1}):
+            if result["type"] == "Commission":
+                results.append(result)
+        assert_equal(len(results), 2)
+        assert_equal(results[0]["amounts"], ["0.00199999@LTC"])
+        assert_equal(results[1]["amounts"], ["0.00199999@DFI"])
+
     def static_commission_single(self):
 
         # Rollback block
@@ -532,6 +647,9 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Check commission is the same pre and post fork
         assert_equal(pre_dfi_balance, post_dfi_balance)
         assert_equal(pre_ltc_balance, post_ltc_balance)
+
+        # Mint another block to populate history
+        self.nodes[0].generate(1)
 
         # Get post fork history
         post_fork_history = self.nodes[0].listaccounthistory(self.address)
@@ -718,7 +836,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
             {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
             self.address,
         )
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
 
         # Balance started at zero, new balance is the reward
         new_pool_reward = Decimal(

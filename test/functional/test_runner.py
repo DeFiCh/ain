@@ -119,6 +119,9 @@ BASE_SCRIPTS = [
     "p2p_feefilter.py",
     "feature_reindex.py",
     "feature_abortnode.py",
+    # TODO: check timing and position accordingly
+    "feature_restart_interest.py",
+    "feature_restartdtokens.py",
     # vv Tests less than 30s vv
     "wallet_keypool_topup.py",
     "feature_stored_interest.py",
@@ -151,6 +154,8 @@ BASE_SCRIPTS = [
     "feature_migrate_v1_in_futures.py",
     "wallet_txn_clone.py",
     "wallet_txn_clone.py --segwit",
+    "feature_community_governance.py",
+    "feature_token_transfer.py",
     "rpc_getchaintips.py",
     "rpc_misc.py",
     "rpc_mn_basic.py",

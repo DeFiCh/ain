@@ -39,6 +39,7 @@ class GovsetTest(DefiTestFramework):
                 "-fortcanningcrunchheight=1200",
                 "-fortcanningspringheight=1250",
                 "-grandcentralheight=1300",
+                "-df24height=1350",
                 "-subsidytest=1",
             ],
             [
@@ -52,6 +53,7 @@ class GovsetTest(DefiTestFramework):
                 "-fortcanningcrunchheight=1200",
                 "-fortcanningspringheight=1250",
                 "-grandcentralheight=1300",
+                "-df24height=1350",
                 "-subsidytest=1",
             ],
         ]
@@ -2150,7 +2152,6 @@ class GovsetTest(DefiTestFramework):
                 "ATTRIBUTES": [
                     "v0/locks/token/4",
                     "v0/params/dfip2206f/active",
-                    "v0/token/4/fixed_interval_price_id",
                     "v0/oracles/splits/4000",
                     "v0/poolpairs/3/token_a_fee_direction",
                 ]
@@ -2188,7 +2189,6 @@ class GovsetTest(DefiTestFramework):
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(result["v0/locks/token/4"], "true")
         assert_equal(result["v0/params/dfip2206f/active"], "false")
-        assert_equal(result["v0/token/4/fixed_interval_price_id"], "TSLA/USD")
         assert_equal(result["v0/oracles/splits/4000"], "4/50")
         assert_equal(result["v0/poolpairs/3/token_a_fee_direction"], "out")
 
@@ -2201,7 +2201,6 @@ class GovsetTest(DefiTestFramework):
                 "ATTRIBUTES": [
                     "v0/locks/token/4",
                     "v0/params/dfip2206f/active",
-                    "v0/token/4/fixed_interval_price_id",
                     "v0/oracles/splits/4000",
                     "v0/poolpairs/3/token_a_fee_direction",
                 ]
@@ -2218,7 +2217,6 @@ class GovsetTest(DefiTestFramework):
                 "ATTRIBUTES": [
                     "v0/locks/token/4",
                     "v0/params/dfip2206f/active",
-                    "v0/token/4/fixed_interval_price_id",
                     "v0/oracles/splits/4000",
                     "v0/poolpairs/3/token_a_fee_direction",
                 ]
@@ -2229,7 +2227,6 @@ class GovsetTest(DefiTestFramework):
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert "v0/locks/token/4" not in attributes
         assert "v0/params/dfip2206f/active" not in attributes
-        assert "v0/token/4/fixed_interval_price_id" not in attributes
         assert "v0/oracles/splits/4000" not in attributes
         assert "v0/poolpairs/3/token_a_fee_direction" not in attributes
 
@@ -2254,6 +2251,32 @@ class GovsetTest(DefiTestFramework):
 
         result = self.nodes[0].getgov("LP_SPLITS")
         assert_equal(result["LP_SPLITS"], {"3": Decimal("0.10000000")})
+
+        # Check pre-fork errors
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/ascending_block_time": "true"}},
+        )
+
+        # Move to fork
+        self.nodes[0].generate(1350 - self.nodes[0].getblockcount())
+
+        # Set ascending block time
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {"v0/params/feature/ascending_block_time": "true"}}
+        )
+        self.nodes[0].generate(1)
+
+        # Check ascending block time set
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/params/feature/ascending_block_time"], "true")
+
+        # Check minting
+        block_count = self.nodes[0].getblockcount()
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].getblockcount(), block_count + 1)
 
 
 if __name__ == "__main__":

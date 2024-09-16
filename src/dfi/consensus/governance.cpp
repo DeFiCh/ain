@@ -8,8 +8,9 @@
 #include <dfi/mn_checks.h>
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
-    // check foundation auth
-    if (auto res = HasFoundationAuth(); !res) {
+    // Check foundation auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
         return res;
     }
 
@@ -48,57 +49,28 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 if (newExport.empty()) {
                     return Res::Err("Cannot export empty attribute map");
                 }
+
+                if (res = authCheck.CanSetGov(*newVar); !res) {
+                    return res;
+                }
             }
 
-            CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-            auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
+            CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
+            res = GovernanceMemberRemoval(*newVar, *govVar, foundationMembers);
+            if (!res) {
+                return res;
+            }
 
-            if (!memberRemoval.empty()) {
-                auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+            CDataStructureV0 governanceMembers{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::Members};
+            res = GovernanceMemberRemoval(*newVar, *govVar, governanceMembers);
+            if (!res) {
+                return res;
+            }
 
-                for (auto &member : memberRemoval) {
-                    if (member.empty()) {
-                        return Res::Err("Invalid address provided");
-                    }
-
-                    if (member[0] == '-') {
-                        auto memberCopy{member};
-                        const auto dest = DecodeDestination(memberCopy.erase(0, 1));
-                        if (!IsValidDestination(dest)) {
-                            return Res::Err("Invalid address provided");
-                        }
-                        CScript removeMember = GetScriptForDestination(dest);
-                        if (!existingMembers.count(removeMember)) {
-                            return Res::Err("Member to remove not present");
-                        }
-                        existingMembers.erase(removeMember);
-                    } else {
-                        const auto dest = DecodeDestination(member);
-                        if (!IsValidDestination(dest)) {
-                            return Res::Err("Invalid address provided");
-                        }
-                        CScript addMember = GetScriptForDestination(dest);
-                        if (existingMembers.count(addMember)) {
-                            return Res::Err("Member to add already present");
-                        }
-                        existingMembers.insert(addMember);
-                    }
-                }
-
-                govVar->SetValue(key, existingMembers);
-
-                // Remove this key and apply any other changes
-                newVar->EraseKey(key);
-                if (!(res = govVar->Import(newVar->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height))) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
-            } else {
-                // Validate as complete set. Check for future conflicts between key pairs.
-                if (!(res = govVar->Import(var->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height))) {
-                    return Res::Err("%s: %s", var->GetName(), res.msg);
-                }
+            // Validate as complete set. Check for future conflicts between key pairs.
+            if (!(res = govVar->Import(newVar->Export())) || !(res = govVar->Validate(mnview)) ||
+                !(res = govVar->Apply(mnview, height))) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
             }
 
             var = govVar;
@@ -135,9 +107,10 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 }
 
 Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
-    // check foundation auth
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member");
+    // Check foundation auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     const auto height = txCtx.GetHeight();
@@ -149,28 +122,35 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
         return Res::Err("Unset Gov variables not currently enabled in attributes.");
     }
 
-    for (const auto &gov : obj.govs) {
-        auto var = mnview.GetVariable(gov.first);
-        if (!var) {
-            return Res::Err("'%s': variable does not registered", gov.first);
+    for (const auto &[name, keys] : obj.govs) {
+        if (name == "ATTRIBUTES") {
+            if (auto res = authCheck.CanSetGov(keys); !res) {
+                return res;
+            }
         }
 
-        auto res = var->Erase(mnview, height, gov.second);
+        auto var = mnview.GetVariable(name);
+        if (!var) {
+            return Res::Err("'%s': variable does not registered", name);
+        }
+
+        auto res = var->Erase(mnview, height, keys);
         if (!res) {
-            return Res::Err("%s: %s", var->GetName(), res.msg);
+            return Res::Err("%s: %s", name, res.msg);
         }
 
         if (!(res = mnview.SetVariable(*var))) {
-            return Res::Err("%s: %s", var->GetName(), res.msg);
+            return Res::Err("%s: %s", name, res.msg);
         }
     }
     return Res::Ok();
 }
 
 Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const {
-    // check foundation auth
-    if (!HasFoundationAuth()) {
-        return Res::Err("tx not from foundation member");
+    // Check foundation auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
     }
 
     const auto &consensus = txCtx.GetConsensus();
@@ -204,6 +184,10 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             const auto newExport = newVar->Export();
             if (newExport.empty()) {
                 return Res::Err("Cannot export empty attribute map");
+            }
+
+            if (res = authCheck.CanSetGov(*newVar); !res) {
+                return res;
             }
         }
 

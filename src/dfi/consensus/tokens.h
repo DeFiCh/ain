@@ -14,7 +14,7 @@ struct CMintTokensMessage;
 struct CBurnTokensMessage;
 
 class CTokensConsensus : public CCustomTxVisitor {
-    [[nodiscard]] Res CheckTokenCreationTx() const;
+    [[nodiscard]] Res CheckTokenCreationTx(const bool creation = true) const;
     [[nodiscard]] ResVal<CScript> MintableToken(DCT_ID id,
                                                 const CTokenImplementation &token,
                                                 bool anybodyCanMint) const;
