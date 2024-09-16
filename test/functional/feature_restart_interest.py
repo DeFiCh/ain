@@ -36,7 +36,10 @@ class RestartInterestTest(DefiTestFramework):
         self.setup()
 
         # Check restart skips on locked token
-        self.skip_restart_on_lock()
+        # self.skip_restart_on_lock()
+
+        # Check restart skips on pool disabled
+        self.skip_restart_on_pool_disabled()
 
         # Check minimal balances after restart
         self.minimal_balances_after_restart()
@@ -147,6 +150,7 @@ class RestartInterestTest(DefiTestFramework):
                 "commission": 0,
                 "status": True,
                 "ownerAddress": self.address,
+                "pairSymbol": "DFI-DUSD",
             }
         )
         self.nodes[0].generate(1)
@@ -281,6 +285,28 @@ class RestartInterestTest(DefiTestFramework):
         # Check lock
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(attributes[f"v0/locks/token/{self.idDUSD}"], "true")
+
+        # Calculate restart height
+        restart_height = self.nodes[0].getblockcount() + 2
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check we are at restart height
+        assert_equal(self.nodes[0].getblockcount(), restart_height)
+
+        # Check restart not executed
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert "v0/live/economy/token_lock_ratio" not in attributes
+
+    def skip_restart_on_pool_disabled(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Disable pool
+        self.nodes[0].updatepoolpair({"pool": "DFI-DUSD", "status": False})
+        self.nodes[0].generate(1)
 
         # Calculate restart height
         restart_height = self.nodes[0].getblockcount() + 2
