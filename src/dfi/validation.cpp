@@ -1626,13 +1626,10 @@ static Res PoolSplits(CCustomCSView &view,
               pindex->nHeight,
               poolCreationTxs.size());
 
-    if (poolCreationTxs.empty()) {
-        return Res::Err("No pool creation transactions found");
-    }
-
     try {
         const std::string oldPoolSuffix = "/v";
         for (const auto &[oldPoolId, creationTx] : poolCreationTxs) {
+            assert(poolCreationTxs.size());
             auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
@@ -3560,11 +3557,13 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
     CBalances lockedTokens;
     std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
     std::set<DCT_ID> poolsForConsolidation;
+
+    auto creationRes = Res::Ok();
     ForEachLockTokenAndPool(
         [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
             if (!creationTxPerId.count(id.v)) {
-                LogPrintf("missing creationTx for Token %d\n", id.v);
-                return true;
+                creationRes = Res::Err("missing creationTx for Token %d\n", id.v);
+                return false;
             }
             splits.emplace(id.v, COIN);
             creationTxs.emplace(id.v, std::make_pair(creationTxPerId[id.v], emptyPoolPairs));
@@ -3577,14 +3576,18 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
         },
         [&](const DCT_ID &id, const CPoolPair &token) {
             if (!creationTxPerId.count(id.v)) {
-                LogPrintf("missing creationTx for Pool %d\n", id.v);
-                return true;
+                creationRes = Res::Err("missing creationTx for Token %d\n", id.v);
+                return false;
             }
             creationTxPerPoolId.emplace_back(id, creationTxPerId[id.v]);
             poolsForConsolidation.emplace(id);
             return true;
         },
         cache);
+
+    if (!creationRes) {
+        return creationRes;
+    }
 
     CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
     // TODO: this is mainly used to know what token ids got locked (for use in TD later on). maybe add real balances
