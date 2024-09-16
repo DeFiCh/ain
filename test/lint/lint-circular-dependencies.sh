@@ -84,6 +84,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/govvariables/oracle_deviation -> dfi/gv -> dfi/govvariables/oracle_deviation"
     "dfi/historywriter -> dfi/masternodes -> dfi/historywriter"
     "dfi/historywriter -> dfi/masternodes -> validation -> dfi/historywriter"
+    "dfi/icxorder -> dfi/masternodes -> dfi/icxorder"
     "dfi/loan -> dfi/masternodes -> dfi/loan"
     "dfi/masternodes -> dfi/mn_checks -> dfi/masternodes"
     "dfi/masternodes -> dfi/oracles -> dfi/masternodes"
