@@ -238,7 +238,7 @@ fn index_script_activity_vin(
     };
     let id = (
         hid,
-        block.height,
+        block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
         vin.vout,
@@ -311,7 +311,7 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
     };
     let id = (
         hid,
-        block.height,
+        block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         tx.txid,
         vout.n,
@@ -367,7 +367,7 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
         },
     };
 
-    let id = (hid, block.height, tx.txid, vout.n);
+    let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n);
     let key = (block.height, tx.txid, vout.n);
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
@@ -564,7 +564,12 @@ fn invalidate_script_unspent_vin(
         },
     };
 
-    let id = (hid, transaction.block.height, transaction.txid, vout.n);
+    let id = (
+        hid,
+        transaction.block.height.to_be_bytes(),
+        transaction.txid,
+        vout.n,
+    );
     let key = (transaction.block.height, transaction.txid, vout.n);
 
     services.script_unspent.by_key.put(&key, &id)?;
@@ -581,7 +586,7 @@ fn invalidate_script_activity_vin(
 ) -> Result<()> {
     let id = (
         as_sha256(vout.script.hex.clone()),
-        height,
+        height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
         vin.vout,
@@ -597,7 +602,7 @@ fn invalidate_script_unspent_vout(
     vout: &Vout,
 ) -> Result<()> {
     let hid = as_sha256(vout.script_pub_key.hex.clone());
-    let id = (hid, ctx.block.height, ctx.tx.txid, vout.n);
+    let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
     services.script_unspent.by_id.delete(&id)?;
 
     Ok(())
@@ -610,7 +615,7 @@ fn invalidate_script_activity_vout(
 ) -> Result<()> {
     let id = (
         as_sha256(vout.script_pub_key.hex.clone()),
-        ctx.block.height,
+        ctx.block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         ctx.tx.txid,
         vout.n,

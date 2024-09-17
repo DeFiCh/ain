@@ -332,18 +332,26 @@ async fn list_transactions(
             let txid = &next[8 + 2..64 + 8 + 2];
             let n = &next[64 + 8 + 2..];
 
-            let height = height.parse::<u32>()?;
+            let decoded_height = hex::decode(height)?;
+            let height = decoded_height.try_into().map_err(|_| Error::Other {
+                msg: format!("Invalid height: {}", height),
+            })?;
             let vin_vout_type = match vin_vout_type {
                 "00" => ScriptActivityTypeHex::Vin,
                 _ => ScriptActivityTypeHex::Vout,
             };
             let txid = Txid::from_str(txid)?;
             let n = n.parse::<usize>()?;
-            Ok::<(u32, ScriptActivityTypeHex, Txid, usize), Error>((height, vin_vout_type, txid, n))
+            Ok::<([u8; 4], ScriptActivityTypeHex, Txid, usize), Error>((
+                height,
+                vin_vout_type,
+                txid,
+                n,
+            ))
         })
         .transpose()?
         .unwrap_or((
-            u32::MAX,
+            [u8::MAX, u8::MAX, u8::MAX, u8::MAX],
             ScriptActivityTypeHex::Vout,
             Txid::from_byte_array([0xffu8; 32]),
             usize::MAX,
@@ -443,14 +451,17 @@ async fn list_transaction_unspent(
             let txid = &next[8..64 + 8];
             let n = &next[64 + 8..];
 
-            let height = height.parse::<u32>()?;
+            let decoded_height = hex::decode(height)?;
+            let height = decoded_height.try_into().map_err(|_| Error::Other {
+                msg: format!("Invalid height: {}", height),
+            })?;
             let txid = Txid::from_str(txid)?;
             let n = n.parse::<usize>()?;
-            Ok::<(u32, Txid, usize), Error>((height, txid, n))
+            Ok::<([u8; 4], Txid, usize), Error>((height, txid, n))
         })
         .transpose()?
         .unwrap_or((
-            u32::default(),
+            [0u8, 0u8, 0u8, 0u8],
             Txid::from_byte_array([0x00u8; 32]),
             usize::default(),
         ));
