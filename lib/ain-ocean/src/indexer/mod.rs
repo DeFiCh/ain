@@ -529,24 +529,21 @@ fn invalidate_script_unspent_vin(
     tx: &Transaction,
     vin: &VinStandard,
 ) -> Result<()> {
-    let transaction = services.transaction.by_id.get(&vin.txid)?;
-    if transaction.is_none() {
+    let Some(transaction) = services.transaction.by_id.get(&vin.txid)? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
             r#type: "Transaction".to_string(),
             id: vin.txid.to_string(),
         });
-    }
-    let vout = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))?;
-    if vout.is_none() {
+    };
+
+    let Some(vout) = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
             r#type: "TransactionVout".to_string(),
             id: format!("{}{}", vin.txid, vin.vout),
         });
-    }
-    let transaction = transaction.unwrap();
-    let vout = vout.unwrap();
+    };
 
     let hid = as_sha256(vout.script.hex.clone());
 
