@@ -3232,9 +3232,9 @@ static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache
     CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
 
     auto res = Res::Ok();
-    cache.ForEachVaultAuction(
+    view.ForEachVaultAuction(
         [&](const auto &vaultId, const auto &auctionData) {
-            auto vault = cache.GetVault(vaultId);
+            auto vault = view.GetVault(vaultId);
             if (!vault) {
                 res = Res::Err("Vault not found");
                 return false;
