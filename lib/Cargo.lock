@@ -673,7 +673,7 @@ checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 [[package]]
 name = "bitcoin"
 version = "0.31.0"
-source = "git+https://github.com/defich/rust-bitcoin.git#d7cd09b8a810d1bf10f9b9b8cc5fc2d8c72be9e1"
+source = "git+https://github.com/defich/rust-bitcoin.git#fe08844ed8ca40ee9208cec3c63a042bb5d2e299"
 dependencies = [
  "bech32",
  "bitcoin-internals",
@@ -697,7 +697,7 @@ dependencies = [
 [[package]]
 name = "bitcoin-io"
 version = "0.1.0"
-source = "git+https://github.com/defich/rust-bitcoin.git#d7cd09b8a810d1bf10f9b9b8cc5fc2d8c72be9e1"
+source = "git+https://github.com/defich/rust-bitcoin.git#fe08844ed8ca40ee9208cec3c63a042bb5d2e299"
 
 [[package]]
 name = "bitcoin_hashes"
