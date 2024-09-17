@@ -367,12 +367,7 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
         },
     };
 
-    let id = (
-        hid,
-        block.height,
-        tx.txid,
-        vout.n,
-    );
+    let id = (hid, block.height, tx.txid, vout.n);
     let key = (block.height, tx.txid, vout.n);
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
@@ -569,12 +564,7 @@ fn invalidate_script_unspent_vin(
         },
     };
 
-    let id = (
-        hid,
-        transaction.block.height,
-        transaction.txid,
-        vout.n,
-    );
+    let id = (hid, transaction.block.height, transaction.txid, vout.n);
     let key = (transaction.block.height, transaction.txid, vout.n);
 
     services.script_unspent.by_key.put(&key, &id)?;
@@ -607,12 +597,7 @@ fn invalidate_script_unspent_vout(
     vout: &Vout,
 ) -> Result<()> {
     let hid = as_sha256(vout.script_pub_key.hex.clone());
-    let id = (
-        hid,
-        ctx.block.height,
-        ctx.tx.txid,
-        vout.n,
-    );
+    let id = (hid, ctx.block.height, ctx.tx.txid, vout.n);
     services.script_unspent.by_id.delete(&id)?;
 
     Ok(())
