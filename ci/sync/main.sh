@@ -22,7 +22,7 @@ setup_vars() {
     REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${REF_LOG_DIR}/${REF_LOG}"
 
     # Commands
-    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -ethdebug=1 -spv -checkpoints=0 -oceanarchive -oceanarchiverest -interrupt-block=$((STOP_BLOCK + 1))"
+    DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -ethdebug=1 -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
     DEFI_CLI_CMD="${DEFI_CLI_BIN} -datadir=${DATADIR}"
     FETCH="aria2c -x16 -s16"
     GREP="grep"
