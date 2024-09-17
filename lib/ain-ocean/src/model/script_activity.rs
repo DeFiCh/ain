@@ -46,7 +46,7 @@ pub struct ScriptActivity {
     pub script: ScriptActivityScript,
     pub vin: Option<ScriptActivityVin>,
     pub vout: Option<ScriptActivityVout>,
-    pub value: String,
+    pub value: f64,
     pub token_id: Option<u32>,
 }
 

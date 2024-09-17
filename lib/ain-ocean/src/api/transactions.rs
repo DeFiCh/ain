@@ -113,7 +113,7 @@ impl From<TransactionVout> for TransactionVoutResponse {
             id: format!("{}{:x}", v.txid, v.vout),
             txid: v.txid,
             n: v.n,
-            value: v.value,
+            value: format!("{:.8}", v.value),
             token_id: v.token_id,
             script: v.script,
         }

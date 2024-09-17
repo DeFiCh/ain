@@ -37,7 +37,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
             vout: vout.n,
             txid,
             n: vout.n,
-            value: vout.value.to_string(),
+            value: vout.value,
             token_id: Some(0),
             script: TransactionVoutScript {
                 hex: vout.script_pub_key.hex,

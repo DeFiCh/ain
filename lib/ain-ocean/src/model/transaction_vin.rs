@@ -58,7 +58,7 @@ impl TransactionVin {
 pub struct TransactionVinVout {
     pub txid: Txid,
     pub n: usize,
-    pub value: String,
+    pub value: f64,
     pub token_id: Option<u32>,
     pub script: Vec<u8>,
 }

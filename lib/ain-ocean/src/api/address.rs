@@ -296,7 +296,7 @@ impl From<ScriptActivity> for ScriptActivityResponse {
                 txid: vout.txid,
                 n: vout.n,
             }),
-            value: v.value,
+            value: format!("{:.8}", v.value),
             token_id: v.token_id,
         }
     }

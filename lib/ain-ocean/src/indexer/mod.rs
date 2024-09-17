@@ -155,12 +155,11 @@ fn find_tx_vout(
         let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
 
         if let Some(vout) = vout {
-            let value = Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
             let tx_vout = TransactionVout {
                 vout: vin.vout,
                 txid: tx.txid,
                 n: vout.n,
-                value: format!("{value:.8}"),
+                value: vout.value,
                 token_id: vout.token_id,
                 script: TransactionVoutScript {
                     r#type: vout.script_pub_key.r#type.clone(),
@@ -236,7 +235,7 @@ fn index_script_activity_vin(
             n: vin.vout,
         }),
         vout: None,
-        value: format!("{:.8}", vout.value.parse::<f32>()?),
+        value: vout.value,
         token_id: vout.token_id,
     };
     let id = (
@@ -264,7 +263,7 @@ fn index_script_aggregation_vin(
         vout.script.r#type.clone(),
     );
     aggregation.statistic.tx_out_count += 1;
-    aggregation.amount.tx_out += vout.value.parse::<f64>()?;
+    aggregation.amount.tx_out += vout.value;
     record.insert(aggregation.hid, aggregation);
 
     Ok(record)
@@ -309,7 +308,7 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
             txid: tx.txid,
             n: vout.n,
         }),
-        value: format!("{:.8}", vout.value),
+        value: vout.value,
         token_id: vout.token_id,
     };
     let id = (
@@ -570,7 +569,7 @@ fn invalidate_script_unspent_vin(
         vout: ScriptUnspentVout {
             txid: tx.txid,
             n: vout.n,
-            value: vout.value.parse::<f64>()?,
+            value: vout.value,
             token_id: vout.token_id,
         },
     };

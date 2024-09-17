@@ -9,7 +9,7 @@ pub struct TransactionVout {
     pub vout: usize,
     pub txid: Txid,
     pub n: usize,
-    pub value: String,
+    pub value: f64,
     pub token_id: Option<u32>,
     pub script: TransactionVoutScript,
 }
