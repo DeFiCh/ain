@@ -612,6 +612,48 @@ class RestartdTokensTest(DefiTestFramework):
             [],
         )
 
+        # check that upgrade token now works
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(19.99999999),
+        )
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            Decimal(0),
+        )
+
+        amount = Web3.to_wei(10, "ether")
+
+        upgrade_txn = self.dusd_contract.functions.upgradeToken(
+            amount
+        ).build_transaction(
+            {
+                "from": self.evmaddress,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evmaddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 5_000_000,
+            }
+        )
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            upgrade_txn, self.evm_privkey
+        )
+
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+        assert_equal(tx_receipt["status"], 1)
+
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(9.99999999),
+        )
+        assert_equal(
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            Decimal(10),
+        )
+
     def check_token_split(self):
         # updated SPY
         self.idSPY = list(self.nodes[0].gettoken("SPY").keys())[0]
