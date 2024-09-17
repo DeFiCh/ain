@@ -3229,6 +3229,8 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
 static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
     std::map<uint256, uint32_t> auctionsToErase;
 
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
+
     auto res = Res::Ok();
     cache.ForEachVaultAuction(
         [&](const auto &vaultId, const auto &auctionData) {
@@ -3237,22 +3239,58 @@ static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache
                 res = Res::Err("Vault not found");
                 return false;
             }
-            vault->isUnderLiquidation = false;
-            cache.StoreVault(vaultId, *vault);
+            // return coll and loan from auction to vault
+            CBalances balances;
             for (uint32_t i = 0; i < auctionData.batchCount; i++) {
-                if (auto bid = cache.GetAuctionBid({vaultId, i})) {
-                    cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                auto batch = view.GetAuctionBatch({vaultId, i});
+                assert(batch);
+
+                if (auto bid = view.GetAuctionBid({vaultId, i})) {
+                    view.CalculateOwnerRewards(bid->first, pindex->nHeight);
                     // repay bid
-                    res = cache.AddBalance(bid->first, bid->second);
+                    res = view.AddBalance(bid->first, bid->second);
                     if (!res) {
                         return false;
                     }
                 }
+                // return loan and collateral either way
+                // we should return loan including interest
+                view.AddLoanToken(vaultId, batch->loanAmount);
+                balances.Add({batch->loanAmount.nTokenId, batch->loanInterest});
+
+                // When tracking loan amounts remove interest.
+                if (const auto token = view.GetToken("DUSD"); token && token->first == batch->loanAmount.nTokenId) {
+                    TrackDUSDAdd(view, {batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest});
+                }
+
+                if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.IncreaseInterest(pindex->nHeight,
+                                          vaultId,
+                                          vault->schemeId,
+                                          batch->loanAmount.nTokenId,
+                                          token->interest,
+                                          batch->loanAmount.nValue);
+                }
+                for (const auto &col : batch->collaterals.balances) {
+                    auto tokenId = col.first;
+                    auto tokenAmount = col.second;
+                    view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
+                }
             }
+
+            // Only store to attributes if there has been a rounding error.
+            if (!balances.balances.empty()) {
+                TrackLiveBalances(view, balances, EconomyKeys::ConsolidatedInterest);
+            }
+
             auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
 
+            vault->isUnderLiquidation = false;
+            view.StoreVault(vaultId, *vault);
+
             // Store state in vault DB
-            cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
+            cache.GetHistoryWriters().WriteVaultState(view, *pindex, vaultId);
+
             return true;
         },
         pindex->nHeight);
@@ -3260,6 +3298,7 @@ static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache
     if (!res) {
         return res;
     }
+    view.Flush();
 
     for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
         cache.EraseAuction(vaultId, liquidationHeight);

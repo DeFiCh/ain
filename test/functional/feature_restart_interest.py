@@ -361,21 +361,27 @@ class RestartInterestTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        print("Before vault", self.nodes[0].getvault(vault_id))
+        # check balance before
+        assert_equal(
+            self.nodes[0].getaccount(self.address)[1],
+            f"89890.00000000@{self.symbolDUSD}",
+        )
+        assert_equal(
+            self.nodes[0].getaccount(vault_address),
+            [f"100.00000000@{self.symbolDUSD}"],
+        )
 
         # Execute dtoken restart
         self.execute_restart()
 
-        # Verify that auction bid has been refunded
+        # Verify that auction bid has been refunded and DUSD locked afterwards
         assert_equal(
             self.nodes[0].getaccount(self.address)[1],
             f"9000.00000000@{self.symbolDUSD}",
         )
 
-        # Verify 100DUSD loan now 10% of that amount
-        assert_equal(
-            self.nodes[0].getaccount(vault_address)[0], f"10.00000000@{self.symbolDUSD}"
-        )
+        # DUSD is used to pay back loan
+        assert_equal(self.nodes[0].getaccount(vault_address), [])
 
         # Check auctions are not cleared
         assert_equal(self.nodes[0].listauctions(), [])
@@ -385,8 +391,8 @@ class RestartInterestTest(DefiTestFramework):
         print("After vault", result)
         assert_equal(result["loanAmounts"], [])
         assert_equal(
-            result["collateralAmounts"], [f"38.88888888@{self.symbolDFI}"]
-        )  # Adjust for fee payback
+            result["collateralAmounts"], [f"149.99933408@{self.symbolDFI}"]
+        )  # after paying back with account, interest remains which is paid back with collateral
         assert_equal(result["interestAmounts"], [])
 
     def interest_paid_by_balance(self):
