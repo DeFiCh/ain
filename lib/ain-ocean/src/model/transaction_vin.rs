@@ -35,7 +35,7 @@ impl TransactionVin {
             Vin::Standard(v) => {
                 let vout = vouts.get(v.vout).map(|vout| TransactionVinVout {
                     txid: vout.txid,
-                    value: vout.value.clone(),
+                    value: vout.value,
                     n: vout.n,
                     token_id: vout.token_id,
                     script: vout.script.hex.clone(),
