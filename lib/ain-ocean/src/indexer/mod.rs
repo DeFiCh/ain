@@ -20,11 +20,9 @@ use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard, Vout
 use helper::check_if_evm_tx;
 use log::trace;
 pub use poolswap::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
-use rust_decimal::{prelude::FromPrimitive, Decimal};
-use snafu::OptionExt;
 
 use crate::{
-    error::{DecimalConversionSnafu, Error, IndexAction},
+    error::{Error, IndexAction},
     hex_encoder::as_sha256,
     index_transaction, invalidate_transaction,
     model::{
@@ -371,9 +369,9 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
 
     let id = (
         hid,
-        hex::encode(block.height.to_be_bytes()),
+        block.height,
         tx.txid,
-        hex::encode(vout.n.to_be_bytes()),
+        vout.n,
     );
     let key = (block.height, tx.txid, vout.n);
     services.script_unspent.by_key.put(&key, &id)?;
@@ -576,9 +574,9 @@ fn invalidate_script_unspent_vin(
 
     let id = (
         hid,
-        hex::encode(transaction.block.height.to_be_bytes()),
+        transaction.block.height,
         transaction.txid,
-        hex::encode(vout.n.to_be_bytes()),
+        vout.n,
     );
     let key = (transaction.block.height, transaction.txid, vout.n);
 
@@ -614,9 +612,9 @@ fn invalidate_script_unspent_vout(
     let hid = as_sha256(vout.script_pub_key.hex.clone());
     let id = (
         hid,
-        hex::encode(ctx.block.height.to_be_bytes()),
+        ctx.block.height,
         ctx.tx.txid,
-        hex::encode(vout.n.to_be_bytes()),
+        vout.n,
     );
     services.script_unspent.by_id.delete(&id)?;
 

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type ScriptUnspentId = ([u8; 32], String, Txid, String); // hid + hex::encode(block.height) + txid + hex::encode(vout_index)
+pub type ScriptUnspentId = ([u8; 32], u32, Txid, usize); // hid + block.height + txid + vout_index
 pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_index
 
 #[derive(Debug, Serialize, Deserialize)]

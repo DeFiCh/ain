@@ -443,14 +443,16 @@ async fn list_transaction_unspent(
             let txid = &next[8..64 + 8];
             let n = &next[64 + 8..];
 
+            let height = height.parse::<u32>()?;
             let txid = Txid::from_str(txid)?;
-            Ok::<(String, Txid, String), Error>((height.to_string(), txid, n.to_string()))
+            let n = n.parse::<usize>()?;
+            Ok::<(u32, Txid, usize), Error>((height, txid, n))
         })
         .transpose()?
         .unwrap_or((
-            "0".to_string(),
+            u32::default(),
             Txid::from_byte_array([0x00u8; 32]),
-            "0".to_string(),
+            usize::default(),
         ));
 
     let res = ctx
