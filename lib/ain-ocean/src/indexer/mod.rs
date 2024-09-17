@@ -198,16 +198,8 @@ fn find_script_aggregation(
                 r#type: script_type,
                 hex,
             },
-            statistic: ScriptAggregationStatistic {
-                tx_count: 0,
-                tx_in_count: 0,
-                tx_out_count: 0,
-            },
-            amount: ScriptAggregationAmount {
-                tx_in: 0.0,
-                tx_out: 0.0,
-                unspent: 0.0,
-            },
+            statistic: ScriptAggregationStatistic::default(),
+            amount: ScriptAggregationAmount::default(),
         };
         record.insert(hid, aggregation.clone());
         aggregation

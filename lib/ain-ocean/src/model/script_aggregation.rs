@@ -20,14 +20,14 @@ pub struct ScriptAggregationScript {
     pub hex: Vec<u8>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ScriptAggregationStatistic {
     pub tx_count: i32,
     pub tx_in_count: i32,
     pub tx_out_count: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ScriptAggregationAmount {
     pub tx_in: f64,
     pub tx_out: f64,
