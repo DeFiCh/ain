@@ -34,7 +34,7 @@ impl fmt::Display for ScriptActivityTypeHex {
     }
 }
 
-pub type ScriptActivityId = ([u8; 32], u32, ScriptActivityTypeHex, Txid, usize); // (hid, block.height, type_hex, txid, index)
+pub type ScriptActivityId = ([u8; 32], [u8; 4], ScriptActivityTypeHex, Txid, usize); // (hid, block.height, type_hex, txid, index)
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptActivity {
@@ -46,7 +46,7 @@ pub struct ScriptActivity {
     pub script: ScriptActivityScript,
     pub vin: Option<ScriptActivityVin>,
     pub vout: Option<ScriptActivityVout>,
-    pub value: String,
+    pub value: f64,
     pub token_id: Option<u32>,
 }
 
