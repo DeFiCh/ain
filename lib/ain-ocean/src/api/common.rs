@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ain_dftx::{Currency, Token};
-use bitcoin::{Address, Network, ScriptBuf};
+use bitcoin::{Address, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -14,6 +14,7 @@ use crate::{
         InvalidTokenCurrencySnafu,
     },
     hex_encoder::as_sha256,
+    network::Network,
     Result,
 };
 
@@ -123,13 +124,26 @@ pub fn format_number(v: Decimal) -> String {
 }
 
 pub fn from_script(script: ScriptBuf, network: Network) -> Result<String> {
-    let script = script.as_script();
-    let address = Address::from_script(script, network)?.to_string();
-    Ok(address)
+    Ok(Address::from_script(&script, network.into())?.to_string())
+}
+
+#[test]
+fn test_from_script() {
+    // OP_0 { type: 'OP_0', code: 0 },
+    // OP_PUSHDATA {
+    //   type: 'OP_PUSHDATA',
+    //   hex: '05768f2d17f0016b5720bb49859cbb065041716f'
+    // }
+    let script = ScriptBuf::from_hex("001405768f2d17f0016b5720bb49859cbb065041716f").unwrap();
+    let addr = from_script(script, Network::Mainnet).unwrap();
+    assert_eq!(
+        addr,
+        "df1qq4mg7tgh7qqkk4eqhdyct89mqegyzut0jjz8rg".to_string()
+    )
 }
 
 pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
-    let addr = Address::from_str(address)?.require_network(network)?;
+    let addr = Address::from_str(address)?.require_network(network.into())?;
     Ok(ScriptBuf::from(addr))
 }
 
