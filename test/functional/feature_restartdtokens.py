@@ -650,7 +650,7 @@ class RestartdTokensTest(DefiTestFramework):
             Decimal(9.99999999),
         )
         assert_equal(
-            self.usdd_contract.functions.balanceOf(self.evmaddress).call(),
+            self.usdd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
             Decimal(10),
         )
 

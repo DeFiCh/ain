@@ -53,6 +53,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Split token multiple times via transfer domain
         self.transfer_domain_multiple_split()
 
+        # Split tokens 1:1 via intrinsics contract
+        self.intrinsic_token_split(20, 1)
+
         # Split tokens via intrinsics contract
         self.intrinsic_token_split(20, 2)
 

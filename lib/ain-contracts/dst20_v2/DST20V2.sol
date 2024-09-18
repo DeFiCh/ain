@@ -587,7 +587,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata, IDST20Upgradeable {
         emit UpgradeResult(newTokenContractAddress, newAmount);
 
         // Upgrade available
-        if (newAmount != amount) {
+        if (newTokenContractAddress != address(this)) {
             _burn(msg.sender, amount);
             IERC20(newTokenContractAddress).transfer(msg.sender, newAmount);
         }
