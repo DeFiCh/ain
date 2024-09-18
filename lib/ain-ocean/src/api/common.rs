@@ -129,6 +129,18 @@ pub fn from_script(script: ScriptBuf, network: Network) -> Result<String> {
     Ok(address)
 }
 
+#[test]
+fn test_from_script() {
+    // OP_0 { type: 'OP_0', code: 0 },
+    // OP_PUSHDATA {
+    //   type: 'OP_PUSHDATA',
+    //   hex: '05768f2d17f0016b5720bb49859cbb065041716f'
+    // }
+    let script = ScriptBuf::from_hex("001405768f2d17f0016b5720bb49859cbb065041716f").unwrap();
+    let addr = from_script(script, Network::Mainnet).unwrap();
+    assert_eq!(addr, "df1qq4mg7tgh7qqkk4eqhdyct89mqegyzut0jjz8rg".to_string())
+}
+
 pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
     let addr = Address::from_str(address)?.require_network(network.into())?;
     Ok(ScriptBuf::from(addr))
