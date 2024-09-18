@@ -560,8 +560,8 @@ impl Index for SetOracleData {
         let feeds = map_price_feeds(&self, context);
         for (key, id, feed) in &feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
-            feed_repo.by_key.put(&key, &id)?;
-            feed_repo.by_id.put(&id, feed)?;
+            feed_repo.by_key.put(key, id)?;
+            feed_repo.by_id.put(id, feed)?;
         }
 
         index_set_oracle_data(services, context, pairs.clone())?;
