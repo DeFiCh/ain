@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 use bitcoin::Txid;
-use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
+use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use crate::{
         NotFoundSnafu, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
-    model::{BlockContext, PoolSwapAggregatedAggregated},
+    model::PoolSwapAggregatedAggregated,
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
@@ -632,13 +632,9 @@ pub async fn find_swap_to(
     let crate::model::PoolSwap {
         to,
         to_token_id,
-        block,
-        txno,
+        to_amount,
         ..
     } = swap;
-    let BlockContext { height, .. } = block;
-    let txno = txno.try_into()?;
-
     let to_address = from_script(to, ctx.network)?;
 
     let Some((_, to_token)) = get_token_cached(ctx, &to_token_id.to_string()).await? else {
@@ -647,41 +643,12 @@ pub async fn find_swap_to(
 
     let display_symbol = parse_display_symbol(&to_token);
 
-    // NOTE(canonbrother): fallback to API layer to calculate `to_amount`
-    // context: to_amount has been calculated while indexing with ocean archive
-    // `to_amount` None indicates the node is not running with ocean archive
-    // get the `to_amount` via `getaccounthistory`
-    // if to_amount.is_some() {
-    //     let amount = to_amount.unwrap().abs();
-    //     return Ok(Some(PoolSwapFromToData {
-    //         address: to_address,
-    //         amount: Decimal::new(amount, 8).to_string(),
-    //         symbol: to_token.symbol,
-    //         display_symbol,
-    //     }));
-    // }
-
-    let history = ctx
-        .client
-        .get_account_history(&to_address.to_string(), height, txno)
-        .await?;
-
-    for account in history.amounts {
-        let (value, symbol) = parse_amount(&account)?;
-
-        let value = Decimal::from_str(&value)?;
-
-        if value.is_sign_positive() {
-            return Ok(Some(PoolSwapFromToData {
-                address: history.owner,
-                amount: format!("{:.8}", value.abs()),
-                symbol,
-                display_symbol,
-            }));
-        }
-    }
-
-    Ok(None)
+    Ok(Some(PoolSwapFromToData {
+        address: to_address,
+        amount: Decimal::new(to_amount, 8).to_string(),
+        symbol: to_token.symbol,
+        display_symbol,
+    }))
 }
 
 async fn get_pool_swap_type(
