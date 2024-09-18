@@ -11,8 +11,6 @@ pub type PoolSwapAggregatedKey = (u32, u32, i64); // (pool_id, interval, bucket)
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwapAggregated {
-    pub id: String,
-    pub key: String,
     pub bucket: i64,
     pub aggregated: PoolSwapAggregatedAggregated,
     pub block: BlockContext,

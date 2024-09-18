@@ -88,8 +88,6 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
             }
 
             let aggregated = PoolSwapAggregated {
-                id: format!("{}-{}-{}", pool_pair.id, interval, block.hash),
-                key: format!("{}-{}", pool_pair.id, interval),
                 bucket,
                 aggregated: PoolSwapAggregatedAggregated {
                     amounts: Default::default(),
