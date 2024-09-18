@@ -87,14 +87,13 @@ async fn get_feed(
 
     let mut oracle_price_feeds = Vec::new();
 
-    for (_, feed) in &price_feed_list {
-        let (token, currency, oracle_id, _) = &feed.id;
+    for ((token, currency, oracle_id, _), feed) in &price_feed_list {
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
             oracle_price_feeds.push(OraclePriceFeedResponse {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),
-                sort: feed.sort.clone(),
+                sort: hex::encode(feed.block.height.to_string() + &feed.txid.to_string()),
                 token: feed.token.clone(),
                 currency: feed.currency.clone(),
                 oracle_id: feed.oracle_id,

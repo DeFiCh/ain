@@ -2,7 +2,6 @@ mod auction;
 pub mod loan_token;
 mod masternode;
 pub mod oracle;
-pub mod oracle_test;
 pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;

@@ -320,7 +320,7 @@ async fn get_oracles(
             feed: feed.map(|f| OraclePriceFeedResponse {
                 id: format!("{}-{}-{}-{}", token, currency, f.oracle_id, f.txid),
                 key: format!("{}-{}-{}", token, currency, f.oracle_id),
-                sort: f.sort.clone(),
+                sort: hex::encode(f.block.height.to_string() + &f.txid.to_string()),
                 token: f.token.clone(),
                 currency: f.currency.clone(),
                 oracle_id: f.oracle_id,
