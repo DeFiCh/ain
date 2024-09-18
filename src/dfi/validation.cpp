@@ -2061,14 +2061,14 @@ static Res VaultSplits(CCustomCSView &view,
             return res;
         }
 
-        // FIXME: make this clear to be a collateral change
         if (const auto vault = view.GetVault(vaultId)) {
-            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            // no address -> vault collateral
+            VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
             VaultHistoryValue subValue{
                 uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{oldTokenId, -amount}}};
             view.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
 
-            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
+            VaultHistoryKey addKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
             VaultHistoryValue addValue{
                 uint256{}, static_cast<uint8_t>(CustomTxType::TokenSplit), {{newTokenId, newAmount}}};
             view.GetHistoryWriters().WriteVaultHistory(addKey, addValue);
@@ -2792,10 +2792,33 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
 
             // subtract loan amount first, interest is burning below
             if (!useDUSDCollateral) {
-                res = mnview.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                CAccountsHistoryWriter subView(mnview,
+                                               height,
+                                               GetNextAccPosition(),
+                                               {},  // TODO: use blockHash?
+                                               uint8_t(CustomTxType::PaybackLoan));
+                res = subView.SubBalance(owner, CTokenAmount{loanTokenId, subLoan});
+                subView.Flush();
+
+                VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+                VaultHistoryValue subValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackLoan), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subKey, subValue);
             } else {
                 // paying back DUSD loan with DUSD collateral -> no need to multiply
                 res = mnview.SubVaultCollateral(vaultId, CTokenAmount{dusdToken->first, subLoan});
+
+                // remove collateral
+                VaultHistoryKey subCollKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
+                VaultHistoryValue subCollValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+
+                // reduce loan (address = reduced loan?)
+                VaultHistoryKey subLoanKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+                VaultHistoryValue subLoanValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+                mnview.GetHistoryWriters().WriteVaultHistory(subLoanKey, subLoanValue);
             }
             if (!res) {
                 return res;
@@ -2855,6 +2878,19 @@ static Res PaybackLoanWithTokenOrDUSDCollateral(
         if (!res) {
             return res;
         }
+
+        // history
+        //  remove collateral
+        VaultHistoryKey subCollKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), {}};
+        VaultHistoryValue subCollValue{
+            uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{dusdToken->first, -subInDUSD}}};
+        mnview.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+
+        // reduce loan (address = reduced loan?)
+        VaultHistoryKey subLoanKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), owner};
+        VaultHistoryValue subLoanValue{
+            uint256{}, static_cast<uint8_t>(CustomTxType::PaybackWithCollateral), {{loanTokenId, -subLoan}}};
+        mnview.GetHistoryWriters().WriteVaultHistory(subLoanKey, subLoanValue);
     }
 
     mnview.Flush();
@@ -2889,8 +2925,8 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
     std::vector<CollToLoan> collToLoans;
     // collect all loanValues (in USD) of vaults which contain this collateral
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
-        auto colls = cache.GetVaultCollaterals(vaultId);
-        if (colls->balances.count(collId)) {
+        const auto colls = cache.GetVaultCollaterals(vaultId);
+        if (colls && colls->balances.count(collId)) {
             collToLoans.emplace_back(CollToLoan{vaultId, {}, 0});
             collToLoans.back().useableCollateralAmount = colls->balances.at(collId);
             for (const auto &[tokenId, amount] : balances.balances) {
@@ -3134,6 +3170,17 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
             dUsdToken.first, MultiplyDivideAmounts(availableDUSD.nValue, data.usedCollateralAmount, totalCollToSwap)};
         cache.AddVaultCollateral(data.vaultId, dusdResult);
         cache.SubBalance(contractAddressValue, dusdResult);
+
+        // history entry
+        VaultHistoryKey subCollKey{blockCtx.GetHeight(), data.vaultId, GetNextAccPosition(), {}};
+        VaultHistoryValue subCollValue{
+            uint256{},
+            static_cast<uint8_t>(CustomTxType::TokenLock),
+            {{collId, -data.usedCollateralAmount}, {dUsdToken.first, dusdResult.nValue}}
+        };
+        cache.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+        // ---
+
         if (data.usedCollateralAmount < data.useableCollateralAmount && dusdResult.nValue < data.totalUSDNeeded) {
             LogPrintf(
                 "didn't use full collateral, but did not get all needed USD. usedColl: %s, availableColl: %s, "
@@ -3184,30 +3231,68 @@ static Res PaybackWithSwappedCollateral(const DCT_ID &collId,
 static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache) {
     std::map<uint256, uint32_t> auctionsToErase;
 
+    CAccountsHistoryWriter view(cache, pindex->nHeight, ~0u, pindex->GetBlockHash(), uint8_t(CustomTxType::AuctionBid));
+
     auto res = Res::Ok();
-    cache.ForEachVaultAuction(
+    view.ForEachVaultAuction(
         [&](const auto &vaultId, const auto &auctionData) {
-            auto vault = cache.GetVault(vaultId);
+            auto vault = view.GetVault(vaultId);
             if (!vault) {
                 res = Res::Err("Vault not found");
                 return false;
             }
-            vault->isUnderLiquidation = false;
-            cache.StoreVault(vaultId, *vault);
+            // return coll and loan from auction to vault
+            CBalances balances;
             for (uint32_t i = 0; i < auctionData.batchCount; i++) {
-                if (auto bid = cache.GetAuctionBid({vaultId, i})) {
-                    cache.CalculateOwnerRewards(bid->first, pindex->nHeight);
+                auto batch = view.GetAuctionBatch({vaultId, i});
+                assert(batch);
+
+                if (auto bid = view.GetAuctionBid({vaultId, i})) {
+                    view.CalculateOwnerRewards(bid->first, pindex->nHeight);
                     // repay bid
-                    res = cache.AddBalance(bid->first, bid->second);
+                    res = view.AddBalance(bid->first, bid->second);
                     if (!res) {
                         return false;
                     }
                 }
+                // return loan and collateral either way
+                // we should return loan including interest
+                view.AddLoanToken(vaultId, batch->loanAmount);
+                balances.Add({batch->loanAmount.nTokenId, batch->loanInterest});
+
+                // When tracking loan amounts remove interest.
+                if (const auto token = view.GetToken("DUSD"); token && token->first == batch->loanAmount.nTokenId) {
+                    TrackDUSDAdd(view, {batch->loanAmount.nTokenId, batch->loanAmount.nValue - batch->loanInterest});
+                }
+
+                if (auto token = view.GetLoanTokenByID(batch->loanAmount.nTokenId)) {
+                    view.IncreaseInterest(pindex->nHeight,
+                                          vaultId,
+                                          vault->schemeId,
+                                          batch->loanAmount.nTokenId,
+                                          token->interest,
+                                          batch->loanAmount.nValue);
+                }
+                for (const auto &col : batch->collaterals.balances) {
+                    auto tokenId = col.first;
+                    auto tokenAmount = col.second;
+                    view.AddVaultCollateral(vaultId, {tokenId, tokenAmount});
+                }
             }
+
+            // Only store to attributes if there has been a rounding error.
+            if (!balances.balances.empty()) {
+                TrackLiveBalances(view, balances, EconomyKeys::ConsolidatedInterest);
+            }
+
             auctionsToErase.emplace(vaultId, auctionData.liquidationHeight);
 
+            vault->isUnderLiquidation = false;
+            view.StoreVault(vaultId, *vault);
+
             // Store state in vault DB
-            cache.GetHistoryWriters().WriteVaultState(cache, *pindex, vaultId);
+            cache.GetHistoryWriters().WriteVaultState(view, *pindex, vaultId);
+
             return true;
         },
         pindex->nHeight);
@@ -3215,6 +3300,7 @@ static Res ForceCloseAllAuctions(const CBlockIndex *pindex, CCustomCSView &cache
     if (!res) {
         return res;
     }
+    view.Flush();
 
     for (const auto &[vaultId, liquidationHeight] : auctionsToErase) {
         cache.EraseAuction(vaultId, liquidationHeight);
@@ -3306,6 +3392,9 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
     std::set<DCT_ID> allUsedCollaterals;
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         auto colls = cache.GetVaultCollaterals(vaultId);
+        if (!colls) {
+            return true;
+        }
         for (const auto &[collId, collAmount] : colls->balances) {
             allUsedCollaterals.insert(collId);
         }
@@ -3391,9 +3480,10 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         if (!gotLoan) {
             return true;
         }
-        auto colls = cache.GetVaultCollaterals(vaultId);
-        for (const auto &[collId, collAmount] : colls->balances) {
-            allUsedCollaterals.insert(collId);
+        if (const auto colls = cache.GetVaultCollaterals(vaultId)) {
+            for (const auto &[collId, collAmount] : colls->balances) {
+                allUsedCollaterals.insert(collId);
+            }
         }
         return true;
     });
@@ -3418,10 +3508,13 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
             for (const auto &loan : loanAmounts->balances) {
                 LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
             }
-            const auto collAmounts = cache.GetVaultCollaterals(vaultId);
-            LogPrintf("%d collaterals: \n", collAmounts->balances.size());
-            for (const auto &loan : collAmounts->balances) {
-                LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+            if (const auto collAmounts = cache.GetVaultCollaterals(vaultId)) {
+                LogPrintf("%d collaterals: \n", collAmounts->balances.size());
+                for (const auto &loan : collAmounts->balances) {
+                    LogPrintf("    %s@%d\n", GetDecimalString(loan.second), loan.first.v);
+                }
+            } else {
+                LogPrintf("no collaterals: vault %s\n", vaultId.ToString());
             }
         }
         return true;
@@ -3505,11 +3598,13 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
     CBalances lockedTokens;
     std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
     std::set<DCT_ID> poolsForConsolidation;
+
+    auto creationRes = Res::Ok();
     ForEachLockTokenAndPool(
         [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
             if (!creationTxPerId.count(id.v)) {
-                LogPrintf("missing creationTx for Token %d\n", id.v);
-                return true;
+                creationRes = Res::Err("missing creationTx for Token %d\n", id.v);
+                return false;
             }
             splits.emplace(id.v, COIN);
             creationTxs.emplace(id.v, std::make_pair(creationTxPerId[id.v], emptyPoolPairs));
@@ -3522,14 +3617,18 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
         },
         [&](const DCT_ID &id, const CPoolPair &token) {
             if (!creationTxPerId.count(id.v)) {
-                LogPrintf("missing creationTx for Pool %d\n", id.v);
-                return true;
+                creationRes = Res::Err("missing creationTx for Token %d\n", id.v);
+                return false;
             }
             creationTxPerPoolId.emplace_back(id, creationTxPerId[id.v]);
             poolsForConsolidation.emplace(id);
             return true;
         },
         cache);
+
+    if (!creationRes) {
+        return creationRes;
+    }
 
     CDataStructureV0 lockedTokenKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::LockedTokens};
     // TODO: this is mainly used to know what token ids got locked (for use in TD later on). maybe add real balances
@@ -3793,6 +3892,13 @@ static Res LockTokensOfBalancesCollAndPools(const CBlock &block,
                 if (!res) {
                     return false;
                 }
+
+                // history entry
+                VaultHistoryKey subCollKey{static_cast<uint32_t>(pindex->nHeight), vaultId, GetNextAccPosition(), {}};
+                VaultHistoryValue subCollValue{
+                    uint256{}, static_cast<uint8_t>(CustomTxType::TokenLock), {{tokenId, -amountToLock}}};
+                cache.GetHistoryWriters().WriteVaultHistory(subCollKey, subCollValue);
+                // ---
             }
         }
         return true;
