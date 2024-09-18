@@ -611,7 +611,7 @@ pub async fn find_swap_from(
         from_token_id,
         ..
     } = swap;
-    let from_address = from_script(from, ctx.network.into())?;
+    let from_address = from_script(from, ctx.network)?;
 
     let Some((_, from_token)) = get_token_cached(ctx, &from_token_id.to_string()).await? else {
         return Ok(None);
@@ -639,7 +639,7 @@ pub async fn find_swap_to(
     let BlockContext { height, .. } = block;
     let txno = txno.try_into()?;
 
-    let to_address = from_script(to, ctx.network.into())?;
+    let to_address = from_script(to, ctx.network)?;
 
     let Some((_, to_token)) = get_token_cached(ctx, &to_token_id.to_string()).await? else {
         return Ok(None);

@@ -635,7 +635,7 @@ async fn map_liquidation_batches(
             .into_iter()
             .map(|bid| {
                 let (_, v) = bid?;
-                let from_addr = from_script(v.from, ctx.network.into())?;
+                let from_addr = from_script(v.from, ctx.network)?;
                 Ok::<String, Error>(from_addr)
             })
             .collect::<Result<Vec<_>>>()?;
