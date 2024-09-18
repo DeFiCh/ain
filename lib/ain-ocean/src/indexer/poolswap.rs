@@ -181,10 +181,7 @@ impl Index for PoolSwap {
             // (None, pair.id)
         };
 
-        let swap = model::PoolSwap {
-            id: format!("{pool_id}-{txid}"),
-            // TODO: use hex::encode eg: sort: hex::encode(ctx.block.height + idx)
-            sort: format!("{}-{}", ctx.block.height, idx),
+        let swap: model::PoolSwap = model::PoolSwap {
             txid,
             txno: idx,
             from_amount,
@@ -260,8 +257,6 @@ impl Index for CompositeSwap {
 
         for pool_id in pool_ids {
             let swap = model::PoolSwap {
-                id: format!("{pool_id}-{txid}"),
-                sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
                 txid,
                 txno: ctx.tx_idx,
                 from_amount: self.pool_swap.from_amount,
