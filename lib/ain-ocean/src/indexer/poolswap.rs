@@ -67,7 +67,7 @@ fn index_swap_aggregated(
         let amount = aggregated
             .aggregated
             .amounts
-            .get(&from_token_id.to_string())
+            .get(&from_token_id)
             .map(|amt| Decimal::from_str(amt))
             .transpose()?
             .unwrap_or(dec!(0));
@@ -79,7 +79,7 @@ fn index_swap_aggregated(
         aggregated
             .aggregated
             .amounts
-            .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+            .insert(from_token_id, format!("{aggregated_amount:.8}"));
 
         repo.by_id.put(id, &aggregated)?;
     }
@@ -127,7 +127,7 @@ fn invalidate_swap_aggregated(
         let amount = aggregated
             .aggregated
             .amounts
-            .get(&from_token_id.to_string())
+            .get(&from_token_id)
             .map(|amt| Decimal::from_str(amt))
             .transpose()?
             .unwrap_or(dec!(0));
@@ -139,7 +139,7 @@ fn invalidate_swap_aggregated(
         aggregated
             .aggregated
             .amounts
-            .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+            .insert(from_token_id, format!("{aggregated_amount:.8}"));
 
         repo.by_id.put(id, &aggregated)?;
     }

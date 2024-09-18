@@ -19,5 +19,5 @@ pub struct PoolSwapAggregated {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwapAggregatedAggregated {
-    pub amounts: HashMap<String, String>, // amounts[tokenId] = BigNumber(volume)
+    pub amounts: HashMap<u64, String>, // amounts[tokenId] = BigNumber(volume)
 }

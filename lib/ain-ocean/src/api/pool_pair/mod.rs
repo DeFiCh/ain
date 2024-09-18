@@ -462,7 +462,7 @@ async fn list_pool_swaps_verbose(
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PoolSwapAggregatedAggregatedResponse {
-    amounts: HashMap<String, String>,
+    amounts: HashMap<u64, String>,
     usd: Decimal,
 }
 
