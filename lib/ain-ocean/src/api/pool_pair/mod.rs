@@ -81,8 +81,12 @@ impl PoolSwapVerboseResponse {
         swap_type: Option<SwapType>,
     ) -> Self {
         Self {
-            id: v.id,
-            sort: v.sort,
+            id: format!("{}-{}", v.pool_id, v.txid),
+            sort: format!(
+                "{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                hex::encode(v.txno.to_be_bytes()),
+            ),
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
@@ -112,8 +116,12 @@ pub struct PoolSwapResponse {
 impl From<PoolSwap> for PoolSwapResponse {
     fn from(v: PoolSwap) -> Self {
         Self {
-            id: v.id,
-            sort: v.sort,
+            id: format!("{}-{}", v.pool_id, v.txid),
+            sort: format!(
+                "{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                hex::encode(v.txno.to_be_bytes()),
+            ),
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
