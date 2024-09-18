@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::BlockContext;
 
 pub type PoolSwapAggregatedId = (u32, u32, BlockHash); // (pool_id, interval, block_hash)
-pub type PoolSwapAggregatedKey = (u32, u32, i64); // (pool_id, interval, bucket)
+pub type PoolSwapAggregatedKey = (u32, u32, i64); // (pool_id, interval, bucket) bucket is for next page query
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
