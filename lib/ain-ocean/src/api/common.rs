@@ -136,7 +136,10 @@ fn test_from_script() {
     // }
     let script = ScriptBuf::from_hex("001405768f2d17f0016b5720bb49859cbb065041716f").unwrap();
     let addr = from_script(script, Network::Mainnet).unwrap();
-    assert_eq!(addr, "df1qq4mg7tgh7qqkk4eqhdyct89mqegyzut0jjz8rg".to_string())
+    assert_eq!(
+        addr,
+        "df1qq4mg7tgh7qqkk4eqhdyct89mqegyzut0jjz8rg".to_string()
+    )
 }
 
 pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
