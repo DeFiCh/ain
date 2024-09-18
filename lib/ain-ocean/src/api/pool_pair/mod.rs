@@ -36,7 +36,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
-    model::{BlockContext, PoolSwap, PoolSwapAggregatedId, PoolSwapAggregated},
+    model::{BlockContext, PoolSwap, PoolSwapAggregated, PoolSwapAggregatedId},
     storage::{InitialKeyProvider, RepositoryOps, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
 };
@@ -523,9 +523,7 @@ async fn list_pool_swap_aggregates(
 
     let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();
     for (_, id) in key_ids {
-        let aggregated = repo
-            .by_id
-            .get(&id)?;
+        let aggregated = repo.by_id.get(&id)?;
         let Some(aggregated) = aggregated else {
             continue;
         };

@@ -58,9 +58,7 @@ fn index_swap_aggregated(
             continue;
         };
 
-        let aggregated = repo
-            .by_id
-            .get(id)?;
+        let aggregated = repo.by_id.get(id)?;
 
         let Some(mut aggregated) = aggregated else {
             continue;
@@ -83,10 +81,7 @@ fn index_swap_aggregated(
             .amounts
             .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
-        repo
-            .by_id
-            .put(id, &aggregated)?;
-
+        repo.by_id.put(id, &aggregated)?;
     }
 
     Ok(())
@@ -120,12 +115,10 @@ fn invalidate_swap_aggregated(
         }
 
         let Some((_, id)) = prevs.first() else {
-            continue
+            continue;
         };
 
-        let aggregated = repo
-            .by_id
-            .get(id)?;
+        let aggregated = repo.by_id.get(id)?;
 
         let Some(mut aggregated) = aggregated else {
             continue;
@@ -148,9 +141,7 @@ fn invalidate_swap_aggregated(
             .amounts
             .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
 
-        repo
-            .by_id
-            .put(id, &aggregated)?;
+        repo.by_id.put(id, &aggregated)?;
     }
 
     Ok(())
