@@ -10,7 +10,6 @@ pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_in
 pub struct ScriptUnspent {
     pub id: (Txid, [u8; 8]),
     pub hid: [u8; 32],
-    pub txid: Txid,
     pub block: BlockContext,
     pub script: ScriptUnspentScript,
     pub vout: ScriptUnspentVout,
