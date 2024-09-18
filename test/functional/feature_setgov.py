@@ -2686,19 +2686,25 @@ class GovsetTest(DefiTestFramework):
         )
 
         # Set all time related vars
-        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "65380", 
-                                             "v0/params/block_time/target_spacing": "15",
-                                             "v0/params/block_time/target_timespan": "2016",
-                                             "v0/params/anchors/frequency": "30",
-                                             "v0/params/anchors/team_change": "240",
-                                             "v0/params/masternodes/activation_delay": "2016",
-                                             "v0/params/masternodes/resign_delay": "4032",
-                                             "v0/params/icx/order_default_expiry": "5760",
-                                             "v0/params/icx/offer_default_expiry": "40",
-                                             "v0/params/icx/offer_refund_timeout": "200",
-                                             "v0/params/icx/submit_min_timeout": "2880",
-                                             "v0/params/icx/submit_min_2nd_timeout": "960",
-                                             "v0/params/icx/btc_blocks_in_dfi": "40"}})
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/block_time/emission_reduction": "65380",
+                    "v0/params/block_time/target_spacing": "15",
+                    "v0/params/block_time/target_timespan": "2016",
+                    "v0/params/anchors/frequency": "30",
+                    "v0/params/anchors/team_change": "240",
+                    "v0/params/masternodes/activation_delay": "2016",
+                    "v0/params/masternodes/resign_delay": "4032",
+                    "v0/params/icx/order_default_expiry": "5760",
+                    "v0/params/icx/offer_default_expiry": "40",
+                    "v0/params/icx/offer_refund_timeout": "200",
+                    "v0/params/icx/submit_min_timeout": "2880",
+                    "v0/params/icx/submit_min_2nd_timeout": "960",
+                    "v0/params/icx/btc_blocks_in_dfi": "40",
+                }
+            }
+        )
         self.nodes[0].generate(1)
 
         # Check time related vars set
@@ -2718,20 +2724,26 @@ class GovsetTest(DefiTestFramework):
         assert_equal(result["v0/params/icx/btc_blocks_in_dfi"], "40")
 
         # Change by height
-        self.nodes[0].setgovheight({"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "32690", 
-                                                   "v0/params/block_time/target_spacing": "30",
-                                                   "v0/params/block_time/target_timespan": "1008",
-                                                   "v0/params/anchors/frequency": "15",
-                                                   "v0/params/anchors/team_change": "120",
-                                                   "v0/params/masternodes/activation_delay": "1008",
-                                                   "v0/params/masternodes/resign_delay": "2016",
-                                                   "v0/params/icx/order_default_expiry": "2880",
-                                                   "v0/params/icx/offer_default_expiry": "20",
-                                                   "v0/params/icx/offer_refund_timeout": "100",
-                                                   "v0/params/icx/submit_min_timeout": "1440",
-                                                   "v0/params/icx/submit_min_2nd_timeout": "480",
-                                                   "v0/params/icx/btc_blocks_in_dfi": "20"}},
-                                                   1360)
+        self.nodes[0].setgovheight(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/block_time/emission_reduction": "32690",
+                    "v0/params/block_time/target_spacing": "30",
+                    "v0/params/block_time/target_timespan": "1008",
+                    "v0/params/anchors/frequency": "15",
+                    "v0/params/anchors/team_change": "120",
+                    "v0/params/masternodes/activation_delay": "1008",
+                    "v0/params/masternodes/resign_delay": "2016",
+                    "v0/params/icx/order_default_expiry": "2880",
+                    "v0/params/icx/offer_default_expiry": "20",
+                    "v0/params/icx/offer_refund_timeout": "100",
+                    "v0/params/icx/submit_min_timeout": "1440",
+                    "v0/params/icx/submit_min_2nd_timeout": "480",
+                    "v0/params/icx/btc_blocks_in_dfi": "20",
+                }
+            },
+            1360,
+        )
         self.nodes[0].generate(1360 - self.nodes[0].getblockcount())
 
         # Check time related vars set
@@ -2843,19 +2855,25 @@ class GovsetTest(DefiTestFramework):
         )
 
         # Unset time related vars
-        self.nodes[0].unsetgov({"ATTRIBUTES": ["v0/params/block_time/emission_reduction", 
-                                               "v0/params/block_time/target_spacing",
-                                               "v0/params/block_time/target_timespan",
-                                               "v0/params/anchors/frequency",
-                                               "v0/params/anchors/team_change",
-                                               "v0/params/masternodes/activation_delay",
-                                               "v0/params/masternodes/resign_delay",
-                                               "v0/params/icx/order_default_expiry",
-                                               "v0/params/icx/offer_default_expiry",
-                                               "v0/params/icx/offer_refund_timeout",
-                                               "v0/params/icx/submit_min_timeout",
-                                               "v0/params/icx/submit_min_2nd_timeout",
-                                               "v0/params/icx/btc_blocks_in_dfi"]})
+        self.nodes[0].unsetgov(
+            {
+                "ATTRIBUTES": [
+                    "v0/params/block_time/emission_reduction",
+                    "v0/params/block_time/target_spacing",
+                    "v0/params/block_time/target_timespan",
+                    "v0/params/anchors/frequency",
+                    "v0/params/anchors/team_change",
+                    "v0/params/masternodes/activation_delay",
+                    "v0/params/masternodes/resign_delay",
+                    "v0/params/icx/order_default_expiry",
+                    "v0/params/icx/offer_default_expiry",
+                    "v0/params/icx/offer_refund_timeout",
+                    "v0/params/icx/submit_min_timeout",
+                    "v0/params/icx/submit_min_2nd_timeout",
+                    "v0/params/icx/btc_blocks_in_dfi",
+                ]
+            }
+        )
         self.nodes[0].generate(1)
 
         # Check time related vars unset
@@ -2869,7 +2887,7 @@ class GovsetTest(DefiTestFramework):
         assert "v0/params/masternodes/resign_delay" not in result
         assert "v0/params/icx/order_default_expiry" not in result
         assert "v0/params/icx/offer_default_expiry" not in result
-        assert "v0/params/icx/offer_refund_timeout" not in result   
+        assert "v0/params/icx/offer_refund_timeout" not in result
         assert "v0/params/icx/submit_min_timeout" not in result
         assert "v0/params/icx/submit_min_2nd_timeout" not in result
         assert "v0/params/icx/btc_blocks_in_dfi" not in result
