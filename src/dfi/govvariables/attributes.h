@@ -242,6 +242,10 @@ struct CDataStructureV0 {
     bool operator<(const CDataStructureV0 &o) const {
         return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
     }
+
+    bool operator==(const CDataStructureV0 &other) const {
+        return (type == other.type && typeId == other.typeId && key == other.key && keyId == other.keyId);
+    }
 };
 
 // for future use

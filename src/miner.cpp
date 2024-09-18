@@ -529,7 +529,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    CAmount blockReward = GetBlockSubsidy(*pcustomcsview, nHeight, consensus);
+    CAmount blockReward = GetBlockSubsidy(mnview, nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
     if (nHeight >= consensus.DF8EunosHeight) {

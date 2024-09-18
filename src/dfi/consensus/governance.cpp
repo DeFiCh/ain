@@ -53,6 +53,12 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 if (res = authCheck.CanSetGov(*newVar); !res) {
                     return res;
                 }
+
+                if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
+                    if (res = CheckTimeRelatedVars(*newVar); !res) {
+                        return res;
+                    }
+                }
             }
 
             CDataStructureV0 foundationMembers{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
@@ -127,6 +133,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
             if (auto res = authCheck.CanSetGov(keys); !res) {
                 return res;
             }
+            if (auto res = CheckTimeRelatedVars(keys); !res) {
+                return res;
+            }
         }
 
         auto var = mnview.GetVariable(name);
@@ -188,6 +197,12 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
 
             if (res = authCheck.CanSetGov(*newVar); !res) {
                 return res;
+            }
+
+            if (height >= static_cast<uint32_t>(consensus.DF24Height)) {
+                if (res = CheckTimeRelatedVars(*newVar); !res) {
+                    return res;
+                }
             }
         }
 

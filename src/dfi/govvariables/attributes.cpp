@@ -1790,9 +1790,11 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
                      attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart ||
-                     attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes) &&
+                     attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::Anchors ||
+                     attrV0->typeId == ParamIDs::Masternodes) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::Frequency ||
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::TargetSpacing ||
+                     attrV0->key == DFIPKeys::TargetTimespan || attrV0->key == DFIPKeys::Frequency ||
                      attrV0->key == DFIPKeys::TeamChange || attrV0->key == DFIPKeys::ActivationDelay ||
                      attrV0->key == DFIPKeys::ResignDelay)) {
                     ret.pushKV(key, KeyBuilder(*amount));
