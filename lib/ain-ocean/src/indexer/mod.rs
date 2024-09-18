@@ -2,7 +2,6 @@ mod auction;
 pub mod loan_token;
 mod masternode;
 pub mod oracle;
-pub mod oracle_test;
 pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;
@@ -348,7 +347,6 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
     let script_unspent = ScriptUnspent {
         id: (tx.txid, vout.n.to_be_bytes()),
         hid,
-        txid: tx.txid,
         block: BlockContext {
             hash: block.hash,
             height: block.height,
@@ -545,7 +543,6 @@ fn invalidate_script_unspent_vin(
     let script_unspent = ScriptUnspent {
         id: (vout.txid, vout.n.to_be_bytes()),
         hid,
-        txid: tx.txid,
         block: BlockContext {
             hash: transaction.block.hash,
             height: transaction.block.height,

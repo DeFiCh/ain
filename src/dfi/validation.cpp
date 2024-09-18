@@ -4596,6 +4596,7 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
 }
 
 static CrossBoundaryResult OceanIndex(const UniValue b) {
+    auto time = GetTimeMillis();
     CrossBoundaryResult result;
     ocean_index_block(result, b.write());
     if (!result.ok) {
@@ -4605,6 +4606,7 @@ static CrossBoundaryResult OceanIndex(const UniValue b) {
         }
         OceanIndex(b);
     }
+    LogPrint(BCLog::OCEAN, "Indexing ocean block took: %dms\n", GetTimeMillis() - time);
     return result;
 };
 

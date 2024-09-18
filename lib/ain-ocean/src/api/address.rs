@@ -401,7 +401,7 @@ impl From<ScriptUnspent> for ScriptUnspentResponse {
             sort: format!(
                 "{}{}{}",
                 hex::encode(v.block.height.to_be_bytes()),
-                v.txid,
+                v.vout.txid,
                 hex::encode(v.vout.n.to_be_bytes())
             ),
             block: v.block,

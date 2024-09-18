@@ -1,4 +1,4 @@
-use bitcoin::BlockHash;
+use bitcoin::{hashes::Hash, BlockHash};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -30,4 +30,15 @@ pub struct BlockContext {
     pub height: u32,
     pub time: i64,
     pub median_time: i64,
+}
+
+impl Default for BlockContext {
+    fn default() -> Self {
+        Self {
+            hash: BlockHash::all_zeros(),
+            height: Default::default(),
+            time: Default::default(),
+            median_time: Default::default(),
+        }
+    }
 }

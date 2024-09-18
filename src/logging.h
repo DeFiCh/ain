@@ -77,6 +77,7 @@ namespace BCLog {
         CONNECT       = (1ull << 31ull),
         SIGN          = (1ull << 32ull),
         SWAPRESULT    = (1ull << 33ull),
+        OCEAN         = (1ull << 34ull),
         ALL           = ~(0ull),
     };
 

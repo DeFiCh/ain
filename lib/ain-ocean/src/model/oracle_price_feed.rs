@@ -9,9 +9,6 @@ pub type OraclePriceFeedkey = (String, String, Txid); // token-currency-oracle_i
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceFeed {
-    pub id: OraclePriceFeedId,
-    pub key: OraclePriceFeedkey,
-    pub sort: String,
     pub token: Token,
     pub currency: Currency,
     pub oracle_id: Txid,

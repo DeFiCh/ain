@@ -17,7 +17,8 @@ use crate::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
-        OraclePriceFeed, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
+        OraclePriceFeed, OraclePriceFeedId, OraclePriceFeedkey, OracleTokenCurrency,
+        PriceFeedsItem, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Services,
@@ -557,10 +558,10 @@ impl Index for SetOracleData {
 
         let mut pairs = HashSet::new();
         let feeds = map_price_feeds(&self, context);
-        for feed in &feeds {
+        for (key, id, feed) in &feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
-            feed_repo.by_key.put(&feed.key, &feed.id)?;
-            feed_repo.by_id.put(&feed.id, feed)?;
+            feed_repo.by_key.put(key, id)?;
+            feed_repo.by_id.put(id, feed)?;
         }
 
         index_set_oracle_data(services, context, pairs.clone())?;
@@ -575,7 +576,7 @@ impl Index for SetOracleData {
 
         let mut pairs = HashSet::new();
         let feeds = map_price_feeds(self, context);
-        for feed in feeds {
+        for (_, _, feed) in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
         }
 
@@ -606,19 +607,21 @@ impl Index for SetOracleData {
     }
 }
 
-fn map_price_feeds(data: &SetOracleData, ctx: &Context) -> Vec<OraclePriceFeed> {
+fn map_price_feeds(
+    data: &SetOracleData,
+    ctx: &Context,
+) -> Vec<(OraclePriceFeedkey, OraclePriceFeedId, OraclePriceFeed)> {
     let mut feeds = Vec::new();
     let token_prices = data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {
             let token = token_price.token.clone();
             let currency = token_amount.currency.clone();
+            let id = (token.clone(), currency.clone(), data.oracle_id, ctx.tx.txid);
             let key = (token.clone(), currency.clone(), data.oracle_id);
 
             let oracle_price_feed = OraclePriceFeed {
-                key: key.clone(),
-                id: (key.0, key.1, key.2, ctx.tx.txid),
-                sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
+                // sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
                 amount: token_amount.amount,
                 currency,
                 block: ctx.block.clone(),
@@ -627,7 +630,7 @@ fn map_price_feeds(data: &SetOracleData, ctx: &Context) -> Vec<OraclePriceFeed> 
                 token,
                 txid: ctx.tx.txid,
             };
-            feeds.push(oracle_price_feed);
+            feeds.push((key, id, oracle_price_feed));
         }
     }
     feeds
