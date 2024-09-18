@@ -163,6 +163,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::CUSTOMTXBENCH, "customtxbench"},
     {BCLog::SWAPRESULT, "swapresult"},
     {BCLog::CONNECT, "connect"},
+    {BCLog::OCEAN, "ocean"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
