@@ -193,7 +193,7 @@ async fn get_balance(
     Path(Address { address }): Path<Address>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<String>> {
-    let hid = address_to_hid(&address, ctx.network.into())?;
+    let hid = address_to_hid(&address, ctx.network)?;
     let Some(aggregation) = get_latest_aggregation(&ctx, hid)? else {
         return Ok(Response::new("0.00000000".to_string()));
     };
@@ -206,7 +206,7 @@ async fn get_aggregation(
     Path(Address { address }): Path<Address>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<ScriptAggregationResponse>>> {
-    let hid = address_to_hid(&address, ctx.network.into())?;
+    let hid = address_to_hid(&address, ctx.network)?;
     let aggregation = get_latest_aggregation(&ctx, hid)?;
     Ok(Response::new(aggregation))
 }
@@ -322,7 +322,7 @@ async fn list_transactions(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<ScriptActivityResponse>> {
-    let hid = address_to_hid(&address, ctx.network.into())?;
+    let hid = address_to_hid(&address, ctx.network)?;
     let next = query
         .next
         .as_ref()
@@ -441,7 +441,7 @@ async fn list_transaction_unspent(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<ScriptUnspentResponse>> {
-    let hid = address_to_hid(&address, ctx.network.into())?;
+    let hid = address_to_hid(&address, ctx.network)?;
 
     let next = query
         .next
