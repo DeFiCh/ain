@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ain_dftx::{Currency, Token};
-use bitcoin::{Address, Network, ScriptBuf};
+use bitcoin::{Address, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -14,6 +14,7 @@ use crate::{
         InvalidTokenCurrencySnafu,
     },
     hex_encoder::as_sha256,
+    network::Network,
     Result,
 };
 
@@ -124,12 +125,12 @@ pub fn format_number(v: Decimal) -> String {
 
 pub fn from_script(script: ScriptBuf, network: Network) -> Result<String> {
     let script = script.as_script();
-    let address = Address::from_script(script, network)?.to_string();
+    let address = Address::from_script(script, network.into())?.to_string();
     Ok(address)
 }
 
 pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
-    let addr = Address::from_str(address)?.require_network(network)?;
+    let addr = Address::from_str(address)?.require_network(network.into())?;
     Ok(ScriptBuf::from(addr))
 }
 
