@@ -587,7 +587,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata, IDST20Upgradeable {
         emit UpgradeResult(newTokenContractAddress, newAmount);
 
         // Upgrade available
-        if (newAmount != amount) {
+        if (newTokenContractAddress != address(this)) {
             _burn(msg.sender, amount);
             IERC20(newTokenContractAddress).transfer(msg.sender, newAmount);
         }
@@ -600,6 +600,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata, IDST20Upgradeable {
 
 pragma solidity ^0.8.0;
 
-contract DST20V2 is ERC20 {
+contract DST20V3 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 }

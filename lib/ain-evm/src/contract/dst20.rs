@@ -1,6 +1,7 @@
 use ain_contracts::{
     get_dfi_reserved_contract, get_dst20_contract, get_dst20_v1_contract, get_dst20_v2_contract,
-    get_transfer_domain_contract, Contract, FixedContract, IMPLEMENTATION_SLOT,
+    get_dst20_v3_contract, get_transfer_domain_contract, Contract, FixedContract,
+    IMPLEMENTATION_SLOT,
 };
 use anyhow::format_err;
 use ethereum::{
@@ -78,6 +79,19 @@ pub fn dst20_v2_deploy_info() -> DeployContractInfo {
         contract,
         fixed_address,
     } = get_dst20_v2_contract();
+
+    DeployContractInfo {
+        address: fixed_address,
+        bytecode: Bytes::from(contract.runtime_bytecode),
+        storage: Vec::new(),
+    }
+}
+
+pub fn dst20_v3_deploy_info() -> DeployContractInfo {
+    let FixedContract {
+        contract,
+        fixed_address,
+    } = get_dst20_v3_contract();
 
     DeployContractInfo {
         address: fixed_address,
@@ -245,7 +259,9 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
 }
 
 pub fn dst20_name_info(dvm_block: u64, name: &str, symbol: &str) -> Vec<(H256, H256)> {
-    let contract_address = if dvm_block >= ain_cpp_imports::get_df23_height() {
+    let contract_address = if dvm_block >= ain_cpp_imports::get_df24_height() {
+        get_dst20_v3_contract().fixed_address
+    } else if dvm_block >= ain_cpp_imports::get_df23_height() {
         get_dst20_v2_contract().fixed_address
     } else {
         get_dst20_v1_contract().fixed_address

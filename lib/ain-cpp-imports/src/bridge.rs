@@ -90,6 +90,7 @@ pub mod ffi {
         fn isEthDebugTraceRPCEnabled() -> bool;
         fn getEVMSystemTxsFromBlock(block_hash: [u8; 32]) -> Vec<SystemTxData>;
         fn getDF23Height() -> u64;
+        fn getDF24Height() -> u64;
         fn migrateTokensFromEVM(
             mnview_ptr: usize,
             old_amount: TokenAmount,

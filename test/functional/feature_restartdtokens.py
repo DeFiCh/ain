@@ -644,7 +644,6 @@ class RestartdTokensTest(DefiTestFramework):
         tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
         assert_equal(tx_receipt["status"], 1)
 
-
         assert_equal(
             self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
             Decimal(9.99999999),
@@ -1087,7 +1086,7 @@ class RestartdTokensTest(DefiTestFramework):
             address=self.nodes[0].w3.to_checksum_address(
                 f"0xff0000000000000000000000000000000000{self.usddId:0{4}x}"
             ),
-            abi=self.dst20_v2_abi,
+            abi=self.dst20_v3_abi,
         )
         assert_equal(
             [
@@ -2016,22 +2015,22 @@ class RestartdTokensTest(DefiTestFramework):
         )
 
         # DST20 ABI
-        self.dst20_v2_abi = open(
-            get_solc_artifact_path("dst20_v2", "abi.json"),
+        self.dst20_v3_abi = open(
+            get_solc_artifact_path("dst20_v3", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
 
         # Check DUSD variables
         self.dusd_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_dusdv1, abi=self.dst20_v2_abi
+            address=self.contract_address_dusdv1, abi=self.dst20_v3_abi
         )
         assert_equal(self.dusd_contract.functions.symbol().call(), "DUSD")
         assert_equal(self.dusd_contract.functions.name().call(), "dUSD")
 
         # Check SPY variables
         self.spy_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_spyv1, abi=self.dst20_v2_abi
+            address=self.contract_address_spyv1, abi=self.dst20_v3_abi
         )
         assert_equal(self.spy_contract.functions.symbol().call(), "SPY")
         assert_equal(self.spy_contract.functions.name().call(), "SP500")
