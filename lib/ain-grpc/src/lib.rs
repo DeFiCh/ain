@@ -80,7 +80,7 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
-    let runtime = &SERVICES;
+    let services = &SERVICES;
 
     let middleware = if !ain_cpp_imports::get_cors_allowed_origin().is_empty() {
         let origin = ain_cpp_imports::get_cors_allowed_origin();
@@ -96,13 +96,12 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
         tower::ServiceBuilder::new().layer(CorsLayer::new())
     };
 
-    let handle = runtime.tokio_runtime.clone();
-    let server = runtime.tokio_runtime.block_on(
+    let server = services.runtime().block_on(
         ServerBuilder::default()
             .set_middleware(middleware)
             .max_connections(max_connections)
             .max_response_body_size(max_response_size)
-            .custom_tokio_runtime(handle)
+            .custom_tokio_runtime(services.runtime().handle().clone())
             .build(addr),
     )?;
 
@@ -111,18 +110,21 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
     ain_cpp_imports::print_port_usage(2, local_addr.port());
 
     let mut methods: Methods = Methods::new();
-    methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
-    methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
-    methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
-    methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+    methods.merge(MetachainRPCModule::new(Arc::clone(&services.evm)).into_rpc())?;
+    methods.merge(MetachainDebugRPCModule::new(Arc::clone(&services.evm)).into_rpc())?;
+    methods.merge(MetachainNetRPCModule::new(Arc::clone(&services.evm)).into_rpc())?;
+    methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&services.evm)).into_rpc())?;
 
-    runtime.json_rpc_handles.lock().push(server.start(methods)?);
+    services
+        .json_rpc_handles
+        .lock()
+        .push(server.start(methods)?);
     Ok(())
 }
 
 pub async fn init_ocean_server(addr: String) -> Result<()> {
     let addr = addr.parse::<SocketAddr>()?;
-    let runtime = &SERVICES;
+    let services = &SERVICES;
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
@@ -142,19 +144,19 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
 
     let ocean_router = ain_ocean::ocean_router(&OCEAN_SERVICES, client, network).await?;
 
-    let server_handle = runtime.tokio_runtime.spawn(async move {
+    let server_handle = services.runtime().spawn(async move {
         if let Err(e) = axum::serve(listener, ocean_router).await {
             log::error!("Server encountered an error: {}", e);
         }
     });
 
-    *runtime.ocean_handle.lock() = Some(server_handle);
+    *services.ocean_handle.lock() = Some(server_handle);
     Ok(())
 }
 
 pub fn init_network_rest_ocean(addr: String) -> Result<()> {
     info!("Starting REST Ocean server at {}", addr);
-    SERVICES.tokio_runtime.block_on(init_ocean_server(addr))
+    SERVICES.runtime().block_on(init_ocean_server(addr))
 }
 
 pub fn init_network_grpc_service(_addr: String) -> Result<()> {
@@ -173,14 +175,13 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
-    let runtime = &SERVICES;
+    let services = &SERVICES;
 
-    let handle = runtime.tokio_runtime.clone();
-    let server = runtime.tokio_runtime.block_on(
+    let server = services.runtime().block_on(
         ServerBuilder::default()
             .max_subscriptions_per_connection(max_connections)
             .max_response_body_size(max_response_size)
-            .custom_tokio_runtime(handle)
+            .custom_tokio_runtime(services.runtime().handle().clone())
             .set_id_provider(MetachainSubIdProvider)
             .build(addr),
     )?;
@@ -191,11 +192,14 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
 
     let mut methods: Methods = Methods::new();
     methods.merge(
-        MetachainPubSubModule::new(Arc::clone(&runtime.evm), runtime.tokio_runtime.clone())
-            .into_rpc(),
+        MetachainPubSubModule::new(
+            Arc::clone(&services.evm),
+            services.runtime().handle().clone(),
+        )
+        .into_rpc(),
     )?;
 
-    runtime
+    services
         .websocket_handles
         .lock()
         .push(server.start(methods)?);
