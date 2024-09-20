@@ -136,6 +136,10 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
+    pub fn getToken(_id: u32) -> DST20Token {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+
     #[allow(clippy::ptr_arg)]
     pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
@@ -351,8 +355,14 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
+/// List pool pairs
 pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
     ffi::getPoolPairs()
+}
+
+/// Get token
+pub fn get_token(id: u32) -> ffi::DST20Token {
+    ffi::getToken(id)
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration

@@ -89,6 +89,7 @@ pub mod ffi {
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getPoolPairs() -> Vec<PoolPairCreationHeight>;
+        fn getToken(id: u32) -> DST20Token;
         #[allow(clippy::ptr_arg)]
         fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;

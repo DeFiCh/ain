@@ -363,6 +363,27 @@ rust::vec<PoolPairCreationHeight> getPoolPairs() {
     return pools;
 }
 
+std::unique_ptr<DST20Token> getToken(uint32_t id) {
+    LOCK(cs_main);
+
+    DST20Token dst20Token;
+    // auto view = pcustomcsview.get();
+    auto [view, accountView, vaultView] = GetSnapshots();
+    DCT_ID dct_id = DCT_ID{id};
+    auto res = view->GetToken(dct_id);
+    if (!res) {
+        return {};
+    }
+
+    auto id = res->first;
+    auto token = res->second;
+    dst20Token.id = id;
+    dst20Token.name = token.name;
+    dst20Token.symbol = token.symbol;
+
+    return dst20Token;
+}
+
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
