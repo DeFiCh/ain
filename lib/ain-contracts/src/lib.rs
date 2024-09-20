@@ -213,6 +213,24 @@ lazy_static::lazy_static! {
             fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x5))
         }
     };
+
+    pub static ref DST20_V3_CONTRACT: FixedContract = {
+        let bytecode = solc_artifact_bytecode_str!(
+            "dst20_v3", "deployed_bytecode.json"
+        );
+        let input = solc_artifact_bytecode_str!(
+            "dst20_v3", "bytecode.json"
+        );
+
+        FixedContract {
+            contract: Contract {
+            codehash: Blake2Hasher::hash(&bytecode),
+            runtime_bytecode: bytecode,
+            init_bytecode: input,
+            },
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x6))
+        }
+    };
 }
 
 pub fn get_split_tokens_function() -> ethabi::Function {
@@ -368,6 +386,10 @@ pub fn get_dst20_v1_contract() -> FixedContract {
 
 pub fn get_dst20_v2_contract() -> FixedContract {
     DST20_V2_CONTRACT.clone()
+}
+
+pub fn get_dst20_v3_contract() -> FixedContract {
+    DST20_V3_CONTRACT.clone()
 }
 
 #[cfg(test)]
