@@ -36,8 +36,8 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
-    model::{BlockContext, PoolSwap, PoolSwapAggregated},
-    storage::{InitialKeyProvider, RepositoryOps, SecondaryIndex, SortOrder},
+    model::{BlockContext, PoolSwap, PoolSwapAggregated, PoolSwapAggregatedId},
+    storage::{InitialKeyProvider, RepositoryOps, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
 };
 
@@ -81,8 +81,12 @@ impl PoolSwapVerboseResponse {
         swap_type: Option<SwapType>,
     ) -> Self {
         Self {
-            id: v.id,
-            sort: v.sort,
+            id: format!("{}-{}", v.pool_id, v.txid),
+            sort: format!(
+                "{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                hex::encode(v.txno.to_be_bytes()),
+            ),
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
@@ -112,8 +116,12 @@ pub struct PoolSwapResponse {
 impl From<PoolSwap> for PoolSwapResponse {
     fn from(v: PoolSwap) -> Self {
         Self {
-            id: v.id,
-            sort: v.sort,
+            id: format!("{}-{}", v.pool_id, v.txid),
+            sort: format!(
+                "{}{}",
+                hex::encode(v.block.height.to_be_bytes()),
+                hex::encode(v.txno.to_be_bytes()),
+            ),
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
@@ -454,7 +462,7 @@ async fn list_pool_swaps_verbose(
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PoolSwapAggregatedAggregatedResponse {
-    amounts: HashMap<String, String>,
+    amounts: HashMap<u64, String>,
     usd: Decimal,
 }
 
@@ -469,10 +477,10 @@ struct PoolSwapAggregatedResponse {
 }
 
 impl PoolSwapAggregatedResponse {
-    fn with_usd(p: PoolSwapAggregated, usd: Decimal) -> Self {
+    fn with_usd(id: PoolSwapAggregatedId, p: PoolSwapAggregated, usd: Decimal) -> Self {
         Self {
-            id: p.id,
-            key: p.key,
+            id: format!("{}-{}-{}", id.0, id.1, id.2),
+            key: format!("{}-{}", id.0, id.1),
             bucket: p.bucket,
             aggregated: PoolSwapAggregatedAggregatedResponse {
                 amounts: p.aggregated.amounts,
@@ -501,8 +509,8 @@ async fn list_pool_swap_aggregates(
         .transpose()?
         .unwrap_or(i64::MAX);
 
-    let repository = &ctx.services.pool_swap_aggregated;
-    let aggregates = repository
+    let repo = &ctx.services.pool_swap_aggregated;
+    let key_ids = repo
         .by_key
         .list(Some((pool_id, interval, next)), SortOrder::Descending)?
         .take(query.size)
@@ -510,13 +518,17 @@ async fn list_pool_swap_aggregates(
             Ok((k, _)) => k.0 == pool_id && k.1 == interval,
             _ => true,
         })
-        .map(|e| repository.by_key.retrieve_primary_value(e))
-        .collect::<Result<Vec<_>>>()?;
+        .flatten()
+        .collect::<Vec<_>>();
 
     let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();
-    for aggregated in aggregates {
+    for (_, id) in key_ids {
+        let aggregated = repo.by_id.get(&id)?;
+        let Some(aggregated) = aggregated else {
+            continue;
+        };
         let usd = get_aggregated_in_usd(&ctx, &aggregated.aggregated).await?;
-        let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregated, usd);
+        let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(id, aggregated, usd);
         aggregated_usd.push(aggregate_with_usd);
     }
 

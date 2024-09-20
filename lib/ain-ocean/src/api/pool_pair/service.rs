@@ -353,7 +353,7 @@ async fn gather_amount(
         .map(|e| repository.by_key.retrieve_primary_value(e))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut aggregated = HashMap::<String, Decimal>::new();
+    let mut aggregated = HashMap::<u64, Decimal>::new();
 
     for swap in swaps {
         let token_ids = swap.aggregated.amounts.keys();
@@ -374,7 +374,7 @@ async fn gather_amount(
                 from_amount
             };
 
-            aggregated.insert(token_id.to_string(), amount);
+            aggregated.insert(*token_id, amount);
         }
     }
 
@@ -473,8 +473,8 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
     }
 }
 
-async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<Decimal> {
-    let (_, info) = get_token_cached(ctx, token_id)
+async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &u64) -> Result<Decimal> {
+    let (_, info) = get_token_cached(ctx, &token_id.to_string())
         .await?
         .context(NotFoundSnafu {
             kind: NotFoundKind::Token {

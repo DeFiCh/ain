@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{pool::*, COIN};
-use bitcoin::{BlockHash, Txid};
+use bitcoin::Txid;
 use log::trace;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -12,8 +12,8 @@ use crate::{
     error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
     indexer::{tx_result, Index, Result},
     model::{self, PoolSwapResult, TxResult},
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
-    Error, Services,
+    storage::{RepositoryOps, SortOrder},
+    Services,
 };
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
@@ -35,8 +35,8 @@ fn index_swap_aggregated(
     txid: Txid,
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS {
-        let repository = &services.pool_swap_aggregated;
-        let mut prevs = repository
+        let repo: &crate::PoolSwapAggregatedService = &services.pool_swap_aggregated;
+        let prevs = repo
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
             .take(1)
@@ -44,8 +44,8 @@ fn index_swap_aggregated(
                 Ok((k, _)) => k.0 == pool_id && k.1 == interval,
                 _ => true,
             })
-            .map(|e| repository.by_key.retrieve_primary_value(e))
-            .collect::<Result<Vec<_>>>()?;
+            .flatten()
+            .collect::<Vec<_>>();
 
         if prevs.is_empty() {
             log::error!(
@@ -54,39 +54,34 @@ fn index_swap_aggregated(
             continue;
         }
 
-        let aggregated = prevs.first_mut();
-        if let Some(aggregated) = aggregated {
-            let amount = aggregated
-                .aggregated
-                .amounts
-                .get(&from_token_id.to_string())
-                .map(|amt| Decimal::from_str(amt))
-                .transpose()?
-                .unwrap_or(dec!(0));
+        let Some((_, id)) = prevs.first() else {
+            continue;
+        };
 
-            let aggregated_amount = amount
-                .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
-                .context(ArithmeticOverflowSnafu)?;
+        let aggregated = repo.by_id.get(id)?;
 
-            aggregated
-                .aggregated
-                .amounts
-                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+        let Some(mut aggregated) = aggregated else {
+            continue;
+        };
 
-            let parts = aggregated.id.split('-').collect::<Vec<&str>>();
-            if parts.len() != 3 {
-                return Err(Error::Other {
-                    msg: "Invalid poolswap aggregated id format".to_string(),
-                });
-            };
-            let pool_id = parts[0].parse::<u32>()?;
-            let interval = parts[1].parse::<u32>()?;
-            let hash = parts[2].parse::<BlockHash>()?;
+        let amount = aggregated
+            .aggregated
+            .amounts
+            .get(&from_token_id)
+            .map(|amt| Decimal::from_str(amt))
+            .transpose()?
+            .unwrap_or(dec!(0));
 
-            repository
-                .by_id
-                .put(&(pool_id, interval, hash), aggregated)?;
-        }
+        let aggregated_amount = amount
+            .checked_add(Decimal::from(from_amount) / Decimal::from(COIN))
+            .context(ArithmeticOverflowSnafu)?;
+
+        aggregated
+            .aggregated
+            .amounts
+            .insert(from_token_id, format!("{aggregated_amount:.8}"));
+
+        repo.by_id.put(id, &aggregated)?;
     }
 
     Ok(())
@@ -100,8 +95,8 @@ fn invalidate_swap_aggregated(
     txid: Txid,
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS {
-        let repository = &services.pool_swap_aggregated;
-        let mut prevs = repository
+        let repo = &services.pool_swap_aggregated;
+        let prevs = repo
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
             .take(1)
@@ -109,8 +104,8 @@ fn invalidate_swap_aggregated(
                 Ok((k, _)) => k.0 == pool_id && k.1 == interval,
                 _ => true,
             })
-            .map(|e| repository.by_key.retrieve_primary_value(e))
-            .collect::<Result<Vec<_>>>()?;
+            .flatten()
+            .collect::<Vec<_>>();
 
         if prevs.is_empty() {
             log::error!(
@@ -119,39 +114,34 @@ fn invalidate_swap_aggregated(
             continue;
         }
 
-        let aggregated = prevs.first_mut();
-        if let Some(aggregated) = aggregated {
-            let amount = aggregated
-                .aggregated
-                .amounts
-                .get(&from_token_id.to_string())
-                .map(|amt| Decimal::from_str(amt))
-                .transpose()?
-                .unwrap_or(dec!(0));
+        let Some((_, id)) = prevs.first() else {
+            continue;
+        };
 
-            let aggregated_amount = amount
-                .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
-                .context(ArithmeticUnderflowSnafu)?;
+        let aggregated = repo.by_id.get(id)?;
 
-            aggregated
-                .aggregated
-                .amounts
-                .insert(from_token_id.to_string(), format!("{aggregated_amount:.8}"));
+        let Some(mut aggregated) = aggregated else {
+            continue;
+        };
 
-            let parts = aggregated.id.split('-').collect::<Vec<&str>>();
-            if parts.len() != 3 {
-                return Err(Error::Other {
-                    msg: "Invalid poolswap aggregated id format".to_string(),
-                });
-            };
-            let pool_id = parts[0].parse::<u32>()?;
-            let interval = parts[1].parse::<u32>()?;
-            let hash = parts[2].parse::<BlockHash>()?;
+        let amount = aggregated
+            .aggregated
+            .amounts
+            .get(&from_token_id)
+            .map(|amt| Decimal::from_str(amt))
+            .transpose()?
+            .unwrap_or(dec!(0));
 
-            repository
-                .by_id
-                .put(&(pool_id, interval, hash), aggregated)?;
-        }
+        let aggregated_amount = amount
+            .checked_sub(Decimal::from(from_amount) / Decimal::from(COIN))
+            .context(ArithmeticUnderflowSnafu)?;
+
+        aggregated
+            .aggregated
+            .amounts
+            .insert(from_token_id, format!("{aggregated_amount:.8}"));
+
+        repo.by_id.put(id, &aggregated)?;
     }
 
     Ok(())
@@ -181,10 +171,7 @@ impl Index for PoolSwap {
             // (None, pair.id)
         };
 
-        let swap = model::PoolSwap {
-            id: format!("{pool_id}-{txid}"),
-            // TODO: use hex::encode eg: sort: hex::encode(ctx.block.height + idx)
-            sort: format!("{}-{}", ctx.block.height, idx),
+        let swap: model::PoolSwap = model::PoolSwap {
             txid,
             txno: idx,
             from_amount,
@@ -260,8 +247,6 @@ impl Index for CompositeSwap {
 
         for pool_id in pool_ids {
             let swap = model::PoolSwap {
-                id: format!("{pool_id}-{txid}"),
-                sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
                 txid,
                 txno: ctx.tx_idx,
                 from_amount: self.pool_swap.from_amount,
