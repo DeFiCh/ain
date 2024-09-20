@@ -142,12 +142,12 @@ fn get_vin_standard(vin: &Vin) -> Option<VinStandard> {
 fn find_tx_vout(
     services: &Arc<Services>,
     vin: &VinStandard,
-    txs: Vec<Transaction>,
+    txs: &[Transaction],
 ) -> Result<Option<TransactionVout>> {
-    let tx = txs.into_iter().find(|tx| tx.txid == vin.txid);
+    let tx = txs.iter().find(|tx| tx.txid == vin.txid);
 
     if let Some(tx) = tx {
-        let vout = tx.vout.into_iter().find(|vout| vout.n == vin.vout);
+        let vout = tx.vout.iter().find(|vout| vout.n == vin.vout);
 
         if let Some(vout) = vout {
             let tx_vout = TransactionVout {
@@ -158,7 +158,7 @@ fn find_tx_vout(
                 token_id: vout.token_id,
                 script: TransactionVoutScript {
                     r#type: vout.script_pub_key.r#type.clone(),
-                    hex: vout.script_pub_key.hex,
+                    hex: vout.script_pub_key.hex.clone(),
                 },
             };
             return Ok(Some(tx_vout));
@@ -370,7 +370,10 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
     Ok(())
 }
 
-fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
+fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) -> Result<()> {
+    trace!("[index_transaction] Indexing...");
+    let start = Instant::now();
+
     let is_evm_tx = check_if_evm_tx(&ctx.tx);
 
     let mut record = BTreeMap::new();
@@ -386,7 +389,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
 
         index_script_unspent_vin(services, &vin, ctx)?;
 
-        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
+        let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
                 return Ok(());
             };
@@ -453,10 +456,11 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) 
             .put(&(aggregation.hid, ctx.block.height), &aggregation)?;
     }
 
+    log_elapsed(start, format!("Indexed script {:x}", ctx.tx.txid));
     Ok(())
 }
 
-fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transaction>) -> Result<()> {
+fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) -> Result<()> {
     let tx = &ctx.tx;
     let block = &ctx.block;
 
@@ -475,7 +479,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: Vec<Transacti
 
         invalidate_script_unspent_vin(services, &ctx.tx, &vin)?;
 
-        let Some(vout) = find_tx_vout(services, &vin, txs.clone())? else {
+        let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
                 return Ok(());
             };
@@ -654,7 +658,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx_idx,
         };
 
-        index_script(services, &ctx, block.tx.clone())?;
+        index_script(services, &ctx, &block.tx)?;
 
         index_transaction(services, &ctx)?;
 
@@ -791,7 +795,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
 
         invalidate_transaction(services, &ctx)?;
 
-        invalidate_script(services, &ctx, block.tx.clone())?;
+        invalidate_script(services, &ctx, &block.tx)?;
     }
 
     invalidate_block_start(services, &block)?;
