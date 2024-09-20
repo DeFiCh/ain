@@ -50,7 +50,7 @@ pub struct Context {
     tx_idx: usize,
 }
 
-fn log_elapsed(previous: Instant, msg: &str) {
+fn log_elapsed<S: AsRef<str> + std::fmt::Display>(previous: Instant, msg: S) {
     let now = Instant::now();
     trace!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }

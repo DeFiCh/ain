@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use defichain_rpc::json::blockchain::Vin;
 use log::trace;
@@ -11,7 +11,7 @@ use snafu::OptionExt;
 use super::{helper::check_if_evm_tx, Context};
 use crate::{
     error::DecimalConversionSnafu,
-    indexer::Result,
+    indexer::{log_elapsed, Result},
     model::{
         Transaction as TransactionMapper, TransactionVin, TransactionVinType, TransactionVout,
         TransactionVoutScript,
@@ -22,6 +22,8 @@ use crate::{
 
 pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> {
     trace!("[index_transaction] Indexing...");
+    let start = Instant::now();
+
     let idx = ctx.tx_idx;
     let is_evm = check_if_evm_tx(&ctx.tx);
 
@@ -31,7 +33,9 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
 
     let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
+
     // Index transaction vout
+    let start_vout = Instant::now();
     for vout in ctx.tx.vout.clone() {
         let tx_vout = TransactionVout {
             vout: vout.n,
@@ -52,8 +56,10 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         total_vout_value += Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
         vouts.push(tx_vout);
     }
+    log_elapsed(start_vout, format!("Indexed vouts"));
 
     // Indexing transaction vin
+    let start_vin = Instant::now();
     for vin in ctx.tx.vin.clone() {
         if is_evm {
             continue;
@@ -90,6 +96,8 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         vin_count,
         vout_count,
     };
+    log_elapsed(start_vin, format!("Indexed vins"));
+
     // Index transaction
     services.transaction.by_id.put(&txid, &tx)?;
     services
@@ -97,6 +105,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         .by_block_hash
         .put(&(ctx.block.hash, order), &txid)?;
 
+    log_elapsed(start, format!("Indexed transaction {:x}", txid));
     Ok(())
 }
 

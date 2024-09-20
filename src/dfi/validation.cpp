@@ -4595,7 +4595,7 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
     }
 }
 
-static CrossBoundaryResult OceanIndex(const UniValue b) {
+static CrossBoundaryResult OceanIndex(const UniValue b, const uint32_t height) {
     auto time = GetTimeMillis();
     CrossBoundaryResult result;
     ocean_index_block(result, b.write());
@@ -4604,9 +4604,9 @@ static CrossBoundaryResult OceanIndex(const UniValue b) {
         if (!result.ok) {
             return result;
         }
-        OceanIndex(b);
+        OceanIndex(b, height);
     }
-    LogPrint(BCLog::OCEAN, "Indexing ocean block took: %dms\n", GetTimeMillis() - time);
+    LogPrint(BCLog::OCEAN, "Indexing ocean block %d took: %dms\n", height, GetTimeMillis() - time);
     return result;
 };
 
@@ -4641,7 +4641,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
         const UniValue b = blockToJSON(cache, block, ::ChainActive().Tip(), pindex, true, 2);
 
-        if (CrossBoundaryResult result = OceanIndex(b); !result.ok) {
+        if (CrossBoundaryResult result = OceanIndex(b, static_cast<uint32_t>(pindex->nHeight)); !result.ok) {
             return Res::Err(result.reason.c_str());
         }
     }
