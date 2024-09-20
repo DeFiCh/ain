@@ -170,10 +170,10 @@ fn find_tx_vout(
 fn find_script_aggregation(
     record: &mut BTreeMap<[u8; 32], ScriptAggregation>,
     block: &BlockContext,
-    hex: Vec<u8>,
-    script_type: String,
+    hex: &[u8],
+    script_type: &str,
 ) -> ScriptAggregation {
-    let hid = as_sha256(hex.clone());
+    let hid = as_sha256(hex);
     let aggregation = record.get(&hid).cloned();
 
     if let Some(aggregation) = aggregation {
@@ -189,8 +189,8 @@ fn find_script_aggregation(
                 time: block.time,
             },
             script: ScriptAggregationScript {
-                r#type: script_type,
-                hex,
+                r#type: script_type.to_string(),
+                hex: hex.to_vec(),
             },
             statistic: ScriptAggregationStatistic::default(),
             amount: ScriptAggregationAmount::default(),
@@ -209,7 +209,7 @@ fn index_script_activity_vin(
     let tx = &ctx.tx;
     let block = &ctx.block;
 
-    let hid = as_sha256(vout.script.hex.clone()); // as key
+    let hid = as_sha256(&vout.script.hex); // as key
     let script_activity = ScriptActivity {
         hid,
         r#type: ScriptActivityType::Vin,
@@ -254,8 +254,8 @@ fn index_script_aggregation_vin(
     let mut aggregation = find_script_aggregation(
         &mut record,
         &ctx.block,
-        vout.script.hex.clone(),
-        vout.script.r#type.clone(),
+        &vout.script.hex,
+        &vout.script.r#type,
     );
     aggregation.statistic.tx_out_count += 1;
     aggregation.amount.tx_out += vout.value;
@@ -282,7 +282,7 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
     let tx = &ctx.tx;
     let block = &ctx.block;
 
-    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let hid = as_sha256(&vout.script_pub_key.hex);
     let script_activity = ScriptActivity {
         hid,
         r#type: ScriptActivityType::Vout,
@@ -327,8 +327,8 @@ fn index_script_aggregation_vout(
     let mut aggregation = find_script_aggregation(
         &mut record,
         block,
-        vout.script_pub_key.hex.clone(),
-        vout.script_pub_key.r#type.clone(),
+        &vout.script_pub_key.hex,
+        &vout.script_pub_key.r#type,
     );
     aggregation.statistic.tx_in_count += 1;
     aggregation.amount.tx_in += vout.value;
@@ -341,7 +341,7 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
     let tx = &ctx.tx;
     let block = &ctx.block;
 
-    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let hid = as_sha256(&vout.script_pub_key.hex);
     let script_unspent = ScriptUnspent {
         id: (tx.txid, vout.n.to_be_bytes()),
         hid,
@@ -450,10 +450,11 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         aggregation.statistic.tx_count =
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
-        record.insert(aggregation.hid, aggregation.clone());
 
         repo.by_id
             .put(&(aggregation.hid, ctx.block.height), &aggregation)?;
+
+        record.insert(aggregation.hid, aggregation);
     }
 
     log_elapsed(start, format!("Indexed script {:x}", ctx.tx.txid));
@@ -493,7 +494,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
         invalidate_script_activity_vin(services, ctx.block.height, &vin, &vout)?;
 
-        hid_set.insert(as_sha256(vout.script.hex)); // part of invalidate_script_aggregation
+        hid_set.insert(as_sha256(&vout.script.hex)); // part of invalidate_script_aggregation
     }
 
     for vout in tx.vout.iter() {
@@ -505,7 +506,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
         invalidate_script_activity_vout(services, ctx, vout)?;
 
-        hid_set.insert(as_sha256(vout.script_pub_key.hex.clone())); // part of invalidate_script_aggregation
+        hid_set.insert(as_sha256(&vout.script_pub_key.hex)); // part of invalidate_script_aggregation
     }
 
     // invalidate_script_aggregation
@@ -540,7 +541,7 @@ fn invalidate_script_unspent_vin(
         });
     };
 
-    let hid = as_sha256(vout.script.hex.clone());
+    let hid = as_sha256(&vout.script.hex);
 
     let script_unspent = ScriptUnspent {
         id: (vout.txid, vout.n.to_be_bytes()),
@@ -552,8 +553,8 @@ fn invalidate_script_unspent_vin(
             time: transaction.block.time,
         },
         script: ScriptUnspentScript {
-            r#type: vout.script.r#type.clone(),
-            hex: vout.script.hex.clone(),
+            r#type: vout.script.r#type,
+            hex: vout.script.hex,
         },
         vout: ScriptUnspentVout {
             txid: tx.txid,
@@ -584,7 +585,7 @@ fn invalidate_script_activity_vin(
     vout: &TransactionVout,
 ) -> Result<()> {
     let id = (
-        as_sha256(vout.script.hex.clone()),
+        as_sha256(&vout.script.hex),
         height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
@@ -600,7 +601,7 @@ fn invalidate_script_unspent_vout(
     ctx: &Context,
     vout: &Vout,
 ) -> Result<()> {
-    let hid = as_sha256(vout.script_pub_key.hex.clone());
+    let hid = as_sha256(&vout.script_pub_key.hex);
     let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
     services.script_unspent.by_id.delete(&id)?;
 
@@ -613,7 +614,7 @@ fn invalidate_script_activity_vout(
     vout: &Vout,
 ) -> Result<()> {
     let id = (
-        as_sha256(vout.script_pub_key.hex.clone()),
+        as_sha256(&vout.script_pub_key.hex),
         ctx.block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         ctx.tx.txid,

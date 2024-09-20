@@ -150,7 +150,7 @@ pub fn to_script(address: &str, network: Network) -> Result<ScriptBuf> {
 pub fn address_to_hid(address: &str, network: Network) -> Result<[u8; 32]> {
     let script = to_script(address, network)?;
     let bytes = script.to_bytes();
-    Ok(as_sha256(bytes))
+    Ok(as_sha256(&bytes))
 }
 
 /// Finds the balance of a specified token symbol within a list of token strings.

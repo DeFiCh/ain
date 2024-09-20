@@ -56,7 +56,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         total_vout_value += Decimal::from_f64(vout.value).context(DecimalConversionSnafu)?;
         vouts.push(tx_vout);
     }
-    log_elapsed(start_vout, format!("Indexed vouts"));
+    log_elapsed(start_vout, "Indexed vouts");
 
     // Indexing transaction vin
     let start_vin = Instant::now();
@@ -96,7 +96,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: &Context) -> Result<()> 
         vin_count,
         vout_count,
     };
-    log_elapsed(start_vin, format!("Indexed vins"));
+    log_elapsed(start_vin, "Indexed vins");
 
     // Index transaction
     services.transaction.by_id.put(&txid, &tx)?;
