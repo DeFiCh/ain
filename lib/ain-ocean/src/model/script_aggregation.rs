@@ -6,7 +6,6 @@ pub type ScriptAggregationId = ([u8; 32], u32); // (hid, block.height)
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptAggregation {
-    pub id: ScriptAggregationId,
     pub hid: [u8; 32],
     pub block: BlockContext,
     pub script: ScriptAggregationScript,

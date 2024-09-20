@@ -118,8 +118,8 @@ impl From<ScriptAggregation> for ScriptAggregationResponse {
         Self {
             id: format!(
                 "{}{}",
-                hex::encode(v.id.1.to_be_bytes()),
-                hex::encode(v.id.0)
+                hex::encode(v.block.height.to_be_bytes()),
+                hex::encode(v.hid)
             ),
             hid: hex::encode(v.hid),
             block: v.block,

@@ -167,39 +167,6 @@ fn find_tx_vout(
     services.transaction.vout_by_id.get(&(vin.txid, vin.vout))
 }
 
-fn find_script_aggregation(
-    record: &mut BTreeMap<[u8; 32], ScriptAggregation>,
-    block: &BlockContext,
-    hex: &[u8],
-    script_type: &str,
-) -> ScriptAggregation {
-    let hid = as_sha256(hex);
-    let aggregation = record.get(&hid).cloned();
-
-    if let Some(aggregation) = aggregation {
-        aggregation
-    } else {
-        let aggregation = ScriptAggregation {
-            id: (hid, block.height),
-            hid,
-            block: BlockContext {
-                hash: block.hash,
-                height: block.height,
-                median_time: block.median_time,
-                time: block.time,
-            },
-            script: ScriptAggregationScript {
-                r#type: script_type.to_string(),
-                hex: hex.to_vec(),
-            },
-            statistic: ScriptAggregationStatistic::default(),
-            amount: ScriptAggregationAmount::default(),
-        };
-        record.insert(hid, aggregation.clone());
-        aggregation
-    }
-}
-
 fn index_script_activity_vin(
     services: &Arc<Services>,
     vin: &VinStandard,
@@ -247,21 +214,22 @@ fn index_script_activity_vin(
 
 fn index_script_aggregation_vin(
     vout: &TransactionVout,
-    ctx: &Context,
-) -> Result<BTreeMap<[u8; 32], ScriptAggregation>> {
-    let mut record = BTreeMap::new();
-    // SPENT (REMOVE)
-    let mut aggregation = find_script_aggregation(
-        &mut record,
-        &ctx.block,
-        &vout.script.hex,
-        &vout.script.r#type,
-    );
-    aggregation.statistic.tx_out_count += 1;
-    aggregation.amount.tx_out += vout.value;
-    record.insert(aggregation.hid, aggregation);
-
-    Ok(record)
+    block: &BlockContext,
+    record: &mut BTreeMap<[u8; 32], ScriptAggregation>,
+) {
+    let hid = as_sha256(&vout.script.hex);
+    let entry = record.entry(hid).or_insert_with(|| ScriptAggregation {
+        hid,
+        block: block.clone(),
+        script: ScriptAggregationScript {
+            r#type: vout.script.r#type.clone(),
+            hex: vout.script.hex.clone(),
+        },
+        statistic: ScriptAggregationStatistic::default(),
+        amount: ScriptAggregationAmount::default(),
+    });
+    entry.statistic.tx_out_count += 1;
+    entry.amount.tx_out += vout.value;
 }
 
 fn index_script_unspent_vin(
@@ -320,21 +288,22 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
 fn index_script_aggregation_vout(
     vout: &Vout,
     block: &BlockContext,
-) -> Result<BTreeMap<[u8; 32], ScriptAggregation>> {
-    let mut record = BTreeMap::new();
+    record: &mut BTreeMap<[u8; 32], ScriptAggregation>,
+) {
+    let hid = as_sha256(&vout.script_pub_key.hex);
 
-    // Unspent (ADD)
-    let mut aggregation = find_script_aggregation(
-        &mut record,
-        block,
-        &vout.script_pub_key.hex,
-        &vout.script_pub_key.r#type,
-    );
-    aggregation.statistic.tx_in_count += 1;
-    aggregation.amount.tx_in += vout.value;
-    record.insert(aggregation.hid, aggregation);
-
-    Ok(record)
+    let entry = record.entry(hid).or_insert_with(|| ScriptAggregation {
+        hid,
+        block: block.clone(),
+        script: ScriptAggregationScript {
+            r#type: vout.script_pub_key.r#type.clone(),
+            hex: vout.script_pub_key.hex.clone(),
+        },
+        statistic: ScriptAggregationStatistic::default(),
+        amount: ScriptAggregationAmount::default(),
+    });
+    entry.statistic.tx_in_count += 1;
+    entry.amount.tx_in += vout.value;
 }
 
 fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Context) -> Result<()> {
@@ -404,8 +373,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         index_script_activity_vin(services, &vin, &vout, ctx)?;
 
         // part of index_script_aggregation
-        let data = index_script_aggregation_vin(&vout, ctx)?;
-        record.extend(data)
+        index_script_aggregation_vin(&vout, &ctx.block, &mut record);
     }
 
     for vout in &ctx.tx.vout {
@@ -418,8 +386,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         index_script_activity_vout(services, vout, ctx)?;
 
         // part of index_script_aggregation
-        let data = index_script_aggregation_vout(vout, &ctx.block)?;
-        record.extend(data)
+        index_script_aggregation_vout(vout, &ctx.block, &mut record);
     }
 
     // index_script_aggregation
