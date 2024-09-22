@@ -17,7 +17,7 @@ use crate::{
     },
     error::{
         ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, NotFoundKind,
-        NotFoundSnafu, OtherSnafu,
+        Error, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
     model::PoolSwapAggregatedAggregated,
@@ -109,9 +109,11 @@ async fn get_total_liquidity_usd_by_best_path(
     ctx: &Arc<AppContext>,
     p: &PoolPairInfo,
 ) -> Result<Decimal> {
-    let Some((usdt_id, _)) = get_token_cached(ctx, "USDT").await? else {
+    let token = ain_cpp_imports::get_dst_token("USDT".to_string());
+    if token.is_null() {
         return Ok(dec!(0));
-    };
+    }
+    let usdt_id = token.id.to_string();
 
     let mut a_token_rate = dec!(1);
     let mut b_token_rate = dec!(1);
@@ -474,13 +476,10 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
 }
 
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &u64) -> Result<Decimal> {
-    let (_, info) = get_token_cached(ctx, &token_id.to_string())
-        .await?
-        .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: token_id.to_string(),
-            },
-        })?;
+    let info = ain_cpp_imports::get_dst_token(token_id.to_string());
+    if info.is_null() {
+        return Err(Error::NotFound { kind: NotFoundKind::Token { id: token_id.to_string() }})
+    }
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {
         return Ok(dec!(1));
