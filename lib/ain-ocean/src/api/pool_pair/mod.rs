@@ -6,7 +6,7 @@ use std::{
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
-    json::{poolpair::PoolPairInfo, token::TokenInfo},
+    json::poolpair::PoolPairInfo,
     RpcApi,
 };
 use futures::future::try_join_all;
@@ -24,10 +24,9 @@ use service::{
     check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
     get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
-use snafu::OptionExt;
 
 use super::{
-    cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
+    cache::{get_pool_pair_cached, list_pool_pairs_cached},
     common::{parse_dat_symbol, parse_pool_pair_symbol, parse_query_height_txno},
     path::Path,
     query::{PaginationQuery, Query},
@@ -35,7 +34,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
+    error::{ApiError, Error, NotFoundKind},
     model::{BlockContext, PoolSwap, PoolSwapAggregated, PoolSwapAggregatedId},
     storage::{InitialKeyProvider, RepositoryOps, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -275,30 +274,14 @@ async fn map_pool_pair_response(
     id: String,
     p: PoolPairInfo,
 ) -> Result<PoolPairResponse> {
-    let (
-        _,
-        TokenInfo {
-            name: a_token_name, ..
-        },
-    ) = get_token_cached(ctx, &p.id_token_a)
-        .await?
-        .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_a.clone(),
-            },
-        })?;
-    let (
-        _,
-        TokenInfo {
-            name: b_token_name, ..
-        },
-    ) = get_token_cached(ctx, &p.id_token_b)
-        .await?
-        .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_b.clone(),
-            },
-        })?;
+    let a_token = ain_cpp_imports::get_dst_token(p.id_token_a.clone());
+    if a_token.is_null() {
+        return Err(Error::NotFound { kind: NotFoundKind::Token { id: p.id_token_a } })
+    }
+    let b_token = ain_cpp_imports::get_dst_token(p.id_token_b.clone());
+    if b_token.is_null() {
+        return Err(Error::NotFound { kind: NotFoundKind::Token { id: p.id_token_b } })
+    }
 
     let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
     let apr = get_apr(ctx, &id, &p).await?;
@@ -306,8 +289,8 @@ async fn map_pool_pair_response(
     let res = PoolPairResponse::from_with_id(
         id,
         p,
-        a_token_name,
-        b_token_name,
+        a_token.name.clone(),
+        b_token.name.clone(),
         total_liquidity_usd,
         apr,
         volume,
