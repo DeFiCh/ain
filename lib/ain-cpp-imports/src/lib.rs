@@ -155,7 +155,7 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
-    pub fn getDToken(_id: u32) -> UniquePtr<DToken> {
+    pub fn getDSTToken(_id: String) -> UniquePtr<DToken> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -380,8 +380,8 @@ pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
 }
 
 /// Get token
-pub fn get_d_token(id: u32) -> cxx::UniquePtr<ffi::DToken> {
-    ffi::getDToken(id)
+pub fn get_dst_token(id: String) -> cxx::UniquePtr<ffi::DToken> {
+    ffi::getDSTToken(id)
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration

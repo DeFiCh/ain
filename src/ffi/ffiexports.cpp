@@ -363,16 +363,17 @@ rust::vec<PoolPairCreationHeight> getPoolPairs() {
     return pools;
 }
 
-std::unique_ptr<DToken> getDToken(uint32_t id) {
+std::unique_ptr<DToken> getDSTToken(rust::string tokenId) {
     DToken dToken;
     auto [view, accountView, vaultView] = GetSnapshots();
 
-    auto token = view->GetToken(DCT_ID{id});
+    DCT_ID dctId;
+    auto token = view->GetTokenGuessId(tokenId.c_str(), dctId);
     if (!token) {
         return {};
     }
 
-    dToken.id = id;
+    dToken.id = dctId.v;
     dToken.name = token->name;
     dToken.symbol = token->symbol;
 
