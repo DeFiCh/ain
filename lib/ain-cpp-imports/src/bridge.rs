@@ -18,7 +18,7 @@ pub mod ffi {
 
     #[derive(Debug, Clone)]
     pub struct DToken {
-        pub id: u64,
+        pub id: u32,
         pub name: String,
         pub symbol: String,
     }
