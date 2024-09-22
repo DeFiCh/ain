@@ -27,13 +27,13 @@ mod ffi {
         pub creation_height: u32,
     }
 
-    pub struct DST20TokenVerbose {
+    pub struct DSTToken {
         pub id: u32,
         pub name: String,
         pub symbol: String,
     }
 
-    unsafe impl UniquePtrTarget for DST20TokenVerbose {
+    unsafe impl UniquePtrTarget for DSTToken {
         fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result { todo!()}
         fn __null() -> MaybeUninit<*mut c_void> { todo!()}
         unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> { todo!()}
@@ -155,7 +155,7 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
-    pub fn getDSTToken(_id: String) -> UniquePtr<DST20TokenVerbose> {
+    pub fn getDSTToken(_id: String) -> UniquePtr<DSTToken> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -380,7 +380,7 @@ pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
 }
 
 /// Get token
-pub fn get_dst_token(id: String) -> cxx::UniquePtr<ffi::DST20TokenVerbose> {
+pub fn get_dst_token(id: String) -> cxx::UniquePtr<ffi::DSTToken> {
     ffi::getDSTToken(id)
 }
 

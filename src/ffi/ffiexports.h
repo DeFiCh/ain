@@ -59,7 +59,7 @@ struct PoolPairCreationHeight {
     uint32_t creationHeight;
 };
 
-struct DST20TokenVerbose {
+struct DSTToken {
     uint32_t id;
     rust::string name;
     rust::string symbol;
@@ -134,7 +134,7 @@ std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);
 void CppLogPrintf(rust::string message);
 rust::vec<PoolPairCreationHeight> getPoolPairs();
-std::unique_ptr<DST20TokenVerbose> getDSTToken(rust::string id);
+std::unique_ptr<DSTToken> getDSTToken(rust::string id);
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens);
 rust::string getClientVersion();
 int32_t getNumCores();
