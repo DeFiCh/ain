@@ -9,11 +9,9 @@ use bridge::ffi;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
-    use cxx::UniquePtr;
-
-    unsafe extern "C++" {
-        // include!("ffi/ffiexports.h");
-    }
+    use core::ffi::c_void;
+    use cxx::{memory::UniquePtrTarget, UniquePtr};
+    use std::mem::MaybeUninit;
 
     pub struct Attributes {
         pub block_gas_target_factor: u64,
@@ -29,11 +27,20 @@ mod ffi {
         pub creation_height: u32,
     }
 
-    // pub struct DToken {
-    //     pub id: u32,
-    //     pub name: String,
-    //     pub symbol: String,
-    // }
+    pub struct DToken {
+        pub id: u32,
+        pub name: String,
+        pub symbol: String,
+    }
+
+    unsafe impl UniquePtrTarget for DToken {
+        fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result { todo!()}
+        fn __null() -> MaybeUninit<*mut c_void> { todo!()}
+        unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> { todo!()}
+        unsafe fn __get(_repr: MaybeUninit<*mut c_void>) -> *const Self { todo!() }
+        unsafe fn __release(_repr: MaybeUninit<*mut c_void>) -> *mut Self { todo!() }
+        unsafe fn __drop(_repr: MaybeUninit<*mut c_void>) { todo!() }
+    }
 
     pub struct DST20Token {
         pub id: u64,
@@ -148,7 +155,7 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
-    pub fn getDToken(_id: u32) -> cxx::UniquePtr<DToken> {
+    pub fn getDToken(_id: u32) -> UniquePtr<DToken> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
