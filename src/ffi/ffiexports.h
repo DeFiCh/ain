@@ -63,6 +63,18 @@ struct DSTToken {
     uint32_t id;
     rust::string name;
     rust::string symbol;
+    uint8_t decimal;
+    bool isDAT;
+    bool isLPS;
+    bool tradable;
+    bool mintable;
+    bool finalize;
+    bool isLoanToken;
+    CAmount minted;
+    rust::string creationTx;
+    int32_t creationHeight;
+    rust::string destructionTx;
+    int32_t destructionHeight;
 };
 
 struct DST20Token {

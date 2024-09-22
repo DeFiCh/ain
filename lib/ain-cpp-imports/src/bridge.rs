@@ -21,6 +21,18 @@ pub mod ffi {
         pub id: u32,
         pub name: String,
         pub symbol: String,
+        pub decimal: u8,
+        pub is_dat: bool,
+        pub is_lps: bool,
+        pub tradable: bool,
+        pub mintable: bool,
+        pub finalize: bool,
+        pub is_loan_token: bool,
+        pub minted: i64,
+        pub creation_tx: String,
+        pub creation_height: i32,
+        pub destruction_tx: String,
+        pub destruction_height: i32,
     }
 
     #[derive(Debug, Clone)]
