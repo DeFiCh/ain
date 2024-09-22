@@ -17,6 +17,13 @@ pub mod ffi {
     }
 
     #[derive(Debug, Clone)]
+    pub struct DToken {
+        pub id: u64,
+        pub name: String,
+        pub symbol: String,
+    }
+
+    #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
         pub name: String,
@@ -58,6 +65,7 @@ pub mod ffi {
         include!("ffi/ffiexports.h");
         type Attributes;
         type PoolPairCreationHeight;
+        type DToken;
         type DST20Token;
         type TransactionData;
         type SystemTxType;
@@ -89,7 +97,7 @@ pub mod ffi {
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getPoolPairs() -> Vec<PoolPairCreationHeight>;
-        fn getToken(id: u32) -> DST20Token;
+        fn getDToken(id: u32) -> UniquePtr<DToken>;
         #[allow(clippy::ptr_arg)]
         fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;
@@ -110,4 +118,6 @@ pub mod ffi {
         ) -> bool;
         fn isSkippedTx(tx_hash: [u8; 32]) -> bool;
     }
+
+    // impl UniquePtr<DToken> {}
 }

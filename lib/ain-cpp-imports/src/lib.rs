@@ -9,6 +9,12 @@ use bridge::ffi;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
+    use cxx::UniquePtr;
+
+    unsafe extern "C++" {
+        // include!("ffi/ffiexports.h");
+    }
+
     pub struct Attributes {
         pub block_gas_target_factor: u64,
         pub block_gas_limit: u64,
@@ -22,6 +28,12 @@ mod ffi {
         pub id_token_b: u32,
         pub creation_height: u32,
     }
+
+    // pub struct DToken {
+    //     pub id: u32,
+    //     pub name: String,
+    //     pub symbol: String,
+    // }
 
     pub struct DST20Token {
         pub id: u64,
@@ -136,7 +148,7 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
-    pub fn getToken(_id: u32) -> DST20Token {
+    pub fn getDToken(_id: u32) -> cxx::UniquePtr<DToken> {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -361,8 +373,8 @@ pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
 }
 
 /// Get token
-pub fn get_token(id: u32) -> ffi::DST20Token {
-    ffi::getToken(id)
+pub fn get_d_token(id: u32) -> cxx::UniquePtr<ffi::DToken> {
+    ffi::getDToken(id)
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration
