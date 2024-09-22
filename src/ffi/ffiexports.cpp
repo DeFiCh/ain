@@ -376,6 +376,7 @@ std::unique_ptr<DSTToken> getDSTToken(rust::string tokenId) {
     dstToken.id = dctId.v;
     dstToken.name = token->name;
     dstToken.symbol = token->symbol;
+    dstToken.symbol = token->CreateSymbolKey(dctId);
     dstToken.decimal = token->decimal;
     dstToken.isDAT = token->IsDAT();
     dstToken.isLPS = token->IsPoolShare();

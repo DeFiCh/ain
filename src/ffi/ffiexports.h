@@ -63,6 +63,7 @@ struct DSTToken {
     uint32_t id;
     rust::string name;
     rust::string symbol;
+    rust::string symbolKey;
     uint8_t decimal;
     bool isDAT;
     bool isLPS;

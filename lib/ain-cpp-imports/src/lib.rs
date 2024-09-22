@@ -31,6 +31,7 @@ mod ffi {
         pub id: u32,
         pub name: String,
         pub symbol: String,
+        pub symbol_key: String,
         pub decimal: u8,
         pub is_dat: bool,
         pub is_lps: bool,
