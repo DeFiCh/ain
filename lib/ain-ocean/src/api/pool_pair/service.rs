@@ -20,7 +20,7 @@ use crate::{
         NotFoundKind, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
-    model::PoolSwapAggregatedAggregated,
+    model::{PoolSwapAggregatedAggregated, PoolSwap},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
@@ -606,9 +606,9 @@ fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<
 
 pub async fn find_swap_from(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
-    let crate::model::PoolSwap {
+    let PoolSwap {
         from,
         from_amount,
         from_token_id,
@@ -622,7 +622,7 @@ pub async fn find_swap_from(
 
     Ok(Some(PoolSwapFromToData {
         address: from_address,
-        amount: Decimal::new(from_amount, 8).to_string(),
+        amount: Decimal::new(from_amount.to_owned(), 8).to_string(),
         display_symbol: parse_display_symbol(&from_token),
         symbol: from_token.symbol,
     }))
@@ -630,9 +630,9 @@ pub async fn find_swap_from(
 
 pub async fn find_swap_to(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
-    let crate::model::PoolSwap {
+    let PoolSwap {
         to,
         to_token_id,
         to_amount,
@@ -648,7 +648,7 @@ pub async fn find_swap_to(
 
     Ok(Some(PoolSwapFromToData {
         address: to_address,
-        amount: Decimal::new(to_amount, 8).to_string(),
+        amount: Decimal::new(to_amount.to_owned(), 8).to_string(),
         symbol: to_token.symbol,
         display_symbol,
     }))
@@ -656,7 +656,7 @@ pub async fn find_swap_to(
 
 async fn get_pool_swap_type(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<SwapType>> {
     let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?
     else {
@@ -674,7 +674,7 @@ async fn get_pool_swap_type(
 
 pub async fn check_swap_type(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<SwapType>> {
     let Some(dftx) = find_composite_swap_dftx(ctx, swap.txid)? else {
         return get_pool_swap_type(ctx, swap).await;

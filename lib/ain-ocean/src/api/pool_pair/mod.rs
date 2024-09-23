@@ -290,8 +290,8 @@ async fn map_pool_pair_response(
     let res = PoolPairResponse::from_with_id(
         id,
         p,
-        a_token.name.clone(),
-        b_token.name.clone(),
+        a_token.name.to_owned(),
+        b_token.name.to_owned(),
         total_liquidity_usd,
         apr,
         volume,
@@ -426,10 +426,10 @@ async fn list_pool_swaps_verbose(
         })
         .map(|item| async {
             let (_, swap) = item?;
-            let from = find_swap_from(&ctx, swap.clone()).await?;
-            let to = find_swap_to(&ctx, swap.clone()).await?;
+            let from = find_swap_from(&ctx, &swap).await?;
+            let to = find_swap_to(&ctx, &swap).await?;
 
-            let swap_type = check_swap_type(&ctx, swap.clone()).await?;
+            let swap_type = check_swap_type(&ctx, &swap).await?;
 
             let res = PoolSwapVerboseResponse::map(swap, from, to, swap_type);
             Ok::<PoolSwapVerboseResponse, Error>(res)

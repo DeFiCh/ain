@@ -123,8 +123,8 @@ pub fn format_number(v: Decimal) -> String {
     }
 }
 
-pub fn from_script(script: ScriptBuf, network: Network) -> Result<String> {
-    Ok(Address::from_script(&script, network.into())?.to_string())
+pub fn from_script(script: &ScriptBuf, network: Network) -> Result<String> {
+    Ok(Address::from_script(script, network.into())?.to_string())
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_from_script() {
     //   hex: '05768f2d17f0016b5720bb49859cbb065041716f'
     // }
     let script = ScriptBuf::from_hex("001405768f2d17f0016b5720bb49859cbb065041716f").unwrap();
-    let addr = from_script(script, Network::Mainnet).unwrap();
+    let addr = from_script(&script, Network::Mainnet).unwrap();
     assert_eq!(
         addr,
         "df1qq4mg7tgh7qqkk4eqhdyct89mqegyzut0jjz8rg".to_string()
