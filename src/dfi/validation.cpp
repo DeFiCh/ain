@@ -4600,8 +4600,10 @@ static CrossBoundaryResult OceanIndex(const UniValue b, const uint32_t height) {
     CrossBoundaryResult result;
     ocean_index_block(result, b.write());
     if (!result.ok) {
+        LogPrintf("Error indexing block %d : %s\n", height, result.reason);
         ocean_invalidate_block(result, b.write());
         if (!result.ok) {
+            LogPrintf("Error invalidating block %d: %s\n", height, result.reason);
             return result;
         }
         OceanIndex(b, height);
