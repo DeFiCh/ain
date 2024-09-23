@@ -13,6 +13,8 @@ mod ffi {
     use cxx::{memory::UniquePtrTarget, UniquePtr};
     use std::mem::MaybeUninit;
 
+    const UNIMPL_MSG: &str = "This cannot be used on a test path";
+
     pub struct Attributes {
         pub block_gas_target_factor: u64,
         pub block_gas_limit: u64,
@@ -50,22 +52,22 @@ mod ffi {
 
     unsafe impl UniquePtrTarget for DSTToken {
         fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
         fn __null() -> MaybeUninit<*mut c_void> {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
         unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
         unsafe fn __get(_repr: MaybeUninit<*mut c_void>) -> *const Self {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
         unsafe fn __release(_repr: MaybeUninit<*mut c_void>) -> *mut Self {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
         unsafe fn __drop(_repr: MaybeUninit<*mut c_void>) {
-            todo!()
+            unimplemented!("{}", UNIMPL_MSG)
         }
     }
 
@@ -102,7 +104,6 @@ mod ffi {
         pub amount: u64,
     }
 
-    const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
