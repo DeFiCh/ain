@@ -402,7 +402,7 @@ fn map_price_aggregated(
 
     let mut aggregated_total = Decimal::zero();
     let mut aggregated_count = 0;
-    let mut aggregated_weightage = 0;
+    let mut aggregated_weightage = 0u8;
 
     let oracles_len = oracles.len();
     for oracle in oracles {
@@ -424,7 +424,12 @@ fn map_price_aggregated(
         let time_diff = Decimal::from(feed.time) - Decimal::from(context.block.time);
         if Decimal::abs(&time_diff) < dec!(3600) {
             aggregated_count += 1;
-            aggregated_weightage += oracle.weightage;
+            aggregated_weightage =
+                aggregated_weightage
+                    .checked_add(oracle.weightage)
+                    .context(OtherSnafu {
+                        msg: "Error adding oracle weightage",
+                    })?;
             log::trace!(
                 "SetOracleData weightage: {:?} * oracle_price.amount: {:?}",
                 aggregated_weightage,
