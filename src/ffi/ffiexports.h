@@ -72,6 +72,7 @@ struct DSTToken {
     bool finalize;
     bool isLoanToken;
     CAmount minted;
+    CAmount limit;
     rust::string creationTx;
     int32_t creationHeight;
     rust::string destructionTx;

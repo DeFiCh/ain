@@ -40,6 +40,7 @@ mod ffi {
         pub finalize: bool,
         pub is_loan_token: bool,
         pub minted: i64,
+        pub limit: i64,
         pub creation_tx: String,
         pub creation_height: i32,
         pub destruction_tx: String,
@@ -223,6 +224,7 @@ mod ffi {
 
 pub use ffi::Attributes;
 pub use ffi::PoolPairCreationHeight;
+pub use ffi::DSTToken;
 pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;
