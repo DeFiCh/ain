@@ -95,18 +95,10 @@ struct CGovernanceHeightMessage {
     }
 };
 
-struct CGovernanceUnsetMessage {
-    std::map<std::string, std::vector<std::string>> govs;
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(govs);
-    }
-};
-
 class CGovView : public virtual CStorageView {
 public:
+    using UnsetGovVars = std::map<std::string, std::vector<std::string>>;
+
     Res SetVariable(const GovVariable &var);
     std::shared_ptr<GovVariable> GetVariable(const std::string &govKey) const;
 
@@ -116,6 +108,11 @@ public:
                                                                                            const uint32_t endHeight);
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
+
+    Res SetUnsetStoredVariables(const UnsetGovVars &govVars, const uint32_t height);
+    UnsetGovVars GetUnsetStoredVariables(const uint32_t height);
+    std::multimap<std::string, std::map<uint64_t, std::vector<std::string>>> GetAllUnsetStoredVariables();
+    void EraseUnsetStoredVariables(const uint32_t height);
 
     std::shared_ptr<ATTRIBUTES> GetAttributes() const;
 
@@ -127,6 +124,38 @@ public:
     struct ByName {
         static constexpr uint8_t prefix() { return 'g'; }
     };
+
+    struct ByUnsetHeightVars {
+        static constexpr uint8_t prefix() { return 0x7E; }
+    };
+};
+
+struct CGovernanceUnsetMessage {
+    CGovView::UnsetGovVars govs;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(govs);
+    }
+};
+
+struct CGovernanceUnsetHeightMessage {
+    CGovView::UnsetGovVars govs;
+    uint32_t unsetHeight;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(govs);
+        READWRITE(unsetHeight);
+    }
+};
+
+struct CGovernanceClearHeightMessage {
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {}
 };
 
 struct GovVarKey {

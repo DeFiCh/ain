@@ -9,8 +9,7 @@
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // Check foundation auth
-    auto authCheck = AuthManager(blockCtx, txCtx);
-    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+    if (auto res = HasFoundationAuth(); !res) {
         return res;
     }
 
@@ -48,10 +47,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 const auto newExport = newVar->Export();
                 if (newExport.empty()) {
                     return Res::Err("Cannot export empty attribute map");
-                }
-
-                if (res = authCheck.CanSetGov(*newVar); !res) {
-                    return res;
                 }
             }
 
@@ -106,7 +101,39 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     return Res::Ok();
 }
 
-Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
+Res CGovernanceConsensus::operator()(const CGovernanceClearHeightMessage &obj) const {
+    // Check auth
+    auto authCheck = AuthManager(blockCtx, txCtx);
+    if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+        return res;
+    }
+
+    auto &mnview = blockCtx.GetView();
+
+    auto heightToClear = [](const auto &collection) {
+        std::set<uint64_t> heights;
+        for (const auto &[_, values] : collection) {
+            for (const auto &[height, _] : values) {
+                heights.insert(height);
+            }
+        }
+        return heights;
+    };
+
+    const auto setVars = mnview.GetAllStoredVariables();
+    for (const auto &height : heightToClear(setVars)) {
+        mnview.EraseStoredVariables(height);
+    }
+
+    const auto unsetVars = mnview.GetAllUnsetStoredVariables();
+    for (const auto &height : heightToClear(unsetVars)) {
+        mnview.EraseUnsetStoredVariables(height);
+    }
+
+    return Res::Ok();
+}
+
+Res CGovernanceConsensus::operator()(const CGovernanceUnsetHeightMessage &obj) const {
     // Check foundation auth
     auto authCheck = AuthManager(blockCtx, txCtx);
     if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
@@ -122,6 +149,17 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
         return Res::Err("Unset Gov variables not currently enabled in attributes.");
     }
 
+    if (obj.unsetHeight <= height) {
+        return Res::Err("unsetHeight must be above the current block height");
+    }
+
+    CDataStructureV0 minBlockKey{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::GovHeightMinBlocks};
+    const auto minBlocks = attributes->GetValue(minBlockKey, uint64_t{});
+
+    if (obj.unsetHeight <= height + minBlocks) {
+        return Res::Err("Height must be %d blocks above the current height", minBlocks);
+    }
+
     for (const auto &[name, keys] : obj.govs) {
         if (name == "ATTRIBUTES") {
             if (auto res = authCheck.CanSetGov(keys); !res) {
@@ -129,6 +167,37 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
             }
         }
 
+        auto var = mnview.GetVariable(name);
+        if (!var) {
+            return Res::Err("'%s': variable does not registered", name);
+        }
+
+        auto res = var->Erase(mnview, height, keys);
+        if (!res) {
+            return Res::Err("%s: %s", name, res.msg);
+        }
+    }
+
+    // Store pending Gov var changes
+    return StoreUnsetGovVars(obj, mnview);
+}
+
+Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
+    // Check foundation auth
+    if (!HasFoundationAuth()) {
+        return Res::Err("tx not from foundation member");
+    }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+    const auto attributes = mnview.GetAttributes();
+
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
+    if (!attributes->GetValue(key, false)) {
+        return Res::Err("Unset Gov variables not currently enabled in attributes.");
+    }
+
+    for (const auto &[name, keys] : obj.govs) {
         auto var = mnview.GetVariable(name);
         if (!var) {
             return Res::Err("'%s': variable does not registered", name);
@@ -156,9 +225,17 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
+    const auto attributes = mnview.GetAttributes();
 
     if (obj.startHeight <= height) {
         return Res::Err("startHeight must be above the current block height");
+    }
+
+    CDataStructureV0 minBlockKey{AttributeTypes::Param, ParamIDs::GovernanceParam, DFIPKeys::GovHeightMinBlocks};
+    const auto minBlocks = attributes->GetValue(minBlockKey, uint64_t{});
+
+    if (obj.startHeight <= height + minBlocks) {
+        return Res::Err("Height must be %d blocks above the current height", minBlocks);
     }
 
     if (obj.govVar->GetName() == "ORACLE_BLOCK_INTERVAL") {
@@ -194,7 +271,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
         auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
 
         Res res{};
-        CCustomCSView govCache(mnview);
         for (const auto &[varHeight, var] : storedGovVars) {
             if (var->GetName() == "ATTRIBUTES") {
                 if (res = govVar->Import(var->Export()); !res) {
@@ -222,6 +298,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             }
         }
 
+        CCustomCSView govCache(mnview);
         if (!(res = govVar->Import(obj.govVar->Export())) || !(res = govVar->Validate(govCache)) ||
             !(res = govVar->Apply(govCache, obj.startHeight))) {
             return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);

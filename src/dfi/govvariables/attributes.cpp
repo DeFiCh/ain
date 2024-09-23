@@ -289,6 +289,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
              {"governance", DFIPKeys::CommunityGovernance},
              {"ascending_block_time", DFIPKeys::AscendingBlockTime},
+             {"govheight_min_blocks", DFIPKeys::GovHeightMinBlocks},
          }},
         {AttributeTypes::EVMType,
          {
@@ -396,6 +397,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
              {DFIPKeys::CommunityGovernance, "governance"},
              {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
+             {DFIPKeys::GovHeightMinBlocks, "govheight_min_blocks"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -829,6 +831,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
                  {DFIPKeys::CommunityGovernance, VerifyBool},
                  {DFIPKeys::AscendingBlockTime, VerifyBool},
+                 {DFIPKeys::GovHeightMinBlocks, VerifyMoreThenZeroUInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -973,6 +976,14 @@ Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
+Res StoreUnsetGovVars(const CGovernanceUnsetHeightMessage &obj, CCustomCSView &view) {
+    auto storedGovVars = view.GetUnsetStoredVariables(obj.unsetHeight);
+    for (const auto &[name, keys] : obj.govs) {
+        storedGovVars.emplace(name, keys);
+    }
+    return view.SetUnsetStoredVariables(storedGovVars, obj.unsetHeight);
+}
+
 static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const uint32_t typeKey) {
     if (type == AttributeTypes::Param) {
         if (typeId == ParamIDs::DFIP2201) {
@@ -1004,7 +1015,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
                 return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
             }
         } else if (typeId == ParamIDs::Foundation || typeId == ParamIDs::GovernanceParam) {
-            if (typeKey != DFIPKeys::Members) {
+            if (typeKey != DFIPKeys::Members && typeKey != DFIPKeys::GovHeightMinBlocks) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
         } else if (typeId != ParamIDs::dTokenRestart) {
