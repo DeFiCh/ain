@@ -390,6 +390,15 @@ std::unique_ptr<DSTToken> getDSTToken(rust::string tokenId) {
     dstToken.destructionTx = token->destructionTx.ToString();
     dstToken.destructionHeight = token->destructionHeight;
 
+    if (!token->IsPoolShare()) {
+        auto collateralAuth = token->creationTx;
+        if (const auto txid = view->GetNewTokenCollateralTXID(dctId.v); txid != uint256{}) {
+            collateralAuth = txid;
+        }
+        const Coin &authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(collateralAuth, 1));
+        dstToken.collateralAddress = ScriptToString(authCoin.out.scriptPubKey);
+    }
+
     return std::make_unique<DSTToken>(dstToken);
 }
 

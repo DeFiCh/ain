@@ -35,6 +35,7 @@ pub mod ffi {
         pub creation_height: i32,
         pub destruction_tx: String,
         pub destruction_height: i32,
+        pub collateral_address: String
     }
 
     #[derive(Debug, Clone)]

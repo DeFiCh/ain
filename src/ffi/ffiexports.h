@@ -77,6 +77,7 @@ struct DSTToken {
     int32_t creationHeight;
     rust::string destructionTx;
     int32_t destructionHeight;
+    rust::string collateralAddress;
 };
 
 struct DST20Token {
