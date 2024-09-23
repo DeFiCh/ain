@@ -72,7 +72,7 @@ public:
         UNKNOWN  // unreachable
     };
 
-    enum TimeLock { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
+    enum TimeLock : uint16_t { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
 
     enum Version : int32_t {
         PRE_FORT_CANNING = -1,
@@ -143,9 +143,7 @@ public:
     friend bool operator!=(const CMasternode &a, const CMasternode &b);
 };
 
-inline uint8_t GetTimelockLoops(uint16_t timelock) {
-    return timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
-}
+uint8_t GetTimelockLoops(const uint16_t timelock, const int blockHeight, const CCustomCSView &view);
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -313,6 +311,8 @@ public:
                                                             std::numeric_limits<uint32_t>::max()});
 
     std::optional<uint16_t> GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
+    std::optional<uint16_t> ReadTimelock(const uint256 &nodeId) const;
+    void EraseTimelock(const uint256 &nodeId);
 
     // tags
     struct ID {

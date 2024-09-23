@@ -42,6 +42,13 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
     }
 
     if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
+        const auto attributes = mnview.GetAttributes();
+        CDataStructureV0 unfreezeKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::UnfreezeMasternodes};
+        const auto unfreezeHeight = attributes->GetValue(unfreezeKey, std::numeric_limits<uint64_t>::max());
+        if (static_cast<uint64_t>(unfreezeHeight) < height && obj.timelock != 0) {
+            return Res::Err("Masternode timelock disabled");
+        }
+
         switch (obj.timelock) {
             case CMasternode::ZEROYEAR:
             case CMasternode::FIVEYEAR:
