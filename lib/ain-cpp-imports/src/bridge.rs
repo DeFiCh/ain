@@ -17,6 +17,28 @@ pub mod ffi {
     }
 
     #[derive(Debug, Clone)]
+    pub struct DSTToken {
+        pub id: u32,
+        pub name: String,
+        pub symbol: String,
+        pub symbol_key: String,
+        pub decimal: u8,
+        pub is_dat: bool,
+        pub is_lps: bool,
+        pub tradable: bool,
+        pub mintable: bool,
+        pub finalize: bool,
+        pub is_loan_token: bool,
+        pub minted: i64,
+        pub limit: i64,
+        pub creation_tx: String,
+        pub creation_height: i32,
+        pub destruction_tx: String,
+        pub destruction_height: i32,
+        pub collateral_address: String,
+    }
+
+    #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
         pub name: String,
@@ -58,6 +80,7 @@ pub mod ffi {
         include!("ffi/ffiexports.h");
         type Attributes;
         type PoolPairCreationHeight;
+        type DSTToken;
         type DST20Token;
         type TransactionData;
         type SystemTxType;
@@ -89,6 +112,7 @@ pub mod ffi {
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getPoolPairs() -> Vec<PoolPairCreationHeight>;
+        fn getDSTToken(id: String) -> UniquePtr<DSTToken>;
         #[allow(clippy::ptr_arg)]
         fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;

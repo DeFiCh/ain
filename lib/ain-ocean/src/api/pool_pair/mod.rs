@@ -5,10 +5,7 @@ use std::{
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use defichain_rpc::{
-    json::{poolpair::PoolPairInfo, token::TokenInfo},
-    RpcApi,
-};
+use defichain_rpc::{json::poolpair::PoolPairInfo, RpcApi};
 use futures::future::try_join_all;
 use path::{
     get_all_swap_paths, get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse,
@@ -24,10 +21,9 @@ use service::{
     check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
     get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
-use snafu::OptionExt;
 
 use super::{
-    cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
+    cache::{get_pool_pair_cached, list_pool_pairs_cached},
     common::{parse_dat_symbol, parse_pool_pair_symbol, parse_query_height_txno},
     path::Path,
     query::{PaginationQuery, Query},
@@ -35,7 +31,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
+    error::{ApiError, Error, NotFoundKind},
     model::{BlockContext, PoolSwap, PoolSwapAggregated, PoolSwapAggregatedId},
     storage::{InitialKeyProvider, RepositoryOps, SortOrder},
     PoolSwap as PoolSwapRepository, Result, TokenIdentifier,
@@ -275,30 +271,18 @@ async fn map_pool_pair_response(
     id: String,
     p: PoolPairInfo,
 ) -> Result<PoolPairResponse> {
-    let (
-        _,
-        TokenInfo {
-            name: a_token_name, ..
-        },
-    ) = get_token_cached(ctx, &p.id_token_a)
-        .await?
-        .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_a.clone(),
-            },
-        })?;
-    let (
-        _,
-        TokenInfo {
-            name: b_token_name, ..
-        },
-    ) = get_token_cached(ctx, &p.id_token_b)
-        .await?
-        .context(NotFoundSnafu {
-            kind: NotFoundKind::Token {
-                id: p.id_token_b.clone(),
-            },
-        })?;
+    let a_token = ain_cpp_imports::get_dst_token(p.id_token_a.clone());
+    if a_token.is_null() {
+        return Err(Error::NotFound {
+            kind: NotFoundKind::Token { id: p.id_token_a },
+        });
+    }
+    let b_token = ain_cpp_imports::get_dst_token(p.id_token_b.clone());
+    if b_token.is_null() {
+        return Err(Error::NotFound {
+            kind: NotFoundKind::Token { id: p.id_token_b },
+        });
+    }
 
     let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
     let apr = get_apr(ctx, &id, &p).await?;
@@ -306,8 +290,8 @@ async fn map_pool_pair_response(
     let res = PoolPairResponse::from_with_id(
         id,
         p,
-        a_token_name,
-        b_token_name,
+        a_token.name.to_owned(),
+        b_token.name.to_owned(),
         total_liquidity_usd,
         apr,
         volume,
@@ -442,10 +426,10 @@ async fn list_pool_swaps_verbose(
         })
         .map(|item| async {
             let (_, swap) = item?;
-            let from = find_swap_from(&ctx, swap.clone()).await?;
-            let to = find_swap_to(&ctx, swap.clone()).await?;
+            let from = find_swap_from(&ctx, &swap).await?;
+            let to = find_swap_to(&ctx, &swap).await?;
 
-            let swap_type = check_swap_type(&ctx, swap.clone()).await?;
+            let swap_type = check_swap_type(&ctx, &swap).await?;
 
             let res = PoolSwapVerboseResponse::map(swap, from, to, swap_type);
             Ok::<PoolSwapVerboseResponse, Error>(res)

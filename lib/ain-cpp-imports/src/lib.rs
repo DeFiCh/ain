@@ -9,6 +9,12 @@ use bridge::ffi;
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod ffi {
+    use core::ffi::c_void;
+    use cxx::{memory::UniquePtrTarget, UniquePtr};
+    use std::mem::MaybeUninit;
+
+    const UNIMPL_MSG: &str = "This cannot be used on a test path";
+
     pub struct Attributes {
         pub block_gas_target_factor: u64,
         pub block_gas_limit: u64,
@@ -21,6 +27,48 @@ mod ffi {
         pub id_token_a: u32,
         pub id_token_b: u32,
         pub creation_height: u32,
+    }
+
+    pub struct DSTToken {
+        pub id: u32,
+        pub name: String,
+        pub symbol: String,
+        pub symbol_key: String,
+        pub decimal: u8,
+        pub is_dat: bool,
+        pub is_lps: bool,
+        pub tradable: bool,
+        pub mintable: bool,
+        pub finalize: bool,
+        pub is_loan_token: bool,
+        pub minted: i64,
+        pub limit: i64,
+        pub creation_tx: String,
+        pub creation_height: i32,
+        pub destruction_tx: String,
+        pub destruction_height: i32,
+        pub collateral_address: String,
+    }
+
+    unsafe impl UniquePtrTarget for DSTToken {
+        fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
+        fn __null() -> MaybeUninit<*mut c_void> {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
+        unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
+        unsafe fn __get(_repr: MaybeUninit<*mut c_void>) -> *const Self {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
+        unsafe fn __release(_repr: MaybeUninit<*mut c_void>) -> *mut Self {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
+        unsafe fn __drop(_repr: MaybeUninit<*mut c_void>) {
+            unimplemented!("{}", UNIMPL_MSG)
+        }
     }
 
     pub struct DST20Token {
@@ -56,7 +104,6 @@ mod ffi {
         pub amount: u64,
     }
 
-    const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -136,6 +183,10 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
+    pub fn getDSTToken(_id: String) -> UniquePtr<DSTToken> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+
     #[allow(clippy::ptr_arg)]
     pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
@@ -189,6 +240,7 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
+pub use ffi::DSTToken;
 pub use ffi::PoolPairCreationHeight;
 pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
@@ -354,8 +406,14 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
+/// List pool pairs
 pub fn get_pool_pairs() -> Vec<ffi::PoolPairCreationHeight> {
     ffi::getPoolPairs()
+}
+
+/// Get token
+pub fn get_dst_token(id: String) -> cxx::UniquePtr<ffi::DSTToken> {
+    ffi::getDSTToken(id)
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration

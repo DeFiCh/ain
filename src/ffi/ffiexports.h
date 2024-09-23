@@ -59,6 +59,27 @@ struct PoolPairCreationHeight {
     uint32_t creationHeight;
 };
 
+struct DSTToken {
+    uint32_t id;
+    rust::string name;
+    rust::string symbol;
+    rust::string symbolKey;
+    uint8_t decimal;
+    bool isDAT;
+    bool isLPS;
+    bool tradable;
+    bool mintable;
+    bool finalize;
+    bool isLoanToken;
+    CAmount minted;
+    CAmount limit;
+    rust::string creationTx;
+    int32_t creationHeight;
+    rust::string destructionTx;
+    int32_t destructionHeight;
+    rust::string collateralAddress;
+};
+
 struct DST20Token {
     uint64_t id;
     rust::string name;
@@ -128,6 +149,7 @@ std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);
 void CppLogPrintf(rust::string message);
 rust::vec<PoolPairCreationHeight> getPoolPairs();
+std::unique_ptr<DSTToken> getDSTToken(rust::string id);
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens);
 rust::string getClientVersion();
 int32_t getNumCores();

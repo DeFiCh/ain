@@ -16,11 +16,11 @@ use crate::{
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{
-        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, NotFoundKind,
-        NotFoundSnafu, OtherSnafu,
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, Error,
+        NotFoundKind, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
-    model::PoolSwapAggregatedAggregated,
+    model::{PoolSwap, PoolSwapAggregatedAggregated},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
@@ -109,9 +109,11 @@ async fn get_total_liquidity_usd_by_best_path(
     ctx: &Arc<AppContext>,
     p: &PoolPairInfo,
 ) -> Result<Decimal> {
-    let Some((usdt_id, _)) = get_token_cached(ctx, "USDT").await? else {
+    let token = ain_cpp_imports::get_dst_token("USDT".to_string());
+    if token.is_null() {
         return Ok(dec!(0));
-    };
+    }
+    let usdt_id = token.id.to_string();
 
     let mut a_token_rate = dec!(1);
     let mut b_token_rate = dec!(1);
@@ -474,13 +476,14 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
 }
 
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &u64) -> Result<Decimal> {
-    let (_, info) = get_token_cached(ctx, &token_id.to_string())
-        .await?
-        .context(NotFoundSnafu {
+    let info = ain_cpp_imports::get_dst_token(token_id.to_string());
+    if info.is_null() {
+        return Err(Error::NotFound {
             kind: NotFoundKind::Token {
                 id: token_id.to_string(),
             },
-        })?;
+        });
+    }
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {
         return Ok(dec!(1));
@@ -603,9 +606,9 @@ fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<
 
 pub async fn find_swap_from(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
-    let crate::model::PoolSwap {
+    let PoolSwap {
         from,
         from_amount,
         from_token_id,
@@ -619,7 +622,7 @@ pub async fn find_swap_from(
 
     Ok(Some(PoolSwapFromToData {
         address: from_address,
-        amount: Decimal::new(from_amount, 8).to_string(),
+        amount: Decimal::new(from_amount.to_owned(), 8).to_string(),
         display_symbol: parse_display_symbol(&from_token),
         symbol: from_token.symbol,
     }))
@@ -627,9 +630,9 @@ pub async fn find_swap_from(
 
 pub async fn find_swap_to(
     ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
+    swap: &PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
-    let crate::model::PoolSwap {
+    let PoolSwap {
         to,
         to_token_id,
         to_amount,
@@ -645,16 +648,13 @@ pub async fn find_swap_to(
 
     Ok(Some(PoolSwapFromToData {
         address: to_address,
-        amount: Decimal::new(to_amount, 8).to_string(),
+        amount: Decimal::new(to_amount.to_owned(), 8).to_string(),
         symbol: to_token.symbol,
         display_symbol,
     }))
 }
 
-async fn get_pool_swap_type(
-    ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
-) -> Result<Option<SwapType>> {
+async fn get_pool_swap_type(ctx: &Arc<AppContext>, swap: &PoolSwap) -> Result<Option<SwapType>> {
     let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?
     else {
         return Ok(None);
@@ -669,10 +669,7 @@ async fn get_pool_swap_type(
     Ok(Some(swap_type))
 }
 
-pub async fn check_swap_type(
-    ctx: &Arc<AppContext>,
-    swap: crate::model::PoolSwap,
-) -> Result<Option<SwapType>> {
+pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: &PoolSwap) -> Result<Option<SwapType>> {
     let Some(dftx) = find_composite_swap_dftx(ctx, swap.txid)? else {
         return get_pool_swap_type(ctx, swap).await;
     };
