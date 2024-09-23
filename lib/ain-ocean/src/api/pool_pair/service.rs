@@ -20,7 +20,7 @@ use crate::{
         NotFoundKind, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
-    model::{PoolSwapAggregatedAggregated, PoolSwap},
+    model::{PoolSwap, PoolSwapAggregatedAggregated},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
@@ -654,10 +654,7 @@ pub async fn find_swap_to(
     }))
 }
 
-async fn get_pool_swap_type(
-    ctx: &Arc<AppContext>,
-    swap: &PoolSwap,
-) -> Result<Option<SwapType>> {
+async fn get_pool_swap_type(ctx: &Arc<AppContext>, swap: &PoolSwap) -> Result<Option<SwapType>> {
     let Some((_, pool_pair_info)) = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?
     else {
         return Ok(None);
@@ -672,10 +669,7 @@ async fn get_pool_swap_type(
     Ok(Some(swap_type))
 }
 
-pub async fn check_swap_type(
-    ctx: &Arc<AppContext>,
-    swap: &PoolSwap,
-) -> Result<Option<SwapType>> {
+pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: &PoolSwap) -> Result<Option<SwapType>> {
     let Some(dftx) = find_composite_swap_dftx(ctx, swap.txid)? else {
         return get_pool_swap_type(ctx, swap).await;
     };
