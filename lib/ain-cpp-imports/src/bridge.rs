@@ -133,6 +133,4 @@ pub mod ffi {
         ) -> bool;
         fn isSkippedTx(tx_hash: [u8; 32]) -> bool;
     }
-
-    // impl UniquePtr<DSTToken> {}
 }
