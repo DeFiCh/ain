@@ -707,10 +707,6 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         median_time: block.mediantime,
     };
 
-    // invalidate_block
-    services.block.by_height.delete(&block.height)?;
-    services.block.by_id.delete(&block.hash)?;
-
     invalidate_block_end(services, &block_ctx)?;
 
     // invalidate_dftx
@@ -724,6 +720,10 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             tx,
             tx_idx,
         };
+
+        invalidate_script(services, &ctx, &block.tx)?;
+
+        invalidate_transaction(services, &ctx)?;
 
         let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
@@ -760,12 +760,13 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                 log_elapsed(start, "Invalidate dftx");
             }
         }
-
-        invalidate_transaction(services, &ctx)?;
-
-        invalidate_script(services, &ctx, &block.tx)?;
     }
 
     invalidate_block_start(services, &block)?;
+
+    // invalidate_block
+    services.block.by_height.delete(&block.height)?;
+    services.block.by_id.delete(&block.hash)?;
+
     Ok(())
 }
