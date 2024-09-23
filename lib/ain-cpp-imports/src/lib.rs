@@ -49,12 +49,24 @@ mod ffi {
     }
 
     unsafe impl UniquePtrTarget for DSTToken {
-        fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result { todo!()}
-        fn __null() -> MaybeUninit<*mut c_void> { todo!()}
-        unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> { todo!()}
-        unsafe fn __get(_repr: MaybeUninit<*mut c_void>) -> *const Self { todo!() }
-        unsafe fn __release(_repr: MaybeUninit<*mut c_void>) -> *mut Self { todo!() }
-        unsafe fn __drop(_repr: MaybeUninit<*mut c_void>) { todo!() }
+        fn __typename(_f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            todo!()
+        }
+        fn __null() -> MaybeUninit<*mut c_void> {
+            todo!()
+        }
+        unsafe fn __raw(_raw: *mut Self) -> MaybeUninit<*mut c_void> {
+            todo!()
+        }
+        unsafe fn __get(_repr: MaybeUninit<*mut c_void>) -> *const Self {
+            todo!()
+        }
+        unsafe fn __release(_repr: MaybeUninit<*mut c_void>) -> *mut Self {
+            todo!()
+        }
+        unsafe fn __drop(_repr: MaybeUninit<*mut c_void>) {
+            todo!()
+        }
     }
 
     pub struct DST20Token {
@@ -224,8 +236,8 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
-pub use ffi::PoolPairCreationHeight;
 pub use ffi::DSTToken;
+pub use ffi::PoolPairCreationHeight;
 pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;

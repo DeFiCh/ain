@@ -16,8 +16,8 @@ use crate::{
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{
-        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, NotFoundKind,
-        Error, OtherSnafu,
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, DecimalConversionSnafu, Error,
+        NotFoundKind, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
     model::PoolSwapAggregatedAggregated,
@@ -478,7 +478,11 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &u64) -> Result<Decimal> {
     let info = ain_cpp_imports::get_dst_token(token_id.to_string());
     if info.is_null() {
-        return Err(Error::NotFound { kind: NotFoundKind::Token { id: token_id.to_string() }})
+        return Err(Error::NotFound {
+            kind: NotFoundKind::Token {
+                id: token_id.to_string(),
+            },
+        });
     }
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {

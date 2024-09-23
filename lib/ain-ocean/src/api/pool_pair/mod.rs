@@ -5,10 +5,7 @@ use std::{
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use defichain_rpc::{
-    json::poolpair::PoolPairInfo,
-    RpcApi,
-};
+use defichain_rpc::{json::poolpair::PoolPairInfo, RpcApi};
 use futures::future::try_join_all;
 use path::{
     get_all_swap_paths, get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse,
@@ -276,11 +273,15 @@ async fn map_pool_pair_response(
 ) -> Result<PoolPairResponse> {
     let a_token = ain_cpp_imports::get_dst_token(p.id_token_a.clone());
     if a_token.is_null() {
-        return Err(Error::NotFound { kind: NotFoundKind::Token { id: p.id_token_a } })
+        return Err(Error::NotFound {
+            kind: NotFoundKind::Token { id: p.id_token_a },
+        });
     }
     let b_token = ain_cpp_imports::get_dst_token(p.id_token_b.clone());
     if b_token.is_null() {
-        return Err(Error::NotFound { kind: NotFoundKind::Token { id: p.id_token_b } })
+        return Err(Error::NotFound {
+            kind: NotFoundKind::Token { id: p.id_token_b },
+        });
     }
 
     let total_liquidity_usd = get_total_liquidity_usd(ctx, &p).await?;
