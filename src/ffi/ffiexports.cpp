@@ -557,6 +557,10 @@ uint64_t getDF23Height() {
     return Params().GetConsensus().DF23Height;
 }
 
+uint64_t getDF24Height() {
+    return Params().GetConsensus().DF24Height;
+}
+
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

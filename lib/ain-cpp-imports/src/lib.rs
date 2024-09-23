@@ -173,6 +173,9 @@ mod ffi {
     pub fn getDF23Height() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getDF24Height() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn migrateTokensFromEVM(
         _mnview_ptr: usize,
         _old_amount: TokenAmount,
@@ -408,6 +411,11 @@ pub fn get_evm_system_txs_from_block(block_hash: [u8; 32]) -> Vec<ffi::SystemTxD
 /// Gets the DF23 height
 pub fn get_df23_height() -> u64 {
     ffi::getDF23Height()
+}
+
+/// Gets the DF23 height
+pub fn get_df24_height() -> u64 {
+    ffi::getDF24Height()
 }
 
 /// Send tokens to DVM to split

@@ -388,7 +388,6 @@ class RestartInterestTest(DefiTestFramework):
 
         # Check vault
         result = self.nodes[0].getvault(vault_id)
-        print("After vault", result)
         assert_equal(result["loanAmounts"], [])
         assert_equal(
             result["collateralAmounts"], [f"149.99933408@{self.symbolDFI}"]
