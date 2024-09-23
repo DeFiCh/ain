@@ -43,7 +43,7 @@ impl std::str::FromStr for Network {
         match s {
             "mainnet" | "main" => Ok(Self::Mainnet),
             "mocknet" => Ok(Self::Mocknet),
-            "testnet" => Ok(Self::Testnet),
+            "testnet" | "test" => Ok(Self::Testnet),
             "regtest" => Ok(Self::Regtest),
             "devnet" => Ok(Self::Devnet),
             "changi" => Ok(Self::Changi),
