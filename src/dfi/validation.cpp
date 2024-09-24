@@ -1395,6 +1395,30 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+
+    if (pindex->nHeight < consensus.DF24Height) {
+        return;
+    }
+
+    const auto storedUnsetGovVars = cache.GetUnsetStoredVariables(pindex->nHeight);
+    for (const auto &[name, keys] : storedUnsetGovVars) {
+        CCustomCSView govCache(cache);
+        auto var = govCache.GetVariable(name);
+        if (!var) {
+            continue;
+        }
+
+        auto res = var->Erase(govCache, pindex->nHeight, keys);
+        if (!res) {
+            continue;
+        }
+
+        if (govCache.SetVariable(*var)) {
+            govCache.Flush();
+        }
+    }
+
+    cache.EraseUnsetStoredVariables(pindex->nHeight);
 }
 
 static bool ApplyGovVars(CCustomCSView &cache,

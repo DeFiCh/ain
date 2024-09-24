@@ -71,6 +71,8 @@ CustomTxType CustomTxCodeToType(uint8_t ch) {
         case CustomTxType::Vote:
         case CustomTxType::CreateVoc:
         case CustomTxType::UnsetGovVariable:
+        case CustomTxType::UnsetGovHeightVariable:
+        case CustomTxType::ClearGovHeights:
         case CustomTxType::TransferDomain:
         case CustomTxType::EvmTx:
         case CustomTxType::None:
@@ -203,6 +205,10 @@ std::string ToString(CustomTxType type) {
             return "Vote";
         case CustomTxType::UnsetGovVariable:
             return "UnsetGovVariable";
+        case CustomTxType::UnsetGovHeightVariable:
+            return "UnsetGovHeightVariable";
+        case CustomTxType::ClearGovHeights:
+            return "ClearGovHeights";
         case CustomTxType::TransferDomain:
             return "TransferDomain";
         case CustomTxType::EvmTx:

@@ -129,8 +129,9 @@ enum DFIPKeys : uint8_t {
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
     UnfreezeMasternodes = 'z',
-    CommunityGovernance = 'C',
     AscendingBlockTime = 'A',
+    GovHeightMinBlocks = 'B',
+    CommunityGovernance = 'C',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -407,6 +408,7 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
 bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+Res StoreUnsetGovVars(const CGovernanceUnsetHeightMessage &obj, CCustomCSView &view);
 Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
                             ATTRIBUTES &prevVar,
                             const CDataStructureV0 &memberKey,
