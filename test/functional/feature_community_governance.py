@@ -9,6 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 
 from test_framework.util import assert_equal, assert_raises_rpc_error
 import time
+from decimal import Decimal
 
 
 token_depr_gov_err_msg = "Only token deprecation toggle is allowed by governance"
@@ -64,6 +65,12 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Test updating Governance
         self.govvar_checks()
+
+        # Test unsetgovheight
+        self.unsetgovheight_checks()
+
+        # Test cleargovheights
+        self.cleargovheights_checks()
 
         # Test creating Governance DAT
         self.governanace_dat()
@@ -187,6 +194,13 @@ class CommunityGovernanceTest(DefiTestFramework):
             "Cannot be set before DF24Height",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/feature/governance": "true"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/governance/govheight_min_blocks": "1000"}},
         )
 
         assert_raises_rpc_error(
@@ -382,40 +396,6 @@ class CommunityGovernanceTest(DefiTestFramework):
 
     def govvar_checks(self):
 
-        # Test updating Governanace
-        self.nodes[1].setgov(
-            {
-                "ATTRIBUTES": {
-                    "v0/params/dfip2201/active": "false",
-                }
-            }
-        )
-        self.nodes[1].generate(1)
-
-        # Check other key updated
-        assert_equal(
-            self.nodes[1].getgov("ATTRIBUTES")["ATTRIBUTES"][
-                "v0/params/dfip2203/active"
-            ],
-            "true",
-        )
-
-        # Try to update Foundation member
-        assert_raises_rpc_error(
-            -32600,
-            "Foundation cannot be modified by governance",
-            self.nodes[1].setgov,
-            {"ATTRIBUTES": {"v0/params/foundation/members": [self.governance_member]}},
-        )
-
-        # Try to deactivate foundation
-        assert_raises_rpc_error(
-            -32600,
-            "Foundation cannot be modified by governance",
-            self.nodes[1].setgov,
-            {"ATTRIBUTES": {"v0/params/feature/gov-foundation": "false"}},
-        )
-
         # Try to update Foundation member by height
         activation_height = self.nodes[1].getblockcount() + 5
         assert_raises_rpc_error(
@@ -426,7 +406,7 @@ class CommunityGovernanceTest(DefiTestFramework):
             activation_height,
         )
 
-        # Try to deactivate foundation bu height
+        # Try to deactivate foundation by height
         assert_raises_rpc_error(
             -32600,
             "Foundation cannot be modified by governance",
@@ -439,17 +419,203 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Foundation cannot be modified by governance",
-            self.nodes[1].unsetgov,
+            self.nodes[1].unsetgovheight,
             {"ATTRIBUTES": ["v0/params/foundation/members"]},
+            activation_height,
         )
 
         # Try to unset Foundation activation
         assert_raises_rpc_error(
             -32600,
             "Foundation cannot be modified by governance",
-            self.nodes[1].unsetgov,
+            self.nodes[1].unsetgovheight,
             {"ATTRIBUTES": ["v0/params/feature/gov-foundation"]},
+            activation_height,
         )
+
+    def cleargovheights_checks(self):
+
+        # Get current block
+        current_block = self.nodes[0].getblockcount()
+
+        # Create multiple set and unset heights
+        self.nodes[0].setgovheight({"ORACLE_DEVIATION": "0.5"}, current_block + 100)
+        self.nodes[0].setgovheight(
+            {"ATTRIBUTES": {"v0/params/dfip2206f/active": "true"}}, current_block + 200
+        )
+        self.nodes[0].unsetgovheight(
+            {"ORACLE_DEVIATION": ""},
+            current_block + 101,
+        )
+        self.nodes[0].unsetgovheight(
+            {"ATTRIBUTES": ["v0/params/dfip2206f/active"]},
+            current_block + 201,
+        )
+        self.nodes[0].generate(1)
+
+        # Check pending changes shown
+        result = self.nodes[0].listgovs()
+        assert_equal(len(result[7]), 3)
+        assert_equal(len(result[8]), 3)
+        assert_equal(result[7][1], {f"{current_block + 100}": Decimal("0.50000000")})
+        assert_equal(result[7][2], {f"{current_block + 101}": []})
+        assert_equal(
+            result[8][1],
+            {f"{current_block + 200}": {"v0/params/dfip2206f/active": "true"}},
+        )
+        assert_equal(
+            result[8][2], {f"{current_block + 201}": ["v0/params/dfip2206f/active"]}
+        )
+
+        # Clear all pending changes
+        self.nodes[0].cleargovheights()
+        self.nodes[0].generate(1)
+
+        # Check pending changes cleared
+        result = self.nodes[0].listgovs()
+        assert_equal(len(result[7]), 1)
+        assert_equal(len(result[8]), 1)
+
+    def unsetgovheight_checks(self):
+
+        # Set params to unset
+        self.nodes[0].setgov(
+            {
+                "ORACLE_DEVIATION": "1",
+                "ATTRIBUTES": {
+                    "v0/params/dfip2206f/active": "false",
+                },
+            }
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Check vars set
+        result = self.nodes[0].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("1.00000000"))
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/params/dfip2206f/active"], "false")
+
+        # Save block for rollback
+        rollback_height = self.nodes[0].getblockcount()
+
+        # Try to unset and next height
+        assert_raises_rpc_error(
+            -32600,
+            "unsetHeight must be above the current block height",
+            self.nodes[0].unsetgovheight,
+            {"ORACLE_DEVIATION": ""},
+            rollback_height + 1,
+        )
+
+        # Foundation unset
+        self.nodes[0].unsetgovheight(
+            {"ORACLE_DEVIATION": "", "ATTRIBUTES": ["v0/params/dfip2206f/active"]},
+            rollback_height + 2,
+        )
+        self.nodes[0].generate(2)
+
+        # Check keys no longer set
+        result = self.nodes[0].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
+        assert (
+            "v0/params/dfip2206f/active"
+            not in self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        )
+
+        # Rollback to before unset
+        self.rollback_to(rollback_height)
+
+        # Governance unset
+        self.nodes[1].unsetgovheight(
+            {"ORACLE_DEVIATION": "", "ATTRIBUTES": ["v0/params/dfip2206f/active"]},
+            rollback_height + 2,
+        )
+        self.nodes[1].generate(2)
+
+        # Check keys no longer set
+        result = self.nodes[1].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
+        assert (
+            "v0/params/dfip2206f/active"
+            not in self.nodes[1].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        )
+
+        # Rollback to before unset
+        self.rollback_to(rollback_height)
+
+        # Set minimum height for set and under gov
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/governance/govheight_min_blocks": "10",
+                },
+            }
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        # Get current block
+        current_block = self.nodes[0].getblockcount()
+
+        # Test setting with the min block limit
+        assert_raises_rpc_error(
+            -32600,
+            "Height must be 10 blocks above the current height",
+            self.nodes[0].unsetgovheight,  # Foundation
+            {"ORACLE_DEVIATION": ""},
+            current_block + 10,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Height must be 10 blocks above the current height",
+            self.nodes[1].unsetgovheight,  # Governance
+            {"ORACLE_DEVIATION": ""},
+            current_block + 10,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Height must be 10 blocks above the current height",
+            self.nodes[0].setgovheight,  # Foundation
+            {"ORACLE_DEVIATION": "0.5"},
+            current_block + 10,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Height must be 10 blocks above the current height",
+            self.nodes[1].setgovheight,  # Governance
+            {"ORACLE_DEVIATION": "0.5"},
+            current_block + 10,
+        )
+
+        # Test setting with the min block limit
+        self.nodes[0].setgovheight({"ORACLE_DEVIATION": "0.5"}, current_block + 12)
+        self.nodes[0].generate(12)
+
+        # Check results
+        result = self.nodes[0].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0.50000000"))
+
+        # Get current block
+        current_block = self.nodes[0].getblockcount()
+
+        # Test unsetting with min block limit
+        self.nodes[0].unsetgovheight({"ORACLE_DEVIATION": ""}, current_block + 12)
+        self.nodes[0].generate(1)
+
+        # Check pending changes shown
+        result = self.nodes[0].listgovs()
+        assert_equal(result[7][1], {f"{current_block + 12}": []})
+
+        # Move to unset height
+        self.nodes[0].generate(11)
+
+        # Check results
+        result = self.nodes[0].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
 
     def governanace_dat(self):
 

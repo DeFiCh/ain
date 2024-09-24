@@ -156,6 +156,10 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
             return CCustomTxMessageNone{};
         case CustomTxType::UnsetGovVariable:
             return CGovernanceUnsetMessage{};
+        case CustomTxType::UnsetGovHeightVariable:
+            return CGovernanceUnsetHeightMessage{};
+        case CustomTxType::ClearGovHeights:
+            return CGovernanceClearHeightMessage{};
         case CustomTxType::TransferDomain:
             return CTransferDomainMessage{};
         case CustomTxType::EvmTx:
@@ -282,7 +286,10 @@ public:
             return IsHardforkEnabled(consensus.DF20GrandCentralHeight);
         } else if constexpr (IsOneOf<T, CTransferDomainMessage, CEvmTxMessage>()) {
             return IsHardforkEnabled(consensus.DF22MetachainHeight);
-        } else if constexpr (IsOneOf<T, CReleaseLockMessage>()) {
+        } else if constexpr (IsOneOf<T,
+                                     CReleaseLockMessage,
+                                     CGovernanceUnsetHeightMessage,
+                                     CGovernanceClearHeightMessage>()) {
             return IsHardforkEnabled(consensus.DF24Height);
         } else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>()) {
             return Res::Ok();
