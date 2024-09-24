@@ -128,6 +128,7 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
+    UnfreezeMasternodes = 'z',
     AscendingBlockTime = 'A',
     GovHeightMinBlocks = 'B',
     CommunityGovernance = 'C',
@@ -543,6 +544,7 @@ private:
     bool futureUpdated{};
     bool futureDUSDUpdated{};
     bool dTokenRestartUpdated{};
+    std::optional<uint64_t> unfreezeMasternodeHeight = std::nullopt;
     std::set<uint32_t> tokenSplits{};
     std::set<uint32_t> interestTokens{};
     std::set<CAttributeType> changed;
