@@ -35,6 +35,9 @@ class RestartInterestTest(DefiTestFramework):
         # Set up
         self.setup()
 
+        # Test future swap refund on restart
+        self.future_swap_refund()
+
         # Check restart on liquidated vault
         self.vault_liquidation()
 
@@ -64,11 +67,11 @@ class RestartInterestTest(DefiTestFramework):
         # Get masternode address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
-        # Create tokens for tests
-        self.setup_test_tokens()
-
         # Setup Oracles
         self.setup_test_oracles()
+
+        # Create tokens for tests
+        self.setup_test_tokens()
 
         # Setup pools
         self.setup_test_pools()
@@ -78,14 +81,17 @@ class RestartInterestTest(DefiTestFramework):
 
     def setup_test_tokens(self):
 
-        # Generate chain
-        self.nodes[0].generate(110)
-
-        # Token symbols
-        self.symbolDFI = "DFI"
-        self.symbolDUSD = "DUSD"
-
         # Create loan token
+        self.nodes[0].setloantoken(
+            {
+                "symbol": self.symbolMETA,
+                "name": self.symbolMETA,
+                "fixedIntervalPriceId": f"{self.symbolMETA}/USD",
+                "isDAT": True,
+                "interest": 0,
+            }
+        )
+
         self.nodes[0].setloantoken(
             {
                 "symbol": self.symbolDUSD,
@@ -97,11 +103,21 @@ class RestartInterestTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        # Set collateral tokens
+        self.nodes[0].setcollateraltoken(
+            {"token": self.symbolDFI, "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
+        )
+        self.nodes[0].setcollateraltoken(
+            {"token": self.symbolDUSD, "factor": 1, "fixedIntervalPriceId": "DUSD/USD"}
+        )
+        self.nodes[0].generate(1)
+
         # Store DUSD ID
         self.idDUSD = list(self.nodes[0].gettoken(self.symbolDUSD).keys())[0]
 
         # Mint DUSD
-        self.nodes[0].minttokens("100000@DUSD")
+        self.nodes[0].minttokens(f"100000@{self.symbolDUSD}")
+        self.nodes[0].minttokens(f"100000@{self.symbolMETA}")
         self.nodes[0].generate(1)
 
         # Create DFI tokens
@@ -110,13 +126,21 @@ class RestartInterestTest(DefiTestFramework):
 
     def setup_test_oracles(self):
 
+        # Generate chain
+        self.nodes[0].generate(110)
+
+        # Token symbols
+        self.symbolDFI = "DFI"
+        self.symbolDUSD = "DUSD"
+        self.symbolMETA = "META"
+
         # Create Oracle address
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
 
         # Define price feeds
         price_feed = [
-            {"currency": "USD", "token": "DFI"},
-            {"currency": "USD", "token": "BTC"},
+            {"currency": "USD", "token": self.symbolDFI},
+            {"currency": "USD", "token": self.symbolMETA},
         ]
 
         # Appoint Oracle
@@ -126,21 +150,13 @@ class RestartInterestTest(DefiTestFramework):
         # Set Oracle prices
         oracle_prices = [
             {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolMETA}"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
         # Create loan scheme
         self.nodes[0].createloanscheme(150, 5, "LOAN001")
-        self.nodes[0].generate(1)
-
-        # Set collateral tokens
-        self.nodes[0].setcollateraltoken(
-            {"token": self.symbolDFI, "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
-        )
-        self.nodes[0].setcollateraltoken(
-            {"token": self.symbolDUSD, "factor": 1, "fixedIntervalPriceId": "DUSD/USD"}
-        )
         self.nodes[0].generate(1)
 
     def setup_test_pools(self):
@@ -175,6 +191,44 @@ class RestartInterestTest(DefiTestFramework):
             {"ATTRIBUTES": {f"v0/params/dtoken_restart/{block_height + 2}": "0.9"}}
         )
         self.nodes[0].generate(2)
+
+    def future_swap_refund(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Set all futures attributes
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2203/reward_pct": "0.05",
+                    "v0/params/dfip2203/block_period": "25",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Fully enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/dfip2203/active": "true"}})
+        self.nodes[0].generate(1)
+
+        # Balance before restart
+        result = self.nodes[0].getaccount(self.address)
+        assert_equal(result[1], f"100000.00000000@{self.symbolMETA}")
+        assert_equal(result[2], f"90000.00000000@{self.symbolDUSD}")
+
+        # Create future swaps
+        self.nodes[0].futureswap(self.address, f"1@{self.symbolMETA}")
+        self.nodes[0].futureswap(self.address, f"1@{self.symbolDUSD}", self.symbolMETA)
+        self.nodes[0].generate(1)
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Balance after restart. Amount refunded and 90% locked.
+        result = self.nodes[0].getaccount(self.address)
+        assert_equal(result[1], f"10000.00000000@{self.symbolMETA}")
+        assert_equal(result[2], f"9000.00000000@{self.symbolDUSD}")
 
     def minimal_balances_after_restart(self):
 
