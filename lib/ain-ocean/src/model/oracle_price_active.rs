@@ -1,4 +1,3 @@
-use ain_dftx::Weightage;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +22,7 @@ pub struct OraclePriceActive {
 pub struct OraclePriceActiveNext {
     #[serde(with = "rust_decimal::serde::str")]
     pub amount: Decimal,
-    pub weightage: Weightage,
+    pub weightage: u32,
     pub oracles: OraclePriceActiveNextOracles,
 }
 

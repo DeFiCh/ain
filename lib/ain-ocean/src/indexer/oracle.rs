@@ -402,7 +402,7 @@ fn map_price_aggregated(
 
     let mut aggregated_total = Decimal::zero();
     let mut aggregated_count = 0;
-    let mut aggregated_weightage = 0u8;
+    let mut aggregated_weightage = 0u32;
 
     let oracles_len = oracles.len();
     for oracle in oracles {
@@ -424,12 +424,7 @@ fn map_price_aggregated(
         let time_diff = Decimal::from(feed.time) - Decimal::from(context.block.time);
         if Decimal::abs(&time_diff) < dec!(3600) {
             aggregated_count += 1;
-            aggregated_weightage =
-                aggregated_weightage
-                    .checked_add(oracle.weightage)
-                    .context(OtherSnafu {
-                        msg: "Error adding oracle weightage",
-                    })?;
+            aggregated_weightage += oracle.weightage as u32;
             log::trace!(
                 "SetOracleData weightage: {:?} * oracle_price.amount: {:?}",
                 aggregated_weightage,
@@ -785,8 +780,8 @@ pub fn invalidate_oracle_interval(
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
-                .to_u8()
-                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
+                .to_u32()
+                .context(ToPrimitiveSnafu { msg: "to_u32" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active
@@ -847,8 +842,8 @@ fn forward_aggregate(
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
-                .to_u8()
-                .context(ToPrimitiveSnafu { msg: "to_u8" })?,
+                .to_u32()
+                .context(ToPrimitiveSnafu { msg: "to_u32" })?,
             count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: aggregated_active

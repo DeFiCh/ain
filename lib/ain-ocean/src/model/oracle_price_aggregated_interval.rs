@@ -1,4 +1,4 @@
-use ain_dftx::{Currency, Token, Weightage};
+use ain_dftx::{Currency, Token};
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -32,7 +32,7 @@ pub struct OraclePriceAggregatedInterval {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
-    pub weightage: Weightage,
+    pub weightage: u32,
     pub count: i32,
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
