@@ -128,8 +128,10 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
-    CommunityGovernance = 'C',
+    UnfreezeMasternodes = 'z',
     AscendingBlockTime = 'A',
+    GovHeightMinBlocks = 'B',
+    CommunityGovernance = 'C',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -406,6 +408,7 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
 bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+Res StoreUnsetGovVars(const CGovernanceUnsetHeightMessage &obj, CCustomCSView &view);
 Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
                             ATTRIBUTES &prevVar,
                             const CDataStructureV0 &memberKey,
@@ -541,6 +544,7 @@ private:
     bool futureUpdated{};
     bool futureDUSDUpdated{};
     bool dTokenRestartUpdated{};
+    std::optional<uint64_t> unfreezeMasternodeHeight = std::nullopt;
     std::set<uint32_t> tokenSplits{};
     std::set<uint32_t> interestTokens{};
     std::set<CAttributeType> changed;

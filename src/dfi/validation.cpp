@@ -1397,6 +1397,30 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
         }
     }
     cache.EraseStoredVariables(static_cast<uint32_t>(pindex->nHeight));
+
+    if (pindex->nHeight < consensus.DF24Height) {
+        return;
+    }
+
+    const auto storedUnsetGovVars = cache.GetUnsetStoredVariables(pindex->nHeight);
+    for (const auto &[name, keys] : storedUnsetGovVars) {
+        CCustomCSView govCache(cache);
+        auto var = govCache.GetVariable(name);
+        if (!var) {
+            continue;
+        }
+
+        auto res = var->Erase(govCache, pindex->nHeight, keys);
+        if (!res) {
+            continue;
+        }
+
+        if (govCache.SetVariable(*var)) {
+            govCache.Flush();
+        }
+    }
+
+    cache.EraseUnsetStoredVariables(pindex->nHeight);
 }
 
 static bool ApplyGovVars(CCustomCSView &cache,
@@ -3994,6 +4018,25 @@ static void ProcessTokenLock(const CBlock &block,
     LogPrintf("    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
 }
 
+static void ProcessUnfreezeMasternodes(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight < consensus.DF24Height) {
+        return;
+    }
+    const auto attributes = cache.GetAttributes();
+    CDataStructureV0 unfreezeKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::UnfreezeMasternodes};
+    const auto unfreezeHeight = attributes->GetValue(unfreezeKey, std::numeric_limits<uint64_t>::max());
+    if (pindex->nHeight != unfreezeHeight) {
+        return;
+    }
+    cache.ForEachMasternode([&](const uint256 &id, CMasternode node) {
+        if (const auto timelock = cache.ReadTimelock(id)) {
+            cache.EraseTimelock(id);
+        }
+        return true;
+    });
+}
+
 static void ProcessTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
@@ -4635,6 +4678,9 @@ Res ProcessDeFiEventFallible(const CBlock &block,
             return res;
         }
     }
+
+    // Process unfreeze masternodes
+    ProcessUnfreezeMasternodes(pindex, cache, blockCtx);
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));

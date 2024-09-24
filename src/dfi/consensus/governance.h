@@ -10,6 +10,8 @@
 struct CGovernanceMessage;
 struct CGovernanceHeightMessage;
 struct CGovernanceUnsetMessage;
+struct CGovernanceUnsetHeightMessage;
+struct CGovernanceClearHeightMessage;
 
 class CGovernanceConsensus : public CCustomTxVisitor {
 public:
@@ -17,6 +19,8 @@ public:
     Res operator()(const CGovernanceMessage &obj) const;
     Res operator()(const CGovernanceHeightMessage &obj) const;
     Res operator()(const CGovernanceUnsetMessage &obj) const;
+    Res operator()(const CGovernanceUnsetHeightMessage &obj) const;
+    Res operator()(const CGovernanceClearHeightMessage &obj) const;
 };
 
 #endif  // DEFI_DFI_CONSENSUS_GOVERNANCE_H

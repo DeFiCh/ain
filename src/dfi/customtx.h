@@ -50,6 +50,9 @@ enum class CustomTxType : uint8_t {
     // set governance variable
     SetGovVariable = 'G',
     SetGovVariableHeight = 'j',
+    UnsetGovVariable = 'Z',
+    UnsetGovHeightVariable = '-',
+    ClearGovHeights = '+',
     // Auto auth TX
     AutoAuthPrep = 'A',
     // oracles
@@ -93,7 +96,6 @@ enum class CustomTxType : uint8_t {
     Vote = 'O',       // NOTE: Check whether this overlapping with CreateOrder above is fine
     CreateVoc = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     ProposalFeeRedistribution = 'Y',
-    UnsetGovVariable = 'Z',
     // EVM
     TransferDomain = '8',
     EvmTx = '9',
