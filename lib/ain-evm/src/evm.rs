@@ -2,10 +2,10 @@ use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
-    get_dst20_v2_contract, get_transfer_domain_contract, get_transfer_domain_v1_contract,
-    IMPLEMENTATION_SLOT,
+    get_dst20_v2_contract, get_dst20_v3_contract, get_transfer_domain_contract,
+    get_transfer_domain_v1_contract, IMPLEMENTATION_SLOT,
 };
-use ain_cpp_imports::{get_df23_height, Attributes};
+use ain_cpp_imports::{get_df23_height, get_df24_height, Attributes};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
@@ -19,8 +19,8 @@ use crate::{
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
         dst20::{
-            dst20_v1_deploy_info, dst20_v2_deploy_info, get_dst20_migration_txs,
-            reserve_dst20_namespace,
+            dst20_v1_deploy_info, dst20_v2_deploy_info, dst20_v3_deploy_info,
+            get_dst20_migration_txs, reserve_dst20_namespace,
         },
         h160_to_h256, reserve_intrinsics_namespace, transfer_domain_deploy_info,
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
@@ -331,6 +331,7 @@ impl EVMServices {
         // reserve DST20 namespace;
         let is_evm_genesis_block = template.get_block_number() == U256::zero();
         let is_df23_fork = template.ctx.dvm_block == get_df23_height();
+        let is_df24_fork = template.ctx.dvm_block == get_df24_height();
         let mut logs_bloom = template.get_latest_logs_bloom();
 
         let mut executor = AinExecutor::new(&mut template.backend);
@@ -499,6 +500,34 @@ impl EVMServices {
             let storage = vec![(
                 IMPLEMENTATION_SLOT,
                 h160_to_h256(get_dst20_v2_contract().fixed_address),
+            )];
+
+            executor.update_storage(address, storage)?;
+        }
+
+        if is_df24_fork {
+            // Deploy contract with updated upgradeToken function
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dst20_v3_deploy_info();
+
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v3_contract().contract.init_bytecode, &base_fee)?;
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                logs_bloom,
+            ));
+
+            // Point proxy to DST20_v3
+            let storage = vec![(
+                IMPLEMENTATION_SLOT,
+                h160_to_h256(get_dst20_v3_contract().fixed_address),
             )];
 
             executor.update_storage(address, storage)?;

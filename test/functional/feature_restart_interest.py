@@ -35,6 +35,15 @@ class RestartInterestTest(DefiTestFramework):
         # Set up
         self.setup()
 
+        # Check restart on liquidated vault
+        self.vault_liquidation()
+
+        # Check restart skips on locked token
+        self.skip_restart_on_lock()
+
+        # Check restart skips on pool disabled
+        self.skip_restart_on_pool_disabled()
+
         # Check minimal balances after restart
         self.minimal_balances_after_restart()
 
@@ -111,14 +120,14 @@ class RestartInterestTest(DefiTestFramework):
         ]
 
         # Appoint Oracle
-        oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
+        self.oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
         self.nodes[0].generate(1)
 
         # Set Oracle prices
         oracle_prices = [
             {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
         ]
-        self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
+        self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
         # Create loan scheme
@@ -144,6 +153,7 @@ class RestartInterestTest(DefiTestFramework):
                 "commission": 0,
                 "status": True,
                 "ownerAddress": self.address,
+                "pairSymbol": "DFI-DUSD",
             }
         )
         self.nodes[0].generate(1)
@@ -265,6 +275,124 @@ class RestartInterestTest(DefiTestFramework):
         result = self.nodes[0].getstoredinterest(vault_id, self.symbolDUSD)
         assert_equal(result["interestToHeight"], "0.000000000000000000000000")
         assert_equal(result["interestPerBlock"], "0.000000000000000000000000")
+
+    def skip_restart_on_lock(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Set lock
+        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/locks/token/{self.idDUSD}": "true"}})
+        self.nodes[0].generate(1)
+
+        # Check lock
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes[f"v0/locks/token/{self.idDUSD}"], "true")
+
+        # Calculate restart height
+        restart_height = self.nodes[0].getblockcount() + 2
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check we are at restart height
+        assert_equal(self.nodes[0].getblockcount(), restart_height)
+
+        # Check restart not executed
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert "v0/live/economy/token_lock_ratio" not in attributes
+
+    def skip_restart_on_pool_disabled(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Disable pool
+        self.nodes[0].updatepoolpair({"pool": "DFI-DUSD", "status": False})
+        self.nodes[0].generate(1)
+
+        # Calculate restart height
+        restart_height = self.nodes[0].getblockcount() + 2
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Check we are at restart height
+        assert_equal(self.nodes[0].getblockcount(), restart_height)
+
+        # Check restart not executed
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert "v0/live/economy/token_lock_ratio" not in attributes
+
+    def vault_liquidation(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Create vault
+        vault_address = self.nodes[0].getnewaddress("", "legacy")
+        vault_id = self.nodes[0].createvault(vault_address, "LOAN001")
+        self.nodes[0].generate(1)
+
+        # Deposit DFI to vault
+        self.nodes[0].deposittovault(vault_id, self.address, f"150@{self.symbolDFI}")
+        self.nodes[0].generate(1)
+
+        # Take DUSD loan
+        self.nodes[0].takeloan(
+            {"vaultId": vault_id, "amounts": f"100@{self.symbolDUSD}"}
+        )
+        self.nodes[0].generate(1)
+
+        # Set Oracle prices to trigger liquidation
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": f"0.9@{self.symbolDFI}"},
+        ]
+        self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
+        self.nodes[0].generate(7)
+
+        # Check vault in liquidation
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["state"], "inLiquidation")
+
+        # Place bid on auction
+        self.nodes[0].placeauctionbid(
+            vault_id, 0, self.address, f"110@{self.symbolDUSD}"
+        )
+        self.nodes[0].generate(1)
+
+        # check balance before
+        assert_equal(
+            self.nodes[0].getaccount(self.address)[1],
+            f"89890.00000000@{self.symbolDUSD}",
+        )
+        assert_equal(
+            self.nodes[0].getaccount(vault_address),
+            [f"100.00000000@{self.symbolDUSD}"],
+        )
+
+        # Execute dtoken restart
+        self.execute_restart()
+
+        # Verify that auction bid has been refunded and DUSD locked afterwards
+        assert_equal(
+            self.nodes[0].getaccount(self.address)[1],
+            f"9000.00000000@{self.symbolDUSD}",
+        )
+
+        # DUSD is used to pay back loan
+        assert_equal(self.nodes[0].getaccount(vault_address), [])
+
+        # Check auctions are not cleared
+        assert_equal(self.nodes[0].listauctions(), [])
+
+        # Check vault
+        result = self.nodes[0].getvault(vault_id)
+        assert_equal(result["loanAmounts"], [])
+        assert_equal(
+            result["collateralAmounts"], [f"149.99933408@{self.symbolDFI}"]
+        )  # after paying back with account, interest remains which is paid back with collateral
+        assert_equal(result["interestAmounts"], [])
 
     def interest_paid_by_balance(self):
 

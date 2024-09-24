@@ -352,6 +352,7 @@ BASE_SCRIPTS = [
     "feature_shutdown.py",
     "feature_oracles.py",
     "feature_checkpoint.py",
+    "feature_unfreeze_masternodes.py",
     "rpc_getmininginfo.py",
     "feature_burn_address.py",
     "feature_eunos_balances.py",

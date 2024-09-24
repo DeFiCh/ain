@@ -93,7 +93,7 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
     }
 
     // checking PoS kernel is faster, so check it first
-    auto loops = GetTimelockLoops(timelock);
+    auto loops = GetTimelockLoops(timelock, height, *mnView);
     if (height < static_cast<uint64_t>(params.DF10EunosPayaHeight)) {
         loops = 1;
     }

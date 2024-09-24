@@ -132,21 +132,23 @@ enum DFIPKeys : uint8_t {
     TransferDomain = 'w',
     LiquidityCalcSamplingPeriod = 'x',
     AverageLiquidityPercentage = 'y',
-    CommunityGovernance = 'C',
+    UnfreezeMasternodes = 'z',
     AscendingBlockTime = 'A',
-    EmissionReduction = 'z',
-    TargetSpacing = 'B',
-    TargetTimespan = 'D',
-    Frequency = 'E',
-    TeamChange = 'F',
-    ActivationDelay = 'G',
-    ResignDelay = 'H',
-    OrderDefaultExpiry = 'I',
-    OfferDefaultExpiry = 'J',
-    OfferRefundTimeout = 'K',
-    SubmitMinTimeout = 'L',
-    SubmitMin2ndTimeout = 'M',
-    SubmitBTCBlocksInDFI = 'N',
+    GovHeightMinBlocks = 'B',
+    CommunityGovernance = 'C',
+    EmissionReduction = 'D',
+    TargetSpacing = 'E',
+    TargetTimespan = 'F',
+    Frequency = 'G',
+    TeamChange = 'H',
+    ActivationDelay = 'I',
+    ResignDelay = 'J',
+    OrderDefaultExpiry = 'K',
+    OfferDefaultExpiry = 'L',
+    OfferRefundTimeout = 'M',
+    SubmitMinTimeout = 'N',
+    SubmitMin2ndTimeout = 'O',
+    SubmitBTCBlocksInDFI = 'P',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -427,6 +429,7 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
 bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
+Res StoreUnsetGovVars(const CGovernanceUnsetHeightMessage &obj, CCustomCSView &view);
 Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
                             ATTRIBUTES &prevVar,
                             const CDataStructureV0 &memberKey,
@@ -570,6 +573,7 @@ private:
     bool futureUpdated{};
     bool futureDUSDUpdated{};
     bool dTokenRestartUpdated{};
+    std::optional<uint64_t> unfreezeMasternodeHeight = std::nullopt;
     std::set<uint32_t> tokenSplits{};
     std::set<uint32_t> interestTokens{};
     std::set<CAttributeType> changed;

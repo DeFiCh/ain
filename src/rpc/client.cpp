@@ -320,6 +320,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listburnhistory", 0, "options" },
     { "accounthistorycount", 1, "options" },
 
+    { "releaselockedtokens", 0, "releasePart" },
+
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 
@@ -329,6 +331,12 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "setgovheight", 0, "variables" },
     { "setgovheight", 1, "height" },
     { "setgovheight", 2, "inputs" },
+
+    { "unsetgovheight", 0, "variables" },
+    { "unsetgovheight", 1, "height" },
+    { "unsetgovheight", 2, "inputs" },
+
+    { "cleargovheights", 0, "inputs" },
 
     { "isappliedcustomtx", 1, "blockHeight" },
     { "sendtokenstoaddress", 0, "from" },

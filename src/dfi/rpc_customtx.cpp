@@ -341,6 +341,20 @@ public:
         rpcInfo.pushKV("startHeight", static_cast<uint64_t>(obj.startHeight));
     }
 
+    void operator()(const CGovernanceUnsetHeightMessage &obj) const {
+        for (const auto &gov : obj.govs) {
+            UniValue keys(UniValue::VARR);
+            for (const auto &key : gov.second) {
+                keys.push_back(key);
+            }
+
+            rpcInfo.pushKV(gov.first, keys);
+        }
+        rpcInfo.pushKV("unsetHeight", static_cast<uint64_t>(obj.unsetHeight));
+    }
+
+    void operator()(const CGovernanceClearHeightMessage &obj) const {}
+
     void operator()(const CAppointOracleMessage &obj) const {
         rpcInfo.pushKV("oracleAddress", ScriptToString(obj.oracleAddress));
         rpcInfo.pushKV("weightage", obj.weightage);

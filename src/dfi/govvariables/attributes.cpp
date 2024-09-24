@@ -295,8 +295,10 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"transferdomain", DFIPKeys::TransferDomain},
              {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
+             {"unfreeze_masternodes", DFIPKeys::UnfreezeMasternodes},
              {"governance", DFIPKeys::CommunityGovernance},
              {"ascending_block_time", DFIPKeys::AscendingBlockTime},
+             {"govheight_min_blocks", DFIPKeys::GovHeightMinBlocks},
              {"emission_reduction", DFIPKeys::EmissionReduction},
              {"target_spacing", DFIPKeys::TargetSpacing},
              {"target_timespan", DFIPKeys::TargetTimespan},
@@ -415,8 +417,10 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::TransferDomain, "transferdomain"},
              {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
+             {DFIPKeys::UnfreezeMasternodes, "unfreeze_masternodes"},
              {DFIPKeys::CommunityGovernance, "governance"},
              {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
+             {DFIPKeys::GovHeightMinBlocks, "govheight_min_blocks"},
              {DFIPKeys::EmissionReduction, "emission_reduction"},
              {DFIPKeys::TargetSpacing, "target_spacing"},
              {DFIPKeys::TargetTimespan, "target_timespan"},
@@ -873,8 +877,10 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::TransferDomain, VerifyBool},
                  {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
+                 {DFIPKeys::UnfreezeMasternodes, VerifyMoreThenZeroUInt64},
                  {DFIPKeys::CommunityGovernance, VerifyBool},
                  {DFIPKeys::AscendingBlockTime, VerifyBool},
+                 {DFIPKeys::GovHeightMinBlocks, VerifyMoreThenZeroUInt64},
                  {DFIPKeys::EmissionReduction, VerifyMoreThenZeroUInt32},
                  {DFIPKeys::TargetSpacing, VerifyMoreThenZeroInt64},
                  {DFIPKeys::TargetTimespan, VerifyMoreThenZeroInt64},
@@ -1032,6 +1038,14 @@ Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
+Res StoreUnsetGovVars(const CGovernanceUnsetHeightMessage &obj, CCustomCSView &view) {
+    auto storedGovVars = view.GetUnsetStoredVariables(obj.unsetHeight);
+    for (const auto &[name, keys] : obj.govs) {
+        storedGovVars.emplace(name, keys);
+    }
+    return view.SetUnsetStoredVariables(storedGovVars, obj.unsetHeight);
+}
+
 static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const uint32_t typeKey) {
     if (type == AttributeTypes::Param) {
         if (typeId == ParamIDs::DFIP2201) {
@@ -1059,11 +1073,11 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
                 typeKey != DFIPKeys::CFPPayout && typeKey != DFIPKeys::EmissionUnusedFund &&
                 typeKey != DFIPKeys::MintTokens && typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
                 typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::CommunityGovernance &&
-                typeKey != DFIPKeys::AscendingBlockTime) {
+                typeKey != DFIPKeys::UnfreezeMasternodes && typeKey != DFIPKeys::AscendingBlockTime) {
                 return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
             }
         } else if (typeId == ParamIDs::Foundation || typeId == ParamIDs::GovernanceParam) {
-            if (typeKey != DFIPKeys::Members) {
+            if (typeKey != DFIPKeys::Members && typeKey != DFIPKeys::GovHeightMinBlocks) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
             }
         } else if (typeId == ParamIDs::BlockTime) {
@@ -1594,6 +1608,14 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                     return Res::Ok();
                 } else if (attrV0->type == AttributeTypes::Token && attrV0->key == TokenKeys::LoanMintingInterest) {
                     interestTokens.insert(attrV0->typeId);
+                } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Feature &&
+                           attrV0->key == DFIPKeys::UnfreezeMasternodes) {
+                    CDataStructureV0 unfreezeKey{
+                        AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::UnfreezeMasternodes};
+                    if (CheckKey(unfreezeKey)) {
+                        // Store current unfreeze height for validation later
+                        unfreezeMasternodeHeight = GetValue(unfreezeKey, std::numeric_limits<uint64_t>::max());
+                    }
                 }
 
                 if (attrV0->type == AttributeTypes::Param) {
@@ -2171,6 +2193,20 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     } else if (attrV0->key == DFIPKeys::EVMEnabled || attrV0->key == DFIPKeys::TransferDomain) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                             return Res::Err("Cannot be set before MetachainHeight");
+                        }
+                    } else if (attrV0->key == DFIPKeys::UnfreezeMasternodes) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
+                            return DeFiErrors::GovVarValidateDF24Height();
+                        }
+                        if (unfreezeMasternodeHeight && *unfreezeMasternodeHeight < view.GetLastHeight()) {
+                            return DeFiErrors::GovVarAfterFreezerActivation();
+                        }
+                        const auto height = std::get_if<uint64_t>(&value);
+                        if (!height) {
+                            return DeFiErrors::GovVarUnsupportedValue();
+                        }
+                        if (*height <= view.GetLastHeight()) {
+                            return DeFiErrors::GovVarApplyBelowHeight();
                         }
                     } else if (attrV0->key == DFIPKeys::CommunityGovernance ||
                                attrV0->key == DFIPKeys::AscendingBlockTime) {

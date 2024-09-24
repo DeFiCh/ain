@@ -36,6 +36,7 @@ class EVMTokenSplitTest(DefiTestFramework):
                 "-grandcentralheight=1",
                 "-metachainheight=105",
                 "-df23height=150",
+                "-df24height=150",
             ],
         ]
 
@@ -52,6 +53,9 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         # Split token multiple times via transfer domain
         self.transfer_domain_multiple_split()
+
+        # Split tokens 1:1 via v3 intrinsics contract
+        self.intrinsic_token_split(20, 1, True)
 
         # Split tokens via intrinsics contract
         self.intrinsic_token_split(20, 2)
@@ -167,6 +171,12 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         self.dst20_v2_abi = open(
             get_solc_artifact_path("dst20_v2", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
+
+        self.dst20_v3_abi = open(
+            get_solc_artifact_path("dst20_v3", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
@@ -471,7 +481,7 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(4000.00000000),
         )
 
-    def intrinsic_token_split(self, amount, split_multiplier):
+    def intrinsic_token_split(self, amount, split_multiplier, use_v3=False):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -499,6 +509,7 @@ class EVMTokenSplitTest(DefiTestFramework):
             self.contract_address_metav2,
             amount,
             split_multiplier,
+            use_v3,
         )
 
         # Get values from after transfer out
@@ -537,8 +548,9 @@ class EVMTokenSplitTest(DefiTestFramework):
             + (amount * decimal_multiplier),
         )
 
+        # Check already updated token cannot be updated again
         self.execute_split_transaction_at_highest_level(
-            self.contract_address_metav2, amount
+            self.contract_address_metav2, amount, use_v3
         )
 
     def intrinsic_token_merge(self, amount, split_multiplier):
@@ -703,7 +715,12 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
 
     def execute_split_transaction(
-        self, source_contract, destination_contract, amount=20, split_multiplier=2
+        self,
+        source_contract,
+        destination_contract,
+        amount=20,
+        split_multiplier=2,
+        use_v3=False,
     ):
 
         # Create the amount to approve
@@ -722,9 +739,14 @@ class EVMTokenSplitTest(DefiTestFramework):
             amount_to_receive = 0
 
         # Get old contract
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=source_contract, abi=self.dst20_v2_abi
-        )
+        if use_v3:
+            meta_contract = self.nodes[0].w3.eth.contract(
+                address=source_contract, abi=self.dst20_v3_abi
+            )
+        else:
+            meta_contract = self.nodes[0].w3.eth.contract(
+                address=source_contract, abi=self.dst20_v2_abi
+            )
 
         totalSupplyBefore = meta_contract.functions.totalSupply().call()
         balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
@@ -769,9 +791,14 @@ class EVMTokenSplitTest(DefiTestFramework):
         assert_equal(totalSupplyAfter, totalSupplyBefore - amount_to_send)
 
         # Get new contract
-        meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=destination_contract, abi=self.dst20_v2_abi
-        )
+        if use_v3:
+            meta_contract_new = self.nodes[0].w3.eth.contract(
+                address=destination_contract, abi=self.dst20_v3_abi
+            )
+        else:
+            meta_contract_new = self.nodes[0].w3.eth.contract(
+                address=destination_contract, abi=self.dst20_v2_abi
+            )
 
         # Check transfer from sender to burn address
         events = meta_contract_new.events.Transfer().process_log(
@@ -798,10 +825,17 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         return amount_to_receive
 
-    def execute_split_transaction_at_highest_level(self, source_contract, amount=20):
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=source_contract, abi=self.dst20_v2_abi
-        )
+    def execute_split_transaction_at_highest_level(
+        self, source_contract, amount=20, use_v3=False
+    ):
+        if use_v3:
+            meta_contract = self.nodes[0].w3.eth.contract(
+                address=source_contract, abi=self.dst20_v3_abi
+            )
+        else:
+            meta_contract = self.nodes[0].w3.eth.contract(
+                address=source_contract, abi=self.dst20_v2_abi
+            )
 
         amount_to_send = Web3.to_wei(amount, "ether")
 
