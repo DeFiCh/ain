@@ -93,7 +93,7 @@ P2P messages. These can be found in the following source files:
 
 - `P2PConnection` is the class used to connect to a defid.  `P2PInterface`
   contains the higher level logic for processing P2P payloads and connecting to
-  the DeFi Blockchain node application logic. For custom behaviour, subclass the
+  the DeFi Blockchain node application logic. For custom behavior, subclass the
   P2PInterface object and override the callback methods.
 
 - Can be used to write tests where specific P2P protocol behavior is tested.
