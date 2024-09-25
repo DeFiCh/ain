@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::{Currency, Token, COIN};
+use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
@@ -20,32 +20,52 @@ use super::{
 use crate::{
     api::common::Paginate,
     error::ApiError,
-    model::{BlockContext, Oracle},
+    model::{BlockContext, Oracle, PriceFeed},
     storage::{RepositoryOps, SortOrder},
     Result,
 };
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OracleResponse {
+    pub id: String,
+    pub owner_address: String,
+    pub weightage: Weightage,
+    pub price_feeds: Vec<PriceFeed>,
+    pub block: BlockContext,
+}
+
+impl OracleResponse {
+    fn from_with_id(id: String, v: Oracle) -> Self {
+        Self {
+            id,
+            owner_address: v.owner_address,
+            weightage: v.weightage,
+            price_feeds: v.price_feeds,
+            block: v.block,
+        }
+    }
+}
 
 #[ocean_endpoint]
 async fn list_oracles(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<Oracle>> {
-    let oracles_result: Result<Vec<(Txid, Oracle)>> = ctx
+) -> Result<ApiPagedResponse<OracleResponse>> {
+    let oracles = ctx
         .services
         .oracle
         .by_id
         .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
-            let (id, oracle) = item?;
-            Ok((id, oracle))
+            let (id, v) = item?;
+            Ok(OracleResponse::from_with_id(id.to_string(), v))
         })
-        .collect();
-    let oracles = oracles_result?;
-    let oracles: Vec<Oracle> = oracles.into_iter().map(|(_, oracle)| oracle).collect();
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(ApiPagedResponse::of(oracles, query.size, |oracles| {
-        oracles.id
+    Ok(ApiPagedResponse::of(oracles, query.size, |oracle| {
+        oracle.id.clone()
     }))
 }
 
