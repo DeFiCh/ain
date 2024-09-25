@@ -88,13 +88,11 @@ pub struct OraclePriceAggregatedService {
 }
 
 pub struct OracleTokenCurrencyService {
-    by_key: OracleTokenCurrencyKey,
     by_id: OracleTokenCurrency,
 }
 
 pub struct OracleHistoryService {
     by_id: OracleHistory,
-    by_key: OracleHistoryOracleIdSort,
 }
 
 pub struct PriceTickerService {
@@ -199,12 +197,10 @@ impl Services {
                 by_id: OraclePriceAggregated::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {
-                by_key: OracleTokenCurrencyKey::new(Arc::clone(&store)),
                 by_id: OracleTokenCurrency::new(Arc::clone(&store)),
             },
             oracle_history: OracleHistoryService {
                 by_id: OracleHistory::new(Arc::clone(&store)),
-                by_key: OracleHistoryOracleIdSort::new(Arc::clone(&store)),
             },
             price_ticker: PriceTickerService {
                 by_id: PriceTicker::new(Arc::clone(&store)),

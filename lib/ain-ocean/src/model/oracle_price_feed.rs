@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 pub type OraclePriceFeedId = (String, String, Txid, Txid); // token-currency-oracle_id-txid
-pub type OraclePriceFeedkey = (String, String, Txid); // token-currency-oracle_id
+pub type OraclePriceFeedKey = (String, String, Txid); // token-currency-oracle_id
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

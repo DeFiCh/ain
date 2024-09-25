@@ -1,4 +1,5 @@
 use ain_dftx::{Currency, Token};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -26,8 +27,10 @@ pub struct OraclePriceAggregatedInterval {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
-    pub amount: String,
-    pub weightage: u32,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub weightage: Decimal,
     pub count: i32,
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
@@ -35,6 +38,7 @@ pub struct OraclePriceAggregatedIntervalAggregated {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
-    pub active: i32,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub active: Decimal,
     pub total: i32,
 }

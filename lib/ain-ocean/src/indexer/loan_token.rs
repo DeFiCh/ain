@@ -37,12 +37,12 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
         return false;
     }
 
-    if aggregate.aggregated.oracles.active < 2 {
+    if aggregate.aggregated.oracles.active < dec!(2) {
         // minimum live oracles
         return false;
     }
 
-    if aggregate.aggregated.weightage == 0 {
+    if aggregate.aggregated.weightage == dec!(0) {
         return false;
     }
 
