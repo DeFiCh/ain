@@ -11,10 +11,13 @@ use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use crate::{
-    error::{Error, IndexAction, ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, OtherSnafu, ToPrimitiveSnafu},
+    error::{
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, OtherSnafu,
+        ToPrimitiveSnafu,
+    },
     indexer::{Context, Index, Result},
     model::{
-        BlockContext, Oracle, OracleIntervalSeconds, OraclePriceActiveNext, OracleHistoryId,
+        BlockContext, Oracle, OracleHistoryId, OracleIntervalSeconds, OraclePriceActiveNext,
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
         OraclePriceAggregatedIntervalId, OraclePriceFeed, OraclePriceFeedId, OracleTokenCurrency,
@@ -82,10 +85,10 @@ impl Index for AppointOracle {
         let oracle_id = context.tx.txid;
         services.oracle.by_id.delete(&oracle_id)?;
 
-        services.oracle_history.by_id.delete(&(
-            oracle_id,
-            context.block.height,
-        ))?;
+        services
+            .oracle_history
+            .by_id
+            .delete(&(oracle_id, context.block.height))?;
 
         for currency_pair in self.price_feeds.as_ref() {
             let token_currency_id = (
@@ -110,10 +113,11 @@ impl Index for RemoveOracle {
         let (_, previous) = get_previous_oracle(services, oracle_id)?;
 
         for price_feed in &previous.price_feeds {
-            services
-                .oracle_token_currency
-                .by_id
-                .delete(&(price_feed.token.to_owned(), price_feed.currency.to_owned(), oracle_id))?;
+            services.oracle_token_currency.by_id.delete(&(
+                price_feed.token.to_owned(),
+                price_feed.currency.to_owned(),
+                oracle_id,
+            ))?;
         }
 
         Ok(())
@@ -139,10 +143,10 @@ impl Index for RemoveOracle {
                 block: oracle.block.clone(),
             };
 
-            services
-                .oracle_token_currency
-                .by_id
-                .put(&(price_feed.token, price_feed.currency, oracle_id), &oracle_token_currency)?;
+            services.oracle_token_currency.by_id.put(
+                &(price_feed.token, price_feed.currency, oracle_id),
+                &oracle_token_currency,
+            )?;
         }
 
         Ok(())
@@ -175,10 +179,11 @@ impl Index for UpdateOracle {
 
         let (_, previous) = get_previous_oracle(services, oracle_id)?;
         for price_feed in &previous.price_feeds {
-            services
-                .oracle_token_currency
-                .by_id
-                .delete(&(price_feed.token.to_owned(), price_feed.currency.to_owned(), oracle_id))?;
+            services.oracle_token_currency.by_id.delete(&(
+                price_feed.token.to_owned(),
+                price_feed.currency.to_owned(),
+                oracle_id,
+            ))?;
         }
 
         for price_feed in price_feeds {
@@ -186,10 +191,10 @@ impl Index for UpdateOracle {
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
-            services
-                .oracle_token_currency
-                .by_id
-                .put(&(price_feed.token, price_feed.currency, oracle_id), &oracle_token_currency)?;
+            services.oracle_token_currency.by_id.put(
+                &(price_feed.token, price_feed.currency, oracle_id),
+                &oracle_token_currency,
+            )?;
         }
 
         Ok(())
@@ -198,10 +203,10 @@ impl Index for UpdateOracle {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         trace!("[UpdateOracle] Invalidating...");
         let oracle_id = context.tx.txid;
-        services.oracle_history.by_id.delete(&(
-            oracle_id,
-            context.block.height,
-        ))?;
+        services
+            .oracle_history
+            .by_id
+            .delete(&(oracle_id, context.block.height))?;
 
         let price_feeds = self.price_feeds.as_ref();
         for pair in price_feeds {
@@ -226,10 +231,14 @@ impl Index for UpdateOracle {
                 weightage: previous.weightage,
                 block: previous.block.clone(),
             };
-            services
-                .oracle_token_currency
-                .by_id
-                .put(&(price_feed.token.to_owned(), price_feed.currency.to_owned(), prev_oracle_id), &oracle_token_currency)?;
+            services.oracle_token_currency.by_id.put(
+                &(
+                    price_feed.token.to_owned(),
+                    price_feed.currency.to_owned(),
+                    prev_oracle_id,
+                ),
+                &oracle_token_currency,
+            )?;
         }
 
         Ok(())
@@ -248,7 +257,11 @@ fn map_price_aggregated(
     let oracles = oracle_repo
         .by_id
         .list(
-            Some((token.clone(), currency.clone(), Txid::from_byte_array([0xffu8; 32]))),
+            Some((
+                token.clone(),
+                currency.clone(),
+                Txid::from_byte_array([0xffu8; 32]),
+            )),
             SortOrder::Descending,
         )?
         .take_while(|item| match item {
@@ -269,9 +282,7 @@ fn map_price_aggregated(
             continue;
         }
 
-        let feed_id = feed_repo
-            .by_key
-            .get(&(id))?;
+        let feed_id = feed_repo.by_key.get(&(id))?;
 
         let Some(feed_id) = feed_id else { continue };
 
@@ -281,8 +292,12 @@ fn map_price_aggregated(
 
         let time_diff = Decimal::from(feed.time) - Decimal::from(context.block.time);
         if Decimal::abs(&time_diff) < dec!(3600) {
-            aggregated_count = aggregated_count.checked_add(dec!(1)).context(ArithmeticOverflowSnafu)?;
-            aggregated_weightage = aggregated_weightage.checked_add(Decimal::from(oracle.weightage)).context(ArithmeticOverflowSnafu)?;
+            aggregated_count = aggregated_count
+                .checked_add(dec!(1))
+                .context(ArithmeticOverflowSnafu)?;
+            aggregated_weightage = aggregated_weightage
+                .checked_add(Decimal::from(oracle.weightage))
+                .context(ArithmeticOverflowSnafu)?;
             log::trace!(
                 "SetOracleData weightage: {:?} * oracle_price.amount: {:?}",
                 aggregated_weightage,
@@ -723,8 +738,12 @@ fn get_previous_oracle(
         .next()
         .transpose()?;
 
-    let Some(previous) =  previous else {
-        return Err(Error::NotFoundIndex { action: IndexAction::Index, r#type: "OracleHistory".to_string(), id: oracle_id.to_string() })
+    let Some(previous) = previous else {
+        return Err(Error::NotFoundIndex {
+            action: IndexAction::Index,
+            r#type: "OracleHistory".to_string(),
+            id: oracle_id.to_string(),
+        });
     };
 
     Ok(previous)
