@@ -2,8 +2,8 @@ use ain_dftx::{Currency, Token};
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-pub type OraclePriceAggregatedIntervalId = (String, String, OracleIntervalSeconds, u32); //token-currency-interval-height
-pub type OraclePriceAggregatedIntervalKey = (String, String, OracleIntervalSeconds); //token-currency-interval
+pub type OraclePriceAggregatedIntervalId = (Token, Currency, OracleIntervalSeconds, u32); //token-currency-interval-height
+pub type OraclePriceAggregatedIntervalKey = (Token, Currency, OracleIntervalSeconds); //token-currency-interval
 
 pub const FIFTEEN_MINUTES: isize = 15 * 60;
 pub const ONE_HOUR: isize = 60 * 60;
@@ -19,11 +19,6 @@ pub enum OracleIntervalSeconds {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {
-    pub id: OraclePriceAggregatedIntervalId,
-    pub key: OraclePriceAggregatedIntervalKey,
-    pub sort: String,
-    pub token: Token,
-    pub currency: Currency,
     pub aggregated: OraclePriceAggregatedIntervalAggregated,
     pub block: BlockContext,
 }

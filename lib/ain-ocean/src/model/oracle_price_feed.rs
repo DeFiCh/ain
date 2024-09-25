@@ -1,4 +1,3 @@
-use ain_dftx::{Currency, Token};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
@@ -9,9 +8,6 @@ pub type OraclePriceFeedkey = (String, String, Txid); // token-currency-oracle_i
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceFeed {
-    pub token: Token,
-    pub currency: Currency,
-    pub oracle_id: Txid,
     pub txid: Txid,
     pub time: i32,
     pub amount: i64,
