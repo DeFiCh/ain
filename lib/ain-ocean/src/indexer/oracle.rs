@@ -17,7 +17,7 @@ use crate::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
-        OraclePriceFeed, OraclePriceFeedId, OraclePriceFeedkey, OracleTokenCurrency,
+        OraclePriceFeed, OraclePriceFeedId, OracleTokenCurrency, OraclePriceAggregatedIntervalId,
         PriceFeedsItem, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
@@ -374,7 +374,7 @@ impl Index for UpdateOracle {
 fn map_price_aggregated(
     services: &Arc<Services>,
     context: &Context,
-    pair: (String, String),
+    pair: &(String, String),
 ) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
     let oracle_repo = &services.oracle_token_currency;
@@ -387,7 +387,7 @@ fn map_price_aggregated(
             SortOrder::Descending,
         )?
         .take_while(|item| match item {
-            Ok((k, _)) => k.0 == token && k.1 == currency,
+            Ok((k, _)) => k.0 == token.clone() && k.1 == currency.clone(),
             _ => true,
         })
         .flatten()
@@ -446,17 +446,7 @@ fn map_price_aggregated(
         .checked_div(Decimal::from(aggregated_weightage))
         .unwrap_or_default();
 
-    let key = (token.clone(), currency.clone());
     Ok(Some(OraclePriceAggregated {
-        key: key.clone(),
-        id: (key.0, key.1, context.block.height),
-        sort: format!(
-            "{}{}",
-            hex::encode(context.block.median_time.to_be_bytes()),
-            hex::encode(context.block.height.to_be_bytes())
-        ),
-        token,
-        currency,
         aggregated: OraclePriceActiveNext {
             amount: aggregated_amount,
             weightage: aggregated_weightage,
@@ -472,7 +462,7 @@ fn map_price_aggregated(
 fn index_set_oracle_data(
     services: &Arc<Services>,
     context: &Context,
-    pairs: HashSet<(String, String)>,
+    pairs: &HashSet<(Token, Currency)>,
 ) -> Result<()> {
     let oracle_repo = &services.oracle_price_aggregated;
     let ticker_repo = &services.price_ticker;
@@ -484,27 +474,22 @@ fn index_set_oracle_data(
             continue;
         };
 
-        let key = (
-            price_aggregated.token.clone(),
-            price_aggregated.currency.clone(),
-        );
-        let id = (key.0.clone(), key.1.clone(), price_aggregated.block.height);
-        oracle_repo.by_key.put(&key, &id)?;
+        let token = pair.0.clone();
+        let currency = pair.1.clone();
+
+        let id = (token.clone(), currency.clone(), price_aggregated.block.height);
+        oracle_repo.by_key.put(pair, &id)?;
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
-        let id = (
-            price_aggregated.token.clone(),
-            price_aggregated.currency.clone(),
-        );
         let key = (
             price_aggregated.aggregated.oracles.total,
             price_aggregated.block.height,
-            price_aggregated.token.clone(),
-            price_aggregated.currency.clone(),
+            token.clone(),
+            currency.clone(),
         );
-        ticker_repo.by_key.put(&key, &id)?;
+        ticker_repo.by_key.put(&key, pair)?;
         ticker_repo.by_id.put(
-            &id.clone(),
+            &pair.clone(),
             &PriceTicker {
                 sort: format!(
                     "{}{}{}-{}",
@@ -513,7 +498,6 @@ fn index_set_oracle_data(
                     id.0.clone(),
                     id.1.clone(),
                 ),
-                id,
                 price: price_aggregated,
             },
         )?;
@@ -524,7 +508,7 @@ fn index_set_oracle_data(
 fn index_set_oracle_data_interval(
     services: &Arc<Services>,
     context: &Context,
-    pairs: HashSet<(String, String)>,
+    pairs: &HashSet<(String, String)>,
 ) -> Result<()> {
     for (token, currency) in pairs {
         let aggregated = services.oracle_price_aggregated.by_id.get(&(
@@ -558,15 +542,19 @@ impl Index for SetOracleData {
 
         let mut pairs = HashSet::new();
         let feeds = map_price_feeds(&self, context);
-        for (key, id, feed) in &feeds {
-            pairs.insert((feed.token.clone(), feed.currency.clone()));
-            feed_repo.by_key.put(key, id)?;
+        for (id, feed) in &feeds {
+            let token = id.0.clone();
+            let currency = id.1.clone();
+            let oracle_id = id.2;
+            let key = (token.clone(), currency.clone(), oracle_id);
+            pairs.insert((token, currency));
+            feed_repo.by_key.put(&key, id)?;
             feed_repo.by_id.put(id, feed)?;
         }
 
-        index_set_oracle_data(services, context, pairs.clone())?;
+        index_set_oracle_data(services, context, &pairs)?;
 
-        index_set_oracle_data_interval(services, context, pairs)?;
+        index_set_oracle_data_interval(services, context, &pairs)?;
 
         Ok(())
     }
@@ -574,15 +562,10 @@ impl Index for SetOracleData {
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_repo = &services.oracle_price_aggregated;
 
-        let mut pairs = HashSet::new();
         let feeds = map_price_feeds(self, context);
-        for (_, _, feed) in feeds {
-            pairs.insert((feed.token.clone(), feed.currency.clone()));
-        }
 
-        for (token, currency) in &pairs {
-            let key = (token.clone(), currency.clone());
-            let id = (key.0.clone(), key.1.clone(), context.block.height);
+        for ((token, currency, _, _), _) in &feeds {
+            let id = (token.clone(), currency.clone(), context.block.height);
 
             let aggregated = oracle_repo.by_id.get(&id)?;
 
@@ -610,27 +593,20 @@ impl Index for SetOracleData {
 fn map_price_feeds(
     data: &SetOracleData,
     ctx: &Context,
-) -> Vec<(OraclePriceFeedkey, OraclePriceFeedId, OraclePriceFeed)> {
+) -> Vec<(OraclePriceFeedId, OraclePriceFeed)> {
     let mut feeds = Vec::new();
     let token_prices = data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {
-            let token = token_price.token.clone();
-            let currency = token_amount.currency.clone();
-            let id = (token.clone(), currency.clone(), data.oracle_id, ctx.tx.txid);
-            let key = (token.clone(), currency.clone(), data.oracle_id);
+            let id = (token_price.token.clone(), token_amount.currency.clone(), data.oracle_id, ctx.tx.txid);
 
             let oracle_price_feed = OraclePriceFeed {
-                // sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
                 amount: token_amount.amount,
-                currency,
                 block: ctx.block.clone(),
-                oracle_id: data.oracle_id,
                 time: data.timestamp as i32,
-                token,
                 txid: ctx.tx.txid,
             };
-            feeds.push((key, id, oracle_price_feed));
+            feeds.push((id, oracle_price_feed));
         }
     }
     feeds
@@ -644,17 +620,12 @@ fn start_new_bucket(
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
-    let key = (token.clone(), currency.clone(), interval);
-    let id = (key.0.clone(), key.1.clone(), key.2.clone(), block.height);
+    let key = (token.clone(), currency.clone(), interval.clone());
+    let id = (token, currency, interval, block.height);
     let repo = &services.oracle_price_aggregated_interval;
     repo.by_id.put(
         &id,
         &OraclePriceAggregatedInterval {
-            id: id.clone(),
-            key: key.clone(),
-            sort: aggregated.sort.clone(),
-            token,
-            currency,
             aggregated: OraclePriceAggregatedIntervalAggregated {
                 amount: aggregated.aggregated.amount.to_string(),
                 weightage: aggregated.aggregated.weightage,
@@ -702,7 +673,7 @@ pub fn index_interval_mapper(
                 return start_new_bucket(services, block, token, currency, aggregated, interval);
             }
 
-            forward_aggregate(services, &aggregated_interval, aggregated)?;
+            forward_aggregate(services, (id, &aggregated_interval), aggregated)?;
         }
     }
 
@@ -734,17 +705,17 @@ pub fn invalidate_oracle_interval(
                 .context(OtherSnafu {
                     msg: "Missing oracle price aggregated interval index",
                 })?;
-            Ok(price)
+            Ok((id, price))
         })
         .collect::<Result<Vec<_>>>()?;
 
     let previous = &previous[0];
 
-    if previous.aggregated.count == 1 {
-        return repo.by_id.delete(&previous.id);
+    if previous.1.aggregated.count == 1 {
+        return repo.by_id.delete(&previous.0);
     }
 
-    let last_price = previous.aggregated.clone();
+    let last_price = previous.1.aggregated.clone();
     let count = last_price.count - 1;
 
     let aggregated_amount = backward_aggregate_value(
@@ -772,11 +743,6 @@ pub fn invalidate_oracle_interval(
     )?;
 
     let aggregated_interval = OraclePriceAggregatedInterval {
-        id: previous.id.clone(),
-        key: previous.key.clone(),
-        sort: previous.sort.clone(),
-        token: previous.token.clone(),
-        currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
@@ -792,21 +758,21 @@ pub fn invalidate_oracle_interval(
                     .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
-        block: previous.block.clone(),
+        block: previous.1.block.clone(),
     };
     repo.by_id
-        .put(&aggregated_interval.id, &aggregated_interval)?;
+        .put(&previous.0, &aggregated_interval)?;
     repo.by_key
-        .put(&aggregated_interval.key, &aggregated_interval.id)?;
+        .put(&(previous.0.0.clone(), previous.0.1.clone(), previous.0.2.clone()), &previous.0)?;
     Ok(())
 }
 
 fn forward_aggregate(
     services: &Arc<Services>,
-    previous: &OraclePriceAggregatedInterval,
+    previous: (OraclePriceAggregatedIntervalId, &OraclePriceAggregatedInterval),
     aggregated: &OraclePriceAggregated,
 ) -> Result<()> {
-    let last_price = previous.aggregated.clone();
+    let last_price = previous.1.aggregated.clone();
     let count = last_price.count + 1;
 
     let aggregated_amount = forward_aggregate_value(
@@ -834,11 +800,6 @@ fn forward_aggregate(
     )?;
 
     let aggregated_interval = OraclePriceAggregatedInterval {
-        id: previous.id.clone(),
-        key: previous.key.clone(),
-        sort: previous.sort.clone(),
-        token: previous.token.clone(),
-        currency: previous.currency.clone(),
         aggregated: OraclePriceAggregatedIntervalAggregated {
             amount: aggregated_amount.to_string(),
             weightage: aggregated_weightage
@@ -854,16 +815,16 @@ fn forward_aggregate(
                     .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
-        block: previous.block.clone(),
+        block: previous.1.block.clone(),
     };
     services
         .oracle_price_aggregated_interval
         .by_id
-        .put(&aggregated_interval.id, &aggregated_interval)?;
+        .put(&previous.0, &aggregated_interval)?;
     services
         .oracle_price_aggregated_interval
         .by_key
-        .put(&aggregated_interval.key, &aggregated_interval.id)?;
+        .put(&(previous.0.0.clone(), previous.0.1.clone(), previous.0.2.clone()), &previous.0)?;
     Ok(())
 }
 

@@ -91,12 +91,12 @@ async fn get_feed(
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
             oracle_price_feeds.push(OraclePriceFeedResponse {
-                id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
-                key: format!("{}-{}-{}", token, currency, feed.oracle_id),
+                id: format!("{}-{}-{}-{}", token, currency, oracle_id, feed.txid),
+                key: format!("{}-{}-{}", token, currency, oracle_id),
                 sort: hex::encode(feed.block.height.to_string() + &feed.txid.to_string()),
-                token: feed.token.clone(),
-                currency: feed.currency.clone(),
-                oracle_id: feed.oracle_id,
+                token: token.to_owned(),
+                currency: currency.to_owned(),
+                oracle_id: oracle_id.to_owned(),
                 txid: feed.txid,
                 time: feed.time,
                 amount: amount.normalize().to_string(),
