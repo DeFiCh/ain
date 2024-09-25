@@ -584,13 +584,13 @@ pub fn invalidate_oracle_interval(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let previous = &previous[0];
+    let (prev_id, previous) = &previous[0];
 
-    if previous.1.aggregated.count == 1 {
-        return repo.by_id.delete(&previous.0);
+    if previous.aggregated.count == 1 {
+        return repo.by_id.delete(prev_id);
     }
 
-    let last_price = previous.1.aggregated.clone();
+    let last_price = previous.aggregated.clone();
     let count = last_price.count - 1;
 
     let aggregated_amount = backward_aggregate_value(
@@ -629,16 +629,16 @@ pub fn invalidate_oracle_interval(
                     .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
-        block: previous.1.block.clone(),
+        block: previous.block.clone(),
     };
-    repo.by_id.put(&previous.0, &aggregated_interval)?;
+    repo.by_id.put(prev_id, &aggregated_interval)?;
     repo.by_key.put(
         &(
-            previous.0 .0.clone(),
-            previous.0 .1.clone(),
-            previous.0 .2.clone(),
+            prev_id.0.clone(),
+            prev_id.1.clone(),
+            prev_id.2.clone(),
         ),
-        &previous.0,
+        prev_id,
     )?;
     Ok(())
 }
@@ -651,7 +651,8 @@ fn forward_aggregate(
     ),
     aggregated: &OraclePriceAggregated,
 ) -> Result<()> {
-    let last_price = previous.1.aggregated.clone();
+    let (prev_id, previous) = previous;
+    let last_price = previous.aggregated.clone();
     let count = last_price.count + 1;
 
     let aggregated_amount = forward_aggregate_value(
@@ -690,19 +691,19 @@ fn forward_aggregate(
                     .context(ToPrimitiveSnafu { msg: "to_i32" })?,
             },
         },
-        block: previous.1.block.clone(),
+        block: previous.block.clone(),
     };
     services
         .oracle_price_aggregated_interval
         .by_id
-        .put(&previous.0, &aggregated_interval)?;
+        .put(&prev_id, &aggregated_interval)?;
     services.oracle_price_aggregated_interval.by_key.put(
         &(
-            previous.0 .0.clone(),
-            previous.0 .1.clone(),
-            previous.0 .2.clone(),
+            prev_id.0.clone(),
+            prev_id.1.clone(),
+            prev_id.2.clone(),
         ),
-        &previous.0,
+        &prev_id,
     )?;
     Ok(())
 }
