@@ -8,6 +8,6 @@ pub type PriceTickerKey = (i32, u32, String, String); // total-height-token-curr
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceTicker {
-    pub sort: String,      //count-height-token-currency
+    pub sort: String, //count-height-token-currency
     pub price: OraclePriceAggregated,
 }

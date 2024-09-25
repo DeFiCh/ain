@@ -17,7 +17,7 @@ use crate::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceActiveNext,
         OraclePriceActiveNextOracles, OraclePriceAggregated, OraclePriceAggregatedInterval,
         OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
-        OraclePriceFeed, OraclePriceFeedId, OracleTokenCurrency, OraclePriceAggregatedIntervalId,
+        OraclePriceAggregatedIntervalId, OraclePriceFeed, OraclePriceFeedId, OracleTokenCurrency,
         PriceFeedsItem, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
@@ -477,7 +477,11 @@ fn index_set_oracle_data(
         let token = pair.0.clone();
         let currency = pair.1.clone();
 
-        let id = (token.clone(), currency.clone(), price_aggregated.block.height);
+        let id = (
+            token.clone(),
+            currency.clone(),
+            price_aggregated.block.height,
+        );
         oracle_repo.by_key.put(pair, &id)?;
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
@@ -598,7 +602,12 @@ fn map_price_feeds(
     let token_prices = data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {
-            let id = (token_price.token.clone(), token_amount.currency.clone(), data.oracle_id, ctx.tx.txid);
+            let id = (
+                token_price.token.clone(),
+                token_amount.currency.clone(),
+                data.oracle_id,
+                ctx.tx.txid,
+            );
 
             let oracle_price_feed = OraclePriceFeed {
                 amount: token_amount.amount,
@@ -760,16 +769,24 @@ pub fn invalidate_oracle_interval(
         },
         block: previous.1.block.clone(),
     };
-    repo.by_id
-        .put(&previous.0, &aggregated_interval)?;
-    repo.by_key
-        .put(&(previous.0.0.clone(), previous.0.1.clone(), previous.0.2.clone()), &previous.0)?;
+    repo.by_id.put(&previous.0, &aggregated_interval)?;
+    repo.by_key.put(
+        &(
+            previous.0 .0.clone(),
+            previous.0 .1.clone(),
+            previous.0 .2.clone(),
+        ),
+        &previous.0,
+    )?;
     Ok(())
 }
 
 fn forward_aggregate(
     services: &Arc<Services>,
-    previous: (OraclePriceAggregatedIntervalId, &OraclePriceAggregatedInterval),
+    previous: (
+        OraclePriceAggregatedIntervalId,
+        &OraclePriceAggregatedInterval,
+    ),
     aggregated: &OraclePriceAggregated,
 ) -> Result<()> {
     let last_price = previous.1.aggregated.clone();
@@ -821,10 +838,14 @@ fn forward_aggregate(
         .oracle_price_aggregated_interval
         .by_id
         .put(&previous.0, &aggregated_interval)?;
-    services
-        .oracle_price_aggregated_interval
-        .by_key
-        .put(&(previous.0.0.clone(), previous.0.1.clone(), previous.0.2.clone()), &previous.0)?;
+    services.oracle_price_aggregated_interval.by_key.put(
+        &(
+            previous.0 .0.clone(),
+            previous.0 .1.clone(),
+            previous.0 .2.clone(),
+        ),
+        &previous.0,
+    )?;
     Ok(())
 }
 

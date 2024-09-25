@@ -60,18 +60,15 @@ pub struct PriceTickerResponse {
 
 impl From<((Token, Currency), PriceTicker)> for PriceTickerResponse {
     fn from(ticker: ((Token, Currency), PriceTicker)) -> Self {
-        let token = ticker.0.0;
-        let currency = ticker.0.1;
+        let token = ticker.0 .0;
+        let currency = ticker.0 .1;
         let price_ticker = ticker.1;
         let amount = price_ticker.price.aggregated.amount / Decimal::from(COIN);
         Self {
             id: format!("{}-{}", token, currency),
             sort: price_ticker.sort,
             price: OraclePriceAggregatedResponse {
-                id: format!(
-                    "{}-{}-{}",
-                    token, currency, price_ticker.price.block.height
-                ),
+                id: format!("{}-{}-{}", token, currency, price_ticker.price.block.height),
                 key: format!("{}-{}", token, currency),
                 sort: format!(
                     "{}{}",
@@ -142,7 +139,11 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let price_ticker = ctx.services.price_ticker.by_id.get(&(token.clone(), currency.clone()))?;
+    let price_ticker = ctx
+        .services
+        .price_ticker
+        .by_id
+        .get(&(token.clone(), currency.clone()))?;
 
     let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));
@@ -174,10 +175,7 @@ async fn get_feed(
         .map(|item| {
             let (k, v) = item?;
             let res = OraclePriceAggregatedResponse {
-                id: format!(
-                    "{}-{}-{}",
-                    k.0, k.1, k.2
-                ),
+                id: format!("{}-{}-{}", k.0, k.1, k.2),
                 key: format!("{}-{}", k.0, k.1),
                 sort: format!(
                     "{}{}",
@@ -196,7 +194,6 @@ async fn get_feed(
             Ok(res)
         })
         .collect::<Result<Vec<_>>>()?;
-
 
     Ok(ApiPagedResponse::of(
         oracle_aggregated,
@@ -288,13 +285,9 @@ async fn get_feed_with_interval(
 
     let mut prices = Vec::new();
     for ((token, currency, _), id) in keys {
-        let item = repo
-            .by_id
-            .get(&id)?;
+        let item = repo.by_id.get(&id)?;
 
-        let Some(item) = item else {
-            continue
-        };
+        let Some(item) = item else { continue };
 
         let start = item.block.median_time - (item.block.median_time % interval);
 
@@ -319,7 +312,7 @@ async fn get_feed_with_interval(
                 interval,
                 start,
                 end: start + interval,
-            }
+            },
         };
         prices.push(price);
     }
