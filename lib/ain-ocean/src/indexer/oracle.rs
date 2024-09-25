@@ -301,7 +301,7 @@ fn map_price_aggregated(
 
     // NOTE(canonbrother): default by zero since it has not executed within the bucket yet
     let aggregated_amount = aggregated_total
-        .checked_div(Decimal::from(aggregated_weightage))
+        .checked_div(aggregated_weightage)
         .unwrap_or_default();
 
     Ok(Some(OraclePriceAggregated {
