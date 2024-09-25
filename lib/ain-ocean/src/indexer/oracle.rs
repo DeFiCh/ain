@@ -495,13 +495,6 @@ fn index_set_oracle_data(
         ticker_repo.by_id.put(
             &pair.clone(),
             &PriceTicker {
-                sort: format!(
-                    "{}{}{}-{}",
-                    hex::encode(price_aggregated.aggregated.oracles.total.to_be_bytes()),
-                    hex::encode(price_aggregated.block.height.to_be_bytes()),
-                    id.0.clone(),
-                    id.1.clone(),
-                ),
                 price: price_aggregated,
             },
         )?;

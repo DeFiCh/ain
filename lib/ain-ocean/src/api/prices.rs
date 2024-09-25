@@ -66,7 +66,13 @@ impl From<((Token, Currency), PriceTicker)> for PriceTickerResponse {
         let amount = price_ticker.price.aggregated.amount / Decimal::from(COIN);
         Self {
             id: format!("{}-{}", token, currency),
-            sort: price_ticker.sort,
+            sort: format!(
+                "{}{}{}-{}",
+                hex::encode(price_ticker.price.aggregated.oracles.total.to_be_bytes()),
+                hex::encode(price_ticker.price.block.height.to_be_bytes()),
+                token.clone(),
+                currency.clone(),
+            ),
             price: OraclePriceAggregatedResponse {
                 id: format!("{}-{}-{}", token, currency, price_ticker.price.block.height),
                 key: format!("{}-{}", token, currency),
