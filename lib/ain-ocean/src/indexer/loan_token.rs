@@ -37,12 +37,12 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
         return false;
     }
 
-    if aggregate.aggregated.oracles.active < 2 {
+    if aggregate.aggregated.oracles.active < dec!(2) {
         // minimum live oracles
         return false;
     }
 
-    if aggregate.aggregated.weightage == 0 {
+    if aggregate.aggregated.weightage == dec!(0) {
         return false;
     }
 
@@ -86,18 +86,15 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let pt = services
+        let price_tickers = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .map(|item| {
-                let (_, priceticker) = item?;
-                Ok(priceticker)
-            })
-            .collect::<Result<Vec<_>>>()?;
+            .flatten()
+            .collect::<Vec<_>>();
 
-        for ticker in pt {
-            perform_active_price_tick(services, ticker.id, block)?;
+        for pt in price_tickers {
+            perform_active_price_tick(services, pt.0, block)?;
         }
     }
     Ok(())
@@ -139,21 +136,20 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let pt = services
+        let price_tickers = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .map(|item| {
-                let (_, priceticker) = item?;
-                Ok(priceticker)
-            })
-            .collect::<Result<Vec<_>>>()?;
+            .flatten()
+            .collect::<Vec<_>>();
 
-        for ticker in pt {
+        for pt in price_tickers {
+            let token = pt.0 .0;
+            let currency = pt.0 .1;
             services
                 .oracle_price_active
                 .by_id
-                .delete(&(ticker.id.0, ticker.id.1, block.height))?;
+                .delete(&(token, currency, block.height))?;
         }
     }
 

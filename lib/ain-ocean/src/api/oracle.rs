@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::{Currency, Token, COIN};
+use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
@@ -20,32 +20,52 @@ use super::{
 use crate::{
     api::common::Paginate,
     error::ApiError,
-    model::{BlockContext, Oracle},
+    model::{BlockContext, Oracle, PriceFeed},
     storage::{RepositoryOps, SortOrder},
     Result,
 };
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OracleResponse {
+    pub id: String,
+    pub owner_address: String,
+    pub weightage: Weightage,
+    pub price_feeds: Vec<PriceFeed>,
+    pub block: BlockContext,
+}
+
+impl OracleResponse {
+    fn from_with_id(id: String, v: Oracle) -> Self {
+        Self {
+            id,
+            owner_address: v.owner_address,
+            weightage: v.weightage,
+            price_feeds: v.price_feeds,
+            block: v.block,
+        }
+    }
+}
 
 #[ocean_endpoint]
 async fn list_oracles(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<Oracle>> {
-    let oracles_result: Result<Vec<(Txid, Oracle)>> = ctx
+) -> Result<ApiPagedResponse<OracleResponse>> {
+    let oracles = ctx
         .services
         .oracle
         .by_id
         .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
-            let (id, oracle) = item?;
-            Ok((id, oracle))
+            let (id, v) = item?;
+            Ok(OracleResponse::from_with_id(id.to_string(), v))
         })
-        .collect();
-    let oracles = oracles_result?;
-    let oracles: Vec<Oracle> = oracles.into_iter().map(|(_, oracle)| oracle).collect();
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(ApiPagedResponse::of(oracles, query.size, |oracles| {
-        oracles.id
+    Ok(ApiPagedResponse::of(oracles, query.size, |oracle| {
+        oracle.id.clone()
     }))
 }
 
@@ -91,12 +111,12 @@ async fn get_feed(
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
             oracle_price_feeds.push(OraclePriceFeedResponse {
-                id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
-                key: format!("{}-{}-{}", token, currency, feed.oracle_id),
+                id: format!("{}-{}-{}-{}", token, currency, oracle_id, feed.txid),
+                key: format!("{}-{}-{}", token, currency, oracle_id),
                 sort: hex::encode(feed.block.height.to_string() + &feed.txid.to_string()),
-                token: feed.token.clone(),
-                currency: feed.currency.clone(),
-                oracle_id: feed.oracle_id,
+                token: token.to_owned(),
+                currency: currency.to_owned(),
+                oracle_id: oracle_id.to_owned(),
                 txid: feed.txid,
                 time: feed.time,
                 amount: amount.normalize().to_string(),
@@ -116,23 +136,21 @@ async fn get_feed(
 async fn get_oracle_by_address(
     Path(address): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Option<Oracle>>> {
-    let oracles = ctx
+) -> Result<Response<Option<OracleResponse>>> {
+    let oracle = ctx
         .services
         .oracle
         .by_id
         .list(None, SortOrder::Descending)?
         .flatten()
-        .filter_map(|(_, oracle)| {
+        .filter_map(|(id, oracle)| {
             if oracle.owner_address == address {
-                Some(oracle)
-            } else {
-                None
+                let res = OracleResponse::from_with_id(id.to_string(), oracle);
+                return Some(res);
             }
+            None
         })
-        .collect::<Vec<_>>();
-
-    let oracle = oracles.first().cloned();
+        .next();
 
     Ok(Response::new(oracle))
 }

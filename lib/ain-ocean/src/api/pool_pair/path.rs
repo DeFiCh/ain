@@ -1,7 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use defichain_rpc::json::poolpair::PoolPairInfo;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
+use rust_decimal::{prelude::FromPrimitive, Decimal, RoundingStrategy};
 use rust_decimal_macros::dec;
 use serde::Serialize;
 use snafu::OptionExt;
@@ -204,8 +204,10 @@ pub async fn get_best_path(
                 from_token,
                 to_token,
                 best_path: path,
-                estimated_return: estimated_return.round_dp(8),
-                estimated_return_less_dex_fees: estimated_return_less_dex_fees.round_dp(8),
+                estimated_return: estimated_return
+                    .round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
+                estimated_return_less_dex_fees: estimated_return_less_dex_fees
+                    .round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
             });
         };
 
@@ -223,8 +225,9 @@ pub async fn get_best_path(
         from_token,
         to_token,
         best_path,
-        estimated_return: best_return.round_dp(8),
-        estimated_return_less_dex_fees: best_return_less_dex_fees.round_dp(8),
+        estimated_return: best_return.round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
+        estimated_return_less_dex_fees: best_return_less_dex_fees
+            .round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
     })
 }
 

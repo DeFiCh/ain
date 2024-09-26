@@ -9,7 +9,7 @@ use axum::{
 };
 use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
@@ -23,8 +23,8 @@ use super::{
 use crate::{
     error::{ApiError, Error, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
-        OraclePriceAggregated, OraclePriceAggregatedInterval, OracleTokenCurrency, PriceTicker,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive,
+        OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -46,8 +46,8 @@ pub struct OraclePriceAggregatedResponse {
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregatedResponse {
     pub amount: String,
-    pub weightage: u32,
-    pub oracles: OraclePriceActiveNextOracles,
+    pub weightage: i32,
+    pub oracles: OraclePriceActiveNextOraclesResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,25 +58,56 @@ pub struct PriceTickerResponse {
     pub price: OraclePriceAggregatedResponse,
 }
 
-impl From<PriceTicker> for PriceTickerResponse {
-    fn from(price_ticker: PriceTicker) -> Self {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceActiveNextOraclesResponse {
+    pub active: i32,
+    pub total: i32,
+}
+
+impl From<((Token, Currency), PriceTicker)> for PriceTickerResponse {
+    fn from(ticker: ((Token, Currency), PriceTicker)) -> Self {
+        let token = ticker.0 .0;
+        let currency = ticker.0 .1;
+        let price_ticker = ticker.1;
         let amount = price_ticker.price.aggregated.amount / Decimal::from(COIN);
         Self {
-            id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
-            sort: price_ticker.sort,
+            id: format!("{}-{}", token, currency),
+            sort: format!(
+                "{}{}{}-{}",
+                hex::encode(price_ticker.price.aggregated.oracles.total.to_be_bytes()),
+                hex::encode(price_ticker.price.block.height.to_be_bytes()),
+                token.clone(),
+                currency.clone(),
+            ),
             price: OraclePriceAggregatedResponse {
-                id: format!(
-                    "{}-{}-{}",
-                    price_ticker.price.id.0, price_ticker.price.id.1, price_ticker.price.id.2
+                id: format!("{}-{}-{}", token, currency, price_ticker.price.block.height),
+                key: format!("{}-{}", token, currency),
+                sort: format!(
+                    "{}{}",
+                    hex::encode(price_ticker.price.block.median_time.to_be_bytes()),
+                    hex::encode(price_ticker.price.block.height.to_be_bytes()),
                 ),
-                key: format!("{}-{}", price_ticker.price.key.0, price_ticker.price.key.1),
-                sort: price_ticker.price.sort,
-                token: price_ticker.price.token,
-                currency: price_ticker.price.currency,
+                token,
+                currency,
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount: format!("{amount:.8}"),
-                    weightage: price_ticker.price.aggregated.weightage,
-                    oracles: price_ticker.price.aggregated.oracles,
+                    amount: format!("{:.8}", amount),
+                    weightage: price_ticker
+                        .price
+                        .aggregated
+                        .weightage
+                        .to_i32()
+                        .unwrap_or_default(),
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: price_ticker
+                            .price
+                            .aggregated
+                            .oracles
+                            .active
+                            .to_i32()
+                            .unwrap_or_default(),
+                        total: price_ticker.price.aggregated.oracles.total,
+                    },
                 },
                 block: price_ticker.price.block,
             },
@@ -119,7 +150,7 @@ async fn list_prices(
                     msg: "Missing price ticker index",
                 })?;
 
-            Ok(PriceTickerResponse::from(price_ticker))
+            Ok(PriceTickerResponse::from((id, price_ticker)))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -135,13 +166,17 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let price_ticker = ctx.services.price_ticker.by_id.get(&(token, currency))?;
+    let price_ticker = ctx
+        .services
+        .price_ticker
+        .by_id
+        .get(&(token.clone(), currency.clone()))?;
 
     let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));
     };
 
-    let res = PriceTickerResponse::from(price_ticker);
+    let res = PriceTickerResponse::from(((token, currency), price_ticker));
 
     Ok(Response::new(Some(res)))
 }
@@ -151,7 +186,7 @@ async fn get_feed(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
+) -> Result<ApiPagedResponse<OraclePriceAggregatedResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
 
     let repo = &ctx.services.oracle_price_aggregated;
@@ -161,19 +196,39 @@ async fn get_feed(
         .list(Some(id), SortOrder::Descending)?
         .take(query.size)
         .take_while(|item| match item {
-            Ok((k, _)) => k.0 == token && k.1 == currency,
+            Ok((k, _)) => k.0 == token.clone() && k.1 == currency.clone(),
             _ => true,
         })
         .map(|item| {
-            let (_, v) = item?;
-            Ok(v)
+            let (k, v) = item?;
+            let res = OraclePriceAggregatedResponse {
+                id: format!("{}-{}-{}", k.0, k.1, k.2),
+                key: format!("{}-{}", k.0, k.1),
+                sort: format!(
+                    "{}{}",
+                    hex::encode(v.block.median_time.to_be_bytes()),
+                    hex::encode(v.block.height.to_be_bytes()),
+                ),
+                token: token.clone(),
+                currency: currency.clone(),
+                aggregated: OraclePriceAggregatedAggregatedResponse {
+                    amount: format!("{:.8}", v.aggregated.amount),
+                    weightage: v.aggregated.weightage.to_i32().unwrap_or_default(),
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: v.aggregated.oracles.active.to_i32().unwrap_or_default(),
+                        total: v.aggregated.oracles.total,
+                    },
+                },
+                block: v.block,
+            };
+            Ok(res)
         })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(
         oracle_aggregated,
         query.size,
-        |aggregated| aggregated.sort.to_string(),
+        |aggregated| aggregated.sort.clone(),
     ))
 }
 
@@ -206,33 +261,91 @@ async fn get_feed_active(
     }))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedIntervalResponse {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub token: Token,
+    pub currency: Currency,
+    pub aggregated: OraclePriceAggregatedIntervalAggregated,
+    pub block: BlockContext,
+    /**
+     * Aggregated interval time range in seconds.
+     * - Interval that aggregated in seconds
+     * - Start Time Inclusive
+     * - End Time Exclusive
+     */
+    time: OraclePriceAggregatedIntervalTime,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedIntervalTime {
+    interval: i64,
+    start: i64,
+    end: i64,
+}
+
 #[ocean_endpoint]
 async fn get_feed_with_interval(
     Path((key, interval)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
+) -> Result<ApiPagedResponse<OraclePriceAggregatedIntervalResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
+    let interval = interval.parse::<i64>()?;
 
-    let interval = match interval.as_str() {
-        "900" => OracleIntervalSeconds::FifteenMinutes,
-        "3600" => OracleIntervalSeconds::OneHour,
-        "86400" => OracleIntervalSeconds::OneDay,
-        _ => return Err(From::from("Invalid interval")),
+    let interval_type = match interval {
+        900 => OracleIntervalSeconds::FifteenMinutes,
+        3600 => OracleIntervalSeconds::OneHour,
+        86400 => OracleIntervalSeconds::OneDay,
+        _ => return Err(From::from("Invalid oracle interval")),
     };
-    let key = (token, currency, interval);
+    let key = (token, currency, interval_type);
     let repo = &ctx.services.oracle_price_aggregated_interval;
-    let prices = repo
+
+    let keys = repo
         .by_key
         .list(Some(key), SortOrder::Descending)?
         .take(query.size)
-        .flat_map(|item| {
-            let (_, id) = item?;
-            let item = repo.by_id.get(&id)?;
-            Ok::<Option<OraclePriceAggregatedInterval>, Error>(item)
-        })
         .flatten()
         .collect::<Vec<_>>();
+
+    let mut prices = Vec::new();
+    for ((token, currency, _), id) in keys {
+        let item = repo.by_id.get(&id)?;
+
+        let Some(item) = item else { continue };
+
+        let start = item.block.median_time - (item.block.median_time % interval);
+
+        let price = OraclePriceAggregatedIntervalResponse {
+            id: format!("{}-{}-{:?}", id.0, id.1, id.2),
+            key: format!("{}-{}", id.0, id.1),
+            sort: format!(
+                "{}{}",
+                hex::encode(item.block.median_time.to_be_bytes()),
+                hex::encode(item.block.height.to_be_bytes()),
+            ),
+            token,
+            currency,
+            aggregated: OraclePriceAggregatedIntervalAggregated {
+                amount: item.aggregated.amount,
+                weightage: item.aggregated.weightage,
+                oracles: item.aggregated.oracles,
+                count: item.aggregated.count,
+            },
+            block: item.block,
+            time: OraclePriceAggregatedIntervalTime {
+                interval,
+                start,
+                end: start + interval,
+            },
+        };
+        prices.push(price);
+    }
 
     Ok(ApiPagedResponse::of(prices, query.size, |item| {
         item.sort.clone()
@@ -253,7 +366,7 @@ pub struct PriceOracleResponse {
 }
 
 #[ocean_endpoint]
-async fn get_oracles(
+async fn list_price_oracles(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
@@ -261,11 +374,11 @@ async fn get_oracles(
     let (token, currency) = parse_token_currency(&key)?;
 
     let id = (
-        token.to_string(),
-        currency.to_string(),
+        token.clone(),
+        currency.clone(),
         Txid::from_byte_array([0xffu8; 32]),
     );
-    let oracles = ctx
+    let token_currencies = ctx
         .services
         .oracle_token_currency
         .by_id
@@ -275,59 +388,57 @@ async fn get_oracles(
             Ok((k, _)) => k.0 == id.0 && k.1 == id.1,
             _ => true,
         })
-        .flat_map(|item| {
-            let (_, oracle) = item?;
-            Ok::<OracleTokenCurrency, Error>(oracle)
-        })
+        .flatten()
         .collect::<Vec<_>>();
 
     let mut prices = Vec::new();
-    for oracle in oracles {
-        let feeds = ctx
+    for ((t, c, oracle_id), token_currency) in token_currencies {
+        let feed = ctx
             .services
             .oracle_price_feed
             .by_id
             .list(
                 Some((
-                    token.to_string(),
-                    currency.to_string(),
-                    oracle.oracle_id,
+                    token.clone(),
+                    currency.clone(),
+                    oracle_id,
                     Txid::from_byte_array([0xffu8; 32]),
                 )),
                 SortOrder::Descending,
             )?
-            .take(1)
+            // .take(1)
             .take_while(|item| match item {
-                Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle.oracle_id,
+                Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle_id,
                 _ => true,
             })
-            .map(|item| {
-                let (_, data) = item?;
-                Ok(data)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        let feed = feeds.first().cloned();
+            .next()
+            .transpose()?;
 
         prices.push(PriceOracleResponse {
-            id: format!("{}-{}-{}", oracle.id.0, oracle.id.1, oracle.id.2),
-            key: format!("{}-{}", oracle.key.0, oracle.key.1),
-            token: oracle.token,
-            currency: oracle.currency,
-            oracle_id: oracle.oracle_id.to_string(),
-            weightage: oracle.weightage,
-            block: oracle.block,
-            feed: feed.map(|f| OraclePriceFeedResponse {
-                id: format!("{}-{}-{}-{}", token, currency, f.oracle_id, f.txid),
-                key: format!("{}-{}-{}", token, currency, f.oracle_id),
-                sort: hex::encode(f.block.height.to_string() + &f.txid.to_string()),
-                token: f.token.clone(),
-                currency: f.currency.clone(),
-                oracle_id: f.oracle_id,
-                txid: f.txid,
-                time: f.time,
-                amount: f.amount.to_string(),
-                block: f.block,
+            id: format!("{}-{}-{}", t, c, oracle_id),
+            key: format!("{}-{}", t, c),
+            token: t,
+            currency: c,
+            oracle_id: oracle_id.to_string(),
+            weightage: token_currency.weightage,
+            block: token_currency.block,
+            feed: feed.map(|(id, f)| {
+                let token = id.0;
+                let currency = id.1;
+                let oracle_id = id.2;
+                let txid = id.3;
+                OraclePriceFeedResponse {
+                    id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
+                    key: format!("{}-{}-{}", token, currency, oracle_id),
+                    sort: hex::encode(f.block.height.to_string() + &f.txid.to_string()),
+                    token: token.clone(),
+                    currency: currency.clone(),
+                    oracle_id,
+                    txid: f.txid,
+                    time: f.time,
+                    amount: f.amount.to_string(),
+                    block: f.block,
+                }
             }),
         });
     }
@@ -344,6 +455,6 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:key/feed/active", get(get_feed_active))
         .route("/:key/feed", get(get_feed))
         .route("/:key/feed/interval/:interval", get(get_feed_with_interval))
-        .route("/:key/oracles", get(get_oracles))
+        .route("/:key/oracles", get(list_price_oracles))
         .layer(Extension(ctx))
 }

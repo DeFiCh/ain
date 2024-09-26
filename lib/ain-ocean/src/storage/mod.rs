@@ -151,17 +151,8 @@ define_table! {
     #[derive(Debug)]
     pub struct OracleHistory {
         key_type = model::OracleHistoryId,
-        value_type = model::OracleHistory,
+        value_type = model::Oracle,
     }
-}
-
-define_table! {
-    #[derive(Debug)]
-    pub struct OracleHistoryOracleIdSort {
-        key_type = Txid,
-        value_type = model::OracleHistoryId,
-    },
-    SecondaryIndex = OracleHistory
 }
 
 define_table! {
@@ -226,7 +217,7 @@ define_table! {
 define_table! {
     #[derive(Debug)]
     pub struct OraclePriceFeedKey {
-        key_type = model::OraclePriceFeedkey,
+        key_type = model::OraclePriceFeedKey,
         value_type = model::OraclePriceFeedId,
     },
     SecondaryIndex = OraclePriceFeed
@@ -238,15 +229,6 @@ define_table! {
         key_type = model::OracleTokenCurrencyId,
         value_type = model::OracleTokenCurrency,
     }
-}
-
-define_table! {
-    #[derive(Debug)]
-    pub struct OracleTokenCurrencyKey {
-        key_type = model::OracleTokenCurrencyKey,
-        value_type = model::OracleTokenCurrencyId,
-    },
-    SecondaryIndex = OracleTokenCurrency
 }
 
 define_table! {
@@ -470,7 +452,7 @@ define_table! {
     SecondaryIndex = VaultAuctionHistory
 }
 
-pub const COLUMN_NAMES: [&str; 35] = [
+pub const COLUMN_NAMES: [&str; 33] = [
     Block::NAME,
     BlockByHeight::NAME,
     MasternodeStats::NAME,
@@ -478,7 +460,6 @@ pub const COLUMN_NAMES: [&str; 35] = [
     MasternodeByHeight::NAME,
     Oracle::NAME,
     OracleHistory::NAME,
-    OracleHistoryOracleIdSort::NAME,
     OraclePriceActive::NAME,
     OraclePriceActiveKey::NAME,
     OraclePriceAggregated::NAME,
@@ -488,7 +469,6 @@ pub const COLUMN_NAMES: [&str; 35] = [
     OraclePriceFeed::NAME,
     OraclePriceFeedKey::NAME,
     OracleTokenCurrency::NAME,
-    OracleTokenCurrencyKey::NAME,
     PoolSwapAggregated::NAME,
     PoolSwapAggregatedKey::NAME,
     PoolSwap::NAME,
