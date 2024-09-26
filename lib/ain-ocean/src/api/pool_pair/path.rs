@@ -225,8 +225,7 @@ pub async fn get_best_path(
         from_token,
         to_token,
         best_path,
-        estimated_return: best_return
-            .round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
+        estimated_return: best_return.round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
         estimated_return_less_dex_fees: best_return_less_dex_fees
             .round_dp_with_strategy(8, RoundingStrategy::AwayFromZero),
     })
