@@ -117,7 +117,6 @@ class RestartInterestTest(DefiTestFramework):
 
         # Mint DUSD
         self.nodes[0].minttokens(f"100000@{self.symbolDUSD}")
-        self.nodes[0].minttokens(f"100000@{self.symbolMETA}")
         self.nodes[0].generate(1)
 
         # Create DFI tokens
@@ -196,6 +195,9 @@ class RestartInterestTest(DefiTestFramework):
 
         # Rollback block
         self.rollback_to(self.start_block)
+
+        self.nodes[0].minttokens(f"100000@{self.symbolMETA}")
+        self.nodes[0].generate(1)
 
         # Set all futures attributes
         self.nodes[0].setgov(
