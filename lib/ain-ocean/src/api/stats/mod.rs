@@ -9,7 +9,7 @@ use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     defichain_rpc_json::{account::BurnInfo, GetNetworkInfoResult},
-    AccountRPC, RpcApi,
+    AccountRPC,
 };
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
@@ -17,14 +17,14 @@ use snafu::OptionExt;
 
 use self::{
     cache::{
-        get_burned, get_count, get_emission, get_loan, get_masternodes, get_price, get_tvl, Burned,
-        Count, Emission, Loan, Masternodes, Price, Tvl,
+        get_burned, get_burned_total, get_count, get_emission, get_loan, get_masternodes,
+        get_price, get_tvl, Burned, Count, Emission, Loan, Masternodes, Price, Tvl,
     },
     distribution::get_block_reward_distribution,
+    subsidy::BLOCK_SUBSIDY,
 };
-use super::{response::Response, AppContext};
+use super::{cache::get_network_info_cached, response::Response, AppContext};
 use crate::{
-    api::stats::{cache::get_burned_total, subsidy::BLOCK_SUBSIDY},
     error::{ApiError, DecimalConversionSnafu},
     Result,
 };
@@ -69,7 +69,7 @@ async fn get_stats(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respons
         subversion,
         protocol_version,
         ..
-    } = ctx.client.get_network_info().await?;
+    } = get_network_info_cached(&ctx).await?;
 
     let stats = StatsData {
         burned: get_burned(&ctx.client).await?,

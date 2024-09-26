@@ -6,9 +6,10 @@ use defichain_rpc::{
         loan::LoanSchemeResult,
         poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult},
         token::{TokenInfo, TokenPagination, TokenResult},
+        GetNetworkInfoResult,
     },
     jsonrpc_async::error::{Error as JsonRpcError, RpcError},
-    Error, LoanRPC, MasternodeRPC, PoolPairRPC, TokenRPC,
+    Error, LoanRPC, MasternodeRPC, PoolPairRPC, RpcApi, TokenRPC,
 };
 
 use super::AppContext;
@@ -158,4 +159,15 @@ pub async fn get_gov_cached(
 pub async fn get_loan_scheme_cached(ctx: &Arc<AppContext>, id: String) -> Result<LoanSchemeResult> {
     let loan_scheme = ctx.client.get_loan_scheme(id).await?;
     Ok(loan_scheme)
+}
+
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("getnetworkinfo") }"#
+)]
+pub async fn get_network_info_cached(ctx: &Arc<AppContext>) -> Result<GetNetworkInfoResult> {
+    let info = ctx.client.get_network_info().await?;
+    Ok(info)
 }
