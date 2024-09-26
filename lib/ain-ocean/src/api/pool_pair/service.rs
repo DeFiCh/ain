@@ -327,12 +327,17 @@ async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {
 
 async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Result<Decimal> {
     let splits = get_loan_token_splits(ctx).await?;
-    let value = splits.unwrap_or_default();
+    let Some(value) = splits else {
+        return Ok(dec!(0));
+    };
     let split = value
         .as_object()
         .and_then(|obj| obj.get(id))
         .and_then(serde_json::Value::as_f64)
         .unwrap_or_default();
+    if split == 0.0 {
+        return Ok(dec!(0));
+    }
     let split = Decimal::from_f64(split).context(DecimalConversionSnafu)?;
 
     let dfi_price_usd = get_usd_per_dfi(ctx).await?;
