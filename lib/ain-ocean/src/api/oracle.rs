@@ -136,23 +136,21 @@ async fn get_feed(
 async fn get_oracle_by_address(
     Path(address): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Option<Oracle>>> {
-    let oracles = ctx
+) -> Result<Response<Option<OracleResponse>>> {
+    let oracle = ctx
         .services
         .oracle
         .by_id
         .list(None, SortOrder::Descending)?
         .flatten()
-        .filter_map(|(_, oracle)| {
+        .filter_map(|(id, oracle)| {
             if oracle.owner_address == address {
-                Some(oracle)
-            } else {
-                None
+                let res = OracleResponse::from_with_id(id.to_string(), oracle);
+                return Some(res)
             }
+            None
         })
-        .collect::<Vec<_>>();
-
-    let oracle = oracles.first().cloned();
+        .next();
 
     Ok(Response::new(oracle))
 }
