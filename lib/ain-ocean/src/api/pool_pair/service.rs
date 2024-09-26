@@ -2,6 +2,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 use bitcoin::Txid;
+use cached::proc_macro::cached;
 use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -54,6 +55,12 @@ pub struct PoolSwapFromTo {
     pub to: Option<PoolSwapFromToData>,
 }
 
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("getusdperdfi") }"#
+)]
 pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
 
@@ -226,6 +233,12 @@ async fn get_yearly_custom_reward_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -
     })
 }
 
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("getdailydfireward") }"#
+)]
 async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let gov = get_gov_cached(ctx, "LP_DAILY_DFI_REWARD".to_string()).await?;
 
@@ -247,10 +260,6 @@ async fn get_loan_token_splits(ctx: &Arc<AppContext>) -> Result<Option<serde_jso
 }
 
 async fn get_yearly_reward_pct_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
-    // if p.reward_pct.is_none() {
-    //   return dec!(0)
-    // };
-
     let dfi_price_usd = get_usd_per_dfi(ctx).await?;
     let daily_dfi_reward = get_daily_dfi_reward(ctx).await?;
 
@@ -297,7 +306,12 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
     Ok(block_subsidy)
 }
 
-// TODO(): cached
+#[cached(
+    result = true,
+    time = 600,
+    key = "String",
+    convert = r#"{ format!("getloanemission") }"#
+)]
 async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let info = ctx.client.get_blockchain_info().await?;
     let eunos_height = info
@@ -397,6 +411,12 @@ async fn gather_amount(
     Ok(volume)
 }
 
+#[cached(
+    result = true,
+    time = 900, // 15 mins
+    key = "String",
+    convert = r#"{ format!("getusdvolume{id}") }"#
+)]
 pub async fn get_usd_volume(ctx: &Arc<AppContext>, id: &str) -> Result<PoolPairVolumeResponse> {
     let pool_id = id.parse::<u32>()?;
     Ok(PoolPairVolumeResponse {
@@ -475,6 +495,12 @@ async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option
     }
 }
 
+#[cached(
+    result = true,
+    time = 300, // 5 mins
+    key = "String",
+    convert = r#"{ format!("gettokenusdvalue{token_id}") }"#
+)]
 async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &u64) -> Result<Decimal> {
     let info = ain_cpp_imports::get_dst_token(token_id.to_string());
     if info.is_null() {
