@@ -633,11 +633,7 @@ pub fn invalidate_oracle_interval(
     };
     repo.by_id.put(prev_id, &aggregated_interval)?;
     repo.by_key.put(
-        &(
-            prev_id.0.clone(),
-            prev_id.1.clone(),
-            prev_id.2.clone(),
-        ),
+        &(prev_id.0.clone(), prev_id.1.clone(), prev_id.2.clone()),
         prev_id,
     )?;
     Ok(())
@@ -698,11 +694,7 @@ fn forward_aggregate(
         .by_id
         .put(&prev_id, &aggregated_interval)?;
     services.oracle_price_aggregated_interval.by_key.put(
-        &(
-            prev_id.0.clone(),
-            prev_id.1.clone(),
-            prev_id.2.clone(),
-        ),
+        &(prev_id.0.clone(), prev_id.1.clone(), prev_id.2.clone()),
         &prev_id,
     )?;
     Ok(())
