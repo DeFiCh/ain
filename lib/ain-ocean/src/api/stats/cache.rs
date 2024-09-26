@@ -200,6 +200,7 @@ pub fn get_emission(height: u32) -> Result<Emission> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct LoanCount {
     pub schemes: u64,
     pub loan_tokens: u64,
