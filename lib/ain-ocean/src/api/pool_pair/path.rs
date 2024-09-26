@@ -1,7 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use defichain_rpc::json::poolpair::PoolPairInfo;
-use rust_decimal::{prelude::FromPrimitive, RoundingStrategy, Decimal};
+use rust_decimal::{prelude::FromPrimitive, Decimal, RoundingStrategy};
 use rust_decimal_macros::dec;
 use serde::Serialize;
 use snafu::OptionExt;

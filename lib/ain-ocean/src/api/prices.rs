@@ -9,7 +9,7 @@ use axum::{
 };
 use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
@@ -23,7 +23,7 @@ use super::{
 use crate::{
     error::{ApiError, Error, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
@@ -45,11 +45,9 @@ pub struct OraclePriceAggregatedResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregatedResponse {
-    #[serde(with = "rust_decimal::serde::str")]
-    pub amount: Decimal,
-    #[serde(with = "rust_decimal::serde::str")]
-    pub weightage: Decimal,
-    pub oracles: OraclePriceActiveNextOracles,
+    pub amount: String,
+    pub weightage: i32,
+    pub oracles: OraclePriceActiveNextOraclesResponse,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,6 +56,13 @@ pub struct PriceTickerResponse {
     pub id: String,   //token-currency
     pub sort: String, //count-height-token-currency
     pub price: OraclePriceAggregatedResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceActiveNextOraclesResponse {
+    pub active: i32,
+    pub total: i32,
 }
 
 impl From<((Token, Currency), PriceTicker)> for PriceTickerResponse {
@@ -86,9 +91,23 @@ impl From<((Token, Currency), PriceTicker)> for PriceTickerResponse {
                 token,
                 currency,
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount,
-                    weightage: price_ticker.price.aggregated.weightage,
-                    oracles: price_ticker.price.aggregated.oracles,
+                    amount: format!("{:.8}", amount),
+                    weightage: price_ticker
+                        .price
+                        .aggregated
+                        .weightage
+                        .to_i32()
+                        .unwrap_or_default(),
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: price_ticker
+                            .price
+                            .aggregated
+                            .oracles
+                            .active
+                            .to_i32()
+                            .unwrap_or_default(),
+                        total: price_ticker.price.aggregated.oracles.total,
+                    },
                 },
                 block: price_ticker.price.block,
             },
@@ -193,9 +212,12 @@ async fn get_feed(
                 token: token.clone(),
                 currency: currency.clone(),
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount: v.aggregated.amount,
-                    weightage: v.aggregated.weightage,
-                    oracles: v.aggregated.oracles,
+                    amount: format!("{:.8}", v.aggregated.amount),
+                    weightage: v.aggregated.weightage.to_i32().unwrap_or_default(),
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: v.aggregated.oracles.active.to_i32().unwrap_or_default(),
+                        total: v.aggregated.oracles.total,
+                    },
                 },
                 block: v.block,
             };

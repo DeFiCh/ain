@@ -146,7 +146,7 @@ async fn get_oracle_by_address(
         .filter_map(|(id, oracle)| {
             if oracle.owner_address == address {
                 let res = OracleResponse::from_with_id(id.to_string(), oracle);
-                return Some(res)
+                return Some(res);
             }
             None
         })
