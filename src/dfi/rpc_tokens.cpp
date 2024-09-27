@@ -142,14 +142,9 @@ UniValue createtoken(const JSONRPCRequest &request) {
     auto [view, accountView, vaultView] = GetSnapshots();
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet,
-                                   rawTx.nVersion,
-                                   auths,
-                                   metaObj["isDAT"].getBool(),
-                                   optAuthTx,
-                                   txInputs,
-                                   *view,
-                                   request.metadata.coinSelectOpts);
+    const auto isDAT = metaObj["isDAT"].getBool();
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, isDAT, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts, isDAT);
 
     rawTx.vout.push_back(CTxOut(GetTokenCreationFee(targetHeight), scriptMeta));
     rawTx.vout.push_back(CTxOut(GetTokenCollateralAmount(), GetScriptForDestination(collateralDest)));
