@@ -2447,7 +2447,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // bind ocean REST addresses
-        if (gArgs.GetBoolArg("-oceanarchiverest", DEFAULT_OCEAN_SERVER_ENABLED)) {
+        if (gArgs.GetBoolArg("-oceanarchiveserver", DEFAULT_OCEAN_SERVER_ENABLED)) {
             // bind ocean addresses
             for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
                 LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
