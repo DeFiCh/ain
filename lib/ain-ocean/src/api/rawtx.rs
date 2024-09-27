@@ -213,7 +213,6 @@ async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
-    println!("{:?}", ctx.network);
     Router::new()
         .route("/send", post(send_raw_tx))
         .route("/test", post(test_raw_tx))
