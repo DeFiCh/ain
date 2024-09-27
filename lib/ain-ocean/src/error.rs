@@ -306,10 +306,6 @@ impl Error {
     #[must_use]
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
-            Self::RpcError {
-                error: defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e)),
-                ..
-            } => (StatusCode::NOT_FOUND, e.message.to_string()),
             Self::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
             Self::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
             Self::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
