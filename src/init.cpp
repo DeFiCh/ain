@@ -679,8 +679,8 @@ void SetupServerArgs()
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive indexer (default: %b)", DEFAULT_OCEAN_INDEXER_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
-    gArgs.AddArg("-oceanarchiverest", strprintf("Enable ocean archive REST server (default: %b)", DEFAULT_OCEAN_REST_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
-    gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_ARCHIVE_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchiveserver", strprintf("Enable ocean archive server (default: %b)", DEFAULT_OCEAN_SERVER_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_SERVER_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchivebind=<addr>[:port]", "Bind to given address to listen for Ocean connections. Do not expose the Ocean server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -oceanarchiveport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-minerstrategy", "Staking optimisation. Options are none, numeric value indicating the number of subnodes to stake (default: none)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
@@ -1676,7 +1676,7 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     }
 
     // Determine which addresses to bind to ocean server
-    int ocean_port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
+    int ocean_port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_SERVER_PORT);
     if (ocean_port == -1) {
         LogPrintf("Ocean server disabled.\n");
     } else {
@@ -2447,7 +2447,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // bind ocean REST addresses
-        if (gArgs.GetBoolArg("-oceanarchiverest", DEFAULT_OCEAN_REST_ENABLED)) {
+        if (gArgs.GetBoolArg("-oceanarchiverest", DEFAULT_OCEAN_SERVER_ENABLED)) {
             // bind ocean addresses
             for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
                 LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);

@@ -33,8 +33,8 @@ static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
 static constexpr bool DEFAULT_OCEAN_INDEXER_ENABLED = false;
-static constexpr bool DEFAULT_OCEAN_REST_ENABLED = false;
-static constexpr uint32_t DEFAULT_OCEAN_ARCHIVE_PORT = 3002;
+static constexpr bool DEFAULT_OCEAN_SERVER_ENABLED = false;
+static constexpr uint32_t DEFAULT_OCEAN_SERVER_PORT = 3002;
 
 struct Attributes {
     uint64_t blockGasTargetFactor;
