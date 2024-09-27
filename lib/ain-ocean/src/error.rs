@@ -242,14 +242,14 @@ impl From<&str> for Error {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub enum ErrorKind {
     NotFound,
     BadRequest,
     Unknown,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct ApiErrorData {
     code: u16,
     r#type: ErrorKind,
@@ -257,7 +257,7 @@ struct ApiErrorData {
     message: String,
     url: String,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ApiError {
     error: ApiErrorData,
     #[serde(skip)]
