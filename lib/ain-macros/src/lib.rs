@@ -100,7 +100,7 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             match #name(#(#param_names),*).await {
                 Err(e) => {
-                log::debug!("[ocean_endpoint] error : {e:#?}");
+                log::debug!("[ocean_endpoint] error : {e:?}");
                 let (status, message) = e.into_code_and_message();
                 Err(ApiError::new(
                     status,
