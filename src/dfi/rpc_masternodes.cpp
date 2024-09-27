@@ -58,7 +58,7 @@ UniValue mnToJSON(CCustomCSView &view,
                 view.GetBlockTimes(node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
 
             if (currentHeight >= Params().GetConsensus().DF10EunosPayaHeight) {
-                const auto loops = GetTimelockLoops(*timelock);
+                const auto loops = GetTimelockLoops(*timelock, currentHeight);
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(

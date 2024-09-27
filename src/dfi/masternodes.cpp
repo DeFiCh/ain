@@ -102,6 +102,13 @@ CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProp
     return -1;
 }
 
+uint8_t GetTimelockLoops(const uint16_t timelock, const int blockHeight) {
+    if (blockHeight < Params().GetConsensus().DF10EunosPayaHeight) {
+        return 1;
+    }
+    return timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
+}
+
 CMasternode::CMasternode()
     : mintedBlocks(0),
       ownerAuthAddress(),
@@ -531,7 +538,7 @@ void CMasternodesView::EraseSubNodesLastBlockTime(const uint256 &nodeId, const u
 std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId,
                                                       const CMasternode &node,
                                                       const uint64_t height) const {
-    if (const auto timelock = ReadBy<Timelock, uint16_t>(nodeId); timelock) {
+    if (const auto timelock = ReadBy<Timelock, uint16_t>(nodeId)) {
         LOCK(cs_main);
         // Get last height
         auto lastHeight = height - 1;
@@ -592,7 +599,7 @@ std::vector<int64_t> CMasternodesView::GetBlockTimes(const CKeyID &keyID,
         }
 
         // If no values set for pre-fork MN use the fork time
-        const auto loops = GetTimelockLoops(timelock);
+        const auto loops = GetTimelockLoops(timelock, blockHeight);
         for (uint8_t i{0}; i < loops; ++i) {
             if (!subNodesBlockTime[i]) {
                 subNodesBlockTime[i] = block->GetBlockTime();

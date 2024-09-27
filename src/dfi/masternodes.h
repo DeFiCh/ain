@@ -72,7 +72,7 @@ public:
         UNKNOWN  // unreachable
     };
 
-    enum TimeLock { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
+    enum TimeLock : uint16_t { ZEROYEAR, FIVEYEAR = 260, TENYEAR = 520 };
 
     enum Version : int32_t {
         PRE_FORT_CANNING = -1,
@@ -143,9 +143,7 @@ public:
     friend bool operator!=(const CMasternode &a, const CMasternode &b);
 };
 
-inline uint8_t GetTimelockLoops(uint16_t timelock) {
-    return timelock == CMasternode::TENYEAR ? 4 : timelock == CMasternode::FIVEYEAR ? 3 : 2;
-}
+uint8_t GetTimelockLoops(const uint16_t timelock, const int blockHeight);
 
 struct CCreateMasterNodeMessage {
     char operatorType;
