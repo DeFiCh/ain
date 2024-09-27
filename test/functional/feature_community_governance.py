@@ -57,14 +57,17 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Run pre-fork checks
         self.pre_fork_checks()
 
-        # Set up Governance
-        self.setup_governance()
+        # Move to fork height
+        self.move_to_df24()
 
-        # Test member addition, removal and errors
-        self.member_update_and_errors()
+        # Set up Governance
+        self.test_setting_governance()
 
         # Test updating Governance
         self.govvar_checks()
+
+        # Test member addition, removal and errors
+        self.member_update_and_errors()
 
         # Test unsetgovheight
         self.unsetgovheight_checks()
@@ -99,34 +102,32 @@ class CommunityGovernanceTest(DefiTestFramework):
     def setup(self):
 
         # Get address for Governance
-        self.governance_member = "msER9bmJjyEemRpQoS8YYVL21VyZZrSgQ7"
+        self.governance_member = "bcrt1qrccu8ecz66vkglf4xcdhn3rhn6jg7lqk80w2ln"
+        self.nodes[1].importprivkey(
+            "cR4xaqiCqsVy1zJUAVsTBWJHYSPKfAMCHx7jaU3QZgYhB8ML7jmv"
+        )
 
         # Generate chain
         self.nodes[0].generate(110)
 
-        # Add foundation to node two
-        self.nodes[2].importprivkey(
-            "cR4qgUdPhANDVF3bprcp5N9PNW2zyogDx6DGu2wHh2qtJB1L1vQj"
-        )
-        collateral_address = "bcrt1qyrfrpadwgw7p5eh3e9h3jmu4kwlz4prx73cqny"
+        # Get address for node 2 token
+        self.collateral_address = self.nodes[2].getnewaddress("", "bech32")
 
         # Fund nodes
         self.nodes[0].sendtoaddress(self.governance_member, 100)
-        self.nodes[0].sendtoaddress(collateral_address, 100)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress("", "bech32"), 100)
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         # Create DAT token for later tests
-        self.nodes[2].createtoken(
+        self.nodes[0].createtoken(
             {
                 "symbol": "ETH",
                 "name": "Ethereum",
                 "isDAT": True,
-                "collateralAddress": collateral_address,
+                "collateralAddress": self.collateral_address,
             }
         )
-        self.nodes[2].generate(1)
-        self.sync_blocks()
+        self.nodes[0].generate(1)
 
         # Get address for Foundation
         foundation_member = self.nodes[0].getnewaddress()
@@ -177,7 +178,28 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Enable unset Gov variables in attributes
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/gov-unset": "true"}})
         self.nodes[0].generate(1)
+
+    def rollback_to_start(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Update times across all nodes. Avoids sync issues.
+        self.nodes[0].generate(1)
         self.sync_blocks()
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+        self.nodes[2].generate(1)
+        self.sync_blocks()
+
+    def move_to_df24(self):
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+        self.sync_blocks()
+
+        # Store rollback block
+        self.start_block = self.nodes[0].getblockcount()
 
     def pre_fork_checks(self):
 
@@ -206,17 +228,17 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Token cannot be deprecated below DF24Height",
-            self.nodes[2].updatetoken,
+            self.nodes[0].updatetoken,
             "ETH",
             {
                 "deprecate": True,
             },
         )
 
-    def setup_governance(self):
+    def test_setting_governance(self):
 
-        # Move to fork height
-        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+        # Rollback block
+        self.rollback_to_start()
 
         # Set Governance address
         self.nodes[0].setgov(
@@ -237,9 +259,31 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Enable Governance
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/governance": "true"}})
         self.nodes[0].generate(1)
+
+    def enable_governance(self, address):
+
+        # Set Governance address
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/governance/members": [address],
+                    "v0/params/feature/governance": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
         self.sync_blocks()
 
     def member_update_and_errors(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Set Governance address
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {"v0/params/governance/members": [self.governance_member]}}
+        )
+        self.nodes[0].generate(1)
 
         # Add already existant address
         assert_raises_rpc_error(
@@ -341,8 +385,8 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_equal(
             attributes["v0/params/governance/members"],
             [
-                "2MwHamtynMqvstggG5XsVPVoAKroa4CgwFs",
                 self.governance_member,
+                "2MwHamtynMqvstggG5XsVPVoAKroa4CgwFs",
             ],
         )
 
@@ -380,14 +424,13 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Move to stored height
         self.nodes[0].generate(5)
-        self.sync_blocks()
 
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
             attributes["v0/params/governance/members"],
             [
-                "2N3kCSytvetmJybdZbqV5wK3Zzekg9SiSe2",
                 self.governance_member,
+                "2N3kCSytvetmJybdZbqV5wK3Zzekg9SiSe2",
             ],
         )
 
@@ -435,6 +478,21 @@ class CommunityGovernanceTest(DefiTestFramework):
 
     def cleargovheights_checks(self):
 
+        # Rollback block
+        self.rollback_to_start()
+
+        # Set params to unset
+        self.nodes[0].setgov(
+            {
+                "ORACLE_DEVIATION": "1",
+                "ATTRIBUTES": {
+                    "v0/params/dfip2206f/active": "false",
+                },
+            }
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         # Get current block
         current_block = self.nodes[0].getblockcount()
 
@@ -477,6 +535,12 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_equal(len(result[8]), 1)
 
     def unsetgovheight_checks(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.collateral_address)
 
         # Set params to unset
         self.nodes[0].setgov(
@@ -527,18 +591,18 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.rollback_to(rollback_height)
 
         # Governance unset
-        self.nodes[1].unsetgovheight(
+        self.nodes[2].unsetgovheight(
             {"ORACLE_DEVIATION": "", "ATTRIBUTES": ["v0/params/dfip2206f/active"]},
             rollback_height + 2,
         )
-        self.nodes[1].generate(2)
+        self.nodes[2].generate(2)
 
         # Check keys no longer set
-        result = self.nodes[1].getgov("ORACLE_DEVIATION")
+        result = self.nodes[2].getgov("ORACLE_DEVIATION")
         assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
         assert (
             "v0/params/dfip2206f/active"
-            not in self.nodes[1].getgov("ATTRIBUTES")["ATTRIBUTES"]
+            not in self.nodes[2].getgov("ATTRIBUTES")["ATTRIBUTES"]
         )
 
         # Rollback to before unset
@@ -570,7 +634,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Height must be 10 blocks above the current height",
-            self.nodes[1].unsetgovheight,  # Governance
+            self.nodes[2].unsetgovheight,  # Governance
             {"ORACLE_DEVIATION": ""},
             current_block + 10,
         )
@@ -586,7 +650,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_raises_rpc_error(
             -32600,
             "Height must be 10 blocks above the current height",
-            self.nodes[1].setgovheight,  # Governance
+            self.nodes[2].setgovheight,  # Governance
             {"ORACLE_DEVIATION": "0.5"},
             current_block + 10,
         )
@@ -612,15 +676,51 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Move to unset height
         self.nodes[0].generate(11)
+        self.sync_blocks()
 
         # Check results
         result = self.nodes[0].getgov("ORACLE_DEVIATION")
         assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
 
+        # Get current block
+        current_block = self.nodes[0].getblockcount()
+
+        # Test Governance setting with the min block limit
+        self.nodes[2].setgovheight({"ORACLE_DEVIATION": "0.5"}, current_block + 12)
+        self.nodes[2].generate(12)
+
+        # Check results
+        result = self.nodes[2].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0.50000000"))
+
+        # Get current block
+        current_block = self.nodes[2].getblockcount()
+
+        # Test unsetting with min block limit
+        self.nodes[2].unsetgovheight({"ORACLE_DEVIATION": ""}, current_block + 12)
+        self.nodes[2].generate(1)
+
+        # Check pending changes shown
+        result = self.nodes[2].listgovs()
+        assert_equal(result[7][1], {f"{current_block + 12}": []})
+
+        # Move to unset height
+        self.nodes[2].generate(11)
+
+        # Check results
+        result = self.nodes[2].getgov("ORACLE_DEVIATION")
+        assert_equal(result["ORACLE_DEVIATION"], Decimal("0E-8"))
+
     def governanace_dat(self):
 
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.collateral_address)
+
         # Create DAT token
-        self.nodes[1].createtoken(
+        self.nodes[2].createtoken(
             {
                 "symbol": "BTC",
                 "name": "BTC",
@@ -628,11 +728,12 @@ class CommunityGovernanceTest(DefiTestFramework):
                 "collateralAddress": self.nodes[1].getnewaddress(),
             }
         )
-        self.nodes[1].generate(1)
+        self.nodes[2].generate(1)
+        self.sync_blocks()
 
         # Check DAT token created
         assert_equal(
-            self.nodes[1].gettoken("BTC")["2"]["isDAT"],
+            self.nodes[2].gettoken("BTC")["2"]["isDAT"],
             True,
         )
 
@@ -644,7 +745,6 @@ class CommunityGovernanceTest(DefiTestFramework):
             },
         )
         self.nodes[1].generate(1)
-        self.sync_blocks()
 
         # Check DAT token created
         assert_equal(
@@ -653,6 +753,9 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
 
     def foundation_dat(self):
+
+        # Rollback block
+        self.rollback_to_start()
 
         # Create DAT token
         self.nodes[0].createtoken(
@@ -667,7 +770,7 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check DAT token created
         assert_equal(
-            self.nodes[0].gettoken("LTC")["3"]["isDAT"],
+            self.nodes[0].gettoken("LTC")["2"]["isDAT"],
             True,
         )
 
@@ -681,9 +784,24 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # Enable Governance
+        self.enable_governance(self.governance_member)
+
+        # Create Governance DAT token
+        self.nodes[1].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "isDAT": True,
+                "collateralAddress": self.nodes[1].getnewaddress(),
+            }
+        )
+        self.nodes[1].generate(1)
+        self.sync_blocks()
+
         # Check DAT token created
         assert_equal(
-            self.nodes[0].gettoken("BTC")["2"]["name"],
+            self.nodes[0].gettoken("BTC")["3"]["name"],
             "Bitcoin",
         )
 
@@ -707,6 +825,33 @@ class CommunityGovernanceTest(DefiTestFramework):
         )
 
     def governance_pools(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.governance_member)
+
+        # Create DAT token
+        self.nodes[1].createtoken(
+            {
+                "symbol": "LTC",
+                "name": "Litecoin",
+                "isDAT": True,
+                "collateralAddress": self.nodes[1].getnewaddress(),
+            }
+        )
+        self.nodes[1].generate(1)
+
+        self.nodes[1].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "isDAT": True,
+                "collateralAddress": self.nodes[1].getnewaddress(),
+            }
+        )
+        self.nodes[1].generate(1)
 
         # Create pool pair
         self.nodes[1].createpoolpair(
@@ -733,12 +878,17 @@ class CommunityGovernanceTest(DefiTestFramework):
             }
         )
         self.nodes[1].generate(1)
-        self.sync_blocks()
 
         # Check pool pair updated
         assert_equal(self.nodes[1].getpoolpair("BTC-LTC")["4"]["name"], "BTC-LTC")
 
     def governance_oracles(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.governance_member)
 
         # Define price feeds
         price_feeds = [
@@ -789,9 +939,35 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Set Oracle data
         self.nodes[1].setoracledata(oracle_tx, int(time.time()), oracle_prices)
         self.nodes[1].generate(1)
-        self.sync_blocks()
 
     def governance_loans(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.governance_member)
+
+        # Price feeds
+        price_feeds = [
+            {"currency": "USD", "token": "META"},
+            {"currency": "USD", "token": "DFI"},
+        ]
+
+        # Appoint Oracle
+        oracle_address = self.nodes[1].getnewaddress()
+        oracle_tx = self.nodes[1].appointoracle(oracle_address, price_feeds, 10)
+        self.nodes[1].generate(1)
+
+        # Feed oracle
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": "10@META"},
+            {"currency": "USD", "tokenAmount": "10@DFI"},
+        ]
+
+        # Set Oracle data
+        self.nodes[1].setoracledata(oracle_tx, int(time.time()), oracle_prices)
+        self.nodes[1].generate(1)
 
         # Set collateral token
         self.nodes[1].setcollateraltoken(
@@ -812,7 +988,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Check loan token created
-        assert_equal(self.nodes[1].gettoken("META")["5"]["name"], "Facebook")
+        assert_equal(self.nodes[1].gettoken("META")["2"]["name"], "Facebook")
 
         # Update loan token
         self.nodes[1].updateloantoken(
@@ -824,7 +1000,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Check loan token updated
-        assert_equal(self.nodes[1].gettoken("META")["5"]["name"], "META")
+        assert_equal(self.nodes[1].gettoken("META")["2"]["name"], "META")
 
         # Create loan scheme
         self.nodes[1].createloanscheme(150, 1, "LOAN1")
@@ -857,7 +1033,6 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Destroy a loan scheme
         self.nodes[1].destroyloanscheme("LOAN1")
         self.nodes[1].generate(1)
-        self.sync_blocks()
 
         # Check loan scheme destroyed
         results = self.nodes[1].listloanschemes()
@@ -865,6 +1040,9 @@ class CommunityGovernanceTest(DefiTestFramework):
         assert_equal(results[0]["id"], "LOAN2")
 
     def foundation_deprecate_token(self):
+
+        # Rollback block
+        self.rollback_to_start()
 
         # Get address to test collateral change
         new_address = self.nodes[0].getnewaddress()
@@ -922,7 +1100,6 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check token deprecated
         assert_equal(self.nodes[0].gettoken(1)["1"]["symbol"], "eol/ETH")
-        # assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], True)
 
         # Foundation undeprecate and set other values
         assert_raises_rpc_error(
@@ -974,13 +1151,17 @@ class CommunityGovernanceTest(DefiTestFramework):
             },
         )
         self.nodes[0].generate(1)
-        self.sync_blocks()
 
         # Check token deprecated
         assert_equal(self.nodes[0].gettoken(1)["1"]["symbol"], "ETH")
-        # assert_equal(self.nodes[0].gettoken(1)["1"]["deprecated"], False)
 
     def governance_deprecate_token(self):
+
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.governance_member)
 
         # Get address to test collateral change
         new_address = self.nodes[1].getnewaddress()
@@ -1038,7 +1219,6 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check token deprecated
         assert_equal(self.nodes[1].gettoken(1)["1"]["symbol"], "eol/ETH")
-        # assert_equal(self.nodes[1].gettoken(1)["1"]["deprecated"], True)
 
         # Governance undeprecate and set other values
         assert_raises_rpc_error(
@@ -1090,13 +1270,14 @@ class CommunityGovernanceTest(DefiTestFramework):
             },
         )
         self.nodes[1].generate(1)
-        self.sync_blocks()
 
         # Check token deprecated
         assert_equal(self.nodes[1].gettoken(1)["1"]["symbol"], "ETH")
-        # assert_equal(self.nodes[1].gettoken(1)["1"]["deprecated"], False)
 
     def owner_deprecate_token(self):
+
+        # Rollback block
+        self.rollback_to_start()
 
         # Test owner can deprecate token
         self.nodes[2].updatetoken(
@@ -1109,7 +1290,6 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check token deprecated
         assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "eol/ETH")
-        # assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], True)
 
         # Test owner can undeprecate token
         self.nodes[2].updatetoken(
@@ -1122,7 +1302,6 @@ class CommunityGovernanceTest(DefiTestFramework):
 
         # Check token deprecated
         assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "ETH")
-        # assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], False)
 
         # Test owner can deprecate token, rename and set falgs
         self.nodes[2].updatetoken(
@@ -1139,7 +1318,6 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Check token deprecated and renamed
         assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "eol/LTC")
         assert_equal(self.nodes[2].gettoken(1)["1"]["name"], "Litecoin")
-        # assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], True)
         assert_equal(self.nodes[2].gettoken(1)["1"]["tradeable"], False)
 
         # Test owner can deprecate token and rename
@@ -1153,12 +1331,10 @@ class CommunityGovernanceTest(DefiTestFramework):
             },
         )
         self.nodes[2].generate(1)
-        self.sync_blocks()
 
         # Check token deprecated and renamed
         assert_equal(self.nodes[2].gettoken(1)["1"]["symbol"], "ETH")
         assert_equal(self.nodes[2].gettoken(1)["1"]["name"], "Ethereum")
-        # assert_equal(self.nodes[2].gettoken(1)["1"]["deprecated"], False)
         assert_equal(self.nodes[2].gettoken(1)["1"]["tradeable"], True)
 
 
