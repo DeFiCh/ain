@@ -59,6 +59,7 @@ pub struct PoolSwapFromTo {
     result = true,
     time = 600,
     key = "String",
+    sync_writes = true,
     convert = r#"{ format!("getusdperdfi") }"#
 )]
 pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
@@ -316,6 +317,7 @@ async fn get_block_subsidy(eunos_height: u32, height: u32) -> Result<Decimal> {
     result = true,
     time = 600,
     key = "String",
+    sync_writes = true,
     convert = r#"{ format!("getloanemission") }"#
 )]
 async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {

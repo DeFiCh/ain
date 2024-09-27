@@ -140,6 +140,7 @@ pub async fn list_pool_pairs_cached(
     result = true,
     time = 600,
     key = "String",
+    sync_writes = true,
     convert = r#"{ format!("getgov{id}") }"#
 )]
 pub async fn get_gov_cached(
