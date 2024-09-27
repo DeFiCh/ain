@@ -62,9 +62,15 @@ pub struct PoolSwapFromTo {
     convert = r#"{ format!("getusdperdfi") }"#
 )]
 pub async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
-    let usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
+    let mut usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
+    if usdt.is_none() {
+        usdt = get_pool_pair_cached(ctx, "DFI-USDT".to_string()).await?;
+    }
 
-    let usdc = get_pool_pair_cached(ctx, "USDC-DFI".to_string()).await?;
+    let mut usdc = get_pool_pair_cached(ctx, "USDC-DFI".to_string()).await?;
+    if usdc.is_none() {
+        usdc = get_pool_pair_cached(ctx, "DFI-USDC".to_string()).await?;
+    }
 
     let mut total_usd = dec!(0);
     let mut total_dfi = dec!(0);
