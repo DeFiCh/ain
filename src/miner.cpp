@@ -1632,7 +1632,7 @@ namespace pos {
                     const auto subNodesBlockTimes =
                         pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock);
 
-                    auto loops = GetTimelockLoops(*timeLock, blockHeight, *pcustomcsview);
+                    auto loops = GetTimelockLoops(*timeLock);
                     if (blockHeight < Params().GetConsensus().DF10EunosPayaHeight) {
                         loops = 1;
                     }

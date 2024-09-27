@@ -323,10 +323,6 @@ public:
 
     static Res GovVarApplyBelowHeight() { return Res::Err("Cannot be set at or below current height"); }
 
-    static Res GovVarAfterFreezerActivation() {
-        return Res::Err("Cannot change masternode unfreeze height after activation");
-    }
-
     static Res GovVarApplyAutoNoToken(const uint32_t token) {
         return Res::Err("Auto lock. No loan token with id (%d)", token);
     }
