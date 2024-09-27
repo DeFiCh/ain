@@ -3,12 +3,13 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <ain_rs_exports.h>
+#include <ffi/ffiexports.h>
 #include <dfi/customtx.h>
 #include <uint256.h>
 #include <util/system.h>
 
 Res OceanSetTxResult(const std::optional<std::pair<CustomTxType, uint256>> &txInfo, const std::size_t result_ptr) {
-    bool isOceanEnabled = gArgs.GetBoolArg("-oceanarchive", false);
+    bool isOceanEnabled = gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED);
     if (txInfo && isOceanEnabled) {
         const auto &[txType, txHash] = *txInfo;
         CrossBoundaryResult ffiResult;
