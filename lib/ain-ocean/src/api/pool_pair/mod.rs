@@ -335,7 +335,13 @@ async fn list_pool_pairs(
         })
         .collect::<Vec<_>>();
 
-    let res = try_join_all(fut).await?;
+    let mut res = try_join_all(fut).await?;
+
+    res.sort_by(|a, b| {
+        let a_num = a.id.parse::<u32>().unwrap_or(0);
+        let b_num = b.id.parse::<u32>().unwrap_or(0);
+        a_num.cmp(&b_num)
+    });
 
     Ok(ApiPagedResponse::of(res, query.size, |pool| {
         pool.id.clone()
