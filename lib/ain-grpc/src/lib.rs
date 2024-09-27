@@ -135,7 +135,7 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
     let (user, pass) = ain_cpp_imports::get_rpc_auth().map_err(|e| format_err!("{e}"))?;
     let client = Arc::new(
         Client::new(
-            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+            &format!("http://127.0.0.1:{}", ain_cpp_imports::get_rpc_port()),
             Auth::UserPass(user, pass),
         )
         .await?,
