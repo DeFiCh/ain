@@ -461,6 +461,10 @@ pub async fn get_apr(
     let loan_usd = get_yearly_reward_loan_usd(ctx, id).await?;
     let total_liquidity_usd = get_total_liquidity_usd(ctx, p).await?;
 
+    if custom_usd.is_zero() || pct_usd.is_zero() || loan_usd.is_zero() || total_liquidity_usd.is_zero() {
+        return Ok(PoolPairAprResponse::default());
+    }
+
     let yearly_usd = custom_usd
         .checked_add(pct_usd)
         .context(ArithmeticOverflowSnafu)?
