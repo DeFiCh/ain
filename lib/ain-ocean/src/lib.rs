@@ -29,7 +29,7 @@ lazy_static::lazy_static! {
     // Global services exposed by the library
     pub static ref SERVICES: Arc<Services> = {
         let datadir = ain_cpp_imports::get_datadir();
-        let store = Arc::new(OceanStore::new(&PathBuf::from(datadir)).expect("Error initialization Ocean services"));
+        let store = Arc::new(OceanStore::new(&PathBuf::from(datadir)).expect("Error initializating ocean services"));
         Arc::new(Services::new(store))
     };
 }
