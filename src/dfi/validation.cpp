@@ -4,6 +4,7 @@
 
 #include <ain_rs_exports.h>
 #include <chain.h>
+#include <consensus/validation.h>
 #include <dfi/accountshistory.h>
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
@@ -20,6 +21,7 @@
 #include <dfi/vaulthistory.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
+#include <rpc/blockchain.h>
 #include <validation.h>
 
 #include <consensus/params.h>
@@ -4636,6 +4638,23 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
     }
 }
 
+static CrossBoundaryResult OceanIndex(const UniValue b, const uint32_t height) {
+    auto time = GetTimeMillis();
+    CrossBoundaryResult result;
+    ocean_index_block(result, b.write());
+    if (!result.ok) {
+        LogPrintf("Error indexing block %d : %s\n", height, result.reason);
+        ocean_invalidate_block(result, b.write());
+        if (!result.ok) {
+            LogPrintf("Error invalidating block %d: %s\n", height, result.reason);
+            return result;
+        }
+        OceanIndex(b, height);
+    }
+    LogPrint(BCLog::OCEAN, "Indexing ocean block %d took: %dms\n", height, GetTimeMillis() - time);
+    return result;
+};
+
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              const CChainParams &chainparams,
@@ -4665,6 +4684,15 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
+
+    // Ocean archive
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+        const UniValue b = blockToJSON(cache, block, ::ChainActive().Tip(), pindex, true, 2);
+
+        if (CrossBoundaryResult result = OceanIndex(b, static_cast<uint32_t>(pindex->nHeight)); !result.ok) {
+            return Res::Err(result.reason.c_str());
+        }
+    }
 
     return Res::Ok();
 }

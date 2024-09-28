@@ -32,6 +32,10 @@ static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
+static constexpr bool DEFAULT_OCEAN_INDEXER_ENABLED = false;
+static constexpr bool DEFAULT_OCEAN_SERVER_ENABLED = false;
+static constexpr uint32_t DEFAULT_OCEAN_SERVER_PORT = 3002;
+
 struct Attributes {
     uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
@@ -46,6 +50,34 @@ struct Attributes {
             DEFAULT_EVM_RBF_FEE_INCREMENT,
         };
     }
+};
+
+struct PoolPairCreationHeight {
+    uint32_t id;
+    uint32_t idTokenA;
+    uint32_t idTokenB;
+    uint32_t creationHeight;
+};
+
+struct DSTToken {
+    uint32_t id;
+    rust::string name;
+    rust::string symbol;
+    rust::string symbolKey;
+    uint8_t decimal;
+    bool isDAT;
+    bool isLPS;
+    bool tradable;
+    bool mintable;
+    bool finalize;
+    bool isLoanToken;
+    CAmount minted;
+    CAmount limit;
+    rust::string creationTx;
+    int32_t creationHeight;
+    rust::string destructionTx;
+    int32_t destructionHeight;
+    rust::string collateralAddress;
 };
 
 struct DST20Token {
@@ -93,6 +125,8 @@ struct SystemTxData {
 };
 
 uint64_t getChainId();
+int getRPCPort();
+rust::string getRPCAuth();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
@@ -114,6 +148,8 @@ rust::string getStateInputJSON();
 std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);
 void CppLogPrintf(rust::string message);
+rust::vec<PoolPairCreationHeight> getPoolPairs();
+std::unique_ptr<DSTToken> getDSTToken(rust::string id);
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens);
 rust::string getClientVersion();
 int32_t getNumCores();
@@ -129,5 +165,6 @@ rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBloc
 uint64_t getDF23Height();
 uint64_t getDF24Height();
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
+bool isSkippedTx(std::array<uint8_t, 32> txHash);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

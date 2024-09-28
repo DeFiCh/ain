@@ -3,16 +3,13 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread::{self, JoinHandle},
+    time::Duration,
 };
 
-use anyhow::{format_err, Result};
+use anyhow::Result;
 use jsonrpsee_server::ServerHandle;
-use parking_lot::Mutex;
-use tokio::{
-    runtime::{Builder, Handle as AsyncHandle},
-    sync::mpsc::{self, Sender},
-};
+use parking_lot::{Mutex, RwLock};
+use tokio::runtime::Runtime;
 
 use crate::{evm::EVMServices, storage::traits::FlushableStorage};
 
@@ -36,11 +33,10 @@ lazy_static::lazy_static! {
 }
 
 pub struct Services {
-    pub tokio_runtime: AsyncHandle,
-    pub tokio_runtime_channel_tx: Sender<()>,
-    pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
+    tokio_runtime: RwLock<Option<Runtime>>,
     pub json_rpc_handles: Mutex<Vec<ServerHandle>>,
     pub websocket_handles: Mutex<Vec<ServerHandle>>,
+    pub ocean_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -52,56 +48,46 @@ impl Default for Services {
 
 impl Services {
     pub fn new() -> Self {
-        let r = Builder::new_multi_thread().enable_all().build().unwrap();
-        let (tx, mut rx) = mpsc::channel(1);
+        let runtime = Runtime::new().expect("Failed to create Tokio runtime");
 
         Services {
-            tokio_runtime_channel_tx: tx,
-            tokio_runtime: r.handle().clone(),
-            tokio_worker: Mutex::new(Some(thread::spawn(move || {
-                log::info!("Starting tokio waiter");
-                r.block_on(async move {
-                    rx.recv().await;
-                });
-            }))),
+            tokio_runtime: RwLock::new(Some(runtime)),
             json_rpc_handles: Mutex::new(vec![]),
             websocket_handles: Mutex::new(vec![]),
+            ocean_handle: Mutex::new(None),
             evm: Arc::new(EVMServices::new().expect("Error initializing handlers")),
         }
     }
 
+    pub fn runtime(&self) -> impl std::ops::Deref<Target = Runtime> + '_ {
+        parking_lot::RwLockReadGuard::map(self.tokio_runtime.read(), |opt| {
+            opt.as_ref().expect("Runtime has been shut down")
+        })
+    }
     pub fn stop_network(&self) -> Result<()> {
-        {
-            let json_rpc_handles = self.json_rpc_handles.lock();
-            for server in &*json_rpc_handles {
+        for handles in [&self.json_rpc_handles, &self.websocket_handles] {
+            let mut handles = handles.lock();
+            for server in handles.drain(..) {
                 server.stop()?;
             }
         }
 
-        {
-            let websocket_handles = self.websocket_handles.lock();
-            for server in &*websocket_handles {
-                server.stop()?;
-            }
+        if let Some(handle) = self.ocean_handle.lock().take() {
+            handle.abort();
         }
+
         Ok(())
     }
 
     pub fn stop(&self) -> Result<()> {
-        let _ = self.tokio_runtime_channel_tx.blocking_send(());
-
-        self.tokio_worker
-            .lock()
-            .take()
-            .ok_or(format_err!(
-                "failed to stop tokio runtime, early termination"
-            ))?
-            .join()
-            .map_err(|_| format_err!("failed to stop tokio runtime"))?;
-
         // Persist EVM State to disk
         self.evm.core.flush()?;
         self.evm.storage.flush()?;
+
+        if let Some(runtime) = self.tokio_runtime.write().take() {
+            runtime.shutdown_timeout(Duration::from_secs(10));
+        }
+
         Ok(())
     }
 }

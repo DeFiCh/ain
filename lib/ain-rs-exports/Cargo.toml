@@ -12,8 +12,9 @@ crate-type = ["staticlib"]
 [dependencies]
 ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
+ain-ocean = { path = "../ain-ocean" }
 ain-contracts = { path = "../ain-contracts" }
-ain-macros = { path = "../ain-macros" }
+ain-macros.workspace = true
 ain-cpp-imports = { path = "../ain-cpp-imports" }
 
 ethereum.workspace = true
@@ -24,6 +25,7 @@ hex.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 ethabi.workspace = true
+defichain-rpc.workspace = true
 
 # Build
 cxx.workspace = true

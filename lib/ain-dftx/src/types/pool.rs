@@ -1,3 +1,5 @@
+use std::fmt;
+
 use ain_macros::ConsensusEncoding;
 use bitcoin::{io, ScriptBuf};
 
@@ -47,7 +49,7 @@ pub struct PoolRemoveLiquidity {
 }
 
 #[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
-pub struct PoolCreatePair {
+pub struct CreatePoolPair {
     pub token_a: VarInt,
     pub token_b: VarInt,
     pub commission: i64,
@@ -64,4 +66,9 @@ pub struct PoolUpdatePair {
     pub commission: i64,
     pub owner_address: ScriptBuf,
     pub custom_rewards: Maybe<CompactVec<TokenBalanceUInt32>>,
+}
+impl fmt::Display for PoolId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PoolId: {:?}", self.id)
+    }
 }

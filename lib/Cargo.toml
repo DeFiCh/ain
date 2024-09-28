@@ -39,6 +39,7 @@ serde_json = "1.0"
 tokio = { version = "1.1", features = ["rt-multi-thread"] }
 async-trait = "0.1"
 regex = "1.5"
+indexmap = "2.2.6"
 
 ## build
 
@@ -60,6 +61,7 @@ prettyplease = "0.2.4"
 libsecp256k1 = "0.7"
 ripemd = { version = "0.1", default-features = false }
 sha3 = "0.10"
+sha2 = { version = "0.10", default-features = false }
 
 ## common
 
@@ -81,7 +83,7 @@ jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
-tempdir = "0.3"
+axum = { version = "0.7.5", features = ["macros"] }
 
 rocksdb = { version = "0.21", default-features = false }
 statrs = "0.16"
@@ -90,8 +92,6 @@ rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
 rayon = "1.8.0"
-
-bitcoin = "0.31"
 
 ### eth
 
@@ -120,6 +120,11 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+#### Ocean dependencies
+bitcoin = "0.31"
+cached = { version = "0.48", features = ["async"] }
+defichain-rpc = { version = "0.18.0", git = "https://github.com/defich/rust-defichain-rpc.git"}
 
 ### Local crates
 ain-cpp-imports = { path = "./ain-cpp-imports" }

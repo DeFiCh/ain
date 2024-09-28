@@ -1,12 +1,13 @@
 mod core;
 mod debug;
 mod evm;
+mod ocean;
 mod prelude;
 mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, debug::*, evm::*, util::*};
+use crate::{core::*, debug::*, evm::*, ocean::*, util::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -46,6 +47,7 @@ pub mod ffi {
         // Networking
         fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: String);
         fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: String);
+        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: String);
         fn ain_rs_init_network_subscriptions_service(
             result: &mut CrossBoundaryResult,
             addr: String,
@@ -344,6 +346,15 @@ pub mod ffi {
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
 
+        fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String);
+        fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
+
+        fn ocean_try_set_tx_result(
+            result: &mut CrossBoundaryResult,
+            tx_type: u8,
+            tx_hash: [u8; 32],
+            result_ptr: usize,
+        );
         fn evm_try_unsafe_rename_dst20(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,

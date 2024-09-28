@@ -10,7 +10,7 @@ fn main() -> Result<()> {
         .parent()
         .and_then(std::path::Path::parent)
         .map(|x| x.join("src"))
-        .ok_or(format_err!("path err"))?;
+        .ok_or_else(|| format_err!("path err"))?;
 
     let ffi_rs_src_path = &manifest_dir_path.join("src/bridge.rs");
     let ffi_exports_h_path = &cpp_src_path.join("ffi/ffiexports.h");

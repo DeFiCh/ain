@@ -29,6 +29,26 @@ uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
 }
 
+int getRPCPort() {
+    auto dvmport = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    if (const auto port = GetPortFromLockFile(AutoPort::RPC); port) {
+        dvmport = port;
+    }
+    return dvmport;
+}
+
+rust::string getRPCAuth() {
+    // Get credentials
+    std::string strRPCUserColonPass;
+    if (gArgs.GetArg("-rpcpassword", "") == "") {
+        // Try fall back to cookie-based authentication if no password is provided
+        GetAuthCookie(&strRPCUserColonPass);
+    } else {
+        strRPCUserColonPass = gArgs.GetArg("-rpcuser", "") + ":" + gArgs.GetArg("-rpcpassword", "");
+    }
+    return strRPCUserColonPass;
+}
+
 bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
@@ -328,6 +348,60 @@ uint64_t getEstimateGasErrorRatio() {
     return gArgs.GetArg("-evmestimategaserrorratio", DEFAULT_ESTIMATE_GAS_ERROR_RATIO);
 }
 
+rust::vec<PoolPairCreationHeight> getPoolPairs() {
+    LOCK(cs_main);
+
+    rust::vec<PoolPairCreationHeight> pools;
+    auto view = pcustomcsview.get();
+    view->ForEachPoolPair(
+        [&](DCT_ID const &id, const CPoolPair &pool) {
+            pools.emplace_back(PoolPairCreationHeight{id.v, pool.idTokenA.v, pool.idTokenB.v, pool.creationHeight});
+            return true;
+        },
+        {0});
+
+    return pools;
+}
+
+std::unique_ptr<DSTToken> getDSTToken(rust::string tokenId) {
+    auto [view, accountView, vaultView] = GetSnapshots();
+
+    DCT_ID dctId;
+    auto token = view->GetTokenGuessId(tokenId.c_str(), dctId);
+    if (!token) {
+        return {};
+    }
+
+    DSTToken dstToken;
+    dstToken.id = dctId.v;
+    dstToken.name = token->name;
+    dstToken.symbol = token->symbol;
+    dstToken.symbol = token->CreateSymbolKey(dctId);
+    dstToken.decimal = token->decimal;
+    dstToken.isDAT = token->IsDAT();
+    dstToken.isLPS = token->IsPoolShare();
+    dstToken.tradable = token->IsTradeable();
+    dstToken.mintable = token->IsMintable();
+    dstToken.finalize = token->IsFinalized();
+    dstToken.isLoanToken = token->IsLoanToken();
+    dstToken.minted = token->minted;
+    dstToken.creationTx = token->creationTx.ToString();
+    dstToken.creationHeight = token->creationHeight;
+    dstToken.destructionTx = token->destructionTx.ToString();
+    dstToken.destructionHeight = token->destructionHeight;
+
+    if (!token->IsPoolShare()) {
+        auto collateralAuth = token->creationTx;
+        if (const auto txid = view->GetNewTokenCollateralTXID(dctId.v); txid != uint256{}) {
+            collateralAuth = txid;
+        }
+        const Coin &authCoin = ::ChainstateActive().CoinsTip().AccessCoin(COutPoint(collateralAuth, 1));
+        dstToken.collateralAddress = ScriptToString(authCoin.out.scriptPubKey);
+    }
+
+    return std::make_unique<DSTToken>(dstToken);
+}
+
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
@@ -528,4 +602,10 @@ uint64_t getDF24Height() {
 
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
+}
+
+bool isSkippedTx(std::array<uint8_t, 32> txHash) {
+    uint256 hash{};
+    std::copy(txHash.begin(), txHash.end(), hash.begin());
+    return IsSkippedTx(hash);
 }

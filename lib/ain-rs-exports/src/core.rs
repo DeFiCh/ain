@@ -1,6 +1,7 @@
-use crate::{ffi, prelude::*};
 use ain_macros::ffi_fallible;
 use anyhow::Result;
+
+use crate::{ffi, prelude::*};
 
 #[ffi_fallible]
 pub fn ain_rs_preinit() -> Result<()> {
@@ -41,6 +42,12 @@ pub fn ain_rs_init_network_grpc_service(addr: String) -> Result<()> {
 #[ffi_fallible]
 pub fn ain_rs_init_network_subscriptions_service(addr: String) -> Result<()> {
     ain_grpc::init_network_subscriptions_service(addr)?;
+    Ok(())
+}
+
+#[ffi_fallible]
+pub fn ain_rs_init_network_rest_ocean(addr: String) -> Result<()> {
+    ain_grpc::init_network_rest_ocean(addr)?;
     Ok(())
 }
 

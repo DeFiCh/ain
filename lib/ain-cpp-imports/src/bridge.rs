@@ -9,6 +9,36 @@ pub mod ffi {
     }
 
     #[derive(Debug, Clone)]
+    pub struct PoolPairCreationHeight {
+        pub id: u32,
+        pub id_token_a: u32,
+        pub id_token_b: u32,
+        pub creation_height: u32,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct DSTToken {
+        pub id: u32,
+        pub name: String,
+        pub symbol: String,
+        pub symbol_key: String,
+        pub decimal: u8,
+        pub is_dat: bool,
+        pub is_lps: bool,
+        pub tradable: bool,
+        pub mintable: bool,
+        pub finalize: bool,
+        pub is_loan_token: bool,
+        pub minted: i64,
+        pub limit: i64,
+        pub creation_tx: String,
+        pub creation_height: i32,
+        pub destruction_tx: String,
+        pub destruction_height: i32,
+        pub collateral_address: String,
+    }
+
+    #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
         pub name: String,
@@ -49,6 +79,8 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
+        type PoolPairCreationHeight;
+        type DSTToken;
         type DST20Token;
         type TransactionData;
         type SystemTxType;
@@ -56,6 +88,8 @@ pub mod ffi {
         type TokenAmount;
 
         fn getChainId() -> u64;
+        fn getRPCPort() -> i32;
+        fn getRPCAuth() -> String;
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> String;
         fn getAccounts() -> Vec<String>;
@@ -77,6 +111,8 @@ pub mod ffi {
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
+        fn getPoolPairs() -> Vec<PoolPairCreationHeight>;
+        fn getDSTToken(id: String) -> UniquePtr<DSTToken>;
         #[allow(clippy::ptr_arg)]
         fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;
@@ -96,5 +132,6 @@ pub mod ffi {
             old_amount: TokenAmount,
             new_amount: &mut TokenAmount,
         ) -> bool;
+        fn isSkippedTx(tx_hash: [u8; 32]) -> bool;
     }
 }

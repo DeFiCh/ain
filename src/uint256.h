@@ -76,6 +76,13 @@ public:
         return reversedArray;
     }
 
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayBE() const
+    {
+        std::array<uint8_t, WIDTH> byteArray;
+        std::copy(data, data + WIDTH, byteArray.begin());
+        return byteArray;
+    }
+
     unsigned char* begin()
     {
         return &data[0];

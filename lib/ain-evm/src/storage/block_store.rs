@@ -1,5 +1,3 @@
-use ain_db::version::{DBVersionControl, Migration};
-use ain_db::{Column, ColumnName, DBError, LedgerColumn, Rocks, TypedColumn};
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
@@ -7,6 +5,11 @@ use log::{debug, info};
 use std::{
     collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
     time::Instant,
+};
+
+use ain_db::{
+    version::{DBVersionControl, Migration},
+    Column, ColumnName, DBError, LedgerColumn, Result as DBResult, Rocks, TypedColumn,
 };
 
 use super::{
@@ -22,7 +25,6 @@ use crate::{
     },
     EVMError, Result,
 };
-use ain_db::Result as DBResult;
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);
@@ -31,7 +33,13 @@ impl BlockStore {
     pub fn new(path: &Path) -> Result<Self> {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
-        let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
+
+        let cf_with_opts = COLUMN_NAMES
+            .into_iter()
+            .zip(std::iter::repeat(None))
+            .collect::<Vec<_>>();
+
+        let backend = Arc::new(Rocks::open(&path, cf_with_opts, None)?);
         let store = Self(backend);
         store.startup()?;
         Ok(store)

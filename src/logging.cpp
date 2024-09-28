@@ -163,6 +163,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::CUSTOMTXBENCH, "customtxbench"},
     {BCLog::SWAPRESULT, "swapresult"},
     {BCLog::CONNECT, "connect"},
+    {BCLog::OCEAN, "ocean"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
@@ -337,6 +338,8 @@ static std::string GetAutoPortString(const AutoPort type)
             return "ethrpcport";
         case WEBSOCKET:
             return "wsport";
+        case OCEAN:
+            return "ocean";
         default:
             return "Unknown";
     }

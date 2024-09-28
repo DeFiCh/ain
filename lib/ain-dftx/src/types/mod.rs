@@ -24,6 +24,10 @@ use self::{
 };
 use crate::custom_tx::CustomTxType;
 
+pub type Token = String;
+pub type Currency = String;
+pub type Weightage = u8;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum DfTx {
     AccountToAccount(AccountToAccount),
@@ -50,7 +54,7 @@ pub enum DfTx {
     PaybackLoanV2(PaybackLoanV2),
     PlaceAuctionBid(PlaceAuctionBid),
     PoolAddLiquidity(PoolAddLiquidity),
-    PoolCreatePair(PoolCreatePair),
+    CreatePoolPair(CreatePoolPair),
     PoolRemoveLiquidity(PoolRemoveLiquidity),
     PoolSwap(PoolSwap),
     PoolUpdatePair(PoolUpdatePair),
@@ -130,7 +134,7 @@ impl DfTx {
             DfTx::UpdateMasternode(_) => b'm',
             DfTx::UpdateTokenAny(_) => b'n',
             DfTx::AppointOracle(_) => b'o',
-            DfTx::PoolCreatePair(_) => b'p',
+            DfTx::CreatePoolPair(_) => b'p',
             DfTx::PoolRemoveLiquidity(_) => b'r',
             DfTx::PoolSwap(_) => b's',
             DfTx::UpdateOracle(_) => b't',
@@ -181,7 +185,7 @@ impl Decodable for DfTx {
                 DfTx::CreateMasternode(CreateMasternode::consensus_decode(r)?)
             }
             CustomTxType::CreatePoolPair => {
-                DfTx::PoolCreatePair(PoolCreatePair::consensus_decode(r)?)
+                DfTx::CreatePoolPair(CreatePoolPair::consensus_decode(r)?)
             }
             CustomTxType::CreateToken => DfTx::CreateToken(CreateToken::consensus_decode(r)?),
             CustomTxType::CreateVoc => DfTx::CreateVoc(CreateProposal::consensus_decode(r)?),
@@ -287,7 +291,7 @@ impl Encodable for DfTx {
             DfTx::BurnToken(data) => data.consensus_encode(w),
             DfTx::CloseVault(data) => data.consensus_encode(w),
             DfTx::CreateMasternode(data) => data.consensus_encode(w),
-            DfTx::PoolCreatePair(data) => data.consensus_encode(w),
+            DfTx::CreatePoolPair(data) => data.consensus_encode(w),
             DfTx::CreateCfp(data) => data.consensus_encode(w),
             DfTx::CreateToken(data) => data.consensus_encode(w),
             DfTx::CreateVoc(data) => data.consensus_encode(w),

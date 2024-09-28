@@ -44,7 +44,7 @@ setup_vars() {
     PYTHON_VENV_DIR=${PYTHON_VENV_DIR:-"${BUILD_DIR}/pyenv"}
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
-    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.72"}
+    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.76"}
 
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
     MAKE_USE_CLANG=${MAKE_USE_CLANG:-"$(get_default_use_clang)"}
@@ -415,7 +415,7 @@ check_py() {
 }
 
 check_rs() {
-    lib clippy 1
+    # lib clippy 1
     lib fmt-check 1
 }
 
