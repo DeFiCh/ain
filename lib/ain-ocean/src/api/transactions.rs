@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ain_macros::ocean_endpoint;
+use ain_macros::{ocean_endpoint, skip_serialize_none};
 use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,7 @@ async fn get_transaction(
     Ok(Response::new(transactions))
 }
 
+#[skip_serialize_none]
 #[derive(Debug, Serialize)]
 struct TransactionVinResponse {
     pub id: String,
