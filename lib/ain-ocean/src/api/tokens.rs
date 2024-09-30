@@ -8,7 +8,7 @@ use defichain_rpc::{
 };
 use serde::Serialize;
 use serde_json::json;
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{serde_as, skip_serializing_none, DisplayFromStr};
 
 use super::{
     common::parse_display_symbol,
@@ -28,6 +28,7 @@ pub struct TxHeight {
     height: i64,
 }
 
+#[skip_serializing_none]
 #[serde_as]
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]

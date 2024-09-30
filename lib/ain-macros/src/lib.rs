@@ -3,7 +3,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, ItemFn, ItemStruct,
+    parse_macro_input, Data, DeriveInput, Fields, ItemFn,
     ReturnType, Type,
 };
 
@@ -184,36 +184,4 @@ pub fn test_dftx_serialization(_attr: TokenStream, item: TokenStream) -> TokenSt
     };
 
     TokenStream::from(output)
-}
-
-#[proc_macro_attribute]
-pub fn skip_serialize_none(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(item as ItemStruct);
-
-    if let Fields::Named(FieldsNamed { named, .. }) = &mut input.fields {
-        for field in named.iter_mut() {
-            if is_option(&field.ty) {
-                add_skip_serialize_if_attribute(field);
-            }
-        }
-    }
-
-    quote!(#input).into()
-}
-
-fn is_option(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(typepath) = ty {
-        typepath
-            .path
-            .segments
-            .last()
-            .map_or(false, |seg| seg.ident == "Option")
-    } else {
-        false
-    }
-}
-
-fn add_skip_serialize_if_attribute(field: &mut Field) {
-    let attr = syn::parse_quote!(#[serde(skip_serializing_if = "Option::is_none")]);
-    field.attrs.push(attr);
 }
