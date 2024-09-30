@@ -120,6 +120,7 @@ create_pre_sync_rollback_log() {
     start_node_and_wait "$DATADIR_ROLLBACK"
     rollback_and_log > "$PRE_ROLLBACK_LOG"
     stop_node
+    rm -rf "$DATADIR_ROLLBACK"
 }
 
 start_node_and_wait() {
