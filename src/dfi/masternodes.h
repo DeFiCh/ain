@@ -143,7 +143,7 @@ public:
     friend bool operator!=(const CMasternode &a, const CMasternode &b);
 };
 
-uint8_t GetTimelockLoops(const uint16_t timelock, const int blockHeight, const CCustomCSView &view);
+uint8_t GetTimelockLoops(const uint16_t timelock, const int blockHeight);
 
 struct CCreateMasterNodeMessage {
     char operatorType;
@@ -311,8 +311,6 @@ public:
                                                             std::numeric_limits<uint32_t>::max()});
 
     std::optional<uint16_t> GetTimelock(const uint256 &nodeId, const CMasternode &node, const uint64_t height) const;
-    std::optional<uint16_t> ReadTimelock(const uint256 &nodeId) const;
-    void EraseTimelock(const uint256 &nodeId);
 
     // tags
     struct ID {

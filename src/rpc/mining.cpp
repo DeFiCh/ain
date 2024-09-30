@@ -336,7 +336,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
             if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
-                const auto loops = GetTimelockLoops(*timelock, height, *pcustomcsview);
+                const auto loops = GetTimelockLoops(*timelock, height);
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
                     multipliers.push_back(pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
