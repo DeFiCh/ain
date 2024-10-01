@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - master
+      - feature/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
