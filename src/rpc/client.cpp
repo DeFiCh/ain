@@ -320,6 +320,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listburnhistory", 0, "options" },
     { "accounthistorycount", 1, "options" },
 
+    { "logdvmstate", 0, "size" },
+
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 

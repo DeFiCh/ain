@@ -3291,8 +3291,10 @@ static std::string BytesToHex(const std::vector<unsigned char> &data) {
 UniValue logdvmstate(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logdvmstate",
-        "Log the full DVM state for debugging.\n",
-        {},
+        "Log the full DVM state for debugging in the datadir dumps directory.\n",
+        {
+          {"size", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Size for each file in GBs, default 1024MB"},
+          },
         RPCResult{"Generates logdvmstate-xxx.log files\n"},
         RPCExamples{HelpExampleCli("logdvmstate", "")},
     }
@@ -3309,8 +3311,21 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
     // Create a CDBIterator
     auto pcursor = db->NewIterator(leveldb::ReadOptions());
 
+    const auto fileSize = request.params[0].isNull() ? 1 : request.params[0].get_int64();
+    if (fileSize <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Size must be more then zero");
+    }
+
+    const size_t MAX_FILE_SIZE = fileSize * 1024 * 1048576;  // 1MB = 1048576 bytes
+
+    fs::path dumpsDir = GetDataDir() / "dumps";
+    if (!fs::exists(dumpsDir)) {
+        if (!fs::create_directory(dumpsDir)) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Failed to create dumps directory");
+        }
+    }
+
     // File handling variables
-    const size_t MAX_FILE_SIZE = 1ULL << 30;  // 1 GB
     size_t fileCounter = 0;
     size_t bytesWritten = 0;
     std::ofstream outFile;
@@ -3322,9 +3337,10 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
         }
         std::ostringstream fileName;
         fileName << "logdvmstate-" << std::setw(3) << std::setfill('0') << fileCounter << ".log";
-        outFile.open(fileName.str(), std::ios::out | std::ios::binary);
+        fs::path filePath = dumpsDir / fileName.str();
+        outFile.open(PathToString(filePath), std::ios::out | std::ios::binary);
         if (!outFile) {
-            std::cerr << "Failed to open file: " << fileName.str() << std::endl;
+            std::cerr << "Failed to open file: " << PathToString(filePath) << std::endl;
             return false;
         }
         bytesWritten = 0;
@@ -3422,7 +3438,7 @@ static const CRPCCommand commands[] = {
     {"accounts", "listpendingdusdswaps",   &listpendingdusdswaps,   {}                                                          },
     {"accounts", "getpendingdusdswaps",    &getpendingdusdswaps,    {"address"}                                                 },
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
-    {"hidden",   "logdvmstate",            &logdvmstate,            {""}                                                        },
+    {"hidden",   "logdvmstate",            &logdvmstate,            {"size"}                                                    },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {
