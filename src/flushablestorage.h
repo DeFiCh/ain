@@ -367,6 +367,12 @@ public:
         return changed;
     }
 
+    [[nodiscard]] CStorageLevelDB* GetStorageLevelDB() const {
+        const auto storageLevelDB = dynamic_cast<CStorageLevelDB*>(&db);
+        assert(storageLevelDB);
+        return storageLevelDB;
+    }
+
     std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> GetSnapshotPair() {
         const auto storageLevelDB = dynamic_cast<CStorageLevelDB*>(&db);
         assert(storageLevelDB);
