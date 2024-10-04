@@ -7,6 +7,8 @@
 #include <ffi/ffihelpers.h>
 #include <boost/asio.hpp>
 
+#include <fstream>
+
 std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
     const auto token = pcustomcsview->GetToken(amount.nTokenId);
     const auto amountString = ValueFromAmount(amount.nValue).getValStr();
@@ -3278,6 +3280,120 @@ UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
+static std::string BytesToHex(const std::vector<unsigned char> &data) {
+    std::ostringstream oss;
+    for (auto byte : data) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+    }
+    return oss.str();
+}
+
+UniValue logdvmstate(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logdvmstate",
+        "Log the full DVM state for debugging.\n",
+        {},
+        RPCResult{"Generates logdvmstate-xxx.log files\n"},
+        RPCExamples{HelpExampleCli("logdvmstate", "")},
+    }
+        .Check(request);
+
+    LOCK(cs_main);
+
+    // Flush any pending changes to the DB. Not always written to disk.
+    pcustomcsview->Flush();
+
+    // Get the CDBWrapper instance from CCustomCSView
+    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
+
+    // Create a CDBIterator
+    auto pcursor = db->NewIterator(leveldb::ReadOptions());
+
+    // File handling variables
+    const size_t MAX_FILE_SIZE = 1ULL << 30;  // 1 GB
+    size_t fileCounter = 0;
+    size_t bytesWritten = 0;
+    std::ofstream outFile;
+
+    // Function to open a new file
+    auto openNewFile = [&]() -> bool {
+        if (outFile.is_open()) {
+            outFile.close();
+        }
+        std::ostringstream fileName;
+        fileName << "logdvmstate-" << std::setw(3) << std::setfill('0') << fileCounter << ".log";
+        outFile.open(fileName.str(), std::ios::out | std::ios::binary);
+        if (!outFile) {
+            std::cerr << "Failed to open file: " << fileName.str() << std::endl;
+            return false;
+        }
+        bytesWritten = 0;
+        fileCounter++;
+        return true;
+    };
+
+    // Open the first file
+    if (!openNewFile()) {
+        return {};
+    }
+
+    // Seek to the beginning of the database
+    pcursor->SeekToFirst();
+
+    // Iterate over all key-value pairs
+    while (pcursor->Valid()) {
+        // Get the key and value slices
+        auto keySlice = pcursor->GetKey();
+        auto valueSlice = pcursor->GetValue();
+
+        // Convert key and value to byte vectors
+        std::vector<unsigned char> vKey(keySlice.data(), keySlice.data() + keySlice.size());
+        std::vector<unsigned char> vValue(valueSlice.data(), valueSlice.data() + valueSlice.size());
+
+        if (!vKey.empty()) {
+            auto &prefix = vKey[0];
+            std::string keyPrefixName = BytesToHex({prefix});
+
+            // Convert the rest of the key
+            std::string keyRestHex;
+            if (vKey.size() > 1) {
+                keyRestHex = BytesToHex(std::vector<unsigned char>(vKey.begin() + 1, vKey.end()));
+            }
+
+            // Convert value
+            std::string valueHex = BytesToHex(vValue);
+
+            // Prepare output
+            std::ostringstream oss;
+            oss << keyPrefixName << " ";
+            if (!keyRestHex.empty()) {
+                oss << keyRestHex << " ";
+            }
+            oss << valueHex << "\n";
+            std::string outputStr = oss.str();
+
+            // Write to file
+            outFile << outputStr;
+            bytesWritten += outputStr.size();
+
+            // Check file size limit
+            if (bytesWritten >= MAX_FILE_SIZE) {
+                if (!openNewFile()) {
+                    return {};
+                }
+            }
+        }
+
+        pcursor->Next();
+    }
+
+    if (outFile.is_open()) {
+        outFile.close();
+    }
+
+    return {};
+}
+
 static const CRPCCommand commands[] = {
   //  category       name                     actor (function)        params
   //  -------------  ------------------------ ----------------------  ----------
@@ -3306,6 +3422,7 @@ static const CRPCCommand commands[] = {
     {"accounts", "listpendingdusdswaps",   &listpendingdusdswaps,   {}                                                          },
     {"accounts", "getpendingdusdswaps",    &getpendingdusdswaps,    {"address"}                                                 },
     {"hidden",   "logaccountbalances",     &logaccountbalances,     {"logfile", "rpcresult"}                                    },
+    {"hidden",   "logdvmstate",            &logdvmstate,            {""}                                                        },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

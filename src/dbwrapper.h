@@ -189,6 +189,14 @@ public:
         return true;
     }
 
+    leveldb::Slice GetKey() {
+        return piter->key();
+    }
+
+    leveldb::Slice GetValue() {
+        return piter->value();
+    }
+
     unsigned int GetValueSize() {
         return piter->value().size();
     }
