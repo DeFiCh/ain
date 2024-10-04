@@ -3559,21 +3559,22 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
     }
         .Check(request);
 
+    const auto fileSize = request.params[0].isNull() ? 1 : request.params[0].get_int64();
+    if (fileSize <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Size must be more then zero");
+    }
+
     LOCK(cs_main);
 
     // Flush any pending changes to the DB. Not always written to disk.
     pcustomcsview->Flush();
+    pcustomcsDB->Flush();
 
     // Get the CDBWrapper instance from CCustomCSView
     auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
 
     // Create a CDBIterator
     auto pcursor = db->NewIterator(leveldb::ReadOptions());
-
-    const auto fileSize = request.params[0].isNull() ? 1 : request.params[0].get_int64();
-    if (fileSize <= 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Size must be more then zero");
-    }
 
     const size_t MAX_FILE_SIZE = fileSize * 1024 * 1048576;  // 1MB = 1048576 bytes
 
@@ -3617,6 +3618,10 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
 
     // Iterate over all key-value pairs
     while (pcursor->Valid()) {
+        if (ShutdownRequested()) {
+            break;
+        }
+
         // Get the key and value slices
         auto keySlice = pcursor->GetKey();
         auto valueSlice = pcursor->GetValue();
