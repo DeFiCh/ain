@@ -3414,9 +3414,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
     mnview.SetLastHeight(pindex->nHeight);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
-    auto it = checkpoints.lower_bound(pindex->nHeight);
-    if (it != checkpoints.begin()) {
-        --it;
+    auto it = checkpoints.find(pindex->nHeight);
+    if (it != checkpoints.end()) {
         bool pruneStarted = false;
         auto time = GetTimeMillis();
         CCustomCSView pruned(mnview);
