@@ -4,9 +4,8 @@
 
 #include <dfi/undos.h>
 
-void CUndosView::ForEachUndo(std::function<bool(const UndoKey &, CLazySerialize<CUndo>)> callback,
-                             const UndoKey &start) {
-    ForEach<ByUndoKey, UndoKey, CUndo>(callback, start);
+void CUndosView::ForEachUndoKey(std::function<bool(const UndoKey &)> callback, const UndoKey &start) {
+    ForEachKey<ByUndoKey, UndoKey>(callback, start);
 }
 
 Res CUndosView::SetUndo(const UndoKey &key, const CUndo &undo) {

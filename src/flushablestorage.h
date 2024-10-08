@@ -567,6 +567,14 @@ public:
             }
         }
     }
+    template<typename By, typename KeyType>
+    void ForEachKey(std::function<bool(KeyType const &)> callback, KeyType const & start = {}) {
+        for(auto it = LowerBound<By>(start); it.Valid(); it.Next()) {
+            if (!callback(it.Key())) {
+                break;
+            }
+        }
+    }
 
     virtual bool Flush() { return DB().Flush(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }

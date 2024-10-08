@@ -3420,7 +3420,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         bool pruneStarted = false;
         auto time = GetTimeMillis();
         CCustomCSView pruned(mnview);
-        mnview.ForEachUndo([&](const UndoKey &key, CLazySerialize<CUndo>) {
+        mnview.ForEachUndoKey([&](const UndoKey &key) {
             if (key.height >= static_cast<uint32_t>(it->first)) {  // don't erase checkpoint height
                 return false;
             }
