@@ -3674,6 +3674,69 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
     return {};
 }
 
+UniValue logdbhashes(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logdbhashes",
+        "Hash the DVM and EVM databases.\n",
+        {},
+        RPCResult{"{\n"
+                  "  \"height\": xxxxx,     (numeric) The current block height\n"
+                  "  \"dvmhash\": \"hash\"    (string) The SHA256 hash of the database dump files\n"
+                  "}\n"},
+        RPCExamples{HelpExampleCli("logdbhashes", "")},
+    }
+        .Check(request);
+
+    LOCK(cs_main);
+
+    // Flush any pending changes to the DB. Not always written to disk.
+    pcustomcsview->Flush();
+    pcustomcsDB->Flush();
+
+    // Get the CDBWrapper instance from CCustomCSView
+    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
+
+    // Create a CDBIterator
+    auto pcursor = db->NewIterator(leveldb::ReadOptions());
+
+    // Create a SHA256 hasher
+    CSHA256 hasher;
+
+    // Seek to the beginning of the database
+    pcursor->SeekToFirst();
+
+    // Iterate over all key-value pairs
+    while (pcursor->Valid()) {
+        // Get the key and value slices
+        auto keySlice = pcursor->GetKey();
+        auto valueSlice = pcursor->GetValue();
+
+        // Feed the key and value into the hasher
+        hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
+        hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+
+        // Move to the next key-value pair
+        pcursor->Next();
+    }
+
+    // Finalize the hash
+    unsigned char hash[CSHA256::OUTPUT_SIZE];
+    hasher.Finalize(hash);
+
+    // Convert hash to hex string
+    const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
+
+    // Get the current block height
+    const auto height = ::ChainActive().Height();
+
+    // Prepare result
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("height", height);
+    result.pushKV("dvmhash", hashHex);
+
+    return result;
+}
+
 static const CRPCCommand commands[] = {
   //  category       name                     actor (function)        params
   //  -------------  ------------------------ ----------------------  ----------
@@ -3706,6 +3769,7 @@ static const CRPCCommand commands[] = {
     {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
     {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                             },
     {"hidden",   "logdvmstate",            &logdvmstate,            {"size"}                                                    },
+    {"hidden",   "logdbhashes",            &logdbhashes,            {""}                                                        },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {
