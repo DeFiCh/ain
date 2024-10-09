@@ -254,6 +254,12 @@ bool ProcessNewBlock(const CChainParams &chainparams,
                      bool fForceProcessing,
                      bool *fNewBlock) LOCKS_EXCLUDED(cs_main);
 
+// Prunes undos based on checkpoints
+void PruneCheckpoint(CCustomCSView &mnview,
+                     const int height,
+                     std::vector<unsigned char> &begin,
+                     std::vector<unsigned char> &end);
+
 /**
  * Process incoming block headers.
  *
