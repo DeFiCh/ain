@@ -2773,9 +2773,13 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
+                             const CreationTxs &creationTxs,
                              const std::shared_ptr<CScopedTemplate> &evmTemplate,
                              const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
+
+    // Loan splits
+    ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
@@ -2828,9 +2832,6 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);
-
-    // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {

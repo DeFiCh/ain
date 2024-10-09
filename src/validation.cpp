@@ -3359,7 +3359,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplate, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, creationTxs, evmTemplate, isEvmEnabledForBlock);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), res.dbgMsg);
     }

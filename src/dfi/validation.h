@@ -29,6 +29,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
+                             const CreationTxs &creationTxs,
                              const std::shared_ptr<CScopedTemplate> &evmTemplate,
                              const bool isEvmEnabledForBlock);
 
