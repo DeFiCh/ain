@@ -2048,6 +2048,25 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                 }
+
+                // Prune based on checkpoints
+                auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
+                auto it = checkpoints.lower_bound(::ChainActive().Tip()->nHeight);
+                if (it != checkpoints.begin()) {
+                    auto &[height, _] = *(--it);
+                    std::vector<unsigned char> compactBegin;
+                    std::vector<unsigned char> compactEnd;
+                    PruneCheckpoint(*pcustomcsview, height, compactBegin, compactEnd);
+                    if (!compactBegin.empty() && !compactEnd.empty()) {
+                        pcustomcsview->Flush();
+                        pcustomcsDB->Flush();
+                        auto time = GetTimeMillis();
+                        pcustomcsDB->Compact(compactBegin, compactEnd);
+                        compactBegin.clear();
+                        compactEnd.clear();
+                        LogPrint(BCLog::BENCH, "    - DB compacting takes: %dms\n", GetTimeMillis() - time);
+                    }
+                }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
                 strLoadError = _("Error opening block database").translated;
