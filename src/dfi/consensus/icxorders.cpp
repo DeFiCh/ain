@@ -545,7 +545,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     if (order->idToken == BTC && order->orderPrice == COIN) {
         // Check if ICX should work with bug for makerBonus to maintain complatibility with past netwrok behavior
         auto ICXBugPath = [&](uint32_t height) {
-            if ((IsTestNetwork() && height >= 1250000) || IsRegtestNetwork() ||
+            if ((IsTestNetwork() && height >= 1250000) ||
                 (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22MetachainHeight))) {
                 return false;
             }
@@ -558,6 +558,17 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
                 !res) {
                 return res;
             }
+
+            CTxDestination dest;
+            ExtractDestination(order->ownerAddress, dest);
+            UniValue result(UniValue::VOBJ);
+            result.pushKV("order_tx", order->creationTx.ToString());
+            result.pushKV("offer_tx", dfchtlc->offerTx.ToString());
+            result.pushKV("dfchtlc_tx", dfchtlc->creationTx.ToString());
+            result.pushKV("claim_tx", tx.GetHash().ToString());
+            result.pushKV("address", EncodeDestination(dest));
+            result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));
+            LogPrintf("ICXBug\n%s\n", result.write(2));
         } else {
             // Bug fixed
             if (auto res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
