@@ -568,7 +568,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
             result.pushKV("claim_tx", tx.GetHash().ToString());
             result.pushKV("address", EncodeDestination(dest));
             result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));
-            LogPrintf("ICXBug\n%s\n", result.write(2));
+            LogPrintf("ICXBug %s\n", result.write(0));
         } else {
             // Bug fixed
             if (auto res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
