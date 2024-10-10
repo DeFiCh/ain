@@ -545,7 +545,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     if (order->idToken == BTC && order->orderPrice == COIN) {
         // Check if ICX should work with bug for makerBonus to maintain complatibility with past netwrok behavior
         auto ICXBugPath = [&](uint32_t height) {
-            if ((IsTestNetwork() && height >= 1250000) ||
+            if ((IsTestNetwork() && height >= 1250000) || IsRegtestNetwork() ||
                 (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22MetachainHeight))) {
                 return false;
             }
