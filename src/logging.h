@@ -78,6 +78,7 @@ namespace BCLog {
         SIGN          = (1ull << 32ull),
         SWAPRESULT    = (1ull << 33ull),
         OCEAN         = (1ull << 34ull),
+        ICXBUG        = (1ull << 35ull),
         ALL           = ~(0ull),
     };
 

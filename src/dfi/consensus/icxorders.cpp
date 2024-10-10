@@ -559,16 +559,19 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
                 return res;
             }
 
-            CTxDestination dest;
-            ExtractDestination(order->ownerAddress, dest);
-            UniValue result(UniValue::VOBJ);
-            result.pushKV("order_tx", order->creationTx.ToString());
-            result.pushKV("offer_tx", dfchtlc->offerTx.ToString());
-            result.pushKV("dfchtlc_tx", dfchtlc->creationTx.ToString());
-            result.pushKV("claim_tx", tx.GetHash().ToString());
-            result.pushKV("address", EncodeDestination(dest));
-            result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));
-            LogPrintf("ICXBug %s\n", result.write(0));
+            if (LogAcceptCategory(BCLog::ICXBUG)) {
+                CTxDestination dest;
+                if (ExtractDestination(order->ownerAddress, dest)) {
+                    UniValue result(UniValue::VOBJ);
+                    result.pushKV("order_tx", order->creationTx.ToString());
+                    result.pushKV("offer_tx", dfchtlc->offerTx.ToString());
+                    result.pushKV("dfchtlc_tx", dfchtlc->creationTx.ToString());
+                    result.pushKV("claim_tx", tx.GetHash().ToString());
+                    result.pushKV("address", EncodeDestination(dest));
+                    result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));
+                    LogPrint(BCLog::ICXBUG, "%s\n", result.write(0));
+                }
+            }
         } else {
             // Bug fixed
             if (auto res = TransferTokenBalance(DCT_ID{0}, offer->takerFee * 50 / 100, CScript(), order->ownerAddress);
