@@ -5,10 +5,7 @@ use axum::{routing::post, Extension, Json, Router};
 use defichain_rpc::RpcApi;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    response::Response,
-    AppContext,
-};
+use super::{response::Response, AppContext};
 use crate::{
     error::{ApiError, Error},
     Result,
@@ -23,32 +20,34 @@ struct RpcDto {
 
 fn method_whitelist(method: &str) -> Result<()> {
     let methods = [
-    "getblockchaininfo",
-    "getblockhash",
-    "getblockcount",
-    "getblock",
-    "getblockstats",
-    "getgov",
-    "validateaddress",
-    "listcommunitybalances",
-    "getaccounthistory",
-    "getfutureswapblock",
-    "getpendingfutureswaps",
-    "sendrawtransaction",
-    "getrawtransaction",
-    "getgovproposal",
-    "listgovproposals",
-    "listgovproposalvotes",
-    "vmmap",
-    "gettxout"
-  ];
+        "getblockchaininfo",
+        "getblockhash",
+        "getblockcount",
+        "getblock",
+        "getblockstats",
+        "getgov",
+        "validateaddress",
+        "listcommunitybalances",
+        "getaccounthistory",
+        "getfutureswapblock",
+        "getpendingfutureswaps",
+        "sendrawtransaction",
+        "getrawtransaction",
+        "getgovproposal",
+        "listgovproposals",
+        "listgovproposalvotes",
+        "vmmap",
+        "gettxout",
+    ];
 
-  if !methods.contains(&method) {
-    log::debug!("forbidden");
-    return Err(Error::Forbidden { method: method.to_owned() })
-  }
+    if !methods.contains(&method) {
+        log::debug!("forbidden");
+        return Err(Error::Forbidden {
+            method: method.to_owned(),
+        });
+    }
 
-  Ok(())
+    Ok(())
 }
 
 #[ocean_endpoint]
@@ -64,7 +63,5 @@ async fn rpc(
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
-    Router::new()
-        .route("/", post(rpc))
-        .layer(Extension(ctx))
+    Router::new().route("/", post(rpc)).layer(Extension(ctx))
 }
