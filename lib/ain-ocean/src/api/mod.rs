@@ -24,6 +24,7 @@ mod pool_pair;
 pub mod prices;
 mod query;
 mod rawtx;
+mod rpc;
 mod response;
 mod stats;
 mod tokens;
@@ -121,6 +122,7 @@ pub async fn ocean_router(
         .nest("/tokens", tokens::router(Arc::clone(&context)))
         .nest("/transactions", transactions::router(Arc::clone(&context)))
         .nest("/blocks", block::router(Arc::clone(&context)))
+        .nest("/rpc", rpc::router(Arc::clone(&context)))
         .fallback(not_found);
 
     let debug_router = Router::new()

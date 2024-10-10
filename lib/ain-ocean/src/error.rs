@@ -108,6 +108,10 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("Rpc {} method is not whitelisted", method))]
+    Forbidden {
+        method: String,
+    },
     #[snafu(context(false))]
     IOError {
         #[snafu(source)]
@@ -312,6 +316,7 @@ impl Error {
             } => (StatusCode::NOT_FOUND, e.message.to_string()),
             Self::NotFound { kind: _ } => (StatusCode::NOT_FOUND, format!("{self}")),
             Self::NotFoundMessage { msg } => (StatusCode::NOT_FOUND, msg.clone()),
+            Self::Forbidden { method: _ } => (StatusCode::FORBIDDEN, format!("{self}")),
             Self::BadRequest { msg } => (StatusCode::BAD_REQUEST, msg.clone()),
             Self::Other { msg } => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
