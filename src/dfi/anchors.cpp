@@ -6,6 +6,7 @@
 
 #include <chainparams.h>
 #include <consensus/validation.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <key.h>
 #include <logging.h>
@@ -848,12 +849,14 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
         return error("%s: Post-fork anchor marker missing or incorrect.", __func__);
     }
 
+    const auto frequency = pcustomcsview->GetAnchorFrequency();
+
     // Only anchor by specified frequency
-    if (anchorCreationHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
+    if (anchorCreationHeight % frequency != 0) {
         return error("%s: Anchor height does not meet frequency rule. Height %ld, frequency %d",
                      __func__,
                      anchorCreationHeight,
-                     Params().GetConsensus().mn.anchoringFrequency);
+                     frequency);
     }
 
     // Make sure height exist
@@ -883,7 +886,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
     }
 
     // Get start anchor height
-    int anchorHeight = static_cast<int>(anchorCreationHeight) - Params().GetConsensus().mn.anchoringFrequency;
+    int anchorHeight = static_cast<uint64_t>(anchorCreationHeight) - frequency;
 
     // Recreate the creation height of the anchor
     int64_t timeDepth = Params().GetConsensus().mn.anchoringTimeDepth;
@@ -900,12 +903,12 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
     }
 
     // Wind back further by anchoring frequency
-    while (anchorHeight > 0 && anchorHeight % Params().GetConsensus().mn.anchoringFrequency != 0) {
+    while (anchorHeight > 0 && anchorHeight % frequency != 0) {
         --anchorHeight;
     }
 
     // Check heights match
-    if (static_cast<int>(anchor.height) != anchorHeight) {
+    if (anchor.height != anchorHeight) {
         return error(
             "%s: Anchor height mismatch. Anchor height %d calculated height %d", __func__, anchor.height, anchorHeight);
     }

@@ -30,17 +30,19 @@
 std::unique_ptr<CCustomCSView> pcustomcsview;
 std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 
-int GetMnActivationDelay(int height) {
+int GetMnActivationDelay(const CCustomCSView &view, const int height) {
     // Restore previous activation delay on testnet after FC
     if (height < Params().GetConsensus().DF8EunosHeight ||
         (IsTestNetwork() && height >= Params().GetConsensus().DF11FortCanningHeight)) {
         return Params().GetConsensus().mn.activationDelay;
     }
 
-    return Params().GetConsensus().mn.newActivationDelay;
+    const auto attributes = view.GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Masternodes, DFIPKeys::ActivationDelay};
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.newActivationDelay));
 }
 
-int GetMnResignDelay(int height) {
+int GetMnResignDelay(const CCustomCSView &view, const int height) {
     // Restore previous activation delay on testnet after FC
     if (height < Params().GetConsensus().DF8EunosHeight ||
         (IsTestNetwork() && height >= Params().GetConsensus().DF11FortCanningHeight)) {
@@ -50,7 +52,9 @@ int GetMnResignDelay(int height) {
     // Note: Getting new owner address for EVM miner reward passes
     // max int to this function. If this delay is changed this will
     // need to be updated.
-    return Params().GetConsensus().mn.newResignDelay;
+    const auto attributes = view.GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Masternodes, DFIPKeys::ResignDelay};
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.newResignDelay));
 }
 
 CAmount GetMnCollateralAmount(int height) {
@@ -62,7 +66,7 @@ CAmount GetMnCollateralAmount(int height) {
     }
 }
 
-CAmount GetMnCreationFee(int) {
+CAmount GetMnCreationFee() {
     return Params().GetConsensus().mn.creationFee;
 }
 
@@ -130,13 +134,15 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
         return State::UNKNOWN;
     }
 
+    const auto view = static_cast<const CCustomCSView *>(&mnview);
+
     if (!collateralTx.IsNull()) {
         auto idHeight = mnview.GetNewCollateral(collateralTx);
         assert(idHeight);
         if (static_cast<uint32_t>(height) < idHeight->blockHeight) {
             return State::TRANSFERRING;
         } else if (static_cast<uint32_t>(height) <
-                   idHeight->blockHeight + GetMnActivationDelay(idHeight->blockHeight)) {
+                   idHeight->blockHeight + GetMnActivationDelay(*view, idHeight->blockHeight)) {
             return State::PRE_ENABLED;
         }
     }
@@ -147,8 +153,8 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
 
     if (resignHeight == -1 || height < resignHeight) {  // enabled or pre-enabled
         // Special case for genesis block
-        int activationDelay =
-            height < DF10EunosPayaHeight ? GetMnActivationDelay(height) : GetMnActivationDelay(creationHeight);
+        int activationDelay = height < DF10EunosPayaHeight ? GetMnActivationDelay(*view, height)
+                                                           : GetMnActivationDelay(*view, creationHeight);
         if (creationHeight == 0 || height >= creationHeight + activationDelay) {
             return State::ENABLED;
         }
@@ -156,7 +162,8 @@ CMasternode::State CMasternode::GetState(int height, const CMasternodesView &mnv
     }
 
     if (resignHeight != -1) {  // pre-resigned or resigned
-        int resignDelay = height < DF10EunosPayaHeight ? GetMnResignDelay(height) : GetMnResignDelay(resignHeight);
+        int resignDelay =
+            height < DF10EunosPayaHeight ? GetMnResignDelay(*view, height) : GetMnResignDelay(*view, resignHeight);
         if (height < resignHeight + resignDelay) {
             return State::PRE_RESIGNED;
         }
@@ -360,8 +367,10 @@ void CMasternodesView::SetForcedRewardAddress(const uint256 &nodeId,
     node.rewardAddress = rewardAddress;
     WriteBy<ID>(nodeId, node);
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+
     // Pending change
-    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(*view, height)));
 }
 
 void CMasternodesView::RemForcedRewardAddress(const uint256 &nodeId, CMasternode &node, int height) {
@@ -369,8 +378,10 @@ void CMasternodesView::RemForcedRewardAddress(const uint256 &nodeId, CMasternode
     node.rewardAddress.SetNull();
     WriteBy<ID>(nodeId, node);
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+
     // Pending change
-    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(*view, height)));
 }
 
 std::optional<uint32_t> CMasternodesView::GetPendingHeight(const CKeyID &ownerAuthAddress) const {
@@ -401,8 +412,10 @@ void CMasternodesView::UpdateMasternodeOperator(const uint256 &nodeId,
     WriteBy<ID>(nodeId, node);
     WriteBy<Operator>(node.operatorAuthAddress, nodeId);
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+
     // Pending change
-    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(height)));
+    WriteBy<PendingHeight>(node.ownerAuthAddress, static_cast<uint32_t>(height + GetMnResignDelay(*view, height)));
 }
 
 void CMasternodesView::UpdateMasternodeOwner(const uint256 &nodeId,
@@ -431,9 +444,12 @@ void CMasternodesView::UpdateMasternodeCollateral(const uint256 &nodeId,
     node.collateralTx = newCollateralTx;
     WriteBy<ID>(nodeId, node);
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+
     // Prioritise fast lookup in CanSpend() and GetState()
-    WriteBy<NewCollateral>(newCollateralTx,
-                           MNNewOwnerHeightValue{static_cast<uint32_t>(height + GetMnResignDelay(height)), nodeId});
+    WriteBy<NewCollateral>(
+        newCollateralTx,
+        MNNewOwnerHeightValue{static_cast<uint32_t>(height + GetMnResignDelay(*view, height)), nodeId});
 }
 
 std::optional<MNNewOwnerHeightValue> CMasternodesView::GetNewCollateral(const uint256 &txid) const {
@@ -543,7 +559,8 @@ std::optional<uint16_t> CMasternodesView::GetTimelock(const uint256 &nodeId,
         // Get last height
         auto lastHeight = height - 1;
 
-        uint64_t resignDelay = GetMnResignDelay(height);
+        const auto view = static_cast<const CCustomCSView *>(this);
+        uint64_t resignDelay = GetMnResignDelay(*view, height);
 
         // Cannot expire below block count required to calculate average time
         if (lastHeight < resignDelay) {
@@ -657,6 +674,13 @@ CTeamView::CTeam CTeamView::GetCurrentTeam() const {
     return Params().GetGenesisTeam();
 }
 
+int64_t CTeamView::GetTeamChange() const {
+    auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::TeamChange};
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.anchoringTeamChange));
+}
+
 void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, const int height) {
     // Called after fork height
     if (height < Params().GetConsensus().DF6DakotaHeight) {
@@ -668,13 +692,11 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
         return;
     }
 
+    const auto teamChange = GetTeamChange();
+
     // Called every on team change intercal from fork height
-    if (height % Params().GetConsensus().mn.anchoringTeamChange != 0) {
-        LogPrint(BCLog::ANCHORING,
-                 "%s: Not called on interval of %d, arg height %d\n",
-                 __func__,
-                 Params().GetConsensus().mn.anchoringTeamChange,
-                 height);
+    if (height % teamChange != 0) {
+        LogPrint(BCLog::ANCHORING, "%s: Not called on interval of %d, arg height %d\n", __func__, teamChange, height);
         return;
     }
 
@@ -688,13 +710,13 @@ void CTeamView::SetAnchorTeams(const CTeam &authTeam, const CTeam &confirmTeam, 
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetAuthTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % GetTeamChange();
 
     return ReadBy<AuthTeam, CTeam>(height);
 }
 
 std::optional<CTeamView::CTeam> CTeamView::GetConfirmTeam(int height) const {
-    height -= height % Params().GetConsensus().mn.anchoringTeamChange;
+    height -= height % GetTeamChange();
 
     return ReadBy<ConfirmTeam, CTeam>(height);
 }
@@ -720,6 +742,13 @@ void CAnchorRewardsView::ForEachAnchorReward(
     std::function<bool(const CAnchorRewardsView::AnchorTxHash &, CLazySerialize<CAnchorRewardsView::RewardTxHash>)>
         callback) {
     ForEach<BtcTx, AnchorTxHash, RewardTxHash>(callback);
+}
+
+int64_t CAnchorRewardsView::GetAnchorFrequency() const {
+    auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::Frequency};
+    return attributes->GetValue(key, static_cast<int64_t>(Params().GetConsensus().mn.anchoringFrequency));
 }
 
 /*
@@ -855,7 +884,7 @@ enum AnchorTeams { AuthTeam, ConfirmTeam };
 
 void CCustomCSView::CalcAnchoringTeams(const uint256 &stakeModifier, const CBlockIndex *pindexNew) {
     std::set<uint256> masternodeIDs;
-    const int blockSample = 7 * Params().GetConsensus().blocksPerDay();  // One week
+    const int blockSample = 7 * BlocksPerDay(*this);  // One week
 
     {
         LOCK(cs_main);

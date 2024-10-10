@@ -49,6 +49,8 @@ Res HasAuth(const CTransaction &tx,
             AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch,
             AuthFlags::Type flags = AuthFlags::None);
 Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script);
+Res CheckTimeRelatedVars(const std::vector<std::string> &keys);
+Res CheckTimeRelatedVars(const ATTRIBUTES &var);
 
 class CCustomTxVisitor {
 protected:

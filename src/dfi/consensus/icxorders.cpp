@@ -129,8 +129,12 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
         return Res::Err("order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
     }
 
-    auto expiry = static_cast<int>(height) < consensus.DF10EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY
-                                                                           : CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
+    const auto attributes = mnview.GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferDefaultExpiry};
+    const auto defaultExpiry = attributes->GetValue(key, CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY);
+
+    auto expiry =
+        static_cast<int>(height) < consensus.DF10EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY : defaultExpiry;
 
     if (makeoffer.expiry < expiry) {
         return Res::Err("offer expiry must be greater than %d!", expiry - 1);
@@ -198,6 +202,8 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
         return Res::Err("dfc htlc already submitted!");
     }
 
+    const auto attributes = mnview.GetAttributes();
+
     CScript srcAddr;
     if (order->orderType == CICXOrder::TYPE_INTERNAL) {
         // check auth
@@ -212,7 +218,8 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
         if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
             timeout = CICXSubmitDFCHTLC::MINIMUM_TIMEOUT;
         } else {
-            timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+            const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMinTimeout};
+            timeout = attributes->GetValue(key, CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT);
         }
 
         if (submitdfchtlc.timeout < timeout) {
@@ -297,7 +304,8 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
             timeout = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
-            timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+            const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMin2ndTimeout};
+            timeout = attributes->GetValue(key, CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT);
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         }
 
@@ -382,7 +390,9 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
             timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
-            btcBlocksInDfi = CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS;
+            const auto attributes = mnview.GetAttributes();
+            const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitBTCBlocksInDFI};
+            btcBlocksInDfi = attributes->GetValue(key, CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS);
         }
 
         if (submitexthtlc.timeout < timeout) {
