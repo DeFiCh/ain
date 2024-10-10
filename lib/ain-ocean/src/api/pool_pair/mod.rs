@@ -128,6 +128,7 @@ impl From<PoolSwap> for PoolSwapResponse {
     }
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct PoolPairFeeResponse {
@@ -136,6 +137,7 @@ struct PoolPairFeeResponse {
     out_pct: Option<String>,
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct PoolPairTokenResponse {
@@ -173,6 +175,7 @@ pub struct PoolPairAprResponse {
     pub commission: Decimal,
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolPairResponse {

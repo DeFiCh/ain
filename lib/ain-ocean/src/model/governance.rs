@@ -25,11 +25,11 @@ pub struct ApiProposalInfo {
     pub vote_info: ApiProposalVoteInfo,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiProposalConfidenceVote {
     pub amount: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub payout_address: Option<String>,
 }
 

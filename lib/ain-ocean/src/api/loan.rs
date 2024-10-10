@@ -18,6 +18,7 @@ use defichain_rpc::{
 use futures::future::try_join_all;
 use log::trace;
 use serde::{Serialize, Serializer};
+use serde_with::skip_serializing_none;
 use snafu::OptionExt;
 
 use super::{
@@ -95,6 +96,7 @@ async fn get_scheme(
     Ok(Response::new(scheme.into()))
 }
 
+#[skip_serializing_none]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollateralToken {
@@ -219,6 +221,7 @@ async fn get_collateral_token(
     )))
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoanToken {
@@ -571,6 +574,7 @@ pub struct VaultLiquidatedResponse {
     pub batches: Vec<VaultLiquidatedBatchResponse>,
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct HighestBidResponse {
@@ -578,6 +582,7 @@ pub struct HighestBidResponse {
     pub amount: Option<VaultTokenAmountResponse>,
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultLiquidatedBatchResponse {
@@ -588,6 +593,7 @@ pub struct VaultLiquidatedBatchResponse {
     froms: Vec<String>,
 }
 
+#[skip_serializing_none]
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultTokenAmountResponse {

@@ -4,6 +4,7 @@ use ain_macros::ocean_endpoint;
 use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
 use crate::{
@@ -33,6 +34,7 @@ async fn get_transaction(
     Ok(Response::new(transactions))
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize)]
 struct TransactionVinResponse {
     pub id: String,
@@ -96,6 +98,7 @@ async fn get_vins(
     }))
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize)]
 struct TransactionVoutResponse {
     pub id: String,
