@@ -164,6 +164,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::SWAPRESULT, "swapresult"},
     {BCLog::CONNECT, "connect"},
     {BCLog::OCEAN, "ocean"},
+    {BCLog::ICXBUG, "icxbug"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
