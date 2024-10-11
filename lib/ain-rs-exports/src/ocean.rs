@@ -23,3 +23,8 @@ pub fn ocean_invalidate_block(block_str: String) -> Result<()> {
 fn ocean_try_set_tx_result(tx_type: u8, tx_hash: [u8; 32], result_ptr: usize) -> Result<()> {
     ain_ocean::tx_result::index(&ain_ocean::SERVICES, tx_type, tx_hash, result_ptr)
 }
+
+#[ffi_fallible]
+fn ocean_try_get_hash_db_state() -> Result<String> {
+    ain_ocean::SERVICES.store.hash_db_state()
+}

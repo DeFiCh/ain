@@ -90,6 +90,10 @@ impl OceanStore {
         Ok(self.0.dump_table_sizes(&COLUMN_NAMES)?)
     }
 
+    pub fn hash_db_state(&self) -> Result<String> {
+        Ok(self.0.hash_db_state(&COLUMN_NAMES)?)
+    }
+
     pub fn compact(&self) {
         self.0.compact();
     }
