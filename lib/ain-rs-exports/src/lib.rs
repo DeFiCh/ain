@@ -361,6 +361,8 @@ pub mod ffi {
             native_hash: [u8; 32],
             token: DST20TokenInfo,
         );
+        fn evm_try_get_hash_db_state(result: &mut CrossBoundaryResult) -> String;
+        fn ocean_try_get_hash_db_state(result: &mut CrossBoundaryResult) -> String;
     }
 
     // =========  Debug ==========

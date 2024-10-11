@@ -14,6 +14,7 @@ use rocksdb::{
     IteratorMode, Options, DB,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use sha2::{Digest, Sha256};
 
 pub type Result<T> = result::Result<T, DBError>;
 
@@ -167,6 +168,24 @@ impl Rocks {
         debug!("Overall average entry size: {:.2} bytes", total_avg_size);
 
         Ok(())
+    }
+
+    pub fn hash_db_state(&self, cf_names: &[&'static str]) -> Result<String> {
+        let mut hasher = Sha256::new();
+
+        for cf_name in cf_names {
+            let cf = self.cf_handle(cf_name)?;
+            let iter = self.0.iterator_cf(cf, rocksdb::IteratorMode::Start);
+
+            for item in iter {
+                let (key, value) = item?;
+                hasher.update(&key);
+                hasher.update(&value);
+            }
+        }
+
+        let result = hasher.finalize();
+        Ok(hex::encode(result))
     }
 }
 

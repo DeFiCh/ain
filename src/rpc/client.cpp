@@ -322,6 +322,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
 
     { "releaselockedtokens", 0, "releasePart" },
 
+    { "logdvmstate", 0, "size" },
+
     { "setgov", 0, "variables" },
     { "setgov", 1, "inputs" },
 

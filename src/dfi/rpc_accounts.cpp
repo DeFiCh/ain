@@ -6,7 +6,10 @@
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
+#include <ffi/ffiexports.h>
 #include <boost/asio.hpp>
+
+#include <fstream>
 
 static bool DEFAULT_DVM_OWNERSHIP_CHECK = true;
 
@@ -3537,6 +3540,217 @@ UniValue getpendingdusdswaps(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, obj);
 }
 
+static std::string BytesToHex(const std::vector<unsigned char> &data) {
+    std::ostringstream oss;
+    for (auto byte : data) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+    }
+    return oss.str();
+}
+
+UniValue logdvmstate(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logdvmstate",
+        "Log the full DVM state for debugging in the datadir dumps directory.\n",
+        {
+          {"size", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Size for each file in GBs, default 1024MB"},
+          },
+        RPCResult{"Generates logdvmstate-xxx.log files\n"},
+        RPCExamples{HelpExampleCli("logdvmstate", "")},
+    }
+        .Check(request);
+
+    const auto fileSize = request.params[0].isNull() ? 1 : request.params[0].get_int64();
+    if (fileSize <= 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Size must be more then zero");
+    }
+
+    LOCK(cs_main);
+
+    // Flush any pending changes to the DB. Not always written to disk.
+    pcustomcsview->Flush();
+    pcustomcsDB->Flush();
+
+    // Get the CDBWrapper instance from CCustomCSView
+    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
+
+    // Create a CDBIterator
+    auto pcursor = db->NewIterator(leveldb::ReadOptions());
+
+    const size_t MAX_FILE_SIZE = fileSize * 1024 * 1048576;  // 1MB = 1048576 bytes
+
+    fs::path dumpsDir = GetDataDir() / "dumps";
+    if (!fs::exists(dumpsDir)) {
+        if (!fs::create_directory(dumpsDir)) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Failed to create dumps directory");
+        }
+    }
+
+    // File handling variables
+    size_t fileCounter = 0;
+    size_t bytesWritten = 0;
+    std::ofstream outFile;
+
+    // Function to open a new file
+    auto openNewFile = [&]() -> bool {
+        if (outFile.is_open()) {
+            outFile.close();
+        }
+        std::ostringstream fileName;
+        fileName << "logdvmstate-" << std::setw(3) << std::setfill('0') << fileCounter << ".log";
+        fs::path filePath = dumpsDir / fileName.str();
+        outFile.open(PathToString(filePath), std::ios::out | std::ios::binary);
+        if (!outFile) {
+            std::cerr << "Failed to open file: " << PathToString(filePath) << std::endl;
+            return false;
+        }
+        bytesWritten = 0;
+        fileCounter++;
+        return true;
+    };
+
+    // Open the first file
+    if (!openNewFile()) {
+        return {};
+    }
+
+    // Seek to the beginning of the database
+    pcursor->SeekToFirst();
+
+    // Iterate over all key-value pairs
+    while (pcursor->Valid()) {
+        if (ShutdownRequested()) {
+            break;
+        }
+
+        // Get the key and value slices
+        auto keySlice = pcursor->GetKey();
+        auto valueSlice = pcursor->GetValue();
+
+        // Convert key and value to byte vectors
+        std::vector<unsigned char> vKey(keySlice.data(), keySlice.data() + keySlice.size());
+        std::vector<unsigned char> vValue(valueSlice.data(), valueSlice.data() + valueSlice.size());
+
+        if (!vKey.empty()) {
+            auto &prefix = vKey[0];
+            std::string keyPrefixName = BytesToHex({prefix});
+
+            // Convert the rest of the key
+            std::string keyRestHex;
+            if (vKey.size() > 1) {
+                keyRestHex = BytesToHex(std::vector<unsigned char>(vKey.begin() + 1, vKey.end()));
+            }
+
+            // Convert value
+            std::string valueHex = BytesToHex(vValue);
+
+            // Prepare output
+            std::ostringstream oss;
+            oss << keyPrefixName << " ";
+            if (!keyRestHex.empty()) {
+                oss << keyRestHex << " ";
+            }
+            oss << valueHex << "\n";
+            std::string outputStr = oss.str();
+
+            // Write to file
+            outFile << outputStr;
+            bytesWritten += outputStr.size();
+
+            // Check file size limit
+            if (bytesWritten >= MAX_FILE_SIZE) {
+                if (!openNewFile()) {
+                    return {};
+                }
+            }
+        }
+
+        pcursor->Next();
+    }
+
+    if (outFile.is_open()) {
+        outFile.close();
+    }
+
+    return {};
+}
+
+UniValue logdbhashes(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logdbhashes",
+        "Hash the DVM and EVM databases.\n",
+        {},
+        RPCResult{"{\n"
+                  "  \"height\": xxxxx,     (numeric) The current block height\n"
+                  "  \"dvmhash\": \"hash\"    (string) The SHA256 hash of the database dump files\n"
+                  "}\n"},
+        RPCExamples{HelpExampleCli("logdbhashes", "")},
+    }
+        .Check(request);
+
+    LOCK(cs_main);
+
+    // Flush any pending changes to the DB. Not always written to disk.
+    pcustomcsview->Flush();
+    pcustomcsDB->Flush();
+
+    // Get the CDBWrapper instance from CCustomCSView
+    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
+
+    // Create a CDBIterator
+    auto pcursor = db->NewIterator(leveldb::ReadOptions());
+
+    // Create a SHA256 hasher
+    CSHA256 hasher;
+
+    // Seek to the beginning of the database
+    pcursor->SeekToFirst();
+
+    // Iterate over all key-value pairs
+    while (pcursor->Valid()) {
+        // Get the key and value slices
+        auto keySlice = pcursor->GetKey();
+        auto valueSlice = pcursor->GetValue();
+
+        // Feed the key and value into the hasher
+        hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
+        hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+
+        // Move to the next key-value pair
+        pcursor->Next();
+    }
+
+    // Finalize the hash
+    unsigned char hash[CSHA256::OUTPUT_SIZE];
+    hasher.Finalize(hash);
+
+    // Convert hash to hex string
+    const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
+
+
+    // Get the current block height
+    const auto height = ::ChainActive().Height();
+
+    // Prepare result
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("height", height);
+    result.pushKV("dvmhash", hashHex);
+
+    const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
+    if (evmHashHex) {
+        result.pushKV("evmhash", std::string(*evmHashHex));
+    }
+
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED))  {
+        const auto oceanHashHex = XResultValueLogged(ocean_try_get_hash_db_state(result));
+        if (oceanHashHex) {
+            result.pushKV("oceanhash", std::string(*oceanHashHex));
+        }
+    }
+
+    return result;
+}
+
 static const CRPCCommand commands[] = {
   //  category       name                     actor (function)        params
   //  -------------  ------------------------ ----------------------  ----------
@@ -3568,6 +3782,8 @@ static const CRPCCommand commands[] = {
     {"accounts", "listlockedtokens",       &listlockedtokens,       {}                                                          },
     {"accounts", "getlockedtokens",        &getlockedtokens,        {"address"}                                                 },
     {"accounts", "releaselockedtokens",    &releaselockedtokens,    {"releasePart"}                                             },
+    {"hidden",   "logdvmstate",            &logdvmstate,            {"size"}                                                    },
+    {"hidden",   "logdbhashes",            &logdbhashes,            {""}                                                        },
 };
 
 void RegisterAccountsRPCCommands(CRPCTable &tableRPC) {

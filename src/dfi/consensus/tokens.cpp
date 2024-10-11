@@ -200,7 +200,13 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 
         if (!ownerAuth) {
             // Governance or foundation can still mark/unmark token deprecation
-            if (auto res = authCheck.HasGovOrFoundationAuth(); res) {
+            if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
+                return Res::Err("Authentication failed for token owner");
+            }
+
+            // If it's loan token, that's owned by gov, so we don't need to disallow.
+            // Limit update token for governance and foundation for non-loan tokens
+            if (!mnview.GetLoanTokenByID(tokenID)) {
                 // Allow only deprecation. We disallow changes like name or symbol
                 // as a token holder shouldn't be misrepresented by governance.
                 // Governance can choose completely discard it by deprecating it
@@ -216,8 +222,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
                 if (disallowedChanges) {
                     return Res::Err("Only token deprecation toggle is allowed by governance");
                 }
-            } else {
-                return Res::Err("Authentication failed for token owner");
             }
         }
 

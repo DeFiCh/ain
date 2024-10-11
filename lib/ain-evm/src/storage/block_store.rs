@@ -54,6 +54,10 @@ impl BlockStore {
             column: PhantomData,
         }
     }
+
+    pub fn hash_db_state(&self) -> Result<String> {
+        Ok(self.0.hash_db_state(&COLUMN_NAMES)?)
+    }
 }
 
 impl DBVersionControl for BlockStore {
