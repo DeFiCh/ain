@@ -66,6 +66,12 @@ class CommunityGovernanceTest(DefiTestFramework):
         # Test updating Governance
         self.govvar_checks()
 
+        # Test loan token Foundation update after fork
+        self.update_loan_token(0)
+
+        # Test loan token Governance update after fork
+        self.update_loan_token(1)
+
         # Test member addition, removal and errors
         self.member_update_and_errors()
 
@@ -235,8 +241,55 @@ class CommunityGovernanceTest(DefiTestFramework):
             },
         )
 
-    def test_setting_governance(self):
+    def update_loan_token(self, node):
+        # Rollback block
+        self.rollback_to_start()
 
+        # Enable Governance
+        self.enable_governance(self.governance_member)
+
+        # Create loan token
+        id = self.create_meta_loan_token(node)
+
+        # Token split
+        self.nodes[node].setgovheight(
+            {
+                "ATTRIBUTES": {
+                    f"v0/oracles/splits/{self.nodes[node].getblockcount() + 4}": f"{id}/2"
+                }
+            },
+            self.nodes[node].getblockcount() + 2,
+        )
+        self.nodes[node].generate(4)
+
+        # Update the ID after split
+        id = list(self.nodes[node].gettoken("META").keys())[0]
+
+        # Unlock token
+        self.nodes[node].setgovheight(
+            {"ATTRIBUTES": {f"v0/locks/token/{id}": "false"}},
+            self.nodes[node].getblockcount() + 2,
+        )
+        self.nodes[node].generate(2)
+
+        # Check no collateral set
+        assert_equal(
+            self.nodes[node].gettoken("META")[f"{id}"]["collateralAddress"], ""
+        )
+
+        # Update DAT token. Will use owner auth.
+        self.nodes[node].updatetoken(
+            "META",
+            {
+                "name": "META",
+            },
+        )
+        self.nodes[node].generate(1)
+
+        # Check loan token renamed
+        assert_equal(self.nodes[node].gettoken("META")[id]["name"], "META")
+
+    def test_setting_governance(self):
         # Rollback block
         self.rollback_to_start()
 
@@ -940,14 +993,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].setoracledata(oracle_tx, int(time.time()), oracle_prices)
         self.nodes[1].generate(1)
 
-    def governance_loans(self):
-
-        # Rollback block
-        self.rollback_to_start()
-
-        # Enable Governance
-        self.enable_governance(self.governance_member)
-
+    def create_meta_loan_token(self, node):
         # Price feeds
         price_feeds = [
             {"currency": "USD", "token": "META"},
@@ -955,9 +1001,9 @@ class CommunityGovernanceTest(DefiTestFramework):
         ]
 
         # Appoint Oracle
-        oracle_address = self.nodes[1].getnewaddress()
-        oracle_tx = self.nodes[1].appointoracle(oracle_address, price_feeds, 10)
-        self.nodes[1].generate(1)
+        oracle_address = self.nodes[node].getnewaddress()
+        oracle_tx = self.nodes[node].appointoracle(oracle_address, price_feeds, 10)
+        self.nodes[node].generate(1)
 
         # Feed oracle
         oracle_prices = [
@@ -966,17 +1012,17 @@ class CommunityGovernanceTest(DefiTestFramework):
         ]
 
         # Set Oracle data
-        self.nodes[1].setoracledata(oracle_tx, int(time.time()), oracle_prices)
-        self.nodes[1].generate(1)
+        self.nodes[node].setoracledata(oracle_tx, int(time.time()), oracle_prices)
+        self.nodes[node].generate(1)
 
         # Set collateral token
-        self.nodes[1].setcollateraltoken(
+        self.nodes[node].setcollateraltoken(
             {"token": 0, "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
         )
-        self.nodes[1].generate(1)
+        self.nodes[node].generate(1)
 
         # Set loan token
-        self.nodes[1].setloantoken(
+        self.nodes[node].setloantoken(
             {
                 "symbol": "META",
                 "name": "Facebook",
@@ -985,10 +1031,22 @@ class CommunityGovernanceTest(DefiTestFramework):
                 "interest": 0,
             }
         )
-        self.nodes[1].generate(1)
+        self.nodes[node].generate(1)
 
-        # Check loan token created
-        assert_equal(self.nodes[1].gettoken("META")["2"]["name"], "Facebook")
+        return list(self.nodes[node].gettoken("META").keys())[0]
+
+    def governance_loans(self):
+        # Rollback block
+        self.rollback_to_start()
+
+        # Enable Governance
+        self.enable_governance(self.governance_member)
+
+        # Create loan token
+        id = self.create_meta_loan_token(1)
+
+        # Check loan token name
+        assert_equal(self.nodes[1].gettoken("META")[f"{id}"]["name"], "Facebook")
 
         # Update loan token
         self.nodes[1].updateloantoken(
@@ -1000,7 +1058,7 @@ class CommunityGovernanceTest(DefiTestFramework):
         self.nodes[1].generate(1)
 
         # Check loan token updated
-        assert_equal(self.nodes[1].gettoken("META")["2"]["name"], "META")
+        assert_equal(self.nodes[1].gettoken("META")[f"{id}"]["name"], "META")
 
         # Create loan scheme
         self.nodes[1].createloanscheme(150, 1, "LOAN1")
