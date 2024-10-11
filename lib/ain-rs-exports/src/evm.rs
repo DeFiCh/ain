@@ -882,3 +882,8 @@ fn evm_try_unsafe_rename_dst20(
             .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
     }
 }
+
+#[ffi_fallible]
+fn evm_try_get_hash_db_state() -> Result<String> {
+    SERVICES.evm.storage.hash_db_state()
+}

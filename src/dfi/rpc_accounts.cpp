@@ -6,6 +6,7 @@
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
+#include <ffi/ffiexports.h>
 #include <boost/asio.hpp>
 
 #include <fstream>
@@ -3726,6 +3727,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // Convert hash to hex string
     const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
 
+
     // Get the current block height
     const auto height = ::ChainActive().Height();
 
@@ -3733,6 +3735,18 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
     result.pushKV("dvmhash", hashHex);
+
+    const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
+    if (evmHashHex) {
+        result.pushKV("evmhash", std::string(*evmHashHex));
+    }
+
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED))  {
+        const auto oceanHashHex = XResultValueLogged(ocean_try_get_hash_db_state(result));
+        if (oceanHashHex) {
+            result.pushKV("oceanhash", std::string(*oceanHashHex));
+        }
+    }
 
     return result;
 }

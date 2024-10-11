@@ -214,6 +214,10 @@ impl Storage {
     pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
         self.blockstore.dump(&arg, from, limit)
     }
+
+    pub fn hash_db_state(&self) -> Result<String> {
+        self.blockstore.hash_db_state()
+    }
 }
 
 impl Rollback for Storage {
