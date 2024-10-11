@@ -203,7 +203,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
             if (auto res = authCheck.HasGovOrFoundationAuth(); !res) {
                 return Res::Err("Authentication failed for token owner");
             }
-            
+
             // If it's loan token, that's owned by gov, so we don't need to disallow.
             // Limit update token for governance and foundation for non-loan tokens
             if (!mnview.GetLoanTokenByID(tokenID)) {
@@ -217,7 +217,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
                     toggledFlags != static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
 
                 const auto disallowedChanges = hasDisallowedFlagToggle || updatedToken.symbol != token.symbol ||
-                                                updatedToken.name != token.name || obj.newCollateralAddress;
+                                               updatedToken.name != token.name || obj.newCollateralAddress;
 
                 if (disallowedChanges) {
                     return Res::Err("Only token deprecation toggle is allowed by governance");
