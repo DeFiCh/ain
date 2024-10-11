@@ -267,8 +267,8 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
     auto [view, accountView, vaultView] = GetSnapshots();
     auto targetHeight = view->GetLastHeight() + 1;
+    DCT_ID id{};
     {
-        DCT_ID id;
         auto token = view->GetTokenGuessId(tokenStr, id);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
@@ -350,6 +350,8 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         const auto members = GetFoundationMembers(*view);
         isFoundersToken =
             !members.empty() ? members.count(owner) : Params().GetConsensus().foundationMembers.count(owner);
+    } else if (view->GetLoanTokenByID(id)) {
+        isFoundersToken = true;
     }
 
     if (isFoundersToken) {  // need any founder's auth

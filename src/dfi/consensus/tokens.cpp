@@ -201,20 +201,23 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         if (!ownerAuth) {
             // Governance or foundation can still mark/unmark token deprecation
             if (auto res = authCheck.HasGovOrFoundationAuth(); res) {
-                // Allow only deprecation. We disallow changes like name or symbol
-                // as a token holder shouldn't be misrepresented by governance.
-                // Governance can choose completely discard it by deprecating it
-                // or keep it in the form as intended by the owner.
+                // Limit update token for governance and foundation for non-loan tokens
+                if (!mnview.GetLoanTokenByID(tokenID)) {
+                    // Allow only deprecation. We disallow changes like name or symbol
+                    // as a token holder shouldn't be misrepresented by governance.
+                    // Governance can choose completely discard it by deprecating it
+                    // or keep it in the form as intended by the owner.
 
-                const auto toggledFlags = static_cast<uint8_t>(updatedToken.flags ^ token.flags);
-                const auto hasDisallowedFlagToggle =
-                    toggledFlags != static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
+                    const auto toggledFlags = static_cast<uint8_t>(updatedToken.flags ^ token.flags);
+                    const auto hasDisallowedFlagToggle =
+                        toggledFlags != static_cast<uint8_t>(CToken::TokenFlags::Deprecated);
 
-                const auto disallowedChanges = hasDisallowedFlagToggle || updatedToken.symbol != token.symbol ||
-                                               updatedToken.name != token.name || obj.newCollateralAddress;
+                    const auto disallowedChanges = hasDisallowedFlagToggle || updatedToken.symbol != token.symbol ||
+                                                   updatedToken.name != token.name || obj.newCollateralAddress;
 
-                if (disallowedChanges) {
-                    return Res::Err("Only token deprecation toggle is allowed by governance");
+                    if (disallowedChanges) {
+                        return Res::Err("Only token deprecation toggle is allowed by governance");
+                    }
                 }
             } else {
                 return Res::Err("Authentication failed for token owner");
