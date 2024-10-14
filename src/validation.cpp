@@ -25,7 +25,6 @@
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
-#include <ffi/ffiexports.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -3773,7 +3772,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
             XResultThrowOnErr(evm_try_disconnect_latest_block(result));
         }
 
-        if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+        if (gArgs.GetBoolArg("-oceanarchive", false)) {
             const UniValue b = blockToJSON(mnview, block, pindexDelete, pindexDelete, true, 2);
             XResultThrowOnErr(ocean_invalidate_block(result, b.write()));
         }
