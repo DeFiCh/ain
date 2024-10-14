@@ -3777,8 +3777,6 @@ bool CChainState::DisconnectTip(CValidationState &state,
             XResultThrowOnErr(ocean_invalidate_block(result, b.write()));
         }
 
-
-
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
