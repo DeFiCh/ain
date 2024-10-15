@@ -143,7 +143,7 @@ public:
         consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
         consensus.DF22MetachainHeight = 3462000; // Nov 15th, 2023.
         consensus.DF23Height = 4006000; // May 23th, 2024.
-        consensus.DF24Height = [[ TODO: INTENTIONALLY BREAK COMPILE ]]; // TODO: Target in 2 weeks
+        consensus.DF24Height = 4463000; // Oct 29th, 2024.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
