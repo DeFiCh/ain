@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - master
-      - feature/ocean-archive # TODO(): remove before merge to master
+      - ocean-refinements # TODO(): remove before merge to master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}

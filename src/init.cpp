@@ -2534,7 +2534,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
 
     // ********************************************************* Step 15: start genesis ocean indexing
-    if(gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
         const CBlock &block = chainparams.GenesisBlock();
 
         const CBlockIndex* pblockindex;

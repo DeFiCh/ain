@@ -3772,6 +3772,11 @@ bool CChainState::DisconnectTip(CValidationState &state,
             XResultThrowOnErr(evm_try_disconnect_latest_block(result));
         }
 
+        if (gArgs.GetBoolArg("-oceanarchive", false)) {
+            const UniValue b = blockToJSON(mnview, block, pindexDelete, pindexDelete, true, 2);
+            XResultThrowOnErr(ocean_invalidate_block(result, b.write()));
+        }
+
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();

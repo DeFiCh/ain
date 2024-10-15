@@ -82,7 +82,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/mn_checks -> txmempool -> dfi/mn_checks"
     "dfi/mn_checks -> validation -> dfi/mn_checks"
     "dfi/mn_checks -> validation -> wallet/wallet -> dfi/mn_checks"
-    "dfi/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports -> dfi/mn_rpc"
     "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/govvariables/attributes"
     # "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> rpc/blockchain -> dfi/govvariables/attributes"
     "dfi/govvariables/attributes -> dfi/validation -> rpc/blockchain -> dfi/govvariables/attributes"
@@ -116,6 +115,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/ismine -> wallet/wallet -> wallet/ismine"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
+    "dfi/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports -> dfi/mn_rpc"
 )
 
 EXIT_CODE=0
