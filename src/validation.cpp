@@ -24,6 +24,7 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <flatfile.h>
 #include <hash.h>
@@ -3770,6 +3771,12 @@ bool CChainState::DisconnectTip(CValidationState &state,
 
         if (block.vtx[0]->vout.size() > 1 && XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey)) {
             XResultThrowOnErr(evm_try_disconnect_latest_block(result));
+        }
+
+        if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
+            gArgs.GetBoolArg("-expr-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+            const UniValue b = blockToJSON(mnview, block, pindexDelete, pindexDelete, true, 2);
+            XResultThrowOnErr(ocean_invalidate_block(result, b.write()));
         }
 
         bool flushed = view.Flush() && mnview.Flush();

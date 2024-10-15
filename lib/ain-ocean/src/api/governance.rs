@@ -5,6 +5,7 @@ use axum::{routing::get, Extension, Router};
 use bitcoin::Txid;
 use defichain_rpc::{json::governance::*, GovernanceRPC};
 use serde::Deserialize;
+use serde_with::skip_serializing_none;
 
 use super::{
     path::Path,
@@ -14,6 +15,7 @@ use super::{
 };
 use crate::{error::ApiError, model::ApiProposalInfo, Result};
 
+#[skip_serializing_none]
 #[derive(Deserialize, Default)]
 pub struct GovernanceQuery {
     #[serde(flatten)]

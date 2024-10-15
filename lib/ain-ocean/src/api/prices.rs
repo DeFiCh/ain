@@ -11,6 +11,7 @@ use bitcoin::{hashes::Hash, Txid};
 use indexmap::IndexSet;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use snafu::OptionExt;
 
 use super::{
@@ -352,6 +353,7 @@ async fn get_feed_with_interval(
     }))
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceOracleResponse {
