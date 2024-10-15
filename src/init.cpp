@@ -679,6 +679,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive indexer (default: %b)", DEFAULT_OCEAN_INDEXER_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-expr-oceanarchive", strprintf("Enable ocean archive indexer (default: %b)", DEFAULT_OCEAN_INDEXER_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchiveserver", strprintf("Enable ocean archive server (default: %b)", DEFAULT_OCEAN_SERVER_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_SERVER_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchivebind=<addr>[:port]", "Bind to given address to listen for Ocean connections. Do not expose the Ocean server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -oceanarchiveport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
@@ -2534,7 +2535,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
 
     // ********************************************************* Step 15: start genesis ocean indexing
-    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
+        gArgs.GetBoolArg("-expr-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
         const CBlock &block = chainparams.GenesisBlock();
 
         const CBlockIndex* pblockindex;
@@ -2553,6 +2555,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         if (bool isIndexed = OceanIndex(b); !isIndexed) {
             return false;
         }
+
+        LogPrintf("WARNING: -expr-oceanarchive flag is turned on. This feature is not yet stable. Please do not use in production unless you're aware of the risks\n");
     }
 
     // ********************************************************* Step 16: start minter thread

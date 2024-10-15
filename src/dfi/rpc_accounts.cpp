@@ -3740,7 +3740,8 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
         result.pushKV("evmhash", std::string(*evmHashHex));
     }
 
-    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
+        gArgs.GetBoolArg("-expr-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
         const auto oceanHashHex = XResultValueLogged(ocean_try_get_hash_db_state(result));
         if (oceanHashHex) {
             result.pushKV("oceanhash", std::string(*oceanHashHex));
