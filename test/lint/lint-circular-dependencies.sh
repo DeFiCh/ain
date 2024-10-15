@@ -9,6 +9,9 @@
 export LC_ALL=C
 
 EXPECTED_CIRCULAR_DEPENDENCIES=(
+    "addrdb -> chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> net -> banman -> addrdb"
+    "addrdb -> chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> net -> addrdb"
+    "blockencodings -> chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> httprpc -> rpc/server -> rpc/util -> node/transaction -> net_processing -> blockencodings"
     "chain -> chainparams -> dfi/mn_checks -> index/txindex -> chain"
     "chain -> chainparams -> dfi/mn_checks -> index/txindex -> txdb -> chain"
     "chain -> chainparams -> dfi/mn_checks -> dfi/vaulthistory -> chain"
@@ -16,9 +19,13 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "chain -> chainparams -> dfi/mn_checks -> validation -> versionbits -> chain"
     "chain -> chainparams -> dfi/mn_checks -> validation -> wallet/wallet -> chain"
     "chainparams -> key_io -> chainparams"
-    "chainparams -> dfi/mn_checks -> index/txindex -> index/base -> chainparams"
     "chainparams -> dfi/mn_checks -> dfi/customtx -> chainparams"
     "chainparams -> dfi/mn_checks -> dfi/vaulthistory -> dfi/vault -> chainparams"
+    "chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> chainparams"
+    "chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> httprpc -> chainparams"
+    "chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> httprpc -> rpc/server -> rpc/util -> node/transaction -> net_processing -> chainparams"
+    "chainparams -> dfi/mn_checks -> ffi/ffiocean -> ffi/ffiexports -> net -> chainparams"
+    "chainparams -> dfi/mn_checks -> index/txindex -> index/base -> chainparams"
     "chainparams -> dfi/mn_checks -> txmempool -> chainparams"
     "chainparams -> dfi/mn_checks -> validation -> chainparams"
     "chainparams -> dfi/mn_checks -> validation -> spv/spv_wrapper -> chainparams"
@@ -31,6 +38,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/accountshistory -> dfi/historywriter -> dfi/mn_checks -> dfi/accountshistory"
     "dfi/accountshistory -> dfi/masternodes -> dfi/accountshistory"
     "dfi/accountshistory -> dfi/masternodes -> validation -> dfi/accountshistory"
+    "dfi/accountshistory -> dfi/masternodes -> validation -> ffi/ffiexports -> dfi/accountshistory"
     "dfi/accountshistory -> flushablestorage -> dfi/snapshotmanager -> dfi/accountshistory"
     "dfi/anchors -> dfi/masternodes -> dfi/anchors"
     "dfi/anchors -> dfi/masternodes -> net_processing -> dfi/anchors"
@@ -82,13 +90,14 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/mn_checks -> txmempool -> dfi/mn_checks"
     "dfi/mn_checks -> validation -> dfi/mn_checks"
     "dfi/mn_checks -> validation -> wallet/wallet -> dfi/mn_checks"
-    "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/govvariables/attributes"
-    # "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> rpc/blockchain -> dfi/govvariables/attributes"
-    "dfi/govvariables/attributes -> dfi/validation -> rpc/blockchain -> dfi/govvariables/attributes"
+    "dfi/mn_rpc -> validation -> ffi/ffiexports -> dfi/mn_rpc"
     "dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/validation -> dfi/mn_rpc"
+    "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/govvariables/attributes"
+    "dfi/govvariables/attributes -> dfi/validation -> rpc/blockchain -> dfi/govvariables/attributes"
     "dfi/snapshotmanager -> dfi/vaulthistory -> flushablestorage -> dfi/snapshotmanager"
     "dfi/validation -> validation -> dfi/validation"
     "dfi/validation -> ffi/ffiexports -> dfi/validation"
+    "ffi/ffiexports -> httprpc -> rpc/server -> rpc/util -> node/transaction -> validation -> ffi/ffiexports"
     "logging -> util/system -> logging"
     "logging -> util/system -> sync -> logging"
     "miner -> wallet/wallet -> policy/fees -> miner"
@@ -115,7 +124,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/fees -> wallet/wallet -> wallet/fees"
     "wallet/ismine -> wallet/wallet -> wallet/ismine"
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
-    "dfi/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports -> dfi/mn_rpc"
 )
 
 EXIT_CODE=0
