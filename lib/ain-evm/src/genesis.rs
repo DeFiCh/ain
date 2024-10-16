@@ -5,16 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::bytes::Bytes;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    chain_id: u32,
-    homestead_block: u32,
-    eip150_block: u32,
-    eip150_hash: String,
-    eip155_block: u32,
-    eip158_block: u32,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Alloc {
     pub balance: U256,
@@ -25,7 +15,6 @@ pub struct Alloc {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenesisData {
-    // config: Config,
     pub coinbase: Option<H160>,
     pub difficulty: Option<U256>,
     pub extra_data: Option<Bytes>,
