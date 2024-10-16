@@ -46,6 +46,10 @@ enum ParamIDs : uint8_t {
     DFIP2211F = 'k',
     GovernanceParam = 'l',
     dTokenRestart = 'm',
+    BlockTime = 'n',
+    Anchors = 'o',
+    Masternodes = 'p',
+    ICX = 'q',
 };
 
 enum OracleIDs : uint8_t {
@@ -131,6 +135,19 @@ enum DFIPKeys : uint8_t {
     AscendingBlockTime = 'A',
     GovHeightMinBlocks = 'B',
     CommunityGovernance = 'C',
+    EmissionReduction = 'D',
+    TargetSpacing = 'E',
+    TargetTimespan = 'F',
+    Frequency = 'G',
+    TeamChange = 'H',
+    ActivationDelay = 'I',
+    ResignDelay = 'J',
+    OrderDefaultExpiry = 'K',
+    OfferDefaultExpiry = 'L',
+    OfferRefundTimeout = 'M',
+    SubmitMinTimeout = 'N',
+    SubmitMin2ndTimeout = 'O',
+    SubmitBTCBlocksInDFI = 'P',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -225,6 +242,10 @@ struct CDataStructureV0 {
 
     bool operator<(const CDataStructureV0 &o) const {
         return std::tie(type, typeId, key, keyId) < std::tie(o.type, o.typeId, o.key, o.keyId);
+    }
+
+    bool operator==(const CDataStructureV0 &other) const {
+        return (type == other.type && typeId == other.typeId && key == other.key && keyId == other.keyId);
     }
 };
 
@@ -412,6 +433,14 @@ Res GovernanceMemberRemoval(ATTRIBUTES &newVar,
                             ATTRIBUTES &prevVar,
                             const CDataStructureV0 &memberKey,
                             const bool canFail = true);
+
+int64_t GetTargetSpacing(const CCustomCSView &view);
+int64_t GetTargetTimespan(const CCustomCSView &view);
+int64_t DifficultyAdjustment(const CCustomCSView &view);
+int32_t GetEmissionReduction(const CCustomCSView &view);
+uint32_t BlocksPerDay(const CCustomCSView &view);
+uint32_t BlocksCollateralizationRatioCalculation(const CCustomCSView &view);
+uint32_t BlocksCollateralAuction(const CCustomCSView &view);
 
 enum GovVarsFilter {
     All,

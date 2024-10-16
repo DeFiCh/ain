@@ -15,7 +15,7 @@ Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
     const auto height = txCtx.GetHeight();
     const auto &tx = txCtx.GetTransaction();
 
-    if (tx.vout.size() < 2 || tx.vout[0].nValue < GetMnCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
+    if (tx.vout.size() < 2 || tx.vout[0].nValue < GetMnCreationFee() || tx.vout[0].nTokenId != DCT_ID{0} ||
         tx.vout[1].nValue != GetMnCollateralAmount(height) || tx.vout[1].nTokenId != DCT_ID{0}) {
         return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
     }
