@@ -6,7 +6,7 @@ use crate::Result;
 /// the latest version of the database schemas expected by the node.
 ///
 /// The `migrate` method sequentially applies any required migrations based on the current
-/// database version. The version information is stored in the `metadata`` column family
+/// database version. The version information is stored in the `metadata` column family
 /// within the RocksDB instance.
 ///
 /// Migrations are defined as implementations of the `Migration` trait and are executed
