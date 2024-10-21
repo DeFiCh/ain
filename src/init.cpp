@@ -2253,6 +2253,9 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     if (gArgs.IsArgSet("-consolidaterewards")) {
+        if (::ChainActive().Height() >= chainparams.GetConsensus().DF24Height) {
+            return InitError("Consolidate rewards is not available after static rewards are active.\n");
+        }
         const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
         auto fullRewardConsolidation = false;
         for (const auto &tokenSymbolInput : tokenSymbolArgs) {
@@ -2296,6 +2299,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
         }
         pcustomcsview->Flush();
+        pcustomcsDB->Flush();
     }
 
     // ********************************************************* Step 12: import blocks
