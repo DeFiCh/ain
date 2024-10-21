@@ -975,6 +975,12 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
     if (balanceHeight >= targetHeight) {
         return false;
     }
+
+    // Calculate per-block rewards up to the fork height
+    const auto targetPerBlockHeight =
+        targetHeight >= Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : targetHeight;
+    bool perBlockUpdated{};
+
     ForEachPoolId([&](DCT_ID const &poolId) {
         auto height = GetShare(poolId, owner);
         if (!height || *height >= targetHeight) {
@@ -990,10 +996,8 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
         };
 
         if (beginHeight < Params().GetConsensus().DF24Height) {
-            // Calculate just up to the fork height
-            const auto targetNewHeight =
-                targetHeight >= Params().GetConsensus().DF24Height ? Params().GetConsensus().DF24Height : targetHeight;
-            CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetNewHeight, onReward);
+            perBlockUpdated = true;
+            CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetPerBlockHeight, onReward);
         }
 
         if (!skipStatic && targetHeight >= Params().GetConsensus().DF24Height) {
@@ -1007,7 +1011,14 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
         return true;
     });
 
-    return UpdateBalancesHeight(owner, targetHeight);
+    // If no per-block update to occured then do not update the height.
+    if (skipStatic && !perBlockUpdated) {
+        return true;
+    }
+
+    const auto updateHeight = skipStatic ? targetPerBlockHeight : targetHeight;
+
+    return UpdateBalancesHeight(owner, updateHeight);
 }
 
 double CVaultAssets::calcRatio(uint64_t maxRatio) const {
