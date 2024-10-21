@@ -970,8 +970,8 @@ bool CCustomCSView::CanSpend(const uint256 &txId, int height) const {
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
-bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetHeight, bool skipStatic) {
-    auto balanceHeight = GetBalancesHeight(owner);
+bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, const uint32_t targetHeight, const bool skipStatic) {
+    const auto balanceHeight = GetBalancesHeight(owner);
     if (balanceHeight >= targetHeight) {
         return false;
     }
@@ -982,7 +982,7 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
     bool perBlockUpdated{};
 
     ForEachPoolId([&](DCT_ID const &poolId) {
-        auto height = GetShare(poolId, owner);
+        const auto height = GetShare(poolId, owner);
         if (!height || *height >= targetHeight) {
             return true;  // no share or target height is before a pool share' one
         }
