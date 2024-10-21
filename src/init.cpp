@@ -2253,9 +2253,10 @@ bool AppInitMain(InitInterfaces& interfaces)
     }
 
     if (gArgs.IsArgSet("-consolidaterewards")) {
-        if (::ChainActive().Height() >= chainparams.GetConsensus().DF24Height) {
-            return InitError("Consolidate rewards is not available after static rewards are active.\n");
-        }
+        // Due to higher precision reward consolidation after the DF24 fork consolidate rewards
+        // cannot be used. The following skipStatic flag is used to skip the static consolidation
+        // and only run the per-block consolidation.
+        const bool skipStatic = ::ChainActive().Height() >= chainparams.GetConsensus().DF24Height;
         const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
         auto fullRewardConsolidation = false;
         for (const auto &tokenSymbolInput : tokenSymbolArgs) {
@@ -2276,7 +2277,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
                 return true;
             });
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true, skipStatic);
         } else {
             //one set for all tokens, ConsolidateRewards runs on the address, so no need to run multiple times for multiple token inputs
             std::unordered_set<CScript, CScriptHasher> ownersToConsolidate;
@@ -2296,7 +2297,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     return true;
                 });
             }
-            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true);
+            ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true, skipStatic);
         }
         pcustomcsview->Flush();
         pcustomcsDB->Flush();

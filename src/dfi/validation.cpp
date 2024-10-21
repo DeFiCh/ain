@@ -1563,7 +1563,8 @@ void ConsolidateRewards(CCustomCSView &view,
                         int height,
                         const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
-                        int numWorkers) {
+                        int numWorkers,
+                        bool skipStatic) {
     int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
     auto rewardsTime = GetTimeMicros();
     boost::asio::thread_pool workerPool(nWorkers);
@@ -1581,7 +1582,7 @@ void ConsolidateRewards(CCustomCSView &view,
                 return;
             }
             auto tempView = std::make_unique<CCustomCSView>(view);
-            tempView->CalculateOwnerRewards(account, height);
+            tempView->CalculateOwnerRewards(account, height, skipStatic);
 
             boost::asio::post(mergeWorker, [&, tempView = std::move(tempView)]() {
                 if (interruptOnShutdown && ShutdownRequested()) {

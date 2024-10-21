@@ -970,7 +970,7 @@ bool CCustomCSView::CanSpend(const uint256 &txId, int height) const {
     return !pair || pair->second.destructionTx != uint256{} || pair->second.IsPoolShare();
 }
 
-bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetHeight) {
+bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetHeight, bool skipStatic) {
     auto balanceHeight = GetBalancesHeight(owner);
     if (balanceHeight >= targetHeight) {
         return false;
@@ -996,7 +996,7 @@ bool CCustomCSView::CalculateOwnerRewards(const CScript &owner, uint32_t targetH
             CalculatePoolRewards(poolId, onLiquidity, beginHeight, targetNewHeight, onReward);
         }
 
-        if (targetHeight >= Params().GetConsensus().DF24Height) {
+        if (!skipStatic && targetHeight >= Params().GetConsensus().DF24Height) {
             // Calculate from the fork height
             const auto beginNewHeight = beginHeight < Params().GetConsensus().DF24Height
                                             ? Params().GetConsensus().DF24Height - 1
