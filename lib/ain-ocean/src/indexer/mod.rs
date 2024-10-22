@@ -84,9 +84,7 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
                 break;
             };
 
-            let prev = repository
-                .by_id
-                .get(&prev_id)?;
+            let prev = repository.by_id.get(&prev_id)?;
 
             let Some(prev) = prev else {
                 break;
