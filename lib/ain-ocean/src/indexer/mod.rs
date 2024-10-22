@@ -252,7 +252,6 @@ fn index_script_unspent_vin(
     let id = services.script_unspent.by_key.get(&key)?;
     if let Some(id) = id {
         services.script_unspent.by_id.delete(&id)?;
-        services.script_unspent.by_key.delete(&key)?;
     }
     Ok(())
 }
