@@ -73,17 +73,28 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
                     Some((pool_pair.id, interval, i64::MAX)),
                     SortOrder::Descending,
                 )?
-                .take(1)
                 .take_while(|item| match item {
                     Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
                     _ => true,
                 })
-                .map(|e| repository.by_key.retrieve_primary_value(e))
-                .collect::<Result<Vec<_>>>()?;
+                .next()
+                .transpose()?;
+
+            let Some((_, prev_id)) = prevs else {
+                break;
+            };
+
+            let prev = repository
+                .by_id
+                .get(&prev_id)?;
+
+            let Some(prev) = prev else {
+                break;
+            };
 
             let bucket = get_bucket(block, i64::from(interval));
 
-            if prevs.len() == 1 && prevs[0].bucket >= bucket {
+            if prev.bucket >= bucket {
                 break;
             }
 
