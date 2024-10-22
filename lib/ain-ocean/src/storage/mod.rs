@@ -9,8 +9,9 @@ use ain_db::{Column, ColumnName, DBError, LedgerColumn, Result as DBResult, Type
 use bitcoin::{hashes::Hash, BlockHash, Txid};
 pub use ocean_store::OceanStore;
 use rocksdb::Direction;
+use snafu::OptionExt;
 
-use crate::{define_table, model, Error, Result};
+use crate::{define_table, error::SecondaryIndexSnafu, model, Result};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SortOrder {
@@ -102,7 +103,7 @@ impl SecondaryIndex<(u32, Txid), u8> for MasternodeByHeight {
     fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
         let ((_, id), _) = el?;
         let col = self.store.column::<Masternode>();
-        let tx = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+        let tx = col.get(&id)?.context(SecondaryIndexSnafu)?;
         Ok(tx)
     }
 }

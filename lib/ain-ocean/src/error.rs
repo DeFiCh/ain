@@ -192,7 +192,11 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
-    SecondaryIndex,
+    #[snafu(display("Secondary index error"))]
+    SecondaryIndex {
+        #[snafu(implicit)]
+        location: Location,
+    },
     BadRequest {
         msg: String,
     },

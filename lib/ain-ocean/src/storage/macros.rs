@@ -91,7 +91,7 @@ macro_rules! define_table {
                 fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
                     let (_, id) = el?;
                     let col = self.store.column::<$primary_column>();
-                    let value = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+                    let value = col.get(&id)?.context(SecondaryIndexSnafu)?;
                     Ok(value)
                 }
             }
