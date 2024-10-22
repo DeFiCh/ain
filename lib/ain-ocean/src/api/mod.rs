@@ -75,19 +75,7 @@ async fn cors(request: Request, next: Next) -> Response {
         .append("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
     response.headers_mut().append(
         "Access-Control-Allow-Methods",
-        HeaderValue::from_static("GET"),
-    );
-    response.headers_mut().append(
-        "Access-Control-Allow-Methods",
-        HeaderValue::from_static("POST"),
-    );
-    response.headers_mut().append(
-        "Access-Control-Allow-Methods",
-        HeaderValue::from_static("PUT"),
-    );
-    response.headers_mut().append(
-        "Access-Control-Allow-Methods",
-        HeaderValue::from_static("DELETE"),
+        HeaderValue::from_static("GET,POST,PUT,DELETE"),
     );
     response.headers_mut().append(
         "Access-Control-Allow-Headers",
