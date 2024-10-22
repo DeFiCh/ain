@@ -31,7 +31,7 @@ use crate::{
         ScriptAggregationScript, ScriptAggregationStatistic, ScriptUnspent, ScriptUnspentScript,
         ScriptUnspentVout, TransactionVout, TransactionVoutScript,
     },
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
+    storage::{RepositoryOps, SortOrder},
     Result, Services,
 };
 
