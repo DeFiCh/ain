@@ -2300,7 +2300,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true, skipStatic);
         }
         pcustomcsview->Flush();
-        pcustomcsDB->Flush();
     }
 
     // ********************************************************* Step 12: import blocks

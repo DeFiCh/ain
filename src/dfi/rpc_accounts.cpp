@@ -3720,6 +3720,9 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
         pcursor->Next();
     }
 
+    // Delete iterator
+    delete pcursor;
+
     // Finalize the hash
     unsigned char hash[CSHA256::OUTPUT_SIZE];
     hasher.Finalize(hash);

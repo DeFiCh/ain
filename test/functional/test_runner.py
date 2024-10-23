@@ -181,6 +181,7 @@ BASE_SCRIPTS = [
     "wallet_watchonly.py",
     "wallet_watchonly.py --usecli",
     "feature_poolpair.py",
+    "feature_consolidate_rewards.py",
     "feature_poolpair_liquidity.py",
     "feature_icx_orderbook.py",
     "feature_icx_orderbook_errors.py",
