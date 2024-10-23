@@ -409,7 +409,6 @@ async fn list_price_oracles(
                 )),
                 SortOrder::Descending,
             )?
-            // .take(1)
             .take_while(|item| match item {
                 Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle_id,
                 _ => true,
@@ -433,11 +432,11 @@ async fn list_price_oracles(
                 OraclePriceFeedResponse {
                     id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
                     key: format!("{}-{}-{}", token, currency, oracle_id),
-                    sort: hex::encode(f.block.height.to_string() + &f.txid.to_string()),
+                    sort: hex::encode(f.block.height.to_string() + &txid.to_string()),
                     token: token.clone(),
                     currency: currency.clone(),
                     oracle_id,
-                    txid: f.txid,
+                    txid,
                     time: f.time,
                     amount: f.amount.to_string(),
                     block: f.block,
