@@ -126,34 +126,20 @@ impl CollateralToken {
     }
 }
 
-async fn get_active_price(
+fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
 ) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
     let repo = &ctx.services.oracle_price_active;
-    let keys = repo
-        .by_key
-        .list(Some((token, currency)), SortOrder::Descending)?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
-
-    if keys.is_empty() {
-        return Ok(None);
-    }
-
-    let Some((_, id)) = keys.first() else {
-        return Ok(None);
+    let key = repo.by_key.get(&(token, currency))?;
+    let price = if let Some(key) = key {
+        repo.by_id.get(&key)?
+    } else {
+        None
     };
 
-    let price = repo.by_id.get(id)?;
-
-    let Some(price) = price else {
-        return Ok(None);
-    };
-
-    Ok(Some(price))
+    Ok(price)
 }
 
 #[ocean_endpoint]
@@ -179,7 +165,7 @@ async fn list_collateral_token(
                         id: v.token_id.clone(),
                     },
                 })?;
-            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
+            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone())?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
         .collect::<Vec<_>>();
@@ -211,7 +197,7 @@ async fn get_collateral_token(
             },
         })?;
     let active_price =
-        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
+        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone())?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
@@ -311,15 +297,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = get_active_price(&ctx, fixed_interval_price_id.clone())?;
 
             Ok::<LoanToken, Error>(LoanToken {
                 token_id: info.creation_tx.clone(),

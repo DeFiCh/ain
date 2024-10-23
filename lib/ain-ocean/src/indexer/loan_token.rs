@@ -93,8 +93,8 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
             .flatten()
             .collect::<Vec<_>>();
 
-        for pt in price_tickers {
-            perform_active_price_tick(services, pt.0, block)?;
+        for (ticker_id, _) in price_tickers {
+            perform_active_price_tick(services, ticker_id, block)?;
         }
     }
     Ok(())
