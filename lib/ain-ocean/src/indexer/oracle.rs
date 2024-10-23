@@ -12,7 +12,7 @@ use snafu::OptionExt;
 
 use crate::{
     error::{
-        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, ToPrimitiveSnafu
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, ToPrimitiveSnafu,
     },
     indexer::{Context, Index, Result},
     model::{
@@ -283,7 +283,10 @@ fn map_price_aggregated(
         let feed = services
             .oracle_price_feed
             .by_id
-            .list(Some((id.0, id.1, id.2, Txid::from_byte_array([0xffu8; 32]))), SortOrder::Descending)?
+            .list(
+                Some((id.0, id.1, id.2, Txid::from_byte_array([0xffu8; 32]))),
+                SortOrder::Descending,
+            )?
             .next()
             .transpose()?;
 
@@ -488,10 +491,7 @@ fn start_new_bucket(
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
     let id = (token, currency, interval, block.height);
-    services
-        .oracle_price_aggregated_interval
-        .by_id
-        .put(
+    services.oracle_price_aggregated_interval.by_id.put(
         &id,
         &OraclePriceAggregatedInterval {
             aggregated: OraclePriceAggregatedIntervalAggregated {
@@ -526,7 +526,9 @@ pub fn index_interval_mapper(
             SortOrder::Descending,
         )?
         .take_while(|item| match item {
-            Ok(((t, c, i, _), _)) => t == &token.clone() && c == &currency.clone() && i == &interval.clone(),
+            Ok(((t, c, i, _), _)) => {
+                t == &token.clone() && c == &currency.clone() && i == &interval.clone()
+            }
             _ => true,
         })
         .next()
@@ -557,7 +559,12 @@ pub fn invalidate_oracle_interval(
     let previous = repo
         .by_id
         .list(
-            Some((token.to_string(), currency.to_string(), interval.clone(), u32::MAX)),
+            Some((
+                token.to_string(),
+                currency.to_string(),
+                interval.clone(),
+                u32::MAX,
+            )),
             SortOrder::Descending,
         )?
         .next()
@@ -568,7 +575,7 @@ pub fn invalidate_oracle_interval(
             action: IndexAction::Invalidate,
             r#type: "Invalidate oracle price aggregated interval".to_string(),
             id: format!("{}-{}-{:?}", token, currency, interval),
-        })
+        });
     };
 
     if previous.aggregated.count == 1 {
