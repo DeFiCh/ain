@@ -12,8 +12,7 @@ use snafu::OptionExt;
 
 use crate::{
     error::{
-        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, OtherSnafu,
-        ToPrimitiveSnafu,
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, ToPrimitiveSnafu
     },
     indexer::{Context, Index, Result},
     model::{
@@ -494,10 +493,11 @@ fn start_new_bucket(
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
-    let key = (token.clone(), currency.clone(), interval.clone());
     let id = (token, currency, interval, block.height);
-    let repo = &services.oracle_price_aggregated_interval;
-    repo.by_id.put(
+    services
+        .oracle_price_aggregated_interval
+        .by_id
+        .put(
         &id,
         &OraclePriceAggregatedInterval {
             aggregated: OraclePriceAggregatedIntervalAggregated {
@@ -512,7 +512,6 @@ fn start_new_bucket(
             block: block.clone(),
         },
     )?;
-    repo.by_key.put(&key, &id)?;
 
     Ok(())
 }
@@ -527,29 +526,27 @@ pub fn index_interval_mapper(
 ) -> Result<()> {
     let repo = &services.oracle_price_aggregated_interval;
     let previous = repo
-        .by_key
+        .by_id
         .list(
-            Some((token.clone(), currency.clone(), interval.clone())),
+            Some((token.clone(), currency.clone(), interval.clone(), u32::MAX)),
             SortOrder::Descending,
         )?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
+        .take_while(|item| match item {
+            Ok(((t, c, i, _), _)) => t == &token.clone() && c == &currency.clone() && i == &interval.clone(),
+            _ => true,
+        })
+        .next()
+        .transpose()?;
 
-    if previous.is_empty() {
+    let Some(previous) = previous else {
+        return start_new_bucket(services, block, token, currency, aggregated, interval);
+    };
+
+    if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
         return start_new_bucket(services, block, token, currency, aggregated, interval);
     }
 
-    for (_, id) in previous {
-        let aggregated_interval = repo.by_id.get(&id)?;
-        if let Some(aggregated_interval) = aggregated_interval {
-            if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
-                return start_new_bucket(services, block, token, currency, aggregated, interval);
-            }
-
-            forward_aggregate(services, (id, &aggregated_interval), aggregated)?;
-        }
-    }
+    forward_aggregate(services, previous, aggregated)?;
 
     Ok(())
 }
@@ -564,29 +561,24 @@ pub fn invalidate_oracle_interval(
 ) -> Result<()> {
     let repo = &services.oracle_price_aggregated_interval;
     let previous = repo
-        .by_key
+        .by_id
         .list(
-            Some((token.to_string(), currency.to_string(), interval.clone())),
+            Some((token.to_string(), currency.to_string(), interval.clone(), u32::MAX)),
             SortOrder::Descending,
         )?
-        .take(1)
-        .map(|item| {
-            let (_, id) = item?;
-            let price = services
-                .oracle_price_aggregated_interval
-                .by_id
-                .get(&id)?
-                .context(OtherSnafu {
-                    msg: "Missing oracle price aggregated interval index",
-                })?;
-            Ok((id, price))
-        })
-        .collect::<Result<Vec<_>>>()?;
+        .next()
+        .transpose()?;
 
-    let (prev_id, previous) = &previous[0];
+    let Some((prev_id, previous)) = previous else {
+        return Err(Error::NotFoundIndex {
+            action: IndexAction::Invalidate,
+            r#type: "Invalidate oracle price aggregated interval".to_string(),
+            id: format!("{}-{}-{:?}", token, currency, interval),
+        })
+    };
 
     if previous.aggregated.count == 1 {
-        return repo.by_id.delete(prev_id);
+        return repo.by_id.delete(&prev_id);
     }
 
     let last_price = previous.aggregated.clone();
@@ -630,11 +622,7 @@ pub fn invalidate_oracle_interval(
         },
         block: previous.block.clone(),
     };
-    repo.by_id.put(prev_id, &aggregated_interval)?;
-    repo.by_key.put(
-        &(prev_id.0.clone(), prev_id.1.clone(), prev_id.2.clone()),
-        prev_id,
-    )?;
+    repo.by_id.put(&prev_id, &aggregated_interval)?;
     Ok(())
 }
 
@@ -642,7 +630,7 @@ fn forward_aggregate(
     services: &Arc<Services>,
     previous: (
         OraclePriceAggregatedIntervalId,
-        &OraclePriceAggregatedInterval,
+        OraclePriceAggregatedInterval,
     ),
     aggregated: &OraclePriceAggregated,
 ) -> Result<()> {
@@ -692,10 +680,6 @@ fn forward_aggregate(
         .oracle_price_aggregated_interval
         .by_id
         .put(&prev_id, &aggregated_interval)?;
-    services.oracle_price_aggregated_interval.by_key.put(
-        &(prev_id.0.clone(), prev_id.1.clone(), prev_id.2.clone()),
-        &prev_id,
-    )?;
     Ok(())
 }
 

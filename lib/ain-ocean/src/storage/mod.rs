@@ -191,15 +191,6 @@ define_table! {
 
 define_table! {
     #[derive(Debug)]
-    pub struct OraclePriceAggregatedIntervalKey {
-        key_type = model::OraclePriceAggregatedIntervalKey,
-        value_type = model::OraclePriceAggregatedIntervalId,
-    },
-    SecondaryIndex = OraclePriceAggregatedInterval
-}
-
-define_table! {
-    #[derive(Debug)]
     pub struct OraclePriceFeed {
         key_type = model::OraclePriceFeedId,
         value_type = model::OraclePriceFeed,
@@ -444,7 +435,7 @@ define_table! {
     SecondaryIndex = VaultAuctionHistory
 }
 
-pub const COLUMN_NAMES: [&str; 32] = [
+pub const COLUMN_NAMES: [&str; 31] = [
     Block::NAME,
     BlockByHeight::NAME,
     MasternodeStats::NAME,
@@ -456,7 +447,6 @@ pub const COLUMN_NAMES: [&str; 32] = [
     OraclePriceActiveKey::NAME,
     OraclePriceAggregated::NAME,
     OraclePriceAggregatedInterval::NAME,
-    OraclePriceAggregatedIntervalKey::NAME,
     OraclePriceFeed::NAME,
     OraclePriceFeedKey::NAME,
     OracleTokenCurrency::NAME,
