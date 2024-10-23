@@ -71,7 +71,6 @@ pub struct OracleService {
     by_id: Oracle,
 }
 pub struct OraclePriceFeedService {
-    by_key: OraclePriceFeedKey,
     by_id: OraclePriceFeed,
 }
 pub struct OraclePriceActiveService {
@@ -179,7 +178,6 @@ impl Services {
                 by_id: Oracle::new(Arc::clone(&store)),
             },
             oracle_price_feed: OraclePriceFeedService {
-                by_key: OraclePriceFeedKey::new(Arc::clone(&store)),
                 by_id: OraclePriceFeed::new(Arc::clone(&store)),
             },
             oracle_price_active: OraclePriceActiveService {

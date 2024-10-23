@@ -251,7 +251,6 @@ fn map_price_aggregated(
 ) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
     let oracle_repo = &services.oracle_token_currency;
-    let feed_repo = &services.oracle_price_feed;
 
     let oracles = oracle_repo
         .by_id
@@ -281,13 +280,14 @@ fn map_price_aggregated(
             continue;
         }
 
-        let feed_id = feed_repo.by_key.get(&(id))?;
+        let feed = services
+            .oracle_price_feed
+            .by_id
+            .list(Some((id.0, id.1, id.2, Txid::from_byte_array([0xffu8; 32]))), SortOrder::Descending)?
+            .next()
+            .transpose()?;
 
-        let Some(feed_id) = feed_id else { continue };
-
-        let feed = feed_repo.by_id.get(&feed_id)?;
-
-        let Some(feed) = feed else { continue };
+        let Some((_, feed)) = feed else { continue };
 
         let time_diff = Decimal::from(feed.time) - Decimal::from(context.block.time);
         if Decimal::abs(&time_diff) < dec!(3600) {
@@ -406,18 +406,13 @@ fn index_set_oracle_data_interval(
 
 impl Index for SetOracleData {
     fn index(self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        let feed_repo = &services.oracle_price_feed;
-
         let mut pairs = HashSet::new();
         let feeds = map_price_feeds(&self, context);
         for (id, feed) in &feeds {
             let token = id.0.clone();
             let currency = id.1.clone();
-            let oracle_id = id.2;
-            let key = (token.clone(), currency.clone(), oracle_id);
             pairs.insert((token, currency));
-            feed_repo.by_key.put(&key, id)?;
-            feed_repo.by_id.put(id, feed)?;
+            services.oracle_price_feed.by_id.put(id, feed)?;
         }
 
         index_set_oracle_data(services, context, &pairs)?;
@@ -477,7 +472,6 @@ fn map_price_feeds(
                 amount: token_amount.amount,
                 block: ctx.block.clone(),
                 time: data.timestamp as i32,
-                txid: ctx.tx.txid,
             };
             feeds.push((id, oracle_price_feed));
         }
