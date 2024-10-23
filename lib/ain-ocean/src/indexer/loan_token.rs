@@ -102,7 +102,6 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
 
 fn map_active_price(
     block: &BlockContext,
-    ticker_id: (String, String),
     aggregated_price: OraclePriceAggregated,
     prev_price: Option<OraclePriceActive>,
 ) -> OraclePriceActive {
@@ -123,9 +122,6 @@ fn map_active_price(
     };
 
     OraclePriceActive {
-        id: (ticker_id.0.clone(), ticker_id.1.clone(), block.height),
-        key: ticker_id,
-        sort: hex::encode(block.height.to_be_bytes()),
         active: active_price.clone(),
         next: next_price.clone(),
         is_live: is_live(active_price, next_price),
@@ -165,10 +161,12 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let repo = &services.oracle_price_aggregated;
-    let prev = repo
+    let id = (ticker_id.0.clone(), ticker_id.1.clone(), u32::MAX);
+
+    let prev = services
+        .oracle_price_aggregated
         .by_id
-        .list(Some ((ticker_id.0.clone(), ticker_id.1.clone(), u32::MAX)), SortOrder::Descending)?
+        .list(Some (id.clone()), SortOrder::Descending)?
         .next()
         .transpose()?;
 
@@ -177,23 +175,22 @@ pub fn perform_active_price_tick(
     };
 
     let repo = &services.oracle_price_active;
-    let prev_key = repo
-        .by_key
-        .list(Some(ticker_id.clone()), SortOrder::Descending)?
+    let prev = repo
+        .by_id
+        .list(Some(id.clone()), SortOrder::Descending)?
         .next()
         .transpose()?;
 
-    let prev_price = if let Some((_, prev_id)) = prev_key {
-        repo.by_id.get(&prev_id)?
+    let prev_price = if let Some((_, prev)) = prev {
+        Some(prev)
     } else {
         None
     };
 
-    let active_price = map_active_price(block, ticker_id, aggregated_price, prev_price);
+    let active_price = map_active_price(block, aggregated_price, prev_price);
 
-    repo.by_id.put(&active_price.id, &active_price)?;
-
-    repo.by_key.put(&active_price.key, &active_price.id)?;
+    let new_id = (id.0, id.1, block.height);
+    repo.by_id.put(&new_id, &active_price)?;
 
     Ok(())
 }
