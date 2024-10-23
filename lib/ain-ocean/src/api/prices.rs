@@ -265,9 +265,9 @@ async fn get_feed_active(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalResponse {
-    pub id: String,
-    pub key: String,
-    pub sort: String,
+    pub id: String, // token-currency-interval-height
+    pub key: String, // token-currency-interval
+    pub sort: String, // medianTime-height
     pub token: Token,
     pub currency: Currency,
     pub aggregated: OraclePriceAggregatedIntervalAggregated,
@@ -304,34 +304,35 @@ async fn get_feed_with_interval(
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
-    let key = (token, currency, interval_type);
-    let repo = &ctx.services.oracle_price_aggregated_interval;
+    let id = (token.clone(), currency.clone(), interval_type.clone(), u32::MAX);
 
-    let keys = repo
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
+    let items = ctx
+        .services
+        .oracle_price_aggregated_interval
+        .by_id
+        .list(Some(id), SortOrder::Descending)?
         .take(query.size)
+        .take_while(|item| match item {
+            Ok(((t, c, i, _), _)) => t == &token.clone() && c == &currency.clone() && i == &interval_type.clone(),
+            _ => true,
+        })
         .flatten()
         .collect::<Vec<_>>();
 
     let mut prices = Vec::new();
-    for ((token, currency, _), id) in keys {
-        let item = repo.by_id.get(&id)?;
-
-        let Some(item) = item else { continue };
-
+    for (id, item) in items {
         let start = item.block.median_time - (item.block.median_time % interval);
 
         let price = OraclePriceAggregatedIntervalResponse {
-            id: format!("{}-{}-{:?}", id.0, id.1, id.2),
-            key: format!("{}-{}", id.0, id.1),
+            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, id.3),
+            key: format!("{}-{}-{:?}", id.0, id.1, id.2),
             sort: format!(
                 "{}{}",
                 hex::encode(item.block.median_time.to_be_bytes()),
                 hex::encode(item.block.height.to_be_bytes()),
             ),
-            token,
-            currency,
+            token: token.clone(),
+            currency: currency.clone(),
             aggregated: OraclePriceAggregatedIntervalAggregated {
                 amount: item.aggregated.amount,
                 weightage: item.aggregated.weightage,
