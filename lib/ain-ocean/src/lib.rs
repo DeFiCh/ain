@@ -83,7 +83,6 @@ pub struct OraclePriceAggregatedIntervalService {
     by_id: OraclePriceAggregatedInterval,
 }
 pub struct OraclePriceAggregatedService {
-    by_key: OraclePriceAggregatedKey,
     by_id: OraclePriceAggregated,
 }
 
@@ -193,7 +192,6 @@ impl Services {
                 by_id: OraclePriceAggregatedInterval::new(Arc::clone(&store)),
             },
             oracle_price_aggregated: OraclePriceAggregatedService {
-                by_key: OraclePriceAggregatedKey::new(Arc::clone(&store)),
                 by_id: OraclePriceAggregated::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {

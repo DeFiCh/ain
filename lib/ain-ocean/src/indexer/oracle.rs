@@ -355,7 +355,6 @@ fn index_set_oracle_data(
             currency.clone(),
             price_aggregated.block.height,
         );
-        oracle_repo.by_key.put(pair, &id)?;
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
         let key = (

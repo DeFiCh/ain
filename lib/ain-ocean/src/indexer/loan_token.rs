@@ -166,19 +166,13 @@ pub fn perform_active_price_tick(
     block: &BlockContext,
 ) -> Result<()> {
     let repo = &services.oracle_price_aggregated;
-    let prev_key = repo
-        .by_key
-        .list(Some(ticker_id.clone()), SortOrder::Descending)?
+    let prev = repo
+        .by_id
+        .list(Some ((ticker_id.0.clone(), ticker_id.1.clone(), u32::MAX)), SortOrder::Descending)?
         .next()
         .transpose()?;
 
-    let Some((_, prev_id)) = prev_key else {
-        return Ok(());
-    };
-
-    let aggregated_price = repo.by_id.get(&prev_id)?;
-
-    let Some(aggregated_price) = aggregated_price else {
+    let Some((_, aggregated_price)) = prev else {
         return Ok(());
     };
 
