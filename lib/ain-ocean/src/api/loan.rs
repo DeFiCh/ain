@@ -36,7 +36,7 @@ use super::{
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
+    storage::{RepositoryOps, SortOrder},
     Result,
 };
 
@@ -131,13 +131,17 @@ fn get_active_price(
     fixed_interval_price_id: String,
 ) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-    let repo = &ctx.services.oracle_price_active;
-    let key = repo.by_key.get(&(token, currency))?;
-    let price = if let Some(key) = key {
-        repo.by_id.get(&key)?
-    } else {
-        None
-    };
+    let price = ctx
+        .services
+        .oracle_price_active
+        .by_id
+        .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+        .next()
+        .map(|item| {
+            let (_, v) = item?;
+            Ok::<OraclePriceActive, Error>(v)
+        })
+        .transpose()?;
 
     Ok(price)
 }
@@ -254,13 +258,17 @@ async fn list_loan_token(
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
             let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = ctx
+                .services
+                .oracle_price_active
+                .by_id
+                .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+                .next()
+                .map(|item| {
+                    let (_, v) = item?;
+                    Ok::<OraclePriceActive, Error>(v)
+                })
+                .transpose()?;
 
             let token = LoanToken {
                 token_id: flatten_token.data.creation_tx.clone(),
@@ -658,23 +666,20 @@ async fn map_token_amounts(
             log::error!("Token {token_symbol} not found");
             continue;
         };
-        let repo = &ctx.services.oracle_price_active;
 
-        let keys = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .collect::<Vec<_>>();
-        log::trace!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
-        let active_price = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .take(1)
+        let active_price = ctx.services.oracle_price_active
+            .by_id
+            .list(Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)), SortOrder::Descending)?
             .take_while(|item| match item {
-                Ok((k, _)) => k.0 == id,
+                Ok((k, _)) => k.0 == token_info.symbol && k.1 == "USD",
                 _ => true,
             })
-            .map(|el| repo.by_key.retrieve_primary_value(el))
-            .collect::<Result<Vec<_>>>()?;
+            .next()
+            .map(|item| {
+                let (_, v) = item?;
+                Ok::<OraclePriceActive, Error>(v)
+            })
+            .transpose()?;
 
         vault_token_amounts.push(VaultTokenAmountResponse {
             id,
@@ -683,7 +688,7 @@ async fn map_token_amounts(
             symbol: token_info.symbol,
             symbol_key: token_info.symbol_key,
             name: token_info.name,
-            active_price: active_price.first().cloned(),
+            active_price,
         });
     }
 

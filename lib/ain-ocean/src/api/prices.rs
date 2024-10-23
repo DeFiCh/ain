@@ -22,10 +22,9 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, OtherSnafu},
+    error::{ApiError, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceAggregatedIntervalAggregated, PriceTicker,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregatedIntervalAggregated, PriceTicker
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -233,29 +232,56 @@ async fn get_feed(
     ))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceActiveResponse {
+    pub id: String, // token-currency-height
+    pub key: String, // token-currency
+    pub sort: String, // height
+    pub active: Option<OraclePriceActiveNext>,
+    pub next: Option<OraclePriceActiveNext>,
+    pub is_live: bool,
+    pub block: BlockContext,
+}
+
+impl OraclePriceActiveResponse {
+    fn from_with_id(token: &String, currency: &String, v: OraclePriceActive) -> Self {
+        Self {
+            id: format!("{}-{}-{}", token, currency, v.block.height),
+            key: format!("{}-{}", token, currency),
+            sort: hex::encode(v.block.height.to_be_bytes()).to_string(),
+            active: v.active,
+            next: v.next,
+            is_live: v.is_live,
+            block: v.block,
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn get_feed_active(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<OraclePriceActive>> {
+) -> Result<ApiPagedResponse<OraclePriceActiveResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let key = (token, currency);
-    let repo = &ctx.services.oracle_price_active;
+    let id = (token.clone(), currency.clone(), u32::MAX);
     let price_active = ctx
         .services
         .oracle_price_active
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
-        .take(query.size)
-        .flat_map(|item| {
-            let (_, id) = item?;
-            let item = repo.by_id.get(&id)?;
-            Ok::<Option<OraclePriceActive>, Error>(item)
+        .by_id
+        .list(Some(id), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok(((t, c, _), _)) => t == &token && c == &currency,
+            _ => true,
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .take(query.size)
+        .map(|item| {
+            let ((token, currency, _), v) = item?;
+            Ok(OraclePriceActiveResponse::from_with_id(&token, &currency, v))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(price_active, query.size, |price| {
         price.sort.to_string()
