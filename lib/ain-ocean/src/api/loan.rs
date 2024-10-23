@@ -200,8 +200,7 @@ async fn get_collateral_token(
                 id: collateral_token.token_id.clone(),
             },
         })?;
-    let active_price =
-        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone())?;
+    let active_price = get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone())?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
@@ -667,9 +666,14 @@ async fn map_token_amounts(
             continue;
         };
 
-        let active_price = ctx.services.oracle_price_active
+        let active_price = ctx
+            .services
+            .oracle_price_active
             .by_id
-            .list(Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)), SortOrder::Descending)?
+            .list(
+                Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)),
+                SortOrder::Descending,
+            )?
             .take_while(|item| match item {
                 Ok((k, _)) => k.0 == token_info.symbol && k.1 == "USD",
                 _ => true,

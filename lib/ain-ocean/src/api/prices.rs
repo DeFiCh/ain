@@ -24,7 +24,8 @@ use super::{
 use crate::{
     error::{ApiError, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregatedIntervalAggregated, PriceTicker
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNext,
+        OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -235,8 +236,8 @@ async fn get_feed(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveResponse {
-    pub id: String, // token-currency-height
-    pub key: String, // token-currency
+    pub id: String,   // token-currency-height
+    pub key: String,  // token-currency
     pub sort: String, // height
     pub active: Option<OraclePriceActiveNext>,
     pub next: Option<OraclePriceActiveNext>,
@@ -279,7 +280,9 @@ async fn get_feed_active(
         .take(query.size)
         .map(|item| {
             let ((token, currency, _), v) = item?;
-            Ok(OraclePriceActiveResponse::from_with_id(&token, &currency, v))
+            Ok(OraclePriceActiveResponse::from_with_id(
+                &token, &currency, v,
+            ))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -291,8 +294,8 @@ async fn get_feed_active(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalResponse {
-    pub id: String, // token-currency-interval-height
-    pub key: String, // token-currency-interval
+    pub id: String,   // token-currency-interval-height
+    pub key: String,  // token-currency-interval
     pub sort: String, // medianTime-height
     pub token: Token,
     pub currency: Currency,
@@ -330,7 +333,12 @@ async fn get_feed_with_interval(
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
-    let id = (token.clone(), currency.clone(), interval_type.clone(), u32::MAX);
+    let id = (
+        token.clone(),
+        currency.clone(),
+        interval_type.clone(),
+        u32::MAX,
+    );
 
     let items = ctx
         .services
@@ -339,7 +347,9 @@ async fn get_feed_with_interval(
         .list(Some(id), SortOrder::Descending)?
         .take(query.size)
         .take_while(|item| match item {
-            Ok(((t, c, i, _), _)) => t == &token.clone() && c == &currency.clone() && i == &interval_type.clone(),
+            Ok(((t, c, i, _), _)) => {
+                t == &token.clone() && c == &currency.clone() && i == &interval_type.clone()
+            }
             _ => true,
         })
         .flatten()

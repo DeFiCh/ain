@@ -166,7 +166,7 @@ pub fn perform_active_price_tick(
     let prev = services
         .oracle_price_aggregated
         .by_id
-        .list(Some (id.clone()), SortOrder::Descending)?
+        .list(Some(id.clone()), SortOrder::Descending)?
         .next()
         .transpose()?;
 
