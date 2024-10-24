@@ -71,19 +71,15 @@ pub struct OracleService {
     by_id: Oracle,
 }
 pub struct OraclePriceFeedService {
-    by_key: OraclePriceFeedKey,
     by_id: OraclePriceFeed,
 }
 pub struct OraclePriceActiveService {
-    by_key: OraclePriceActiveKey,
     by_id: OraclePriceActive,
 }
 pub struct OraclePriceAggregatedIntervalService {
-    by_key: OraclePriceAggregatedIntervalKey,
     by_id: OraclePriceAggregatedInterval,
 }
 pub struct OraclePriceAggregatedService {
-    by_key: OraclePriceAggregatedKey,
     by_id: OraclePriceAggregated,
 }
 
@@ -181,19 +177,15 @@ impl Services {
                 by_id: Oracle::new(Arc::clone(&store)),
             },
             oracle_price_feed: OraclePriceFeedService {
-                by_key: OraclePriceFeedKey::new(Arc::clone(&store)),
                 by_id: OraclePriceFeed::new(Arc::clone(&store)),
             },
             oracle_price_active: OraclePriceActiveService {
-                by_key: OraclePriceActiveKey::new(Arc::clone(&store)),
                 by_id: OraclePriceActive::new(Arc::clone(&store)),
             },
             oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService {
-                by_key: OraclePriceAggregatedIntervalKey::new(Arc::clone(&store)),
                 by_id: OraclePriceAggregatedInterval::new(Arc::clone(&store)),
             },
             oracle_price_aggregated: OraclePriceAggregatedService {
-                by_key: OraclePriceAggregatedKey::new(Arc::clone(&store)),
                 by_id: OraclePriceAggregated::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {

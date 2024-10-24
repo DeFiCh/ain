@@ -36,7 +36,7 @@ use super::{
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
     model::{OraclePriceActive, VaultAuctionBatchHistory},
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
+    storage::{RepositoryOps, SortOrder},
     Result,
 };
 
@@ -126,34 +126,24 @@ impl CollateralToken {
     }
 }
 
-async fn get_active_price(
+fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
 ) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-    let repo = &ctx.services.oracle_price_active;
-    let keys = repo
-        .by_key
-        .list(Some((token, currency)), SortOrder::Descending)?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
+    let price = ctx
+        .services
+        .oracle_price_active
+        .by_id
+        .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+        .next()
+        .map(|item| {
+            let (_, v) = item?;
+            Ok::<OraclePriceActive, Error>(v)
+        })
+        .transpose()?;
 
-    if keys.is_empty() {
-        return Ok(None);
-    }
-
-    let Some((_, id)) = keys.first() else {
-        return Ok(None);
-    };
-
-    let price = repo.by_id.get(id)?;
-
-    let Some(price) = price else {
-        return Ok(None);
-    };
-
-    Ok(Some(price))
+    Ok(price)
 }
 
 #[ocean_endpoint]
@@ -179,7 +169,7 @@ async fn list_collateral_token(
                         id: v.token_id.clone(),
                     },
                 })?;
-            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
+            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone())?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
         .collect::<Vec<_>>();
@@ -210,8 +200,7 @@ async fn get_collateral_token(
                 id: collateral_token.token_id.clone(),
             },
         })?;
-    let active_price =
-        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
+    let active_price = get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone())?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
@@ -268,13 +257,17 @@ async fn list_loan_token(
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
             let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = ctx
+                .services
+                .oracle_price_active
+                .by_id
+                .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+                .next()
+                .map(|item| {
+                    let (_, v) = item?;
+                    Ok::<OraclePriceActive, Error>(v)
+                })
+                .transpose()?;
 
             let token = LoanToken {
                 token_id: flatten_token.data.creation_tx.clone(),
@@ -311,15 +304,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = get_active_price(&ctx, fixed_interval_price_id.clone())?;
 
             Ok::<LoanToken, Error>(LoanToken {
                 token_id: info.creation_tx.clone(),
@@ -680,23 +665,25 @@ async fn map_token_amounts(
             log::error!("Token {token_symbol} not found");
             continue;
         };
-        let repo = &ctx.services.oracle_price_active;
 
-        let keys = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .collect::<Vec<_>>();
-        log::trace!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
-        let active_price = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .take(1)
+        let active_price = ctx
+            .services
+            .oracle_price_active
+            .by_id
+            .list(
+                Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)),
+                SortOrder::Descending,
+            )?
             .take_while(|item| match item {
-                Ok((k, _)) => k.0 == id,
+                Ok((k, _)) => k.0 == token_info.symbol && k.1 == "USD",
                 _ => true,
             })
-            .map(|el| repo.by_key.retrieve_primary_value(el))
-            .collect::<Result<Vec<_>>>()?;
+            .next()
+            .map(|item| {
+                let (_, v) = item?;
+                Ok::<OraclePriceActive, Error>(v)
+            })
+            .transpose()?;
 
         vault_token_amounts.push(VaultTokenAmountResponse {
             id,
@@ -705,7 +692,7 @@ async fn map_token_amounts(
             symbol: token_info.symbol,
             symbol_key: token_info.symbol_key,
             name: token_info.name,
-            active_price: active_price.first().cloned(),
+            active_price,
         });
     }
 

@@ -9,13 +9,13 @@ use super::{
 };
 use crate::common::VarInt;
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct MaxPrice {
     integer: i64,
     fraction: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PoolSwap {
     pub from_script: ScriptBuf,
     pub from_token_id: VarInt,
@@ -25,30 +25,30 @@ pub struct PoolSwap {
     pub max_price: MaxPrice,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PoolId {
     pub id: VarInt,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CompositeSwap {
     pub pool_swap: PoolSwap,
     pub pools: CompactVec<PoolId>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PoolAddLiquidity {
     pub from: CompactVec<ScriptBalances>,
     pub share_address: ScriptBuf,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PoolRemoveLiquidity {
     pub script: ScriptBuf,
     pub amount: TokenBalanceVarInt,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CreatePoolPair {
     pub token_a: VarInt,
     pub token_b: VarInt,
@@ -59,7 +59,7 @@ pub struct CreatePoolPair {
     pub custom_rewards: Maybe<CompactVec<TokenBalanceUInt32>>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PoolUpdatePair {
     pub pool_id: u32,
     pub status: u8,
