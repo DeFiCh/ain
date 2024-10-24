@@ -7,11 +7,14 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
-use super::Context;
+use super::{Context, IndexBlockStart};
 use crate::{
     error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
     indexer::{tx_result, Index, Result},
-    model::{self, PoolSwapResult, TxResult},
+    model::{
+        self, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, PoolSwapResult,
+        TxResult,
+    },
     storage::{RepositoryOps, SortOrder},
     Services,
 };
@@ -145,6 +148,90 @@ fn invalidate_swap_aggregated(
     }
 
     Ok(())
+}
+
+impl IndexBlockStart for PoolSwap {
+    fn index_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+        let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+        pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+
+        for interval in AGGREGATED_INTERVALS {
+            for pool_pair in &pool_pairs {
+                let repository = &services.pool_swap_aggregated;
+
+                let prevs = repository
+                    .by_key
+                    .list(
+                        Some((pool_pair.id, interval, i64::MAX)),
+                        SortOrder::Descending,
+                    )?
+                    .take_while(|item| match item {
+                        Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
+                        _ => true,
+                    })
+                    .next()
+                    .transpose()?;
+
+                let Some((_, prev_id)) = prevs else {
+                    break;
+                };
+
+                let prev = repository.by_id.get(&prev_id)?;
+
+                let Some(prev) = prev else {
+                    break;
+                };
+
+                let bucket = block.median_time - (block.median_time % interval as i64);
+
+                if prev.bucket >= bucket {
+                    break;
+                }
+
+                let aggregated = PoolSwapAggregated {
+                    bucket,
+                    aggregated: PoolSwapAggregatedAggregated {
+                        amounts: Default::default(),
+                    },
+                    block: BlockContext {
+                        hash: block.hash,
+                        height: block.height,
+                        time: block.time,
+                        median_time: block.median_time,
+                    },
+                };
+
+                let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
+                let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+
+                repository
+                    .by_key
+                    .put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
+                repository
+                    .by_id
+                    .put(&pool_swap_aggregated_id, &aggregated)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn invalidate_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+        let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+        pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+
+        for interval in AGGREGATED_INTERVALS {
+            for pool_pair in &pool_pairs {
+                let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+                services
+                    .pool_swap_aggregated
+                    .by_id
+                    .delete(&pool_swap_aggregated_id)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Index for PoolSwap {

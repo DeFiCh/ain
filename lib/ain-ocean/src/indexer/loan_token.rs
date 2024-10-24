@@ -6,7 +6,7 @@ use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
 use crate::{
-    indexer::{Context, Index, Result},
+    indexer::{Context, Index, IndexBlockEnd, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
     storage::{RepositoryOps, SortOrder},
@@ -29,6 +29,16 @@ impl Index for SetLoanToken {
         );
         services.oracle_price_active.by_id.delete(&ticker_id)?;
         Ok(())
+    }
+}
+
+impl IndexBlockEnd for SetLoanToken {
+    fn index_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+        index_active_price(services, block)
+    }
+
+    fn invalidate_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+        invalidate_active_price(services, block)
     }
 }
 
@@ -161,7 +171,7 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let id = (ticker_id.0.clone(), ticker_id.1.clone(), u32::MAX);
+    let id = (ticker_id.0, ticker_id.1, u32::MAX);
 
     let prev = services
         .oracle_price_aggregated
