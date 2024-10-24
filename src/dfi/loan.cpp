@@ -197,23 +197,32 @@ std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId &vaultI
 
 // Precision 64bit
 template <typename T>
-inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
+inline T InterestPerBlockCalculationV1(const CCustomCSView &view,
+                                       CAmount amount,
+                                       CAmount tokenInterest,
+                                       CAmount schemeInterest) {
     const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = T(365) * BlocksPerDay(view);
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 // Precision 128bit
-inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
+inline base_uint<128> InterestPerBlockCalculationV2(const CCustomCSView &view,
+                                                    CAmount amount,
+                                                    CAmount tokenInterest,
+                                                    CAmount schemeInterest) {
     const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * BlocksPerDay(view);
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
 // Precision 128bit with negative interest
-CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
+CInterestAmount InterestPerBlockCalculationV3(const CCustomCSView &view,
+                                              CAmount amount,
+                                              CAmount tokenInterest,
+                                              CAmount schemeInterest) {
     const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
-    static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
+    static const auto blocksPerYear = 365 * BlocksPerDay(view);
     return {netInterest < 0 && amount > 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
 }
 
@@ -318,27 +327,28 @@ Res CLoanView::IncreaseInterest(const uint32_t height,
     rate.interestToHeight = TotalInterestCalculation(rate, height);
     rate.height = height;
 
+    const auto self = *static_cast<CCustomCSView *>(this);
     if (height >= static_cast<uint32_t>(Params().GetConsensus().DF18FortCanningGreatWorldHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
 
         // Use argument token interest as update from Gov var TX will not be applied to GetLoanTokenByID at this point
         // in time.
-        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], tokenInterest, scheme->rate);
+        rate.interestPerBlock = InterestPerBlockCalculationV3(self, amounts.balances[id], tokenInterest, scheme->rate);
 
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().DF14FortCanningHillHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = {false,
-                                 InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
+        rate.interestPerBlock = {
+            false, InterestPerBlockCalculationV2(self, amounts.balances[id], token->interest, scheme->rate)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().DF12FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
         interestPerBlock +=
-            std::ceil(InterestPerBlockCalculationV1<float>(loanIncreased, token->interest, scheme->rate));
+            std::ceil(InterestPerBlockCalculationV1<float>(self, loanIncreased, token->interest, scheme->rate));
         rate.interestPerBlock = {false, interestPerBlock};
     } else {
         rate.interestPerBlock.amount +=
-            InterestPerBlockCalculationV1<CAmount>(loanIncreased, token->interest, scheme->rate);
+            InterestPerBlockCalculationV1<CAmount>(self, loanIncreased, token->interest, scheme->rate);
     }
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);
@@ -384,22 +394,25 @@ Res CLoanView::DecreaseInterest(const uint32_t height,
 
     rate.height = height;
 
+    const auto self = *static_cast<CCustomCSView *>(this);
     if (height >= static_cast<uint32_t>(Params().GetConsensus().DF18FortCanningGreatWorldHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate);
+        rate.interestPerBlock =
+            InterestPerBlockCalculationV3(self, amounts.balances[id], token->interest, scheme->rate);
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().DF14FortCanningHillHeight)) {
         CBalances amounts;
         ReadBy<LoanTokenAmount>(vaultId, amounts);
-        rate.interestPerBlock = {false,
-                                 InterestPerBlockCalculationV2(amounts.balances[id], token->interest, scheme->rate)};
+        rate.interestPerBlock = {
+            false, InterestPerBlockCalculationV2(self, amounts.balances[id], token->interest, scheme->rate)};
     } else if (height >= static_cast<uint32_t>(Params().GetConsensus().DF12FortCanningMuseumHeight)) {
         CAmount interestPerBlock = rate.interestPerBlock.amount.GetLow64();
         CAmount newInterestPerBlock =
-            std::ceil(InterestPerBlockCalculationV1<float>(loanDecreased, token->interest, scheme->rate));
+            std::ceil(InterestPerBlockCalculationV1<float>(self, loanDecreased, token->interest, scheme->rate));
         rate.interestPerBlock = {false, std::max(CAmount{0}, interestPerBlock - newInterestPerBlock)};
     } else {
-        auto interestPerBlock = InterestPerBlockCalculationV1<CAmount>(loanDecreased, token->interest, scheme->rate);
+        auto interestPerBlock =
+            InterestPerBlockCalculationV1<CAmount>(self, loanDecreased, token->interest, scheme->rate);
         rate.interestPerBlock = rate.interestPerBlock.amount < interestPerBlock
                                     ? CInterestAmount{false, 0}
                                     : CInterestAmount{false, rate.interestPerBlock.amount - interestPerBlock};
@@ -423,7 +436,10 @@ void CLoanView::ResetInterest(const uint32_t height,
     ReadBy<LoanTokenAmount>(vaultId, amounts);
 
     const CInterestRateV3 rate{
-        height, InterestPerBlockCalculationV3(amounts.balances[id], token->interest, scheme->rate), {false, 0}
+        height,
+        InterestPerBlockCalculationV3(
+            *static_cast<CCustomCSView *>(this), amounts.balances[id], token->interest, scheme->rate),
+        {false, 0}
     };
 
     WriteInterestRate(std::make_pair(vaultId, id), rate, height);

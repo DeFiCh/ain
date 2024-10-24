@@ -1,4 +1,5 @@
 #include <dfi/accountshistory.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/vaulthistory.h>
 
@@ -224,8 +225,7 @@ UniValue icxcreateorder(const JSONRPCRequest &request) {
                     {"expiry",
                      RPCArg::Type::NUM,
                      RPCArg::Optional::OMITTED,
-                     "Number of blocks until the order expires (Default: " + std::to_string(CICXOrder::DEFAULT_EXPIRY) +
-                         " DFI blocks)"},
+                     "Number of blocks until the order expires."},
                 },
             }, {
                 "inputs",
@@ -561,7 +561,9 @@ UniValue icxmakeoffer(const JSONRPCRequest &request) {
         if (targetHeight < Params().GetConsensus().DF10EunosPayaHeight) {
             makeoffer.expiry = CICXMakeOffer::DEFAULT_EXPIRY;
         } else {
-            makeoffer.expiry = CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
+            const auto attributes = view->GetAttributes();
+            const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferDefaultExpiry};
+            makeoffer.expiry = attributes->GetValue(key, CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY);
         }
     }
 
@@ -711,21 +713,27 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest &request) {
                                strprintf("orderTx (%s) does not exist", offer->orderTx.GetHex()));
         }
 
+        const auto attributes = view->GetAttributes();
+
         if (order->orderType == CICXOrder::TYPE_INTERNAL) {
             authScript = order->ownerAddress;
 
             if (!submitdfchtlc.timeout) {
+                const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMinTimeout};
+                const auto minTimeout = attributes->GetValue(key, CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT);
                 submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().DF10EunosPayaHeight)
                                             ? CICXSubmitDFCHTLC::MINIMUM_TIMEOUT
-                                            : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+                                            : minTimeout;
             }
         } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
             authScript = offer->ownerAddress;
 
             if (!submitdfchtlc.timeout) {
+                const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMin2ndTimeout};
+                const auto min2ndTimeout = attributes->GetValue(key, CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT);
                 submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().DF10EunosPayaHeight)
                                             ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT
-                                            : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+                                            : min2ndTimeout;
             }
 
             CTokenAmount balance = view->GetBalance(offer->ownerAddress, order->idToken);
