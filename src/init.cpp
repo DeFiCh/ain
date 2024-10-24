@@ -1053,8 +1053,6 @@ void InitLogging()
     version_string += " (release build)";
 #endif
     LogPrintf(PACKAGE_NAME " version %s\n", version_string);
-    // Remove ports.lock on startup in case of an unclean shutdown.
-    RemovePortUsage();
 }
 
 namespace { // Variables internal to initialization process only
@@ -1828,6 +1826,9 @@ bool AppInitMain(InitInterfaces& interfaces)
 #if ENABLE_ZMQ
     RegisterZMQRPCCommands(tableRPC);
 #endif
+
+    // Remove ports.lock on startup in case of an unclean shutdown.
+    RemovePortUsage();
 
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
