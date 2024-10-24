@@ -8,14 +8,14 @@ use bitflags::bitflags;
 use super::{balance::TokenBalanceUInt32, common::CompactVec};
 use crate::common::Maybe;
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct MintToken {
     pub balances: CompactVec<TokenBalanceUInt32>,
     pub to: Maybe<ScriptBuf>,
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     struct TokenFlags: u8 {
         const NONE = 0;
         const MINTABLE = 0x01;
@@ -49,7 +49,7 @@ impl Decodable for TokenFlags {
     }
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CreateToken {
     pub symbol: String,
     pub name: String,
@@ -58,25 +58,25 @@ pub struct CreateToken {
     pub flags: u8,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct UpdateToken {
     pub creation_tx: Txid,
     pub is_dat: bool,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct UpdateTokenAny {
     pub creation_tx: Txid,
     pub token: CreateToken,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct VariantScript {
     pub r#type: u32,
     pub context: ScriptBuf,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct BurnToken {
     pub amounts: CompactVec<TokenBalanceUInt32>,
     pub from: ScriptBuf,

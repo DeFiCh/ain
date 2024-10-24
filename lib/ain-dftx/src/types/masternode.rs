@@ -7,19 +7,19 @@ use bitcoin::{
 
 use super::common::{CompactVec, Maybe};
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CreateMasternode {
     pub operator_type: u8,
     pub operator_pub_key_hash: PubkeyHash,
     pub timelock: Maybe<u16>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ResignMasternode {
     pub node_id: Txid,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct UpdateMasternodeAddress {
     pub r#type: u8,
     pub address_pub_key_hash: Option<PubkeyHash>,
@@ -59,13 +59,13 @@ impl Decodable for UpdateMasternodeAddress {
     }
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct UpdateMasternodeData {
     pub r#type: u8,
     pub address: UpdateMasternodeAddress,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct UpdateMasternode {
     pub node_id: Txid,
     pub updates: CompactVec<UpdateMasternodeData>,

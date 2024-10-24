@@ -28,7 +28,7 @@ pub type Token = String;
 pub type Currency = String;
 pub type Weightage = u8;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DfTx {
     AccountToAccount(AccountToAccount),
     AccountToUtxos(AccountToUtxos),

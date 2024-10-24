@@ -8,43 +8,43 @@ use bitcoin::{
 use super::common::CompactVec;
 use crate::{common::RawBytes, types::common::Maybe};
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LiqPoolSplit {
     pub token_id: u32,
     pub value: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LpDailyReward {
     pub key: String,
     pub value: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LpSplits {
     pub key: String,
     pub value: CompactVec<LiqPoolSplit>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LpUnmapped {
     pub key: String,
     pub value: RawBytes,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LoanTokenSplit {
     pub token_id: VarInt,
     pub value: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct LpLoanTokenSplits {
     pub key: String,
     pub value: CompactVec<LoanTokenSplit>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum GovernanceVar {
     LpDailyReward(LpDailyReward),
     LpSplits(LpSplits),
@@ -89,7 +89,7 @@ impl Decodable for GovernanceVar {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SetGovernance {
     pub governance_vars: Vec<GovernanceVar>,
 }
@@ -117,7 +117,7 @@ impl Decodable for SetGovernance {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SetGovernanceHeight {
     pub var: GovernanceVar,
     pub activation_height: u32,
@@ -150,7 +150,7 @@ impl Decodable for SetGovernanceHeight {
     }
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CreateProposal {
     pub r#type: u8,
     pub address: ScriptBuf,
@@ -162,7 +162,7 @@ pub struct CreateProposal {
     pub options: u8,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct Vote {
     pub proposal_id: Txid,
     pub masternode_id: Txid,
