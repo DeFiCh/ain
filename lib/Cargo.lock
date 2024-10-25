@@ -5982,7 +5982,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "vsdb"
 version = "0.55.0"
-source = "git+https://github.com/defich/vsdb.git#020aaf69b36acce9547c82dca3225b8cacf68125"
+source = "git+https://github.com/defich/vsdb.git#4a5932a28fdb03e3d7649d9bfbf2f4f0a3afc035"
 dependencies = [
  "once_cell",
  "parking_lot",
@@ -5994,7 +5994,7 @@ dependencies = [
 [[package]]
 name = "vsdb_core"
 version = "0.55.6"
-source = "git+https://github.com/defich/vsdb.git#020aaf69b36acce9547c82dca3225b8cacf68125"
+source = "git+https://github.com/defich/vsdb.git#4a5932a28fdb03e3d7649d9bfbf2f4f0a3afc035"
 dependencies = [
  "log",
  "once_cell",
@@ -6010,7 +6010,7 @@ dependencies = [
 [[package]]
 name = "vsdb_hash_db"
 version = "0.6.0"
-source = "git+https://github.com/defich/vsdb.git#020aaf69b36acce9547c82dca3225b8cacf68125"
+source = "git+https://github.com/defich/vsdb.git#4a5932a28fdb03e3d7649d9bfbf2f4f0a3afc035"
 dependencies = [
  "bcs",
  "hash-db 0.16.0",
@@ -6025,7 +6025,7 @@ dependencies = [
 [[package]]
 name = "vsdb_trie_db"
 version = "0.7.0"
-source = "git+https://github.com/defich/vsdb.git#020aaf69b36acce9547c82dca3225b8cacf68125"
+source = "git+https://github.com/defich/vsdb.git#4a5932a28fdb03e3d7649d9bfbf2f4f0a3afc035"
 dependencies = [
  "ruc",
  "serde",
