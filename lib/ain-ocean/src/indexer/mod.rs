@@ -601,7 +601,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 
     // index_block_end
     for (dftx, _) in dftxs {
-        if let DfTx::SetLoanToken(data) = dftx.clone() {
+        if let DfTx::SetLoanToken(data) = dftx {
             data.index_block_end(services, &block_ctx)?
         }
     }

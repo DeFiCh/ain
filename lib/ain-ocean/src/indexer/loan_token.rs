@@ -52,7 +52,7 @@ fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -
         return false;
     }
 
-    if aggregate.aggregated.weightage == dec!(0) {
+    if aggregate.aggregated.weightage <= dec!(0) {
         return false;
     }
 
@@ -197,8 +197,7 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, aggregated_price, prev_price);
 
-    let new_id = (id.0, id.1, block.height);
-    repo.by_id.put(&new_id, &active_price)?;
+    repo.by_id.put(&(id.0, id.1, block.height), &active_price)?;
 
     Ok(())
 }
