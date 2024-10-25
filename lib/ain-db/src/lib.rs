@@ -29,7 +29,7 @@ fn get_db_default_options() -> Options {
 
     let mut opts = Options::default();
 
-    opts.set_max_open_files(128);
+    opts.set_max_open_files(256);
 
     opts.create_if_missing(true);
     opts.create_missing_column_families(true);
