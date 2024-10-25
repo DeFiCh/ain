@@ -247,7 +247,7 @@ impl Index for UpdateOracle {
 fn map_price_aggregated(
     services: &Arc<Services>,
     context: &Context,
-    pair: &(String, String),
+    pair: &(Token, Currency),
 ) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
     let oracle_repo = &services.oracle_token_currency;
