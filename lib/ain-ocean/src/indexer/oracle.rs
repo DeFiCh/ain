@@ -308,7 +308,9 @@ fn map_price_aggregated(
             let weighted_amount = Decimal::from(feed.amount)
                 .checked_mul(Decimal::from(oracle.weightage))
                 .context(ArithmeticOverflowSnafu)?;
-            aggregated_total += weighted_amount;
+            aggregated_total = aggregated_total
+                .checked_add(weighted_amount)
+                .context(ArithmeticOverflowSnafu)?;
         }
     }
 
