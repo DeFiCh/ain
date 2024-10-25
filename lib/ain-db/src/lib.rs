@@ -31,14 +31,14 @@ fn get_db_default_options() -> Options {
     opts.create_missing_column_families(true);
     opts.set_write_buffer_size(64 << 20); // mb
     opts.set_max_write_buffer_number(2);
-    opts.set_min_blob_size(2 << 10); // kb
-                                     // opts.set_blob_file_size(256 << 20); // mb
-    opts.set_enable_blob_files(true);
-    opts.set_enable_blob_gc(true);
+    // opts.set_min_blob_size(2 << 10); // kb
+    //                                  // opts.set_blob_file_size(256 << 20); // mb
+    // opts.set_enable_blob_files(true);
+    // opts.set_enable_blob_gc(true);
     opts.set_enable_pipelined_write(true);
 
     opts.set_compression_type(DBCompressionType::Lz4);
-    opts.set_blob_compression_type(DBCompressionType::Lz4);
+    // opts.set_blob_compression_type(DBCompressionType::Lz4);
     opts.set_bottommost_compression_type(DBCompressionType::Zstd);
     opts.set_block_based_table_factory(&block_opts);
     opts.enable_statistics();
