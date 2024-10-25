@@ -61,8 +61,7 @@ impl Rocks {
             ColumnFamilyDescriptor::new(cf_name, opts.unwrap_or_else(Options::default))
         });
 
-        let default_opts = get_db_default_options();
-        let db_opts = opts.unwrap_or(default_opts);
+        let db_opts = opts.unwrap_or_else(get_db_default_options);
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descriptors)?;
 
         Ok(Self(db))
