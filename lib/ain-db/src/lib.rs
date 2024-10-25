@@ -20,6 +20,7 @@ pub type Result<T> = result::Result<T, DBError>;
 
 fn get_db_default_options() -> Options {
     let mut block_opts = BlockBasedOptions::default();
+
     block_opts.set_block_size(64 << 10); // kb
     block_opts.set_block_cache(&Cache::new_lru_cache(64 << 20)); // mb
     block_opts.set_cache_index_and_filter_blocks(true);
@@ -27,6 +28,9 @@ fn get_db_default_options() -> Options {
     // block_opts.set_pin_top_level_index_and_filter(true);
 
     let mut opts = Options::default();
+
+    opts.set_max_open_files(128);
+
     opts.create_if_missing(true);
     opts.create_missing_column_families(true);
     opts.set_write_buffer_size(64 << 20); // mb
