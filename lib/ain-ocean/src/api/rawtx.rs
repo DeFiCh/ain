@@ -187,13 +187,11 @@ async fn validate_composite_swap_tx(ctx: &Arc<AppContext>, hex: &String) -> Resu
         Ok(Stack { dftx, .. }) => Some(dftx),
     };
 
-    let Some(dftx) = dftx else {
-        return Ok(())
-    };
+    let Some(dftx) = dftx else { return Ok(()) };
 
     if let DfTx::CompositeSwap(swap) = dftx {
         let Some(last_pool_id) = swap.pools.iter().last() else {
-            return Ok(())
+            return Ok(());
         };
 
         let pool_pair = ctx
@@ -205,17 +203,16 @@ async fn validate_composite_swap_tx(ctx: &Arc<AppContext>, hex: &String) -> Resu
 
         for (_, info) in pool_pair.0 {
             if info.id_token_a == to_token_id || info.id_token_b == to_token_id {
-                return Ok(())
+                return Ok(());
             }
         }
 
         return Err(Error::BadRequest {
             msg: "Transaction is not a composite swap".to_string(),
-        })
+        });
     };
 
     Ok(())
-
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

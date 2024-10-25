@@ -9,10 +9,14 @@ use snafu::OptionExt;
 
 use super::{Context, IndexBlockStart};
 use crate::{
-    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu}, indexer::{tx_result, Index, Result}, model::{
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
+    indexer::{tx_result, Index, Result},
+    model::{
         self, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated, PoolSwapResult,
         TxResult,
-    }, storage::{RepositoryOps, SortOrder}, PoolSwapAggregatedService, Services
+    },
+    storage::{RepositoryOps, SortOrder},
+    PoolSwapAggregatedService, Services,
 };
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
@@ -151,7 +155,7 @@ fn create_new_bucket(
     bucket: i64,
     pool_pair_id: u32,
     interval: u32,
-    block: &BlockContext
+    block: &BlockContext,
 ) -> Result<()> {
     let aggregated = PoolSwapAggregated {
         bucket,
@@ -169,12 +173,9 @@ fn create_new_bucket(
     let pool_swap_aggregated_key = (pool_pair_id, interval, bucket);
     let pool_swap_aggregated_id = (pool_pair_id, interval, block.hash);
 
-    repo
-        .by_key
+    repo.by_key
         .put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
-    repo
-        .by_id
-        .put(&pool_swap_aggregated_id, &aggregated)?;
+    repo.by_id.put(&pool_swap_aggregated_id, &aggregated)?;
 
     Ok(())
 }
