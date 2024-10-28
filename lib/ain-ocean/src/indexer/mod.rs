@@ -170,10 +170,11 @@ fn index_script_unspent_vin(
     vin: &VinStandard,
     ctx: &Context,
 ) -> Result<()> {
-    let key = (ctx.block.height, vin.txid, vin.vout);
+    let key = (ctx.block.height.to_be_bytes(), vin.txid, vin.vout);
     let id = services.script_unspent.by_key.get(&key)?;
     if let Some(id) = id {
         services.script_unspent.by_id.delete(&id)?;
+        services.script_unspent.by_key.delete(&key)?;
     }
     Ok(())
 }
@@ -265,7 +266,7 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
     };
 
     let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n);
-    let key = (block.height, tx.txid, vout.n);
+    let key = (block.height.to_be_bytes(), tx.txid, vout.n);
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
     Ok(())
@@ -469,7 +470,11 @@ fn invalidate_script_unspent_vin(
         transaction.txid,
         vout.n,
     );
-    let key = (transaction.block.height, transaction.txid, vout.n);
+    let key = (
+        transaction.block.height.to_be_bytes(),
+        transaction.txid,
+        vout.n,
+    );
 
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
@@ -502,7 +507,9 @@ fn invalidate_script_unspent_vout(
 ) -> Result<()> {
     let hid = as_sha256(&vout.script_pub_key.hex);
     let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
+    let key = (ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
     services.script_unspent.by_id.delete(&id)?;
+    services.script_unspent.by_key.delete(&key)?;
 
     Ok(())
 }
