@@ -264,10 +264,7 @@ fn map_price_aggregated(
             )),
             SortOrder::Descending,
         )?
-        .take_while(|item| match item {
-            Ok((k, _)) => k.0 == token.clone() && k.1 == currency.clone(),
-            _ => true,
-        })
+        .take_while(|item| matches!(item, Ok((k, _)) if &k.0 == token && &k.1 == currency))
         .flatten()
         .collect::<Vec<_>>();
 
@@ -361,8 +358,8 @@ fn index_set_oracle_data(
         let key = (
             price_aggregated.aggregated.oracles.total,
             price_aggregated.block.height,
-            token.clone(),
-            currency.clone(),
+            token,
+            currency,
         );
         ticker_repo.by_key.put(&key, pair)?;
         ticker_repo.by_id.put(
@@ -534,22 +531,19 @@ pub fn index_interval_mapper(
             SortOrder::Descending,
         )?
         .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
+        .next()
+        .transpose()?;
 
-    if previous.is_empty() {
+    let Some((_, id)) = previous else {
         return start_new_bucket(services, block, token, currency, aggregated, interval);
-    }
+    };
 
-    for (_, id) in previous {
-        let aggregated_interval = repo.by_id.get(&id)?;
-        if let Some(aggregated_interval) = aggregated_interval {
-            if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
-                return start_new_bucket(services, block, token, currency, aggregated, interval);
-            }
-
-            forward_aggregate(services, (id, &aggregated_interval), aggregated)?;
+    if let Some(aggregated_interval) = repo.by_id.get(&id)? {
+        if block.median_time - aggregated.block.median_time > interval.clone() as i64 {
+            return start_new_bucket(services, block, token, currency, aggregated, interval);
         }
+
+        forward_aggregate(services, (id, &aggregated_interval), aggregated)?;
     }
 
     Ok(())

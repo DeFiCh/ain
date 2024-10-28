@@ -1,15 +1,17 @@
 use std::{str::FromStr, sync::Arc};
 
+use ain_cpp_imports::PoolPairCreationHeight;
 use ain_dftx::{pool::*, COIN};
 use bitcoin::Txid;
 use log::trace;
+use parking_lot::RwLock;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
 use super::Context;
 use crate::{
-    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu},
+    error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, NotFoundKind},
     indexer::{tx_result, Index, Result},
     model::{self, PoolSwapResult, TxResult},
     storage::{RepositoryOps, SortOrder},
@@ -149,7 +151,7 @@ fn invalidate_swap_aggregated(
 
 impl Index for PoolSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        trace!("[Poolswap] Indexing...");
+        trace!("[Poolswap] Indexing {self:?}...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
         let from = self.from_script;
@@ -158,17 +160,28 @@ impl Index for PoolSwap {
         let from_amount = self.from_amount;
         let to_token_id = self.to_token_id.0;
 
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
-            services.result.get(&txid)?
-        else {
-            // TODO: Commenting out for now, fallback should only be introduced for supporting back CLI indexing
-            return Err("Missing swap result".into());
-            // let pair = find_pair(from_token_id, to_token_id);
-            // if pair.is_none() {
-            //     return Err(format_err!("Pool not found by {from_token_id}-{to_token_id} or {to_token_id}-{from_token_id}").into());
-            // }
-            // let pair = pair.unwrap();
-            // (None, pair.id)
+        let (to_amount, pool_id) = match services.result.get(&txid)? {
+            Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) => {
+                (Some(to_amount), pool_id)
+            }
+            _ => {
+                let poolpairs = services.pool_pair_cache.get();
+
+                let pool_id = poolpairs
+                    .into_iter()
+                    .find(|pp| {
+                        (pp.id_token_a == self.from_token_id.0 as u32
+                            && pp.id_token_b == self.to_token_id.0 as u32)
+                            || (pp.id_token_a == self.to_token_id.0 as u32
+                                && pp.id_token_b == self.from_token_id.0 as u32)
+                    })
+                    .map(|pp| pp.id)
+                    .ok_or(Error::NotFound {
+                        kind: NotFoundKind::PoolPair,
+                    })?;
+
+                (None, pool_id)
+            }
         };
 
         let swap: model::PoolSwap = model::PoolSwap {
@@ -221,17 +234,31 @@ impl Index for PoolSwap {
 
 impl Index for CompositeSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        trace!("[CompositeSwap] Indexing...");
+        trace!("[CompositeSwap] Indexing {self:?}...");
         let txid = ctx.tx.txid;
         let from_token_id = self.pool_swap.from_token_id.0;
         let from_amount = self.pool_swap.from_amount;
         let to_token_id = self.pool_swap.to_token_id.0;
 
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
-            services.result.get(&txid)?
-        else {
-            trace!("Missing swap result for {}", txid.to_string());
-            return Err("Missing swap result".into());
+        let (to_amount, pool_id) = match services.result.get(&txid)? {
+            Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) => {
+                (Some(to_amount), Some(pool_id))
+            }
+            _ => {
+                let poolpairs = services.pool_pair_cache.get();
+
+                let pool_id = poolpairs
+                    .into_iter()
+                    .find(|pp| {
+                        (pp.id_token_a == self.pool_swap.from_token_id.0 as u32
+                            && pp.id_token_b == self.pool_swap.to_token_id.0 as u32)
+                            || (pp.id_token_a == self.pool_swap.to_token_id.0 as u32
+                                && pp.id_token_b == self.pool_swap.from_token_id.0 as u32)
+                    })
+                    .map(|pp| pp.id);
+
+                (None, pool_id)
+            }
         };
 
         let from = self.pool_swap.from_script;
@@ -240,6 +267,9 @@ impl Index for CompositeSwap {
 
         let pool_ids = if pools.is_empty() {
             // the pool_id from finals wap is the only swap while pools is empty
+            let pool_id = pool_id.ok_or(Error::NotFound {
+                kind: NotFoundKind::PoolPair,
+            })?;
             Vec::from([pool_id])
         } else {
             pools.iter().map(|pool| pool.id.0 as u32).collect()
@@ -284,5 +314,39 @@ impl Index for CompositeSwap {
             invalidate_swap_aggregated(services, pool_id, from_token_id, from_amount, txid)?;
         }
         tx_result::invalidate(services, &ctx.tx.txid)
+    }
+}
+
+#[derive(Default)]
+pub struct PoolPairCache {
+    cache: RwLock<Option<Vec<PoolPairCreationHeight>>>,
+}
+
+impl PoolPairCache {
+    pub fn new() -> Self {
+        Self {
+            cache: RwLock::new(None),
+        }
+    }
+
+    pub fn get(&self) -> Vec<PoolPairCreationHeight> {
+        {
+            let guard = self.cache.read();
+            if let Some(poolpairs) = guard.as_ref() {
+                return poolpairs.clone();
+            }
+        }
+
+        let poolpairs = ain_cpp_imports::get_pool_pairs();
+
+        let mut guard = self.cache.write();
+        *guard = Some(poolpairs.clone());
+
+        poolpairs
+    }
+
+    pub fn invalidate(&self) {
+        let mut guard = self.cache.write();
+        *guard = None;
     }
 }

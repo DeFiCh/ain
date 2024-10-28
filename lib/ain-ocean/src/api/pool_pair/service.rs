@@ -21,7 +21,7 @@ use crate::{
         NotFoundKind, OtherSnafu,
     },
     indexer::PoolSwapAggregatedInterval,
-    model::{PoolSwap, PoolSwapAggregatedAggregated},
+    model::{PoolSwap, PoolSwapAggregatedAggregated, PoolSwapKey},
     storage::{RepositoryOps, SecondaryIndex, SortOrder},
     Result,
 };
@@ -673,6 +673,7 @@ pub async fn find_swap_from(
 
 pub async fn find_swap_to(
     ctx: &Arc<AppContext>,
+    swap_key: &PoolSwapKey,
     swap: &PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
     let PoolSwap {
@@ -689,9 +690,20 @@ pub async fn find_swap_to(
 
     let display_symbol = parse_display_symbol(&to_token);
 
+    // TODO Index to_amount if missing
+    if to_amount.is_none() {
+        let amount = 0;
+        let swap = PoolSwap {
+            to_amount: Some(amount),
+            ..swap.clone()
+        };
+        ctx.services.pool.by_id.put(swap_key, &swap)?;
+    }
+
     Ok(Some(PoolSwapFromToData {
         address: to_address,
-        amount: Decimal::new(to_amount.to_owned(), 8).to_string(),
+        // amount: Decimal::new(to_amount.to_owned(), 8).to_string(), // Need fallback
+        amount: Decimal::new(to_amount.to_owned().unwrap_or_default(), 8).to_string(),
         symbol: to_token.symbol,
         display_symbol,
     }))

@@ -8,8 +8,9 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::Error;
+use indexer::poolswap::PoolPairCache;
 pub use indexer::{
-    index_block, invalidate_block,
+    get_block_height, index_block, invalidate_block,
     oracle::invalidate_oracle_interval,
     transaction::{index_transaction, invalidate_transaction},
     tx_result,
@@ -143,6 +144,7 @@ pub struct Services {
     pub script_unspent: ScriptUnspentService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
     pub store: Arc<OceanStore>,
+    pub pool_pair_cache: PoolPairCache,
 }
 
 impl Services {
@@ -218,6 +220,7 @@ impl Services {
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
             store: Arc::clone(&store),
+            pool_pair_cache: PoolPairCache::new(),
         }
     }
 }

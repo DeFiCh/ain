@@ -67,6 +67,7 @@
 #include <wallet/wallet.h>
 #include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
+#include <ocean.h>
 
 #include <condition_variable>
 #include <cstdint>
@@ -1749,21 +1750,6 @@ void SetupInterrupts() {
     fInterrupt = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight);
 }
 
-bool OceanIndex (const UniValue b) {
-    CrossBoundaryResult result;
-    ocean_index_block(result, b.write());
-    if (!result.ok) {
-        LogPrintf("Error indexing genesis block: %s\n", result.reason);
-        ocean_invalidate_block(result, b.write());
-        if (!result.ok) {
-            LogPrintf("Error invalidating genesis block: %s\n", result.reason);
-            return false;
-        }
-        OceanIndex(b);
-    }
-    return true;
-};
-
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -2518,7 +2504,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
 
             std::string error;
-            
+
             if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
                 return InitError("Wallet not able to get new destination for mocknet");
             }
@@ -2579,14 +2565,19 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         const UniValue b = blockToJSON(*pcustomcsview, block, tip, pblockindex, true, 2);
 
-        if (bool isIndexed = OceanIndex(b); !isIndexed) {
+        if (bool isIndexed = OceanIndex(b, 0); !isIndexed) {
             return false;
         }
 
         LogPrintf("WARNING: -expr-oceanarchive flag is turned on. This feature is not yet stable. Please do not use in production unless you're aware of the risks\n");
     }
 
-    // ********************************************************* Step 16: start minter thread
+    // ********************************************************* Step 16: start ocean catchup
+    if (!CatchupOceanIndexer()) {
+        return false;
+    }
+
+    // ********************************************************* Step 17: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         if (!pos::StartStakingThreads(threadGroup)) {
             return false;

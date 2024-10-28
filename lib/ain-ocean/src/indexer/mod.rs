@@ -60,7 +60,7 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 }
 
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    let mut pool_pairs = services.pool_pair_cache.get();
     pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
@@ -116,7 +116,7 @@ fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Re
 }
 
 fn invalidate_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
-    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    let mut pool_pairs = services.pool_pair_cache.get();
     pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     for interval in AGGREGATED_INTERVALS {
@@ -601,6 +601,14 @@ fn invalidate_block_end(services: &Arc<Services>, block: &BlockContext) -> Resul
     Ok(())
 }
 
+pub fn get_block_height(services: &Arc<Services>) -> Result<u32> {
+    Ok(services
+        .block
+        .by_height
+        .get_highest()?
+        .map_or(0, |block| block.height))
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     trace!("[index_block] Indexing block...");
     let start = Instant::now();
@@ -658,6 +666,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                     DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+                    DfTx::CreatePoolPair(_) => services.pool_pair_cache.invalidate(),
                     _ => (),
                 }
                 log_elapsed(start, "Indexed dftx");
@@ -755,6 +764,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
                     DfTx::SetLoanToken(data) => data.invalidate(services, &ctx)?,
                     DfTx::CompositeSwap(data) => data.invalidate(services, &ctx)?,
                     DfTx::PlaceAuctionBid(data) => data.invalidate(services, &ctx)?,
+                    DfTx::CreatePoolPair(_) => services.pool_pair_cache.invalidate(),
                     _ => (),
                 }
                 log_elapsed(start, "Invalidate dftx");

@@ -434,9 +434,9 @@ async fn list_pool_swaps_verbose(
             _ => true,
         })
         .map(|item| async {
-            let (_, swap) = item?;
+            let (key, swap) = item?;
             let from = find_swap_from(&ctx, &swap).await?;
-            let to = find_swap_to(&ctx, &swap).await?;
+            let to = find_swap_to(&ctx, &key, &swap).await?;
 
             let swap_type = check_swap_type(&ctx, &swap).await?;
 
