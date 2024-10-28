@@ -2503,20 +2503,36 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // ********************************************************* Step XX.a: create mocknet MN
     // MN: 0000000000000000000000000000000000000000000000000000000000000000
-    // Owner/Operator Address: df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc
-    // Owner/Operator Privkey: L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6
 
     if (fMockNetwork && HasWallets()) {
 
-        // Import privkey
-        const auto key = DecodeSecret("L5DhrVPhA2FbJ1ezpN3JijHVnnH1sVcbdcAcp3nE373ooGH6LEz6");
-        const auto keyID = key.GetPubKey().GetID();
-        const auto dest = WitnessV0KeyHash(PKHash{keyID});
-        const auto time{std::time(nullptr)};
+        CKeyID keyID;
+        CTxDestination dest;
 
-        auto pwallet = GetWallets()[0];
-        pwallet->SetAddressBook(dest, "receive", "receive");
-        pwallet->ImportPrivKeys({{keyID, key}}, time);
+        {
+            auto pwallet = GetWallets()[0];
+            LOCK(pwallet->cs_wallet);
+
+            if (!pwallet->CanGetAddresses()) {
+                return InitError("Wallet not able to generate address for mocknet");
+            }
+
+            std::string error;
+            
+            if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
+                return InitError("Wallet not able to get new destination for mocknet");
+            }
+        }
+
+        // Import privkey
+        const auto optKeyID = CKeyID::TryFromDestination(dest, KeyType::WPKHashKeyType);
+        if (!optKeyID) {
+            return InitError("Not able to get new keyID for mocknet");
+        }
+        keyID = *optKeyID;
+
+        // Set operator for mining
+        gArgs.ForceSetArg("-masternode_operator", EncodeDestination(dest));
 
         // Create masternode
         CMasternode node;
@@ -2526,9 +2542,15 @@ bool AppInitMain(InitInterfaces& interfaces)
         node.operatorType = WitV0KeyHashType;
         node.operatorAuthAddress = keyID;
         node.version = CMasternode::VERSION0;
-        pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
-        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
-            pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+
+        const auto time{std::time(nullptr)};
+
+        {
+            LOCK(cs_main);
+            pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
+            for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
+                pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
+            }
         }
     }
 

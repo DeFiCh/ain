@@ -1526,11 +1526,6 @@ namespace pos {
     void stakingManagerThread(std::vector<std::shared_ptr<CWallet>> wallets, const int subnodeCount) {
         auto operators = gArgs.GetArgs("-masternode_operator");
 
-        if (fMockNetwork) {
-            auto mocknet_operator = "df1qu04hcpd3untnm453mlkgc0g9mr9ap39lyx4ajc";
-            operators.push_back(mocknet_operator);
-        }
-
         std::map<CKeyID, CKey> minterKeyMap;
 
         while (!ShutdownRequested()) {
