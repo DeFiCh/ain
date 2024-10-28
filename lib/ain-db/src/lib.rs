@@ -10,8 +10,8 @@ pub mod version;
 use anyhow::format_err;
 use log::debug;
 use rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, Direction,
-    IteratorMode, Options, DB,
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType, DBIterator,
+    Direction, IteratorMode, Options, DB,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
@@ -19,32 +19,37 @@ use sha2::{Digest, Sha256};
 pub type Result<T> = result::Result<T, DBError>;
 
 fn get_db_default_options() -> Options {
-    let mut options = Options::default();
-    options.create_if_missing(true);
-    options.create_missing_column_families(true);
-
-    let n = num_cpus::get();
-    options.increase_parallelism(n as i32);
-
-    let mut env = rocksdb::Env::new().unwrap();
-
-    // While a compaction is ongoing, all the background threads
-    // could be used by the compaction. This can stall writes which
-    // need to flush the memtable. Add some high-priority background threads
-    // which can service these writes.
-    env.set_high_priority_background_threads(4);
-    options.set_env(&env);
-
-    // Set max total wal size to 4G.
-    options.set_max_total_wal_size(4 * 1024 * 1024 * 1024);
-
-    let cache = Cache::new_lru_cache(512 * 1024 * 1024);
     let mut block_opts = BlockBasedOptions::default();
-    block_opts.set_block_cache(&cache);
-    block_opts.set_bloom_filter(10.0, false);
-    options.set_block_based_table_factory(&block_opts);
 
-    options
+    block_opts.set_block_size(64 << 10); // kb
+    block_opts.set_block_cache(&Cache::new_lru_cache(64 << 20)); // mb
+    block_opts.set_cache_index_and_filter_blocks(true);
+    block_opts.set_bloom_filter(10.0, true);
+    // block_opts.set_pin_top_level_index_and_filter(true);
+
+    let mut opts = Options::default();
+
+    opts.set_max_open_files(256);
+
+    opts.create_if_missing(true);
+    opts.create_missing_column_families(true);
+    opts.set_write_buffer_size(64 << 20); // mb
+    opts.set_max_write_buffer_number(2);
+    // opts.set_min_blob_size(2 << 10); // kb
+    //                                  // opts.set_blob_file_size(256 << 20); // mb
+    // opts.set_enable_blob_files(true);
+    // opts.set_enable_blob_gc(true);
+    opts.set_enable_pipelined_write(true);
+
+    opts.set_compression_type(DBCompressionType::Lz4);
+    // opts.set_blob_compression_type(DBCompressionType::Lz4);
+    opts.set_bottommost_compression_type(DBCompressionType::Zstd);
+    opts.set_block_based_table_factory(&block_opts);
+    opts.enable_statistics();
+    let n = num_cpus::get();
+    opts.increase_parallelism(n as i32);
+    opts.set_level_compaction_dynamic_level_bytes(true);
+    opts
 }
 
 #[derive(Debug)]
