@@ -408,16 +408,7 @@ define_table! {
     }
 }
 
-define_table! {
-    #[derive(Debug)]
-    pub struct VaultAuctionHistoryByHeight {
-        key_type = model::AuctionHistoryByHeightKey,
-        value_type = model::AuctionHistoryKey,
-    },
-    SecondaryIndex = VaultAuctionHistory
-}
-
-pub const COLUMN_NAMES: [&str; 29] = [
+pub const COLUMN_NAMES: [&str; 28] = [
     Block::NAME,
     BlockByHeight::NAME,
     MasternodeStats::NAME,
@@ -446,5 +437,4 @@ pub const COLUMN_NAMES: [&str; 29] = [
     TransactionVout::NAME,
     TxResult::NAME,
     VaultAuctionHistory::NAME,
-    VaultAuctionHistoryByHeight::NAME,
 ];

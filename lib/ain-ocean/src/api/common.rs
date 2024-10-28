@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ain_dftx::{Currency, Token};
-use bitcoin::{Address, ScriptBuf};
+use bitcoin::{Address, ScriptBuf, Txid};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -10,8 +10,8 @@ use snafu::OptionExt;
 use super::query::PaginationQuery;
 use crate::{
     error::{
-        InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu, InvalidPoolPairSymbolSnafu,
-        InvalidTokenCurrencySnafu,
+        Error::ToArrayError, InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu,
+        InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu,
     },
     hex_encoder::as_sha256,
     network::Network,
@@ -112,6 +112,20 @@ pub fn parse_query_height_txno(item: &str) -> Result<(u32, usize)> {
     let txno = txno.parse::<usize>()?;
 
     Ok((height, txno))
+}
+
+pub fn parse_query_height_txid(item: &str) -> Result<(u32, Txid)> {
+    let mut parts = item.split('-');
+    let encoded_height = parts.next().context(InvalidAmountSnafu { item })?;
+    let txid = parts.next().context(InvalidAmountSnafu { item })?;
+
+    let height_in_bytes: [u8; 4] = hex::decode(encoded_height)?
+        .try_into()
+        .map_err(|_| ToArrayError)?;
+    let height = u32::from_be_bytes(height_in_bytes);
+    let txid = txid.parse::<Txid>()?;
+
+    Ok((height, txid))
 }
 
 #[must_use]

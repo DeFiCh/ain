@@ -48,7 +48,6 @@ pub struct BlockService {
 
 pub struct AuctionService {
     by_id: VaultAuctionHistory,
-    by_height: VaultAuctionHistoryByHeight,
 }
 
 pub struct PoolService {
@@ -157,7 +156,6 @@ impl Services {
             },
             auction: AuctionService {
                 by_id: VaultAuctionHistory::new(Arc::clone(&store)),
-                by_height: VaultAuctionHistoryByHeight::new(Arc::clone(&store)),
             },
             result: TxResult::new(Arc::clone(&store)),
             pool: PoolService {

@@ -1,8 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
+use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use bitcoin::{hashes::Hash, Txid};
+use bitcoin::{hashes::Hash, ScriptBuf, Txid};
 use defichain_rpc::{
     defichain_rpc_json::{
         loan::{CollateralTokenDetail, LoanSchemeResult},
@@ -17,7 +18,8 @@ use defichain_rpc::{
 };
 use futures::future::try_join_all;
 use log::trace;
-use serde::{Serialize, Serializer};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 use snafu::OptionExt;
 
@@ -25,7 +27,7 @@ use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
     common::{
         from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price,
-        parse_query_height_txno, Paginate,
+        parse_query_height_txid, Paginate,
     },
     path::Path,
     query::{PaginationQuery, Query},
@@ -35,7 +37,8 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
-    model::{OraclePriceActive, VaultAuctionBatchHistory},
+    model::{BlockContext, OraclePriceActive, VaultAuctionBatchHistory},
+    network::Network,
     storage::{RepositoryOps, SortOrder},
     Result,
 };
@@ -488,55 +491,111 @@ async fn get_vault(
     Ok(Response::new(res))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultAuctionBatchHistoryResponse {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub vault_id: Txid,
+    pub index: u32,
+    pub from: ScriptBuf,
+    pub address: String,
+    pub amount: String,
+    pub token_id: u64,
+    pub block: BlockContext,
+}
+
+impl VaultAuctionBatchHistoryResponse {
+    fn from(
+        data: ((Txid, [u8; 4], [u8; 4], Txid), VaultAuctionBatchHistory),
+        address: String,
+    ) -> Self {
+        let id = data.0;
+        let vault_id = id.0;
+        let batch_index = u32::from_be_bytes(id.1);
+        let block_height = id.2;
+        let txid = id.3;
+        let history = data.1;
+        let amount = Decimal::from(history.amount) / Decimal::from(COIN);
+
+        Self {
+            id: format!(
+                "{}-{}-{}",
+                vault_id.clone(),
+                batch_index.clone(),
+                txid.clone()
+            ),
+            key: format!("{}-{}", vault_id.clone(), batch_index.clone()),
+            sort: format!("{}-{}", hex::encode(block_height), txid),
+            vault_id,
+            index: batch_index,
+            from: history.from,
+            address,
+            amount: amount.to_string(),
+            token_id: history.token_id,
+            block: history.block,
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn list_vault_auction_history(
-    Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
+    Path((vault_id, liquidation_height, batch_index)): Path<(Txid, u32, u32)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<VaultAuctionBatchHistory>> {
+) -> Result<ApiPagedResponse<VaultAuctionBatchHistoryResponse>> {
     trace!(
-        "Auction history for vault id {}, height {}, batch index {}",
+        "Auction history for vault id {}, liquidation_height {}, batch index {}",
         vault_id,
-        height,
+        liquidation_height,
         batch_index
     );
     let next = query
         .next
         .map(|q| {
-            let (height, txno) = parse_query_height_txno(&q)?;
-            Ok::<(u32, usize), Error>((height, txno))
+            let (height, txid) = parse_query_height_txid(&q)?;
+            Ok::<(u32, Txid), Error>((height, txid))
         })
         .transpose()?
-        .unwrap_or_default();
+        .unwrap_or((liquidation_height, Txid::from_byte_array([0xffu8; 32])));
 
-    let size = if query.size > 0 { query.size } else { 20 };
+    let size = if query.size > 0 { query.size } else { 30 };
+
+    let liquidation_block_expiry = match ctx.network {
+        Network::Regtest => 36,
+        _ => 720,
+    };
 
     let auctions = ctx
         .services
         .auction
-        .by_height
+        .by_id
         .list(
-            Some((vault_id, batch_index, next.0, next.1)),
+            Some((
+                vault_id,
+                batch_index.to_be_bytes(),
+                next.0.to_be_bytes(),
+                next.1,
+            )),
             SortOrder::Descending,
         )?
         .take(size)
         .take_while(|item| match item {
-            Ok((k, _)) => k.0 == vault_id && k.1 == batch_index,
+            Ok((k, _)) => {
+                k.0 == vault_id
+                    && k.1 == batch_index.to_be_bytes()
+                    && u32::from_be_bytes(k.2) > liquidation_height - liquidation_block_expiry
+            }
             _ => true,
         })
         .map(|item| {
-            let (_, id) = item?;
-
-            let auction = ctx
-                .services
-                .auction
-                .by_id
-                .get(&id)?
-                .context(NotFoundSnafu {
-                    kind: NotFoundKind::Auction,
-                })?;
-
-            Ok(auction)
+            let (id, history) = item?;
+            let address = from_script(&history.from, ctx.network)?;
+            Ok(VaultAuctionBatchHistoryResponse::from(
+                (id, history),
+                address,
+            ))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -611,14 +670,17 @@ async fn map_liquidation_batches(
         };
         let id = (
             Txid::from_str(vault_id)?,
-            batch.index,
+            batch.index.to_be_bytes(),
+            [0xffu8, 0xffu8, 0xffu8, 0xffu8],
             Txid::from_byte_array([0xffu8; 32]),
         );
         let bids = repo
             .by_id
             .list(Some(id), SortOrder::Descending)?
             .take_while(|item| match item {
-                Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
+                Ok(((vid, bindex, _, _), _)) => {
+                    vid.to_string() == vault_id && bindex == &batch.index.to_be_bytes()
+                }
                 _ => true,
             })
             .collect::<Vec<_>>();

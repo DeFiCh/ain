@@ -230,6 +230,7 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    ToArrayError,
     #[snafu(display("{}", msg))]
     Other {
         msg: String,
