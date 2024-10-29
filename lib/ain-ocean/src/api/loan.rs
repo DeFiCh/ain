@@ -551,16 +551,15 @@ async fn list_vault_auction_history(
         liquidation_height,
         batch_index
     );
-    let next = query
+    let (liquidation_height, txid) = query
         .next
+        .clone()
         .map(|q| {
             let (height, txid) = parse_query_height_txid(&q)?;
             Ok::<(u32, Txid), Error>((height, txid))
         })
         .transpose()?
         .unwrap_or((liquidation_height, Txid::from_byte_array([0xffu8; 32])));
-
-    let size = if query.size > 0 { query.size } else { 30 };
 
     let liquidation_block_expiry = match ctx.network {
         Network::Regtest => 36,
@@ -575,12 +574,11 @@ async fn list_vault_auction_history(
             Some((
                 vault_id,
                 batch_index.to_be_bytes(),
-                next.0.to_be_bytes(),
-                next.1,
+                liquidation_height.to_be_bytes(),
+                txid,
             )),
             SortOrder::Descending,
         )?
-        .take(size)
         .take_while(|item| match item {
             Ok((k, _)) => {
                 k.0 == vault_id
@@ -589,6 +587,8 @@ async fn list_vault_auction_history(
             }
             _ => true,
         })
+        .take(query.size + usize::from(query.next.is_some()))
+        .skip(usize::from(query.next.is_some()))
         .map(|item| {
             let (id, history) = item?;
             let address = from_script(&history.from, ctx.network)?;
