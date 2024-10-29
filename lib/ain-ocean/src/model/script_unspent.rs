@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::BlockContext;
 
 pub type ScriptUnspentId = ([u8; 32], [u8; 4], Txid, usize); // hid + block.height + txid + vout_index
-pub type ScriptUnspentKey = (u32, Txid, usize); // block.height + txid + vout_index
+pub type ScriptUnspentKey = ([u8; 4], Txid, usize); // block.height + txid + vout_index, ps: key is required in index_script_unspent_vin
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptUnspent {

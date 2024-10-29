@@ -22,9 +22,9 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, OtherSnafu},
+    error::{ApiError, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNext,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
@@ -233,29 +233,58 @@ async fn get_feed(
     ))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceActiveResponse {
+    pub id: String,   // token-currency-height
+    pub key: String,  // token-currency
+    pub sort: String, // height
+    pub active: Option<OraclePriceActiveNext>,
+    pub next: Option<OraclePriceActiveNext>,
+    pub is_live: bool,
+    pub block: BlockContext,
+}
+
+impl OraclePriceActiveResponse {
+    fn from_with_id(token: &String, currency: &String, v: OraclePriceActive) -> Self {
+        Self {
+            id: format!("{}-{}-{}", token, currency, v.block.height),
+            key: format!("{}-{}", token, currency),
+            sort: hex::encode(v.block.height.to_be_bytes()).to_string(),
+            active: v.active,
+            next: v.next,
+            is_live: v.is_live,
+            block: v.block,
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn get_feed_active(
     Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<OraclePriceActive>> {
+) -> Result<ApiPagedResponse<OraclePriceActiveResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let key = (token, currency);
-    let repo = &ctx.services.oracle_price_active;
+    let id = (token.clone(), currency.clone(), u32::MAX);
     let price_active = ctx
         .services
         .oracle_price_active
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
-        .take(query.size)
-        .flat_map(|item| {
-            let (_, id) = item?;
-            let item = repo.by_id.get(&id)?;
-            Ok::<Option<OraclePriceActive>, Error>(item)
+        .by_id
+        .list(Some(id), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok(((t, c, _), _)) => t == &token && c == &currency,
+            _ => true,
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .take(query.size)
+        .map(|item| {
+            let ((token, currency, _), v) = item?;
+            Ok(OraclePriceActiveResponse::from_with_id(
+                &token, &currency, v,
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(price_active, query.size, |price| {
         price.sort.to_string()
@@ -265,9 +294,9 @@ async fn get_feed_active(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalResponse {
-    pub id: String,
-    pub key: String,
-    pub sort: String,
+    pub id: String,   // token-currency-interval-height
+    pub key: String,  // token-currency-interval
+    pub sort: String, // medianTime-height
     pub token: Token,
     pub currency: Currency,
     pub aggregated: OraclePriceAggregatedIntervalAggregated,
@@ -304,34 +333,42 @@ async fn get_feed_with_interval(
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
-    let key = (token, currency, interval_type);
-    let repo = &ctx.services.oracle_price_aggregated_interval;
+    let id = (
+        token.clone(),
+        currency.clone(),
+        interval_type.clone(),
+        u32::MAX,
+    );
 
-    let keys = repo
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
+    let items = ctx
+        .services
+        .oracle_price_aggregated_interval
+        .by_id
+        .list(Some(id), SortOrder::Descending)?
         .take(query.size)
+        .take_while(|item| match item {
+            Ok(((t, c, i, _), _)) => {
+                t == &token.clone() && c == &currency.clone() && i == &interval_type.clone()
+            }
+            _ => true,
+        })
         .flatten()
         .collect::<Vec<_>>();
 
     let mut prices = Vec::new();
-    for ((token, currency, _), id) in keys {
-        let item = repo.by_id.get(&id)?;
-
-        let Some(item) = item else { continue };
-
+    for (id, item) in items {
         let start = item.block.median_time - (item.block.median_time % interval);
 
         let price = OraclePriceAggregatedIntervalResponse {
-            id: format!("{}-{}-{:?}", id.0, id.1, id.2),
-            key: format!("{}-{}", id.0, id.1),
+            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, id.3),
+            key: format!("{}-{}-{:?}", id.0, id.1, id.2),
             sort: format!(
                 "{}{}",
                 hex::encode(item.block.median_time.to_be_bytes()),
                 hex::encode(item.block.height.to_be_bytes()),
             ),
-            token,
-            currency,
+            token: token.clone(),
+            currency: currency.clone(),
             aggregated: OraclePriceAggregatedIntervalAggregated {
                 amount: item.aggregated.amount,
                 weightage: item.aggregated.weightage,
@@ -408,7 +445,6 @@ async fn list_price_oracles(
                 )),
                 SortOrder::Descending,
             )?
-            // .take(1)
             .take_while(|item| match item {
                 Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == oracle_id,
                 _ => true,
@@ -432,11 +468,11 @@ async fn list_price_oracles(
                 OraclePriceFeedResponse {
                     id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
                     key: format!("{}-{}-{}", token, currency, oracle_id),
-                    sort: hex::encode(f.block.height.to_string() + &f.txid.to_string()),
+                    sort: hex::encode(f.block.height.to_string() + &txid.to_string()),
                     token: token.clone(),
                     currency: currency.clone(),
                     oracle_id,
-                    txid: f.txid,
+                    txid,
                     time: f.time,
                     amount: f.amount.to_string(),
                     block: f.block,

@@ -1,8 +1,9 @@
 use std::{str::FromStr, sync::Arc};
 
+use ain_dftx::COIN;
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use bitcoin::{hashes::Hash, Txid};
+use bitcoin::{hashes::Hash, ScriptBuf, Txid};
 use defichain_rpc::{
     defichain_rpc_json::{
         loan::{CollateralTokenDetail, LoanSchemeResult},
@@ -17,7 +18,8 @@ use defichain_rpc::{
 };
 use futures::future::try_join_all;
 use log::trace;
-use serde::{Serialize, Serializer};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 use snafu::OptionExt;
 
@@ -25,7 +27,7 @@ use super::{
     cache::{get_loan_scheme_cached, get_token_cached},
     common::{
         from_script, parse_amount, parse_display_symbol, parse_fixed_interval_price,
-        parse_query_height_txno, Paginate,
+        parse_query_height_txid, Paginate,
     },
     path::Path,
     query::{PaginationQuery, Query},
@@ -35,8 +37,9 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind, NotFoundSnafu},
-    model::{OraclePriceActive, VaultAuctionBatchHistory},
-    storage::{RepositoryOps, SecondaryIndex, SortOrder},
+    model::{BlockContext, OraclePriceActive, VaultAuctionBatchHistory},
+    network::Network,
+    storage::{RepositoryOps, SortOrder},
     Result,
 };
 
@@ -126,34 +129,24 @@ impl CollateralToken {
     }
 }
 
-async fn get_active_price(
+fn get_active_price(
     ctx: &Arc<AppContext>,
     fixed_interval_price_id: String,
 ) -> Result<Option<OraclePriceActive>> {
     let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-    let repo = &ctx.services.oracle_price_active;
-    let keys = repo
-        .by_key
-        .list(Some((token, currency)), SortOrder::Descending)?
-        .take(1)
-        .flatten()
-        .collect::<Vec<_>>();
+    let price = ctx
+        .services
+        .oracle_price_active
+        .by_id
+        .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+        .next()
+        .map(|item| {
+            let (_, v) = item?;
+            Ok::<OraclePriceActive, Error>(v)
+        })
+        .transpose()?;
 
-    if keys.is_empty() {
-        return Ok(None);
-    }
-
-    let Some((_, id)) = keys.first() else {
-        return Ok(None);
-    };
-
-    let price = repo.by_id.get(id)?;
-
-    let Some(price) = price else {
-        return Ok(None);
-    };
-
-    Ok(Some(price))
+    Ok(price)
 }
 
 #[ocean_endpoint]
@@ -179,7 +172,7 @@ async fn list_collateral_token(
                         id: v.token_id.clone(),
                     },
                 })?;
-            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone()).await?;
+            let active_price = get_active_price(&ctx, v.fixed_interval_price_id.clone())?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info, active_price))
         })
         .collect::<Vec<_>>();
@@ -210,8 +203,7 @@ async fn get_collateral_token(
                 id: collateral_token.token_id.clone(),
             },
         })?;
-    let active_price =
-        get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone()).await?;
+    let active_price = get_active_price(&ctx, collateral_token.fixed_interval_price_id.clone())?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,
@@ -268,13 +260,17 @@ async fn list_loan_token(
             let fixed_interval_price_id = flatten_token.fixed_interval_price_id.clone();
             let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
 
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = ctx
+                .services
+                .oracle_price_active
+                .by_id
+                .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+                .next()
+                .map(|item| {
+                    let (_, v) = item?;
+                    Ok::<OraclePriceActive, Error>(v)
+                })
+                .transpose()?;
 
             let token = LoanToken {
                 token_id: flatten_token.data.creation_tx.clone(),
@@ -311,15 +307,7 @@ async fn get_loan_token(
         .next()
         .map(|(id, info)| {
             let fixed_interval_price_id = loan_token_result.fixed_interval_price_id.clone();
-            let (token, currency) = parse_fixed_interval_price(&fixed_interval_price_id)?;
-
-            let repo = &ctx.services.oracle_price_active;
-            let key = repo.by_key.get(&(token, currency))?;
-            let active_price = if let Some(key) = key {
-                repo.by_id.get(&key)?
-            } else {
-                None
-            };
+            let active_price = get_active_price(&ctx, fixed_interval_price_id.clone())?;
 
             Ok::<LoanToken, Error>(LoanToken {
                 token_id: info.creation_tx.clone(),
@@ -503,55 +491,111 @@ async fn get_vault(
     Ok(Response::new(res))
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultAuctionBatchHistoryResponse {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub vault_id: Txid,
+    pub index: u32,
+    pub from: ScriptBuf,
+    pub address: String,
+    pub amount: String,
+    pub token_id: u64,
+    pub block: BlockContext,
+}
+
+impl VaultAuctionBatchHistoryResponse {
+    fn from(
+        data: ((Txid, [u8; 4], [u8; 4], Txid), VaultAuctionBatchHistory),
+        address: String,
+    ) -> Self {
+        let id = data.0;
+        let vault_id = id.0;
+        let batch_index = u32::from_be_bytes(id.1);
+        let block_height = id.2;
+        let txid = id.3;
+        let history = data.1;
+        let amount = Decimal::from(history.amount) / Decimal::from(COIN);
+
+        Self {
+            id: format!(
+                "{}-{}-{}",
+                vault_id.clone(),
+                batch_index.clone(),
+                txid.clone()
+            ),
+            key: format!("{}-{}", vault_id.clone(), batch_index.clone()),
+            sort: format!("{}-{}", hex::encode(block_height), txid),
+            vault_id,
+            index: batch_index,
+            from: history.from,
+            address,
+            amount: amount.to_string(),
+            token_id: history.token_id,
+            block: history.block,
+        }
+    }
+}
+
 #[ocean_endpoint]
 async fn list_vault_auction_history(
-    Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
+    Path((vault_id, liquidation_height, batch_index)): Path<(Txid, u32, u32)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<VaultAuctionBatchHistory>> {
+) -> Result<ApiPagedResponse<VaultAuctionBatchHistoryResponse>> {
     trace!(
-        "Auction history for vault id {}, height {}, batch index {}",
+        "Auction history for vault id {}, liquidation_height {}, batch index {}",
         vault_id,
-        height,
+        liquidation_height,
         batch_index
     );
-    let next = query
+    let (liquidation_height, txid) = query
         .next
+        .clone()
         .map(|q| {
-            let (height, txno) = parse_query_height_txno(&q)?;
-            Ok::<(u32, usize), Error>((height, txno))
+            let (height, txid) = parse_query_height_txid(&q)?;
+            Ok::<(u32, Txid), Error>((height, txid))
         })
         .transpose()?
-        .unwrap_or_default();
+        .unwrap_or((liquidation_height, Txid::from_byte_array([0xffu8; 32])));
 
-    let size = if query.size > 0 { query.size } else { 20 };
+    let liquidation_block_expiry = match ctx.network {
+        Network::Regtest => 36,
+        _ => 720,
+    };
 
     let auctions = ctx
         .services
         .auction
-        .by_height
+        .by_id
         .list(
-            Some((vault_id, batch_index, next.0, next.1)),
+            Some((
+                vault_id,
+                batch_index.to_be_bytes(),
+                liquidation_height.to_be_bytes(),
+                txid,
+            )),
             SortOrder::Descending,
         )?
-        .take(size)
         .take_while(|item| match item {
-            Ok((k, _)) => k.0 == vault_id && k.1 == batch_index,
+            Ok((k, _)) => {
+                k.0 == vault_id
+                    && k.1 == batch_index.to_be_bytes()
+                    && u32::from_be_bytes(k.2) > liquidation_height - liquidation_block_expiry
+            }
             _ => true,
         })
+        .take(query.size + usize::from(query.next.is_some()))
+        .skip(usize::from(query.next.is_some()))
         .map(|item| {
-            let (_, id) = item?;
-
-            let auction = ctx
-                .services
-                .auction
-                .by_id
-                .get(&id)?
-                .context(NotFoundSnafu {
-                    kind: NotFoundKind::Auction,
-                })?;
-
-            Ok(auction)
+            let (id, history) = item?;
+            let address = from_script(&history.from, ctx.network)?;
+            Ok(VaultAuctionBatchHistoryResponse::from(
+                (id, history),
+                address,
+            ))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -626,14 +670,17 @@ async fn map_liquidation_batches(
         };
         let id = (
             Txid::from_str(vault_id)?,
-            batch.index,
+            batch.index.to_be_bytes(),
+            [0xffu8, 0xffu8, 0xffu8, 0xffu8],
             Txid::from_byte_array([0xffu8; 32]),
         );
         let bids = repo
             .by_id
             .list(Some(id), SortOrder::Descending)?
             .take_while(|item| match item {
-                Ok(((vid, bindex, _), _)) => vid.to_string() == vault_id && bindex == &batch.index,
+                Ok(((vid, bindex, _, _), _)) => {
+                    vid.to_string() == vault_id && bindex == &batch.index.to_be_bytes()
+                }
                 _ => true,
             })
             .collect::<Vec<_>>();
@@ -680,23 +727,25 @@ async fn map_token_amounts(
             log::error!("Token {token_symbol} not found");
             continue;
         };
-        let repo = &ctx.services.oracle_price_active;
 
-        let keys = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .collect::<Vec<_>>();
-        log::trace!("list_auctions keys: {:?}, token_id: {:?}", keys, id);
-        let active_price = repo
-            .by_key
-            .list(None, SortOrder::Descending)?
-            .take(1)
+        let active_price = ctx
+            .services
+            .oracle_price_active
+            .by_id
+            .list(
+                Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)),
+                SortOrder::Descending,
+            )?
             .take_while(|item| match item {
-                Ok((k, _)) => k.0 == id,
+                Ok((k, _)) => k.0 == token_info.symbol && k.1 == "USD",
                 _ => true,
             })
-            .map(|el| repo.by_key.retrieve_primary_value(el))
-            .collect::<Result<Vec<_>>>()?;
+            .next()
+            .map(|item| {
+                let (_, v) = item?;
+                Ok::<OraclePriceActive, Error>(v)
+            })
+            .transpose()?;
 
         vault_token_amounts.push(VaultTokenAmountResponse {
             id,
@@ -705,7 +754,7 @@ async fn map_token_amounts(
             symbol: token_info.symbol,
             symbol_key: token_info.symbol_key,
             name: token_info.name,
-            active_price: active_price.first().cloned(),
+            active_price,
         });
     }
 
