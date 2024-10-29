@@ -1,6 +1,6 @@
 use std::{result::Result as StdResult, str::FromStr, sync::Arc};
 
-use ain_dftx::{deserialize, DfTx, COIN};
+use ain_dftx::{deserialize, DfTx, Stack, COIN};
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Json, Path},
@@ -9,7 +9,6 @@ use axum::{
 };
 use bitcoin::{Transaction, Txid};
 use defichain_rpc::{PoolPairRPC, RpcApi};
-use log::trace;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use snafu::location;
@@ -36,7 +35,8 @@ async fn send_raw_tx(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<String> {
-    validate(ctx.clone(), raw_tx_dto.hex.clone()).await?;
+    validate_composite_swap_tx(&ctx, &raw_tx_dto.hex).await?;
+
     let max_fee = match raw_tx_dto.max_fee_rate {
         Some(fee_rate) => {
             let fee_in_satoshis = fee_rate.checked_mul(COIN.into());
@@ -162,54 +162,57 @@ async fn get_raw_tx(
     }
 }
 
-async fn validate(ctx: Arc<AppContext>, hex: String) -> Result<()> {
+async fn validate_composite_swap_tx(ctx: &Arc<AppContext>, hex: &String) -> Result<()> {
     if !hex.starts_with("040000000001") {
         return Ok(());
     }
     let data = hex::decode(hex)?;
-    let trx = deserialize::<Transaction>(&data)?;
-    let bytes = trx.output[0].clone().script_pubkey.into_bytes();
-    let tx: Option<DfTx> = if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
-        let offset = 1 + match bytes[1] {
-            0x4c => 2,
-            0x4d => 3,
-            0x4e => 4,
-            _ => 1,
-        };
+    let tx = deserialize::<Transaction>(&data)?;
 
-        let raw_tx = &bytes[offset..];
-        Some(deserialize::<DfTx>(raw_tx)?)
-    } else {
+    let bytes = tx.output[0].script_pubkey.as_bytes();
+    if bytes.len() <= 6 || bytes[0] != 0x6a || bytes[1] > 0x4e {
         return Ok(());
+    }
+
+    let offset = 1 + match bytes[1] {
+        0x4c => 2,
+        0x4d => 3,
+        0x4e => 4,
+        _ => 1,
+    };
+    let raw_tx = &bytes[offset..];
+    let dftx = match deserialize::<Stack>(raw_tx) {
+        Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => None,
+        Err(e) => return Err(e.into()),
+        Ok(Stack { dftx, .. }) => Some(dftx),
     };
 
-    if let Some(tx) = tx {
-        if let DfTx::CompositeSwap(composite_swap) = tx {
-            if composite_swap.pools.as_ref().is_empty() {
+    let Some(dftx) = dftx else { return Ok(()) };
+
+    if let DfTx::CompositeSwap(swap) = dftx {
+        let Some(last_pool_id) = swap.pools.iter().last() else {
+            return Ok(());
+        };
+
+        let pool_pair = ctx
+            .client
+            .get_pool_pair(last_pool_id.to_string(), Some(true))
+            .await?;
+
+        let to_token_id = swap.pool_swap.to_token_id.0.to_string();
+
+        for (_, info) in pool_pair.0 {
+            if info.id_token_a == to_token_id || info.id_token_b == to_token_id {
                 return Ok(());
             }
-            let pool_id = composite_swap.pools.iter().last().unwrap();
-            let tokio_id = composite_swap.pool_swap.to_token_id.0.to_string();
-            let pool_pair = ctx
-                .client
-                .get_pool_pair(pool_id.to_string(), Some(true))
-                .await?;
-            for (_, pool_pair_info) in pool_pair.0 {
-                if pool_pair_info.id_token_a.eq(&tokio_id)
-                    || pool_pair_info.id_token_b.eq(&tokio_id)
-                {
-                    trace!("Found a match: {pool_pair_info:?}");
-                }
-            }
-            Ok(())
-        } else {
-            Err(Error::BadRequest {
-                msg: "Transaction is not a composite swap".to_string(),
-            })
         }
-    } else {
-        Ok(())
-    }
+
+        return Err(Error::BadRequest {
+            msg: "Transaction is not a composite swap".to_string(),
+        });
+    };
+
+    Ok(())
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

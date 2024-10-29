@@ -3,7 +3,7 @@ use bitcoin::{io, ScriptBuf, Txid};
 
 use crate::common::{CompactVec, Maybe, VarInt};
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXCreateOrder {
     pub order_type: u8,
     pub token_id: VarInt,
@@ -15,7 +15,7 @@ pub struct ICXCreateOrder {
     pub expiry: u32,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXMakeOffer {
     pub order_tx: Txid,
     pub amount: i64,
@@ -25,7 +25,7 @@ pub struct ICXMakeOffer {
     pub taker_fee: u64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXSubmitDFCHTLC {
     pub offer_tx: Txid,
     pub amount: i64,
@@ -33,7 +33,7 @@ pub struct ICXSubmitDFCHTLC {
     pub timeout: u32,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXSubmitEXTHTLC {
     pub offer_tx: Txid,
     pub amount: i64,
@@ -43,18 +43,18 @@ pub struct ICXSubmitEXTHTLC {
     pub timeout: u32,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXClaimDFCHTLC {
     pub dfc_htlc_tx: Txid,
     pub seed: Vec<u8>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXCloseOrder {
     pub order_tx: Txid,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct ICXCloseOffer {
     pub offer_tx: Txid,
 }

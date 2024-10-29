@@ -3,7 +3,7 @@ use bitcoin::{io, ScriptBuf, Txid, VarInt};
 
 use super::{balance::TokenBalanceUInt32, common::CompactVec, price::CurrencyPair};
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct SetLoanScheme {
     pub ratio: u32,
     pub rate: i64,
@@ -11,18 +11,18 @@ pub struct SetLoanScheme {
     pub update: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct DestroyLoanScheme {
     pub identifier: String,
     pub height: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct SetDefaultLoanScheme {
     pub identifier: String,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct SetCollateralToken {
     pub token: VarInt,
     pub factor: i64,
@@ -30,7 +30,7 @@ pub struct SetCollateralToken {
     pub activate_after_block: u32,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct SetLoanToken {
     pub symbol: String,
     pub name: String,
@@ -39,7 +39,7 @@ pub struct SetLoanToken {
     pub interest: i64,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct UpdateLoanToken {
     pub symbol: String,
     pub name: String,
@@ -49,27 +49,27 @@ pub struct UpdateLoanToken {
     pub token_tx: Txid,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct TakeLoan {
     pub vault_id: Txid,
     pub to: ScriptBuf,
     pub token_amounts: CompactVec<TokenBalanceUInt32>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PaybackLoan {
     pub vault_id: Txid,
     pub from: ScriptBuf,
     pub token_amounts: CompactVec<TokenBalanceUInt32>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct TokenPayback {
     pub d_token: VarInt,
     pub amounts: CompactVec<TokenBalanceUInt32>,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct PaybackLoanV2 {
     pub vault_id: Txid,
     pub from: ScriptBuf,
