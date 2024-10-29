@@ -71,20 +71,19 @@ bool CatchupOceanIndexer() {
     const auto startTime = std::chrono::steady_clock::now();
 
     CBlockIndex *pindex = nullptr;
-
-    // Lock for the whole catchup duration
-    LOCK(cs_main);
-
-    while (currentHeight <= tipHeight) {
+    while (currentHeight < tipHeight) {
         if (ShutdownRequested()) {
             LogPrintf("Shutdown requested, exiting ocean catchup...\n");
             return false;
         }
 
-        pindex = ::ChainActive()[currentHeight];
-        if (!pindex) {
-            LogPrintf("Error: Cannot find block at height %u\n", currentHeight);
-            return false;
+        {
+            LOCK(cs_main);
+            pindex = ::ChainActive()[currentHeight];
+            if (!pindex) {
+                LogPrintf("Error: Cannot find block at height %u\n", currentHeight);
+                return false;
+            }
         }
 
         CBlock block;
