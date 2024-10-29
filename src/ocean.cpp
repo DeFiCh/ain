@@ -20,10 +20,10 @@ bool OceanIndex(const UniValue b, uint32_t blockHeight) {
     CrossBoundaryResult result;
     ocean_index_block(result, b.write());
     if (!result.ok) {
-        LogPrintf("Error indexing ocean block %d: %s\n", result.reason, blockHeight);
+        LogPrintf("Error indexing ocean block %d: %s\n", blockHeight, result.reason);
         ocean_invalidate_block(result, b.write());
         if (!result.ok) {
-            LogPrintf("Error invalidating ocean %d block: %s\n", result.reason, blockHeight);
+            LogPrintf("Error invalidating ocean %d block: %s\n", blockHeight, result.reason);
         }
         return false;
     }
