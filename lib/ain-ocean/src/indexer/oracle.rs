@@ -270,6 +270,7 @@ fn map_price_aggregated(
     let mut aggregated_count = Decimal::zero();
     let mut aggregated_weightage = Decimal::zero();
 
+    let base_id = Txid::from_byte_array([0xffu8; 32]);
     let oracles_len = oracles.len();
     for (id, oracle) in oracles {
         if oracle.weightage == 0 {
@@ -280,10 +281,7 @@ fn map_price_aggregated(
         let feed = services
             .oracle_price_feed
             .by_id
-            .list(
-                Some((id.0, id.1, id.2, Txid::from_byte_array([0xffu8; 32]))),
-                SortOrder::Descending,
-            )?
+            .list(Some((id.0, id.1, id.2, base_id)), SortOrder::Descending)?
             .next()
             .transpose()?;
 
