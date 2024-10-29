@@ -109,14 +109,14 @@ impl Index for RemoveOracle {
         let oracle_id = ctx.tx.txid;
         services.oracle.by_id.delete(&oracle_id)?;
 
-        let (_, previous) = get_previous_oracle(services, oracle_id)?;
-
-        for price_feed in &previous.price_feeds {
-            services.oracle_token_currency.by_id.delete(&(
-                price_feed.token.to_owned(),
-                price_feed.currency.to_owned(),
-                oracle_id,
-            ))?;
+        if let Ok((_, previous)) = get_previous_oracle(services, oracle_id) {
+            for price_feed in &previous.price_feeds {
+                services.oracle_token_currency.by_id.delete(&(
+                    price_feed.token.to_owned(),
+                    price_feed.currency.to_owned(),
+                    oracle_id,
+                ))?;
+            }
         }
 
         Ok(())
