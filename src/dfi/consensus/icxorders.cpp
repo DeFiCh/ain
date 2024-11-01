@@ -585,10 +585,10 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
                     result.pushKV("dfchtlc_tx", dfchtlc->creationTx.ToString());
                     if (exthtlc) {
                         if (auto extTx = mnview.GetICXSubmitEXTHTLCTXID(dfchtlc->offerTx)) {
-                            result.pushKV("ext_htlc_address", extTx->ToString());
+                            result.pushKV("ext_htlc_tx", extTx->ToString());
                         }
                         result.pushKV("ext_htlc_address", exthtlc->htlcscriptAddress);
-                        result.pushKV("ext_htlc_tx", HexStr(exthtlc->ownerPubkey));
+                        result.pushKV("ext_htlc_pubkey", HexStr(exthtlc->ownerPubkey));
                     }
                     result.pushKV("claim_tx", tx.GetHash().ToString());
                     result.pushKV("address", EncodeDestination(dest));
