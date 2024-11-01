@@ -31,14 +31,29 @@ static CAmount GetDFIperBTC(const CPoolPair &BTCDFIPoolPair) {
     return DivideAmounts(BTCDFIPoolPair.reserveB, BTCDFIPoolPair.reserveA);
 }
 
-CAmount CICXOrdersConsensus::CalculateTakerFee(CAmount amount) const {
+CAmount CICXOrdersConsensus::CalculateTakerFee(const CAmount amount,
+                                               const std::string &txType,
+                                               const std::string &txid) const {
     auto &mnview = blockCtx.GetView();
     auto tokenBTC = mnview.GetToken(CICXOrder::TOKEN_BTC);
     assert(tokenBTC);
     auto pair = mnview.GetPoolPair(tokenBTC->first, DCT_ID{0});
     assert(pair);
-    return (arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN * GetDFIperBTC(pair->second) / COIN)
-        .GetLow64();
+    auto takerFee =
+        (arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN * GetDFIperBTC(pair->second) / COIN).GetLow64();
+    if (LogAcceptCategory(BCLog::ICXBUG)) {
+        UniValue result(UniValue::VOBJ);
+        result.pushKV("calc_type", txType);
+        result.pushKV("calc_tx", txid);
+        result.pushKV("calc_start_amount", GetDecimalString(amount));
+        result.pushKV("calc_fee_per_btc", GetDecimalString(mnview.ICXGetTakerFeePerBTC()));
+        result.pushKV("calc_pool_dfi_per_btc", GetDecimalString(GetDFIperBTC(pair->second)));
+        result.pushKV("calc_taker_fee_in_btc",
+                      GetDecimalString(((arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN).GetLow64())));
+        result.pushKV("calc_taker_fee_in_dfi", GetDecimalString(takerFee));
+        LogPrint(BCLog::ICXBUG, "%s\n", result.write(0));
+    }
+    return takerFee;
 }
 
 DCT_ID CICXOrdersConsensus::FindTokenByPartialSymbolName(const std::string &symbol) const {
@@ -140,7 +155,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
 
     if (order->orderType == CICXOrder::TYPE_INTERNAL) {
         // calculating takerFee
-        makeoffer.takerFee = CalculateTakerFee(makeoffer.amount);
+        makeoffer.takerFee = CalculateTakerFee(makeoffer.amount, "CICXMakeOfferMessage", tx.GetHash().ToString());
     } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
         if (!makeoffer.receivePubkey.IsFullyValid()) {
             return Res::Err("receivePubkey must be valid pubkey");
@@ -149,7 +164,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
         // calculating takerFee
         CAmount BTCAmount(static_cast<CAmount>(
             (arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
-        makeoffer.takerFee = CalculateTakerFee(BTCAmount);
+        makeoffer.takerFee = CalculateTakerFee(BTCAmount, "CICXMakeOfferMessage", tx.GetHash().ToString());
     }
 
     // locking takerFee in offer txidaddr
@@ -237,7 +252,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
             }
         } else {
             auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
-            takerFee = CalculateTakerFee(BTCAmount);
+            takerFee = CalculateTakerFee(BTCAmount, "CICXSubmitDFCHTLCMessage", tx.GetHash().ToString());
         }
 
         // refund the rest of locked takerFee if there is difference
@@ -426,7 +441,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
                 takerFee = (arith_uint256(submitexthtlc.amount) * offer->takerFee / BTCAmount).GetLow64();
             }
         } else {
-            takerFee = CalculateTakerFee(submitexthtlc.amount);
+            takerFee = CalculateTakerFee(submitexthtlc.amount, "CICXSubmitEXTHTLCMessage", tx.GetHash().ToString());
         }
 
         // refund the rest of locked takerFee if there is difference
@@ -564,8 +579,17 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
                 if (ExtractDestination(order->ownerAddress, dest)) {
                     UniValue result(UniValue::VOBJ);
                     result.pushKV("order_tx", order->creationTx.ToString());
+                    result.pushKV("order_pubkey", HexStr(order->receivePubkey));
                     result.pushKV("offer_tx", dfchtlc->offerTx.ToString());
+                    result.pushKV("offer_pubkey", HexStr(offer->receivePubkey));
                     result.pushKV("dfchtlc_tx", dfchtlc->creationTx.ToString());
+                    if (exthtlc) {
+                        if (auto extTx = mnview.GetICXSubmitEXTHTLCTXID(dfchtlc->offerTx)) {
+                            result.pushKV("ext_htlc_address", extTx->ToString());
+                        }
+                        result.pushKV("ext_htlc_address", exthtlc->htlcscriptAddress);
+                        result.pushKV("ext_htlc_tx", HexStr(exthtlc->ownerPubkey));
+                    }
                     result.pushKV("claim_tx", tx.GetHash().ToString());
                     result.pushKV("address", EncodeDestination(dest));
                     result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));

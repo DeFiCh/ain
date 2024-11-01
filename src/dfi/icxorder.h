@@ -404,6 +404,7 @@ public:
     void ForEachICXMakeOfferExpire(std::function<bool(const StatusKey &, uint8_t)> callback,
                                    const uint32_t &height = 0);
     std::unique_ptr<CICXMakeOfferImpl> HasICXMakeOfferOpen(const uint256 &ordertxid, const uint256 &offertxid);
+    std::optional<uint256> GetICXSubmitEXTHTLCTXID(const uint256 &offertxid);
 
     // SubmitDFCHTLC
     std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(const uint256 &txid) const;

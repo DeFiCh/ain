@@ -373,10 +373,17 @@ void CICXOrderView::ForEachICXSubmitEXTHTLCExpire(std::function<bool(const Statu
     ForEach<ICXSubmitEXTHTLCStatus, StatusKey, uint8_t>(callback, StatusKey{height, {}});
 }
 
-std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmitEXTHTLCOpen(const uint256 &offertxid) {
+std::optional<uint256> CICXOrderView::GetICXSubmitEXTHTLCTXID(const uint256 &offertxid) {
     auto it = LowerBound<ICXSubmitEXTHTLCOpenKey>(TxidPairKey{offertxid, {}});
     if (it.Valid() && it.Key().first == offertxid) {
-        return GetICXSubmitEXTHTLCByCreationTx(it.Key().second);
+        return it.Key().second;
+    }
+    return {};
+}
+
+std::unique_ptr<CICXOrderView::CICXSubmitEXTHTLCImpl> CICXOrderView::HasICXSubmitEXTHTLCOpen(const uint256 &offertxid) {
+    if (const auto extTx = GetICXSubmitEXTHTLCTXID(offertxid)) {
+        return GetICXSubmitEXTHTLCByCreationTx(*extTx);
     }
     return {};
 }
