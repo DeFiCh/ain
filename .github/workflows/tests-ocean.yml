@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - master
-      - ocean-refinements # TODO(): remove before merge to master
+      - ocean-catchup-on-startup
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
