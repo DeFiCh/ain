@@ -12,7 +12,8 @@ use snafu::OptionExt;
 
 use crate::{
     error::{
-        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, ToPrimitiveSnafu,
+        ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, IndexAction, NotFoundIndexSnafu,
+        ToPrimitiveSnafu,
     },
     indexer::{Context, Index, Result},
     model::{
@@ -105,27 +106,37 @@ impl Index for AppointOracle {
 }
 
 impl Index for RemoveOracle {
-    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        let oracle_id = ctx.tx.txid;
+    fn index(self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
+        let oracle_id = self.oracle_id;
         services.oracle.by_id.delete(&oracle_id)?;
 
-        if let Ok((_, previous)) = get_previous_oracle(services, oracle_id) {
-            for price_feed in &previous.price_feeds {
-                services.oracle_token_currency.by_id.delete(&(
-                    price_feed.token.to_owned(),
-                    price_feed.currency.to_owned(),
-                    oracle_id,
-                ))?;
-            }
+        let (_, previous) = get_previous_oracle(services, oracle_id)?
+            .context(NotFoundIndexSnafu {
+                action: IndexAction::Index,
+                r#type: "RemoveOracle".to_string(),
+                id: oracle_id.to_string(),
+            })?;
+
+        for PriceFeed { token, currency } in &previous.price_feeds {
+            services.oracle_token_currency.by_id.delete(&(
+                token.to_owned(),
+                currency.to_owned(),
+                oracle_id,
+            ))?;
         }
 
         Ok(())
     }
 
-    fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         trace!("[RemoveOracle] Invalidating...");
-        let oracle_id = context.tx.txid;
-        let (_, previous) = get_previous_oracle(services, oracle_id)?;
+        let oracle_id = self.oracle_id;
+        let (_, previous) =
+            get_previous_oracle(services, oracle_id)?.context(NotFoundIndexSnafu {
+                action: IndexAction::Invalidate,
+                r#type: "RemoveOracle".to_string(),
+                id: oracle_id.to_string(),
+            })?;
 
         let oracle = Oracle {
             owner_address: previous.owner_address,
@@ -154,7 +165,7 @@ impl Index for RemoveOracle {
 
 impl Index for UpdateOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        let oracle_id = ctx.tx.txid;
+        let oracle_id = self.oracle_id;
         let price_feeds = self
             .price_feeds
             .iter()
@@ -176,7 +187,12 @@ impl Index for UpdateOracle {
             .by_id
             .put(&(oracle_id, ctx.block.height), &oracle)?;
 
-        let (_, previous) = get_previous_oracle(services, oracle_id)?;
+        let (_, previous) =
+            get_previous_oracle(services, oracle_id)?.context(NotFoundIndexSnafu {
+                action: IndexAction::Index,
+                r#type: "UpdateOracle".to_string(),
+                id: oracle_id.to_string(),
+            })?;
         for price_feed in &previous.price_feeds {
             services.oracle_token_currency.by_id.delete(&(
                 price_feed.token.to_owned(),
@@ -201,7 +217,7 @@ impl Index for UpdateOracle {
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         trace!("[UpdateOracle] Invalidating...");
-        let oracle_id = context.tx.txid;
+        let oracle_id = self.oracle_id;
         services
             .oracle_history
             .by_id
@@ -215,7 +231,12 @@ impl Index for UpdateOracle {
                 self.oracle_id,
             ))?;
         }
-        let ((prev_oracle_id, _), previous) = get_previous_oracle(services, oracle_id)?;
+        let ((prev_oracle_id, _), previous) =
+            get_previous_oracle(services, oracle_id)?.context(NotFoundIndexSnafu {
+                action: IndexAction::Invalidate,
+                r#type: "UpdateOracle".to_string(),
+                id: oracle_id.to_string(),
+            })?;
 
         let prev_oracle = Oracle {
             owner_address: previous.owner_address,
@@ -704,21 +725,13 @@ fn backward_aggregate_value(
 fn get_previous_oracle(
     services: &Arc<Services>,
     oracle_id: Txid,
-) -> Result<(OracleHistoryId, Oracle)> {
+) -> Result<Option<(OracleHistoryId, Oracle)>> {
     let previous = services
         .oracle_history
         .by_id
         .list(Some((oracle_id, u32::MAX)), SortOrder::Descending)?
         .next()
         .transpose()?;
-
-    let Some(previous) = previous else {
-        return Err(Error::NotFoundIndex {
-            action: IndexAction::Index,
-            r#type: "OracleHistory".to_string(),
-            id: oracle_id.to_string(),
-        });
-    };
 
     Ok(previous)
 }

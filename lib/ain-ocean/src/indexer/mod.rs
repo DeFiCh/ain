@@ -298,7 +298,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Index,
-                r#type: "Index script TransactionVout".to_string(),
+                r#type: "Script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -386,8 +386,8 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
             };
 
             return Err(Error::NotFoundIndex {
-                action: IndexAction::Index,
-                r#type: "Index script TransactionVout".to_string(),
+                action: IndexAction::Invalidate,
+                r#type: "Script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -428,7 +428,7 @@ fn invalidate_script_unspent_vin(
     let Some(transaction) = services.transaction.by_id.get(&vin.txid)? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "Transaction".to_string(),
+            r#type: "ScriptUnspentVin Transaction".to_string(),
             id: vin.txid.to_string(),
         });
     };
@@ -436,7 +436,7 @@ fn invalidate_script_unspent_vin(
     let Some(vout) = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "TransactionVout".to_string(),
+            r#type: "ScriptUnspentVin TransactionVout".to_string(),
             id: format!("{}{}", vin.txid, vin.vout),
         });
     };
