@@ -16,7 +16,9 @@ struct CICXCloseOrderMessage;
 struct CICXCloseOfferMessage;
 
 class CICXOrdersConsensus : public CCustomTxVisitor {
-    [[nodiscard]] CAmount CalculateTakerFee(CAmount amount) const;
+    [[nodiscard]] CAmount CalculateTakerFee(const CAmount amount,
+                                            const std::string &txType,
+                                            const std::string &txid) const;
     [[nodiscard]] DCT_ID FindTokenByPartialSymbolName(const std::string &symbol) const;
 
 public:
