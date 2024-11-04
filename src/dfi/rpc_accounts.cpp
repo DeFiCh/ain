@@ -3694,52 +3694,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     pcustomcsview->Flush();
     pcustomcsDB->Flush();
 
-    // Get the CDBWrapper instance from CCustomCSView
-    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
-
-    // Create a CDBIterator
-    auto pcursor = db->NewIterator(leveldb::ReadOptions());
-
-    // Create SHA256 hashers
-    CSHA256 hasher;
-    CSHA256 hasherNoUndo;
-
-    // Seek to the beginning of the database
-    pcursor->SeekToFirst();
-
-    // Iterate over all key-value pairs
-    while (pcursor->Valid()) {
-        // Get the key and value slices
-        auto keySlice = pcursor->GetKey();
-        auto valueSlice = pcursor->GetValue();
-
-        const auto key = std::string(keySlice.data(), keySlice.size());
-        if (!key.empty() && key[0] == 'u') {
-            hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
-            hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
-        } else {
-            hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
-            hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
-            hasherNoUndo.Write((const unsigned char *)keySlice.data(), keySlice.size());
-            hasherNoUndo.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
-        }
-
-        // Move to the next key-value pair
-        pcursor->Next();
-    }
-
-    // Delete iterator
-    delete pcursor;
-
-    // Finalize the hashes
-    unsigned char hash[CSHA256::OUTPUT_SIZE];
-    unsigned char hashNoUndo[CSHA256::OUTPUT_SIZE];
-    hasher.Finalize(hash);
-    hasher.Finalize(hashNoUndo);
-
-    // Convert hashes to hex string
-    const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
-    const auto hashHexNoUndo = HexStr(hashNoUndo, hashNoUndo + CSHA256::OUTPUT_SIZE);
+    auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
 
     // Get the current block height
     const auto height = ::ChainActive().Height();
