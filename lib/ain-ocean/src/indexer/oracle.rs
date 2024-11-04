@@ -110,19 +110,18 @@ impl Index for RemoveOracle {
         let oracle_id = self.oracle_id;
         services.oracle.by_id.delete(&oracle_id)?;
 
-        let (_, previous) = get_previous_oracle(services, oracle_id)?
-            .context(NotFoundIndexSnafu {
+        let (_, mut previous) =
+            get_previous_oracle(services, oracle_id)?.context(NotFoundIndexSnafu {
                 action: IndexAction::Index,
                 r#type: "RemoveOracle".to_string(),
                 id: oracle_id.to_string(),
             })?;
 
-        for PriceFeed { token, currency } in &previous.price_feeds {
-            services.oracle_token_currency.by_id.delete(&(
-                token.to_owned(),
-                currency.to_owned(),
-                oracle_id,
-            ))?;
+        for PriceFeed { token, currency } in previous.price_feeds.drain(..) {
+            services
+                .oracle_token_currency
+                .by_id
+                .delete(&(token, currency, oracle_id))?;
         }
 
         Ok(())
