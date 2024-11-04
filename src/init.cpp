@@ -2268,6 +2268,11 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         }
 
+        {
+            auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
+            LogPrintf("Pre-consolidate rewards for DVM hash: %s hash-no-undo: %s\n", hashHex, hashHexNoUndo);
+        }
+
         if (fullRewardConsolidation) {
             LogPrintf("Consolidate rewards for all addresses..\n");
 
@@ -2301,6 +2306,11 @@ bool AppInitMain(InitInterfaces& interfaces)
             ConsolidateRewards(*pcustomcsview, ::ChainActive().Height(), ownersToConsolidate, true, skipStatic);
         }
         pcustomcsview->Flush();
+
+        {
+            auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
+            LogPrintf("Post-consolidate rewards for DVM hash: %s hash-no-undo: %s\n", hashHex, hashHexNoUndo);
+        }
     }
 
     // ********************************************************* Step 12: import blocks

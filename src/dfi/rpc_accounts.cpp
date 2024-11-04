@@ -3694,41 +3694,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     pcustomcsview->Flush();
     pcustomcsDB->Flush();
 
-    // Get the CDBWrapper instance from CCustomCSView
-    auto db = pcustomcsview->GetStorage().GetStorageLevelDB()->GetDB();
-
-    // Create a CDBIterator
-    auto pcursor = db->NewIterator(leveldb::ReadOptions());
-
-    // Create a SHA256 hasher
-    CSHA256 hasher;
-
-    // Seek to the beginning of the database
-    pcursor->SeekToFirst();
-
-    // Iterate over all key-value pairs
-    while (pcursor->Valid()) {
-        // Get the key and value slices
-        auto keySlice = pcursor->GetKey();
-        auto valueSlice = pcursor->GetValue();
-
-        // Feed the key and value into the hasher
-        hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
-        hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
-
-        // Move to the next key-value pair
-        pcursor->Next();
-    }
-
-    // Delete iterator
-    delete pcursor;
-
-    // Finalize the hash
-    unsigned char hash[CSHA256::OUTPUT_SIZE];
-    hasher.Finalize(hash);
-
-    // Convert hash to hex string
-    const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
+    auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
 
     // Get the current block height
     const auto height = ::ChainActive().Height();
@@ -3737,6 +3703,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
     result.pushKV("dvmhash", hashHex);
+    result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
     const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmHashHex) {
