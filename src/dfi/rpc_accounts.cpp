@@ -3700,8 +3700,9 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // Create a CDBIterator
     auto pcursor = db->NewIterator(leveldb::ReadOptions());
 
-    // Create a SHA256 hasher
+    // Create SHA256 hashers
     CSHA256 hasher;
+    CSHA256 hasherNoUndo;
 
     // Seek to the beginning of the database
     pcursor->SeekToFirst();
@@ -3712,9 +3713,16 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
         auto keySlice = pcursor->GetKey();
         auto valueSlice = pcursor->GetValue();
 
-        // Feed the key and value into the hasher
-        hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
-        hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+        const auto key = std::string(keySlice.data(), keySlice.size());
+        if (!key.empty() && key[0] == 'u') {
+            hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
+            hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+        } else {
+            hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
+            hasher.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+            hasherNoUndo.Write((const unsigned char *)keySlice.data(), keySlice.size());
+            hasherNoUndo.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+        }
 
         // Move to the next key-value pair
         pcursor->Next();
@@ -3723,12 +3731,15 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // Delete iterator
     delete pcursor;
 
-    // Finalize the hash
+    // Finalize the hashes
     unsigned char hash[CSHA256::OUTPUT_SIZE];
+    unsigned char hashNoUndo[CSHA256::OUTPUT_SIZE];
     hasher.Finalize(hash);
+    hasher.Finalize(hashNoUndo);
 
-    // Convert hash to hex string
+    // Convert hashes to hex string
     const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
+    const auto hashHexNoUndo = HexStr(hashNoUndo, hashNoUndo + CSHA256::OUTPUT_SIZE);
 
     // Get the current block height
     const auto height = ::ChainActive().Height();
@@ -3737,6 +3748,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
     result.pushKV("dvmhash", hashHex);
+    result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
     const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmHashHex) {
