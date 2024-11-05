@@ -298,7 +298,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Index,
-                r#type: "Index script TransactionVout".to_string(),
+                r#type: "Script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -386,8 +386,8 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
             };
 
             return Err(Error::NotFoundIndex {
-                action: IndexAction::Index,
-                r#type: "Index script TransactionVout".to_string(),
+                action: IndexAction::Invalidate,
+                r#type: "Script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -428,7 +428,7 @@ fn invalidate_script_unspent_vin(
     let Some(transaction) = services.transaction.by_id.get(&vin.txid)? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "Transaction".to_string(),
+            r#type: "ScriptUnspentVin Transaction".to_string(),
             id: vin.txid.to_string(),
         });
     };
@@ -436,7 +436,7 @@ fn invalidate_script_unspent_vin(
     let Some(vout) = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "TransactionVout".to_string(),
+            r#type: "ScriptUnspentVin TransactionVout".to_string(),
             id: format!("{}{}", vin.txid, vin.vout),
         });
     };
@@ -530,6 +530,14 @@ fn invalidate_script_activity_vout(
     Ok(())
 }
 
+pub fn get_block_height(services: &Arc<Services>) -> Result<u32> {
+    Ok(services
+        .block
+        .by_height
+        .get_highest()?
+        .map_or(0, |block| block.height))
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     trace!("[index_block] Indexing block...");
     let start = Instant::now();
@@ -601,6 +609,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             DfTx::SetLoanToken(data) => data.index(services, ctx)?,
             DfTx::CompositeSwap(data) => data.index(services, ctx)?,
             DfTx::PlaceAuctionBid(data) => data.index(services, ctx)?,
+            DfTx::CreatePoolPair(_) => services.pool_pair_cache.invalidate(),
             _ => (),
         }
         log_elapsed(start, "Indexed dftx");
@@ -712,6 +721,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
             DfTx::SetLoanToken(data) => data.invalidate(services, ctx)?,
             DfTx::CompositeSwap(data) => data.invalidate(services, ctx)?,
             DfTx::PlaceAuctionBid(data) => data.invalidate(services, ctx)?,
+            DfTx::CreatePoolPair(_) => services.pool_pair_cache.invalidate(),
             _ => (),
         }
         log_elapsed(start, "Invalidate dftx");

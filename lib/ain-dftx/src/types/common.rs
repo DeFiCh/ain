@@ -98,7 +98,7 @@ impl Decodable for RawBytes {
     fn consensus_decode<R: bitcoin::io::Read + ?Sized>(
         reader: &mut R,
     ) -> Result<Self, bitcoin::consensus::encode::Error> {
-        let mut buf = [0u8; 512];
+        let mut buf = [0u8; 4096];
         let v = reader.read(&mut buf)?;
         Ok(Self(buf[..v].to_vec()))
     }

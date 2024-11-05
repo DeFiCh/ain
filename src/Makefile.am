@@ -149,6 +149,7 @@ DEFI_CORE_H = \
   index/blockfilterindex.h \
   index/txindex.h \
   indirectmap.h \
+  ocean.h \
   init.h \
   interfaces/chain.h \
   interfaces/handler.h \
@@ -410,6 +411,7 @@ libdefi_server_a_SOURCES = \
   index/blockfilterindex.cpp \
   index/txindex.cpp \
   interfaces/chain.cpp \
+  ocean.cpp \
   init.cpp \
   dbwrapper.cpp \
   ffi/ffiexports.cpp \

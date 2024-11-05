@@ -346,6 +346,7 @@ pub mod ffi {
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
 
+        fn ocean_get_block_height(result: &mut CrossBoundaryResult) -> u32;
         fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String);
         fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
 

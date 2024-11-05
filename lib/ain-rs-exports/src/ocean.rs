@@ -8,6 +8,11 @@ use crate::{
 };
 
 #[ffi_fallible]
+pub fn ocean_get_block_height() -> Result<u32> {
+    ain_ocean::get_block_height(&ain_ocean::SERVICES)
+}
+
+#[ffi_fallible]
 pub fn ocean_index_block(block_str: String) -> Result<()> {
     let block: Block<Transaction> = serde_json::from_str(&block_str)?;
     ain_ocean::index_block(&ain_ocean::SERVICES, block)

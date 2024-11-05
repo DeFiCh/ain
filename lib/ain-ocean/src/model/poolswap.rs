@@ -13,7 +13,7 @@ pub struct PoolSwap {
     pub pool_id: u32,
     pub from_amount: i64,
     pub from_token_id: u64,
-    pub to_amount: i64,
+    pub to_amount: Option<i64>,
     pub to_token_id: u64,
     pub from: ScriptBuf,
     pub to: ScriptBuf,

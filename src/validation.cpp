@@ -3776,7 +3776,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
         if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
             gArgs.GetBoolArg("-expr-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED)) {
             const UniValue b = blockToJSON(mnview, block, pindexDelete, pindexDelete, true, 2);
-            XResultThrowOnErr(ocean_invalidate_block(result, b.write()));
+            XResultStatusLogged(ocean_invalidate_block(result, b.write()));
         }
 
         bool flushed = view.Flush() && mnview.Flush();
