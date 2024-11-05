@@ -936,7 +936,6 @@ void ConsolidateRewards(CCustomCSView &view,
                         int height,
                         const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
-                        int numWorkers = 0,
                         bool skipStatic = false);
 
 extern std::map<CScript, CBalances> mapBurnAmounts;

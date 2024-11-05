@@ -1563,14 +1563,15 @@ void ConsolidateRewards(CCustomCSView &view,
                         int height,
                         const std::unordered_set<CScript, CScriptHasher> &owners,
                         bool interruptOnShutdown,
-                        int numWorkers,
                         bool skipStatic) {
-    int nWorkers = numWorkers < 1 ? RewardConsolidationWorkersCount() : numWorkers;
+    const auto nWorkers = RewardConsolidationWorkersCount();
     auto rewardsTime = GetTimeMicros();
     boost::asio::thread_pool workerPool(nWorkers);
     boost::asio::thread_pool mergeWorker(1);
     std::atomic<uint64_t> tasksCompleted{0};
     std::atomic<uint64_t> reportedTs{0};
+
+    LogPrintf("%s: address count: %d concurrency: %d\n", __func__, owners.size(), nWorkers);
 
     for (auto &owner : owners) {
         // See https://github.com/DeFiCh/ain/pull/1291
@@ -1778,12 +1779,10 @@ static Res PoolSplits(CCustomCSView &view,
                 for (auto &[owner, _] : balancesToMigrate) {
                     ownersToConsolidate.emplace(owner);
                 }
-                auto nWorkers = RewardConsolidationWorkersCount();
-                LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d, concurrency: %d)..\n",
+                LogPrintf("Pool migration: Consolidating rewards (count: %d, total: %d)..\n",
                           ownersToConsolidate.size(),
-                          totalAccounts,
-                          nWorkers);
-                ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false, nWorkers);
+                          totalAccounts);
+                ConsolidateRewards(view, pindex->nHeight, ownersToConsolidate, false);
             }
 
             // Special case. No liquidity providers in a previously used pool.
@@ -3383,11 +3382,8 @@ static Res ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, B
         return true;
     });
 
-    auto nWorkers = RewardConsolidationWorkersCount();
-    LogPrintf("Token Lock: Consolidating rewards before payback. total: %d, concurrency: %d..\n",
-              ownersToMigrate.size(),
-              nWorkers);
-    ConsolidateRewards(cache, pindex->nHeight, ownersToMigrate, false, nWorkers);
+    LogPrintf("Token Lock: Consolidating rewards before payback. total: %d\n", ownersToMigrate.size());
+    ConsolidateRewards(cache, pindex->nHeight, ownersToMigrate, false);
 
     LogPrintf("paying back %d loans with owner balance\n", directPaybacks.size());
     uint64_t reportedTs = 0;
@@ -3672,10 +3668,8 @@ static Res ConvertAllLoanTokenForTokenLock(const CBlock &block,
         }
         return true;
     });
-    auto nWorkers = RewardConsolidationWorkersCount();
-    LogPrintf(
-        "Token Lock: Consolidating rewards. total: %d, concurrency: %d..\n", poolOwnersToMigrate.size(), nWorkers);
-    ConsolidateRewards(cache, pindex->nHeight, poolOwnersToMigrate, false, nWorkers);
+    LogPrintf("Token Lock: Consolidating rewards. total: %d\n", poolOwnersToMigrate.size());
+    ConsolidateRewards(cache, pindex->nHeight, poolOwnersToMigrate, false);
 
     // Execute Splits on tokens (without pools)
     bool splitSuccess = true;
