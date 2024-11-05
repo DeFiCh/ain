@@ -90,7 +90,7 @@ impl Index for AppointOracle {
             .by_id
             .delete(&(oracle_id, context.block.height))?;
 
-        for currency_pair in self.price_feeds.as_ref() {
+        for currency_pair in self.price_feeds.iter().rev() {
             let token_currency_id = (
                 currency_pair.token.clone(),
                 currency_pair.currency.clone(),
@@ -146,7 +146,7 @@ impl Index for RemoveOracle {
 
         services.oracle.by_id.put(&oracle_id, &oracle)?;
 
-        for price_feed in previous.price_feeds {
+        for price_feed in previous.price_feeds.into_iter().rev() {
             let oracle_token_currency = OracleTokenCurrency {
                 weightage: oracle.weightage,
                 block: oracle.block.clone(),
@@ -223,7 +223,7 @@ impl Index for UpdateOracle {
             .delete(&(oracle_id, context.block.height))?;
 
         let price_feeds = self.price_feeds.as_ref();
-        for pair in price_feeds {
+        for pair in price_feeds.iter().rev() {
             services.oracle_token_currency.by_id.delete(&(
                 pair.token.clone(),
                 pair.currency.clone(),
@@ -245,7 +245,7 @@ impl Index for UpdateOracle {
         };
         services.oracle.by_id.put(&(prev_oracle_id), &prev_oracle)?;
 
-        for price_feed in &previous.price_feeds {
+        for price_feed in previous.price_feeds.iter().rev() {
             let oracle_token_currency = OracleTokenCurrency {
                 weightage: previous.weightage,
                 block: previous.block.clone(),
@@ -447,7 +447,7 @@ impl Index for SetOracleData {
 
         let feeds = map_price_feeds(self, context);
 
-        for ((token, currency, _, _), _) in &feeds {
+        for ((token, currency, _, _), _) in feeds.iter().rev() {
             let id = (token.clone(), currency.clone(), context.block.height);
 
             let aggregated = oracle_repo.by_id.get(&id)?;
@@ -456,7 +456,7 @@ impl Index for SetOracleData {
                 continue;
             };
 
-            for interval in AGGREGATED_INTERVALS {
+            for interval in AGGREGATED_INTERVALS.into_iter().rev() {
                 invalidate_oracle_interval(
                     services,
                     &context.block,
