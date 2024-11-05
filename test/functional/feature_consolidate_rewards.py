@@ -167,7 +167,7 @@ class ConsolidateRewardsTest(DefiTestFramework):
         self.stop_node(1)
 
         # Start node with consolidation
-        self.args.append(f"-consolidaterewards={self.symbolGD}")
+        self.args.append(f"-consolidaterewards={self.symbolGOOGL}")
         self.start_node(1, self.args)
         connect_nodes_bi(self.nodes, 0, 1)
 
@@ -208,7 +208,7 @@ class ConsolidateRewardsTest(DefiTestFramework):
         self.stop_node(1)
 
         # Start node with consolidation
-        self.args.append(f"-consolidaterewards={self.symbolGD}")
+        self.args.append(f"-consolidaterewards={self.symbolGOOGL}")
         self.start_node(1, self.args)
         connect_nodes_bi(self.nodes, 0, 1)
 
