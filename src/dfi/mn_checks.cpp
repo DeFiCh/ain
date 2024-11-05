@@ -1110,11 +1110,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
                 }
 
                 if (LogAcceptCategory(BCLog::SWAPRESULT) && lastSwap) {
-                    LogPrint(BCLog::SWAPRESULT,
-                             "SwapResult: height=%d destination=%s result=%s\n",
-                             height,
-                             ScriptToString(obj.to),
-                             swapAmountResult.ToString());
+                    UniValue result(UniValue::VOBJ);
+                    result.pushKV("height", (int64_t)height);
+                    if (txInfo) {
+                        result.pushKV("txid", txInfo->second.ToString());
+                    }
+                    result.pushKV("destination", ScriptToString(obj.to));
+                    result.pushKV("result", swapAmountResult.ToString());
+                    LogPrint(BCLog::SWAPRESULT, "SwapResult: %s\n", result.write(0));
                 }
 
                 intermediateView.Flush();

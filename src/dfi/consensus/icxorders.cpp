@@ -51,7 +51,7 @@ CAmount CICXOrdersConsensus::CalculateTakerFee(const CAmount amount,
         result.pushKV("calc_taker_fee_in_btc",
                       GetDecimalString(((arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN).GetLow64())));
         result.pushKV("calc_taker_fee_in_dfi", GetDecimalString(takerFee));
-        LogPrint(BCLog::ICXBUG, "%s\n", result.write(0));
+        LogPrint(BCLog::ICXBUG, "ICXCalc: %s\n", result.write(0));
     }
     return takerFee;
 }
@@ -593,7 +593,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
                     result.pushKV("claim_tx", tx.GetHash().ToString());
                     result.pushKV("address", EncodeDestination(dest));
                     result.pushKV("amount", GetDecimalString(offer->takerFee * 50 / 100));
-                    LogPrint(BCLog::ICXBUG, "%s\n", result.write(0));
+                    LogPrint(BCLog::ICXBUG, "ICX: %s\n", result.write(0));
                 }
             }
         } else {
