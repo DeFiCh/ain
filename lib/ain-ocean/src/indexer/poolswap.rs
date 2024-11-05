@@ -184,7 +184,7 @@ fn create_new_bucket(
 
 impl IndexBlockStart for PoolSwap {
     fn index_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        let mut pool_pairs =  ain_cpp_imports::get_pool_pairs();
+        let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
         pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
         for interval in AGGREGATED_INTERVALS {
