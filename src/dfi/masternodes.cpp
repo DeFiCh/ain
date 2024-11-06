@@ -300,6 +300,20 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
 }
 
 Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode &node, uint16_t timelock) {
+    auto writeNode = [&]() {
+        WriteBy<ID>(nodeId, node);
+        WriteBy<Owner>(node.ownerAuthAddress, nodeId);
+        WriteBy<Operator>(node.operatorAuthAddress, nodeId);
+
+        if (timelock > 0) {
+            WriteBy<Timelock>(nodeId, timelock);
+        }
+        return Res::Ok();
+    };
+
+    if (fMockNetwork) {
+        return writeNode();
+    }
     // Check auth addresses and that there in no MN with such owner or operator
     if ((node.operatorType != 1 && node.operatorType != 4) || (node.ownerType != 1 && node.ownerType != 4) ||
         node.ownerAuthAddress.IsNull() || node.operatorAuthAddress.IsNull() || GetMasternode(nodeId) ||
@@ -309,15 +323,7 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
             "bad owner and|or operator address (should be P2PKH or P2WPKH only) or node with those addresses exists");
     }
 
-    WriteBy<ID>(nodeId, node);
-    WriteBy<Owner>(node.ownerAuthAddress, nodeId);
-    WriteBy<Operator>(node.operatorAuthAddress, nodeId);
-
-    if (timelock > 0) {
-        WriteBy<Timelock>(nodeId, timelock);
-    }
-
-    return Res::Ok();
+    return writeNode();
 }
 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
