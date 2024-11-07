@@ -2498,31 +2498,22 @@ bool AppInitMain(InitInterfaces& interfaces)
     // MN: 0000000000000000000000000000000000000000000000000000000000000000
 
     if (fMockNetwork && HasWallets()) {
-
-        CKeyID keyID;
-        CTxDestination dest;
+        // Mainnet: df1qmnv9c6jt9fmgmzvynp8r0gjm39awa027hsfzq3
+        // Test networks: tf1qmnv9c6jt9fmgmzvynp8r0gjm39awa027yqn3q4
+        const auto rawPrivKey = uint256S("4c0883a69102937d623414e5f791a5a5a4591d899d0e3a1b03f0b7421932b72e");
+        CKey key;
+        key.Set(rawPrivKey.begin(), rawPrivKey.end(), true);
+        const auto pubkey = key.GetPubKey();
+        const auto keyID = pubkey.GetID();
+        WitnessV0KeyHash dest(pubkey);
 
         {
             auto pwallet = GetWallets()[0];
             LOCK(pwallet->cs_wallet);
 
-            if (!pwallet->CanGetAddresses()) {
-                return InitError("Wallet not able to generate address for mocknet");
-            }
-
-            std::string error;
-
-            if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
-                return InitError("Wallet not able to get new destination for mocknet");
-            }
+            pwallet->SetAddressBook(dest, "", "receive");
+            pwallet->ImportPrivKeys({{keyID, key}}, GetTime());
         }
-
-        // Import privkey
-        const auto optKeyID = CKeyID::TryFromDestination(dest, KeyType::WPKHashKeyType);
-        if (!optKeyID) {
-            return InitError("Not able to get new keyID for mocknet");
-        }
-        keyID = *optKeyID;
 
         // Set operator for mining
         gArgs.ForceSetArg("-masternode_operator", EncodeDestination(dest));
@@ -2536,14 +2527,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         node.operatorAuthAddress = keyID;
         node.version = CMasternode::VERSION0;
 
-        const auto time{std::time(nullptr)};
-
         {
             LOCK(cs_main);
             pcustomcsview->CreateMasternode(uint256S(std::string{64, '0'}), node, CMasternode::ZEROYEAR);
-            for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
-                pcustomcsview->SetSubNodesBlockTime(node.operatorAuthAddress, chain_active_height, i, time);
-            }
         }
     }
 
