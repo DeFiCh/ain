@@ -1475,7 +1475,7 @@ std::pair<std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
     unsigned char hash[CSHA256::OUTPUT_SIZE];
     unsigned char hashNoUndo[CSHA256::OUTPUT_SIZE];
     hasher.Finalize(hash);
-    hasher.Finalize(hashNoUndo);
+    hasherNoUndo.Finalize(hashNoUndo);
 
     // Convert hashes to hex string
     const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
