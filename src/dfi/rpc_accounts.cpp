@@ -3668,6 +3668,9 @@ UniValue logdvmstate(const JSONRPCRequest &request) {
         pcursor->Next();
     }
 
+    // Delete iterator
+    delete pcursor;
+
     if (outFile.is_open()) {
         outFile.close();
     }
