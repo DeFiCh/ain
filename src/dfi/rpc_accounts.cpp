@@ -3712,7 +3712,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
 
     const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmHashHex) {
-        result.pushKV("evmhash", std::string(*evmHashHex));
+        result.pushKV("evm_db_node_hash", std::string(*evmHashHex));
     }
 
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
