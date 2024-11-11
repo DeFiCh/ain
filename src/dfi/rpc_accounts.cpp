@@ -3703,6 +3703,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     const auto height = ::ChainActive().Height();
     const auto blockHash = ::ChainActive().Tip()->GetBlockHash().ToString();
 
+
     // Prepare result
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
@@ -3710,9 +3711,16 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
-    const auto evmHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
-    if (evmHashHex) {
-        result.pushKV("evm_db_node_hash", std::string(*evmHashHex));
+    auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+    if (res) {
+        // Only available after EVM activation
+        auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+        result.pushKV("evmhash", evmBlockHash);
+    }
+
+    const auto evmDbNodeHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
+    if (evmDbNodeHashHex) {
+        result.pushKV("evm_db_node_hash", std::string(*evmDbNodeHashHex));
     }
 
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||

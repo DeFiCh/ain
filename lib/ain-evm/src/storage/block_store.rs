@@ -56,7 +56,7 @@ impl BlockStore {
     }
 
     pub fn hash_db_state(&self) -> Result<String> {
-        Ok(self.0.hash_db_state(&[columns::Blocks::NAME])?)
+        Ok(self.0.hash_db_state(&COLUMN_NAMES)?)
     }
 }
 
