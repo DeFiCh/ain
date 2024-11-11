@@ -99,7 +99,7 @@ fn invalidate_swap_aggregated(
     from_amount: i64,
     txid: Txid,
 ) -> Result<()> {
-    for interval in AGGREGATED_INTERVALS {
+    for interval in AGGREGATED_INTERVALS.into_iter().rev() {
         let repo = &services.pool_swap_aggregated;
         let prevs = repo
             .by_key
@@ -231,8 +231,8 @@ impl IndexBlockStart for PoolSwap {
         let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
         pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
-        for interval in AGGREGATED_INTERVALS {
-            for pool_pair in &pool_pairs {
+        for interval in AGGREGATED_INTERVALS.into_iter().rev() {
+            for pool_pair in pool_pairs.iter().rev() {
                 let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
                 services
                     .pool_swap_aggregated
@@ -400,7 +400,7 @@ impl Index for CompositeSwap {
         let from_token_id = self.pool_swap.from_token_id.0;
         let from_amount = self.pool_swap.from_amount;
         let txid = ctx.tx.txid;
-        for pool in self.pools.as_ref() {
+        for pool in self.pools.iter().rev() {
             let pool_id = pool.id.0 as u32;
             services
                 .pool

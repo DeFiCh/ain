@@ -298,7 +298,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Index,
-                r#type: "Script TransactionVout".to_string(),
+                r#type: "index_script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -369,7 +369,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
     let mut hid_set = HashSet::new();
 
-    for vin in tx.vin.iter() {
+    for vin in tx.vin.iter().rev() {
         if is_evm_tx {
             continue;
         }
@@ -387,7 +387,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
             return Err(Error::NotFoundIndex {
                 action: IndexAction::Invalidate,
-                r#type: "Script TransactionVout".to_string(),
+                r#type: "invalidate_script TransactionVout".to_string(),
                 id: format!("{}-{}", vin.txid, vin.vout),
             });
         };
@@ -397,7 +397,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
         hid_set.insert(as_sha256(&vout.script.hex)); // part of invalidate_script_aggregation
     }
 
-    for vout in tx.vout.iter() {
+    for vout in tx.vout.iter().rev() {
         invalidate_script_unspent_vout(services, ctx, vout)?;
 
         if vout.script_pub_key.hex.starts_with(&[0x6a]) {
@@ -428,7 +428,7 @@ fn invalidate_script_unspent_vin(
     let Some(transaction) = services.transaction.by_id.get(&vin.txid)? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "ScriptUnspentVin Transaction".to_string(),
+            r#type: "invalidate_script_unspent_vin Transaction".to_string(),
             id: vin.txid.to_string(),
         });
     };
@@ -436,7 +436,7 @@ fn invalidate_script_unspent_vin(
     let Some(vout) = services.transaction.vout_by_id.get(&(vin.txid, vin.vout))? else {
         return Err(Error::NotFoundIndex {
             action: IndexAction::Invalidate,
-            r#type: "ScriptUnspentVin TransactionVout".to_string(),
+            r#type: "invalidate_script_unspent_vin TransactionVout".to_string(),
             id: format!("{}{}", vin.txid, vin.vout),
         });
     };
@@ -664,7 +664,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
 
     let mut dftxs = Vec::new();
 
-    for (tx_idx, tx) in block.tx.clone().into_iter().enumerate() {
+    for (tx_idx, tx) in block.tx.clone().into_iter().rev().enumerate() {
         if is_skipped_tx(&tx.txid) {
             continue;
         }

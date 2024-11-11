@@ -153,7 +153,7 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
             .flatten()
             .collect::<Vec<_>>();
 
-        for ((token, currency), _) in price_tickers {
+        for ((token, currency), _) in price_tickers.into_iter().rev() {
             services
                 .oracle_price_active
                 .by_id

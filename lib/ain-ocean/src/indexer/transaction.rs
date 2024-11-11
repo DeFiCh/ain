@@ -117,7 +117,7 @@ pub fn invalidate_transaction(services: &Arc<Services>, ctx: &Context) -> Result
     services.transaction.by_id.delete(&ctx.tx.txid)?;
 
     let is_evm = check_if_evm_tx(&ctx.tx);
-    for vin in ctx.tx.vin.clone().into_iter() {
+    for vin in ctx.tx.vin.clone().into_iter().rev() {
         if is_evm {
             continue;
         }
@@ -133,7 +133,7 @@ pub fn invalidate_transaction(services: &Arc<Services>, ctx: &Context) -> Result
         }
     }
 
-    for vout in ctx.tx.vout.clone().into_iter() {
+    for vout in ctx.tx.vout.clone().into_iter().rev() {
         services
             .transaction
             .vout_by_id
