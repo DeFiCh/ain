@@ -3710,8 +3710,8 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     result.pushKV("blockhash", blockHash);
     // Note that this only guaranteed to be equal with other nodes
     // if they didn't hit undo changes at different points. 
-    // Example, consolidaterewards at different points can cause this
-    // to change on pre static reward addresses. 
+    // Other instances that can cause this to differ are:
+    // consolidaterewards at different points, etc  
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
