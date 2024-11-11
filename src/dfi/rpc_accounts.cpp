@@ -3701,10 +3701,12 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
 
     // Get the current block height
     const auto height = ::ChainActive().Height();
+    const auto blockHash = ::ChainActive().Tip()->GetBlockHash().ToString();
 
     // Prepare result
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
+    result.pushKV("blockhash", blockHash);
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
