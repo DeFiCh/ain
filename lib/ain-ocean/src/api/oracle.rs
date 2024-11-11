@@ -103,7 +103,6 @@ async fn get_feed(
         .list(None, SortOrder::Descending)?
         .paginate(&query)
         .flatten()
-        .into_iter()
         .filter(|((token, currency, oracle_id, _), _)| {
             key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id)
         })
