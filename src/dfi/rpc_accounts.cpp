@@ -3703,13 +3703,12 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     const auto height = ::ChainActive().Height();
     const auto blockHash = ::ChainActive().Tip()->GetBlockHash().ToString();
 
-
     // Prepare result
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
     result.pushKV("blockhash", blockHash);
     // Note that this only guaranteed to be equal with other nodes
-    // if they didn't hit undo changes at different points. 
+    // if they didn't hit undo changes at different points.
     // Other known instance that can cause this to differ:
     // - consolidaterewards at different points if pre-static addresses are involved.
     result.pushKV("dvmhash", hashHex);
@@ -3718,7 +3717,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
     if (res) {
         // Only available after EVM activation
-        // EVM block hash already is inclusive of all it's 
+        // EVM block hash already is inclusive of all it's
         // state, so we don't need to do the DVM shenangins.
         auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
         result.pushKV("evmhash", evmBlockHash);
@@ -3726,7 +3725,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
 
     const auto evmDbNodeHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmDbNodeHashHex) {
-        // Note: This can vary from node to node unlike the rest. 
+        // Note: This can vary from node to node unlike the rest.
         result.pushKV("varhash_evmalldb", std::string(*evmDbNodeHashHex));
     }
 
