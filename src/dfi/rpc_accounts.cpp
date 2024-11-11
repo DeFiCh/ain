@@ -3708,18 +3708,25 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     UniValue result(UniValue::VOBJ);
     result.pushKV("height", height);
     result.pushKV("blockhash", blockHash);
+    // Note that this only guaranteed to be equal with other nodes
+    // if they didn't hit undo changes at different points. 
+    // Example, consolidaterewards at different points can cause this
+    // to change on pre static reward addresses. 
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmhash_no_undo", hashHexNoUndo);
 
     auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
     if (res) {
         // Only available after EVM activation
+        // EVM block hash already is inclusive of it's all it's 
+        // state, so we don't need to do the DVM shenangins.
         auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
         result.pushKV("evmhash", evmBlockHash);
     }
 
     const auto evmDbNodeHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmDbNodeHashHex) {
+        // Note: This can vary from node to node unlike the rest. 
         result.pushKV("evm_db_node_hash", std::string(*evmDbNodeHashHex));
     }
 
