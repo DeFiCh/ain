@@ -3713,7 +3713,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // Other known instance that can cause this to differ:
     // - consolidaterewards at different points if pre-static addresses are involved.
     result.pushKV("dvmhash", hashHex);
-    result.pushKV("dvmhash_no_undo", hashHexNoUndo);
+    result.pushKV("dvmwithoutundohash", hashHexNoUndo);
 
     auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
     if (res) {
@@ -3727,7 +3727,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     const auto evmDbNodeHashHex = XResultValueLogged(evm_try_get_hash_db_state(result));
     if (evmDbNodeHashHex) {
         // Note: This can vary from node to node unlike the rest. 
-        result.pushKV("evm_db_node_hash", std::string(*evmDbNodeHashHex));
+        result.pushKV("varhash_evmalldb", std::string(*evmDbNodeHashHex));
     }
 
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_INDEXER_ENABLED) ||
