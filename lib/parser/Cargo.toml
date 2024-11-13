@@ -1,0 +1,10 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ain-macros.workspace = true
+ain-dftx.workspace = true
+bitcoin.workspace = true
+hex.workspace = true

@@ -115,6 +115,7 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
 #[proc_macro_derive(ConsensusEncoding)]
 pub fn consensus_encoding_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
