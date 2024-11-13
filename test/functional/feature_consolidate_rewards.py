@@ -155,8 +155,8 @@ class ConsolidateRewardsTest(DefiTestFramework):
     def pre_fork24_consolidate(self):
 
         # Compare hash before consolidation
-        hash_0 = self.nodes[0].logdbhashes()["dvmhash_no_undo"]
-        hash_1 = self.nodes[1].logdbhashes()["dvmhash_no_undo"]
+        hash_0 = self.nodes[0].logdbhashes()["dvmwithoutundohash"]
+        hash_1 = self.nodes[1].logdbhashes()["dvmwithoutundohash"]
         assert_equal(hash_0, hash_1)
 
         # Generate rewards
@@ -186,8 +186,8 @@ class ConsolidateRewardsTest(DefiTestFramework):
         self.idGOOGL = list(self.nodes[0].gettoken(self.symbolGOOGL).keys())[0]
 
         # Compare hash before consolidation
-        hash_0 = self.nodes[0].logdbhashes()["dvmhash_no_undo"]
-        hash_1 = self.nodes[1].logdbhashes()["dvmhash_no_undo"]
+        hash_0 = self.nodes[0].logdbhashes()["dvmwithoutundohash"]
+        hash_1 = self.nodes[1].logdbhashes()["dvmwithoutundohash"]
         assert_equal(hash_0, hash_1)
 
     def post_fork24_consolidate(self):
@@ -200,8 +200,8 @@ class ConsolidateRewardsTest(DefiTestFramework):
         self.sync_blocks()
 
         # Compare hash before consolidation
-        hash_0 = self.nodes[0].logdbhashes()["dvmhash_no_undo"]
-        hash_1 = self.nodes[1].logdbhashes()["dvmhash_no_undo"]
+        hash_0 = self.nodes[0].logdbhashes()["dvmwithoutundohash"]
+        hash_1 = self.nodes[1].logdbhashes()["dvmwithoutundohash"]
         assert_equal(hash_0, hash_1)
 
         # Stop node
@@ -224,8 +224,8 @@ class ConsolidateRewardsTest(DefiTestFramework):
         self.sync_blocks()
 
         # Compare hash before consolidation
-        hash_0 = self.nodes[0].logdbhashes()["dvmhash_no_undo"]
-        hash_1 = self.nodes[1].logdbhashes()["dvmhash_no_undo"]
+        hash_0 = self.nodes[0].logdbhashes()["dvmwithoutundohash"]
+        hash_1 = self.nodes[1].logdbhashes()["dvmwithoutundohash"]
         assert_equal(hash_0, hash_1)
 
 
