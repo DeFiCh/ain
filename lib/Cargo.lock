@@ -128,6 +128,7 @@ dependencies = [
  "bitflags 2.6.0",
  "hex",
  "lazy_static",
+ "serde",
 ]
 
 [[package]]
@@ -3519,6 +3520,8 @@ dependencies = [
  "ain-macros",
  "bitcoin",
  "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

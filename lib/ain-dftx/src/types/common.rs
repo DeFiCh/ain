@@ -4,6 +4,7 @@ use bitcoin::{
     consensus::{Decodable, Encodable},
     io::{self, ErrorKind},
 };
+use serde::Serialize;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CompactVec<T>(Vec<T>);
@@ -110,7 +111,7 @@ impl Decodable for RawBytes {
 /// In the rust-bitcoin library, variable-length integers are implemented as CompactSize.
 /// See [issue #1016](https://github.com/rust-bitcoin/rust-bitcoin/issues/1016)
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub struct VarInt(pub u64);
 
 impl Encodable for VarInt {

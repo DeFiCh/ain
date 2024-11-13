@@ -1,6 +1,10 @@
+use ain_dftx::balance::TokenBalanceVarInt;
+use ain_dftx::common::VarInt;
+use ain_dftx::price::TokenAmount;
 use ain_macros::ConsensusEncoding;
-use bitcoin::io;
 use bitcoin::{consensus::Decodable, ScriptBuf};
+use bitcoin::{io, Txid};
+use serde::Serialize;
 use std::io::BufRead;
 
 #[derive(Debug)]
@@ -26,19 +30,19 @@ impl RawDbEntry {
     }
 }
 
-#[derive(ConsensusEncoding, Debug, Clone, PartialEq, Eq)]
+#[derive(ConsensusEncoding, Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BalanceKey {
     pub owner: ScriptBuf,
-    pub token_id: u32,
+    pub token_id: VarInt,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PrefixedData<K, V> {
     pub key: K,
     pub value: V,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum VMDomainEdge {
     DVMToEVM,
     EVMToDVM,
@@ -59,12 +63,24 @@ impl Decodable for VMDomainEdge {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct UndoKey {
+    height: u32,
+    id: Txid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct Undo {
+    data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum Prefix {
     ByBalance(PrefixedData<BalanceKey, i64>),
     ByHeight(PrefixedData<ScriptBuf, u32>),
     VMDomainTxEdge(PrefixedData<(VMDomainEdge, String), String>),
     VMDomainBlockEdge(PrefixedData<(VMDomainEdge, String), String>),
+    Undo(PrefixedData<UndoKey, Undo>),
 }
 
 impl TryFrom<RawDbEntry> for Prefix {
@@ -104,7 +120,7 @@ fn process_line(line: &str) -> Result<(), Box<dyn std::error::Error>> {
     let raw_entry = RawDbEntry::parse(line)?;
 
     match Prefix::try_from(raw_entry) {
-        Ok(entry) => println!("{entry:?}"),
+        Ok(entry) => println!("{}", serde_json::to_string(&entry)?),
         Err(_) => {}
     }
 
