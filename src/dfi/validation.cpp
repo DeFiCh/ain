@@ -25,8 +25,8 @@
 #include <validation.h>
 
 #include <consensus/params.h>
-#include <boost/asio.hpp>
 #include <logging.h>
+#include <boost/asio.hpp>
 
 #define MILLI 0.001
 
