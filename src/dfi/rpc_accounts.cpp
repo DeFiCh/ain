@@ -3713,7 +3713,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // - consolidaterewards at different points if pre-static addresses are involved.
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmwithoutundohash", hashHexNoUndo);
-    result.pushKV("dvmaccounthashes", hashHexAccount);
+    result.pushKV("dvmaccounthash", hashHexAccount);
 
     auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
     if (res) {
