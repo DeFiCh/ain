@@ -3,7 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <logging.h>
+#include "logging.h"
 #include <util/system.h>
 #include <util/threadnames.h>
 #include <util/time.h>
