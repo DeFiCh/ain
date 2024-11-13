@@ -3697,7 +3697,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     pcustomcsview->Flush();
     pcustomcsDB->Flush();
 
-    auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
+    auto [hashHex, hashHexNoUndo, hashHexAccount] = GetDVMDBHashes(*pcustomcsview);
 
     // Get the current block height
     const auto height = ::ChainActive().Height();
@@ -3713,6 +3713,7 @@ UniValue logdbhashes(const JSONRPCRequest &request) {
     // - consolidaterewards at different points if pre-static addresses are involved.
     result.pushKV("dvmhash", hashHex);
     result.pushKV("dvmwithoutundohash", hashHexNoUndo);
+    result.pushKV("dvmaccounthash", hashHexAccount);
 
     auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
     if (res) {
