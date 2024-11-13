@@ -39,11 +39,32 @@ pub struct PrefixedData<K, V> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VMDomainEdge {
+    DVMToEVM,
+    EVMToDVM,
+}
+
+impl Decodable for VMDomainEdge {
+    fn consensus_decode<R: io::Read + ?Sized>(
+        reader: &mut R,
+    ) -> Result<Self, bitcoin::consensus::encode::Error> {
+        let edge = u8::consensus_decode(reader)?;
+        match edge {
+            1 => Ok(Self::DVMToEVM),
+            2 => Ok(Self::EVMToDVM),
+            _ => Err(bitcoin::consensus::encode::Error::ParseFailed(
+                "Unsupported VMDomainEdge",
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Prefix {
     ByBalance(PrefixedData<BalanceKey, i64>),
     ByHeight(PrefixedData<ScriptBuf, u32>),
-    VMDomainTxEdge(PrefixedData<(u8, String), String>),
-    VMDomainBlockEdge(PrefixedData<(u8, String), String>),
+    VMDomainTxEdge(PrefixedData<(VMDomainEdge, String), String>),
+    VMDomainBlockEdge(PrefixedData<(VMDomainEdge, String), String>),
 }
 
 impl TryFrom<RawDbEntry> for Prefix {
