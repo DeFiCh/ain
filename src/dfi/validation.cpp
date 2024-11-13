@@ -26,7 +26,7 @@
 
 #include <consensus/params.h>
 #include <boost/asio.hpp>
-#include "logging.h"
+#include <logging.h>
 
 #define MILLI 0.001
 
