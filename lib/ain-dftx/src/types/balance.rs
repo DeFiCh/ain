@@ -1,5 +1,6 @@
 use ain_macros::ConsensusEncoding;
 use bitcoin::{io, ScriptBuf, VarInt};
+use serde::Serialize;
 
 use super::common::CompactVec;
 

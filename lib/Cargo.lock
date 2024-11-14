@@ -128,6 +128,7 @@ dependencies = [
  "bitflags 2.6.0",
  "hex",
  "lazy_static",
+ "serde",
 ]
 
 [[package]]
@@ -3509,6 +3510,18 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "ain-dftx",
+ "ain-macros",
+ "bitcoin",
+ "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
