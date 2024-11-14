@@ -1,8 +1,6 @@
+use super::common::CompactVec;
 use ain_macros::ConsensusEncoding;
 use bitcoin::{io, ScriptBuf, VarInt};
-use serde::Serialize;
-
-use super::common::CompactVec;
 
 // CBalances
 #[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
