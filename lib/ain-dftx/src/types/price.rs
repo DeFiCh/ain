@@ -1,7 +1,7 @@
+use super::common::CompactVec;
 use ain_macros::ConsensusEncoding;
 use bitcoin::io;
-
-use super::common::CompactVec;
+use serde::Serialize;
 
 #[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
 pub struct CurrencyPair {
@@ -9,7 +9,7 @@ pub struct CurrencyPair {
     pub currency: String,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone)]
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq, Clone, Serialize)]
 pub struct TokenAmount {
     pub currency: String,
     pub amount: i64,

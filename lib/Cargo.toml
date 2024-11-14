@@ -2,6 +2,7 @@
 members = [
     "ain-*",
     "cli",
+    "parser"
 ]
 
 default-members = [

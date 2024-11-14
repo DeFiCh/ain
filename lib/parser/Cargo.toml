@@ -1,0 +1,12 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ain-macros.workspace = true
+ain-dftx.workspace = true
+bitcoin = { workspace = true, features = ["serde"] }
+hex.workspace = true
+serde_json.workspace = true
+serde.workspace = true
