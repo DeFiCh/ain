@@ -2251,8 +2251,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         {
-            auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
-            LogPrintf("Pre-consolidate rewards for DVM hash: %s hash-no-undo: %s\n", hashHex, hashHexNoUndo);
+            auto [hashHex, hashHexNoUndo, hashHexAccount] = GetDVMDBHashes(*pcustomcsview);
+            LogPrintf("Pre-consolidate rewards for DVM hash: %s hash-no-undo: %s hash-account: %s\n", hashHex, hashHexNoUndo, hashHexAccount);
         }
 
         if (fullRewardConsolidation) {
@@ -2291,8 +2291,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         pcustomcsDB->Flush();
 
         {
-            auto [hashHex, hashHexNoUndo] = GetDVMDBHashes(*pcustomcsview);
-            LogPrintf("Post-consolidate rewards for DVM hash: %s hash-no-undo: %s\n", hashHex, hashHexNoUndo);
+            auto [hashHex, hashHexNoUndo, hashHexAccount] = GetDVMDBHashes(*pcustomcsview);
+            LogPrintf("Post-consolidate rewards for DVM hash: %s hash-no-undo: %s hash-account: %s\n", hashHex, hashHexNoUndo, hashHexAccount);
         }
     }
 

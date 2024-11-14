@@ -25,6 +25,7 @@
 #include <validation.h>
 
 #include <consensus/params.h>
+#include <logging.h>
 #include <boost/asio.hpp>
 
 #define MILLI 0.001
@@ -1572,6 +1573,14 @@ void ConsolidateRewards(CCustomCSView &view,
     std::atomic<uint64_t> reportedTs{0};
 
     LogPrintf("%s: address count: %d concurrency: %d\n", __func__, owners.size(), nWorkers);
+
+    if (LogAcceptCategory(BCLog::ACCOUNTCONSOLIDATE)) {
+        UniValue logAddrJsonArr(UniValue::VARR);
+        for (auto &owner : owners) {
+            logAddrJsonArr.push_back(ScriptToString(owner));
+        }
+        LogPrintf("%s: addrs: %s\n", __func__, logAddrJsonArr.write(2));
+    }
 
     for (auto &owner : owners) {
         // See https://github.com/DeFiCh/ain/pull/1291

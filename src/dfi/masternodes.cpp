@@ -1436,7 +1436,7 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
     }
 }
 
-std::pair<std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
+std::tuple<std::string, std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
     auto db = view.GetStorage().GetStorageLevelDB()->GetDB();
 
     // Create a CDBIterator
@@ -1445,6 +1445,7 @@ std::pair<std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
     // Create SHA256 hashers
     CSHA256 hasher;
     CSHA256 hasherNoUndo;
+    CSHA256 hasherAccount;
 
     // Seek to the beginning of the database
     pcursor->SeekToFirst();
@@ -1456,9 +1457,15 @@ std::pair<std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
         auto valueSlice = pcursor->GetValue();
 
         const auto key = std::string(keySlice.data(), keySlice.size());
-        if (!key.empty() && key[0] != 'u') {
-            hasherNoUndo.Write((const unsigned char *)keySlice.data(), keySlice.size());
-            hasherNoUndo.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+        if (!key.empty()) {
+            if (key[0] != 'u') {
+                hasherNoUndo.Write((const unsigned char *)keySlice.data(), keySlice.size());
+                hasherNoUndo.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+            }
+            if (key[0] == 'a') {
+                hasherAccount.Write((const unsigned char *)keySlice.data(), keySlice.size());
+                hasherAccount.Write((const unsigned char *)valueSlice.data(), valueSlice.size());
+            }
         }
 
         hasher.Write((const unsigned char *)keySlice.data(), keySlice.size());
@@ -1474,12 +1481,15 @@ std::pair<std::string, std::string> GetDVMDBHashes(CCustomCSView &view) {
     // Finalize the hashes
     unsigned char hash[CSHA256::OUTPUT_SIZE];
     unsigned char hashNoUndo[CSHA256::OUTPUT_SIZE];
+    unsigned char hashAccount[CSHA256::OUTPUT_SIZE];
     hasher.Finalize(hash);
     hasherNoUndo.Finalize(hashNoUndo);
+    hasherAccount.Finalize(hashAccount);
 
     // Convert hashes to hex string
     const auto hashHex = HexStr(hash, hash + CSHA256::OUTPUT_SIZE);
     const auto hashHexNoUndo = HexStr(hashNoUndo, hashNoUndo + CSHA256::OUTPUT_SIZE);
+    const auto hashHexAccount = HexStr(hashAccount, hashAccount + CSHA256::OUTPUT_SIZE);
 
-    return {hashHex, hashHexNoUndo};
+    return {hashHex, hashHexNoUndo, hashHexAccount};
 }
