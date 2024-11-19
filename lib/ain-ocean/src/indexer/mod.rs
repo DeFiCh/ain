@@ -19,6 +19,8 @@ use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard, Vout
 use helper::check_if_evm_tx;
 use log::trace;
 pub use poolswap::PoolSwapAggregatedInterval;
+use loan_token::{index_active_price, invalidate_active_price};
+use poolswap::{index_pool_swap_aggregated, invalidate_pool_swap_aggregated};
 
 use crate::{
     error::{Error, IndexAction},
@@ -39,18 +41,6 @@ pub trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
-}
-
-pub trait IndexBlockStart: Index {
-    fn index_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-
-    fn invalidate_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-}
-
-pub trait IndexBlockEnd: Index {
-    fn index_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-
-    fn invalidate_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -538,6 +528,22 @@ pub fn get_block_height(services: &Arc<Services>) -> Result<u32> {
         .map_or(0, |block| block.height))
 }
 
+pub fn index_block_start(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    index_pool_swap_aggregated(services, block)
+}
+
+pub fn invalidate_block_start(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    invalidate_pool_swap_aggregated(services, block)
+}
+
+pub fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    index_active_price(services, block)
+}
+
+pub fn invalidate_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    invalidate_active_price(services, block)
+}
+
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     trace!("[index_block] Indexing block...");
     let start = Instant::now();
@@ -586,12 +592,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         }
     }
 
-    // index_block_start
-    for (dftx, _) in &dftxs {
-        if let DfTx::PoolSwap(data) = dftx.clone() {
-            data.index_block_start(services, &block_ctx)?
-        }
-    }
+    index_block_start(services, &block_ctx)?;
 
     // index_dftx
     for (dftx, ctx) in &dftxs {
@@ -615,12 +616,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         log_elapsed(start, "Indexed dftx");
     }
 
-    // index_block_end
-    for (dftx, _) in dftxs {
-        if let DfTx::SetLoanToken(data) = dftx {
-            data.index_block_end(services, &block_ctx)?
-        }
-    }
+    index_block_end(services, &block_ctx)?;
 
     let block_mapper = BlockMapper {
         hash: block_hash,
@@ -699,12 +695,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         }
     }
 
-    // invalidate_block_end
-    for (dftx, _) in &dftxs {
-        if let DfTx::SetLoanToken(data) = dftx.clone() {
-            data.invalidate_block_end(services, &block_ctx)?
-        }
-    }
+    invalidate_block_end(services, &block_ctx)?;
 
     // invalidate_dftx
     for (dftx, ctx) in &dftxs {
@@ -727,12 +718,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         log_elapsed(start, "Invalidate dftx");
     }
 
-    // invalidate_block_start
-    for (dftx, _) in &dftxs {
-        if let DfTx::PoolSwap(data) = dftx.clone() {
-            data.invalidate_block_start(services, &block_ctx)?
-        }
-    }
+    invalidate_block_start(services, &block_ctx)?;
 
     // invalidate_block
     services.block.by_height.delete(&block.height)?;

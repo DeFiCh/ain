@@ -32,16 +32,6 @@ impl Index for SetLoanToken {
     }
 }
 
-impl IndexBlockEnd for SetLoanToken {
-    fn index_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        index_active_price(services, block)
-    }
-
-    fn invalidate_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        invalidate_active_price(services, block)
-    }
-}
-
 fn is_aggregate_valid(aggregate: &OraclePriceAggregated, block: &BlockContext) -> bool {
     if (aggregate.block.time - block.time).abs() >= 3600 {
         return false;

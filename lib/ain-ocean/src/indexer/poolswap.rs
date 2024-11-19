@@ -182,67 +182,65 @@ fn create_new_bucket(
     Ok(())
 }
 
-impl IndexBlockStart for PoolSwap {
-    fn index_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
-        pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+pub fn index_pool_swap_aggregated(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
-        for interval in AGGREGATED_INTERVALS {
-            for pool_pair in &pool_pairs {
-                let repo = &services.pool_swap_aggregated;
+    for interval in AGGREGATED_INTERVALS {
+        for pool_pair in &pool_pairs {
+            let repo = &services.pool_swap_aggregated;
 
-                let prev = repo
-                    .by_key
-                    .list(
-                        Some((pool_pair.id, interval, i64::MAX)),
-                        SortOrder::Descending,
-                    )?
-                    .take_while(|item| match item {
-                        Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
-                        _ => true,
-                    })
-                    .next()
-                    .transpose()?;
+            let prev = repo
+                .by_key
+                .list(
+                    Some((pool_pair.id, interval, i64::MAX)),
+                    SortOrder::Descending,
+                )?
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
+                    _ => true,
+                })
+                .next()
+                .transpose()?;
 
-                let bucket = block.median_time - (block.median_time % interval as i64);
+            let bucket = block.median_time - (block.median_time % interval as i64);
 
-                let Some((_, prev_id)) = prev else {
-                    create_new_bucket(repo, bucket, pool_pair.id, interval, block)?;
-                    continue;
-                };
-
-                let Some(prev) = repo.by_id.get(&prev_id)? else {
-                    create_new_bucket(repo, bucket, pool_pair.id, interval, block)?;
-                    continue;
-                };
-
-                if prev.bucket >= bucket {
-                    break;
-                }
-
+            let Some((_, prev_id)) = prev else {
                 create_new_bucket(repo, bucket, pool_pair.id, interval, block)?;
-            }
-        }
+                continue;
+            };
 
-        Ok(())
+            let Some(prev) = repo.by_id.get(&prev_id)? else {
+                create_new_bucket(repo, bucket, pool_pair.id, interval, block)?;
+                continue;
+            };
+
+            if prev.bucket >= bucket {
+                break;
+            }
+
+            create_new_bucket(repo, bucket, pool_pair.id, interval, block)?;
+        }
     }
 
-    fn invalidate_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
-        pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+    Ok(())
+}
 
-        for interval in AGGREGATED_INTERVALS.into_iter().rev() {
-            for pool_pair in pool_pairs.iter().rev() {
-                let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
-                services
-                    .pool_swap_aggregated
-                    .by_id
-                    .delete(&pool_swap_aggregated_id)?;
-            }
+pub fn invalidate_pool_swap_aggregated(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+
+    for interval in AGGREGATED_INTERVALS.into_iter().rev() {
+        for pool_pair in pool_pairs.iter().rev() {
+            let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+            services
+                .pool_swap_aggregated
+                .by_id
+                .delete(&pool_swap_aggregated_id)?;
         }
-
-        Ok(())
     }
+
+    Ok(())
 }
 
 impl Index for PoolSwap {
