@@ -24,7 +24,7 @@ use super::{
 use crate::{
     error::{ApiError, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},

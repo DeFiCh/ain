@@ -6,7 +6,7 @@ use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
 use crate::{
-    indexer::{Context, Index, IndexBlockEnd, Result},
+    indexer::{Context, Index, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
     storage::{RepositoryOps, SortOrder},

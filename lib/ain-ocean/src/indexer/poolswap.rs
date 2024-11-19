@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use snafu::OptionExt;
 
-use super::{Context, IndexBlockStart};
+use super::Context;
 use crate::{
     error::{ArithmeticOverflowSnafu, ArithmeticUnderflowSnafu, Error, NotFoundKind},
     indexer::{tx_result, Index, Result},
