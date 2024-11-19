@@ -191,7 +191,7 @@ async fn get_feed(
     let (token, currency) = parse_token_currency(&key)?;
 
     let repo = &ctx.services.oracle_price_aggregated;
-    let id = (token.to_string(), currency.to_string(), u32::MAX);
+    let id = (token.to_string(), currency.to_string(), i64::MAX, u32::MAX);
     let oracle_aggregated = repo
         .by_id
         .list(Some(id), SortOrder::Descending)?
@@ -467,6 +467,7 @@ async fn list_price_oracles(
                     token.clone(),
                     currency.clone(),
                     oracle_id,
+                    u32::MAX,
                     Txid::from_byte_array([0xffu8; 32]),
                 )),
                 SortOrder::Descending,
@@ -490,11 +491,12 @@ async fn list_price_oracles(
                 let token = id.0;
                 let currency = id.1;
                 let oracle_id = id.2;
-                let txid = id.3;
+                let height = id.3;
+                let txid = id.4;
                 OraclePriceFeedResponse {
                     id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
                     key: format!("{}-{}-{}", token, currency, oracle_id),
-                    sort: hex::encode(f.block.height.to_string() + &txid.to_string()),
+                    sort: hex::encode(height.to_string() + &txid.to_string()),
                     token: token.clone(),
                     currency: currency.clone(),
                     oracle_id,

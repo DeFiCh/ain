@@ -169,7 +169,7 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let id = (ticker_id.0, ticker_id.1, u32::MAX);
+    let id = (ticker_id.0.clone(), ticker_id.1.clone(), i64::MAX, u32::MAX);
 
     let prev = services
         .oracle_price_aggregated
@@ -182,6 +182,7 @@ pub fn perform_active_price_tick(
         return Ok(());
     };
 
+    let id = (ticker_id.0, ticker_id.1, u32::MAX);
     let repo = &services.oracle_price_active;
     let prev = repo
         .by_id
