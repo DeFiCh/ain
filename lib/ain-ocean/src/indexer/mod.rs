@@ -17,9 +17,9 @@ use std::{
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard, Vout};
 use helper::check_if_evm_tx;
+use loan_token::{index_active_price, invalidate_active_price};
 use log::trace;
 pub use poolswap::PoolSwapAggregatedInterval;
-use loan_token::{index_active_price, invalidate_active_price};
 use poolswap::{index_pool_swap_aggregated, invalidate_pool_swap_aggregated};
 
 use crate::{

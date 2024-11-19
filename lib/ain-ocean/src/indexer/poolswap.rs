@@ -226,7 +226,10 @@ pub fn index_pool_swap_aggregated(services: &Arc<Services>, block: &BlockContext
     Ok(())
 }
 
-pub fn invalidate_pool_swap_aggregated(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+pub fn invalidate_pool_swap_aggregated(
+    services: &Arc<Services>,
+    block: &BlockContext,
+) -> Result<()> {
     let mut pool_pairs = ain_cpp_imports::get_pool_pairs();
     pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 

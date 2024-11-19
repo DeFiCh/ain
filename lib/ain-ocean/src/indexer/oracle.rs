@@ -301,7 +301,10 @@ fn map_price_aggregated(
         let feed = services
             .oracle_price_feed
             .by_id
-            .list(Some((id.0, id.1, id.2, u32::MAX, base_id)), SortOrder::Descending)?
+            .list(
+                Some((id.0, id.1, id.2, u32::MAX, base_id)),
+                SortOrder::Descending,
+            )?
             .next()
             .transpose()?;
 
@@ -450,7 +453,12 @@ impl Index for SetOracleData {
         let feeds = map_price_feeds(self, context);
 
         for ((token, currency, _, _, _), _) in feeds.iter().rev() {
-            let id = (token.clone(), currency.clone(), context.block.median_time, context.block.height);
+            let id = (
+                token.clone(),
+                currency.clone(),
+                context.block.median_time,
+                context.block.height,
+            );
 
             let aggregated = oracle_repo.by_id.get(&id)?;
 

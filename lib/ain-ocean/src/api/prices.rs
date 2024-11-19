@@ -259,25 +259,21 @@ impl OraclePriceActiveResponse {
             id: format!("{}-{}-{}", token, currency, v.block.height),
             key: format!("{}-{}", token, currency),
             sort: hex::encode(v.block.height.to_be_bytes()).to_string(),
-            active: v.active.map(|active| {
-                OraclePriceActiveNextResponse {
-                    amount: format!("{:.8}", active.amount / Decimal::from(COIN)),
-                    weightage: active.weightage,
-                    oracles: OraclePriceActiveNextOraclesResponse {
-                        active: active.oracles.active.to_i32().unwrap_or_default(),
-                        total: active.oracles.total,
-                    }
-                }
+            active: v.active.map(|active| OraclePriceActiveNextResponse {
+                amount: format!("{:.8}", active.amount / Decimal::from(COIN)),
+                weightage: active.weightage,
+                oracles: OraclePriceActiveNextOraclesResponse {
+                    active: active.oracles.active.to_i32().unwrap_or_default(),
+                    total: active.oracles.total,
+                },
             }),
-            next: v.next.map(|next| {
-                OraclePriceActiveNextResponse {
-                    amount: format!("{:.8}", next.amount / Decimal::from(COIN)),
-                    weightage: next.weightage,
-                    oracles: OraclePriceActiveNextOraclesResponse {
-                        active: next.oracles.active.to_i32().unwrap_or_default(),
-                        total: next.oracles.total,
-                    }
-                }
+            next: v.next.map(|next| OraclePriceActiveNextResponse {
+                amount: format!("{:.8}", next.amount / Decimal::from(COIN)),
+                weightage: next.weightage,
+                oracles: OraclePriceActiveNextOraclesResponse {
+                    active: next.oracles.active.to_i32().unwrap_or_default(),
+                    total: next.oracles.total,
+                },
             }),
             is_live: v.is_live,
             block: v.block,
