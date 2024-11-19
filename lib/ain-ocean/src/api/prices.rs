@@ -24,7 +24,7 @@ use super::{
 use crate::{
     error::{ApiError, OtherSnafu},
     model::{
-        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNext,
+        BlockContext, OracleIntervalSeconds, OraclePriceActive, OraclePriceActiveNextOracles,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
@@ -235,12 +235,20 @@ async fn get_feed(
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct OraclePriceActiveNextResponse {
+    pub amount: String, // convert to logical amount
+    pub weightage: Decimal,
+    pub oracles: OraclePriceActiveNextOraclesResponse,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveResponse {
     pub id: String,   // token-currency-height
     pub key: String,  // token-currency
     pub sort: String, // height
-    pub active: Option<OraclePriceActiveNext>,
-    pub next: Option<OraclePriceActiveNext>,
+    pub active: Option<OraclePriceActiveNextResponse>,
+    pub next: Option<OraclePriceActiveNextResponse>,
     pub is_live: bool,
     pub block: BlockContext,
 }
@@ -251,8 +259,26 @@ impl OraclePriceActiveResponse {
             id: format!("{}-{}-{}", token, currency, v.block.height),
             key: format!("{}-{}", token, currency),
             sort: hex::encode(v.block.height.to_be_bytes()).to_string(),
-            active: v.active,
-            next: v.next,
+            active: v.active.map(|active| {
+                OraclePriceActiveNextResponse {
+                    amount: format!("{:.8}", active.amount / Decimal::from(COIN)),
+                    weightage: active.weightage,
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: active.oracles.active.to_i32().unwrap_or_default(),
+                        total: active.oracles.total,
+                    }
+                }
+            }),
+            next: v.next.map(|next| {
+                OraclePriceActiveNextResponse {
+                    amount: format!("{:.8}", next.amount / Decimal::from(COIN)),
+                    weightage: next.weightage,
+                    oracles: OraclePriceActiveNextOraclesResponse {
+                        active: next.oracles.active.to_i32().unwrap_or_default(),
+                        total: next.oracles.total,
+                    }
+                }
+            }),
             is_live: v.is_live,
             block: v.block,
         }
