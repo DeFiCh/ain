@@ -13,7 +13,7 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
-use super::{subsidy::BLOCK_SUBSIDY, COIN};
+use super::{subsidy::BlockSubsidy, COIN};
 use crate::{
     api::{
         cache::list_pool_pairs_cached,
@@ -177,9 +177,9 @@ pub struct Emission {
     key = "String",
     convert = r#"{ format!("emission") }"#
 )]
-pub fn get_emission(height: u32) -> Result<Emission> {
-    let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
-        .context(DecimalConversionSnafu)?;
+pub fn get_emission(subsidy: &BlockSubsidy, height: u32) -> Result<Emission> {
+    let subsidy =
+        Decimal::from_u64(subsidy.get_block_subsidy(height)).context(DecimalConversionSnafu)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let masternode = distribution.masternode;
