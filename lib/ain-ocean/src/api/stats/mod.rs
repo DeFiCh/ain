@@ -1,6 +1,6 @@
 mod cache;
 mod distribution;
-mod subsidy;
+pub mod subsidy;
 
 use std::sync::Arc;
 
@@ -21,7 +21,6 @@ use self::{
         get_price, get_tvl, Burned, Count, Emission, Loan, Masternodes, Price, Tvl,
     },
     distribution::get_block_reward_distribution,
-    subsidy::BLOCK_SUBSIDY,
 };
 use super::{cache::get_network_info_cached, response::Response, AppContext};
 use crate::{
@@ -82,7 +81,7 @@ async fn get_stats(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respons
             blocks: height,
             ..get_count(&ctx).await?
         },
-        emission: get_emission(height)?,
+        emission: get_emission(&ctx.block_subsidy, height)?,
         blockchain: Blockchain { difficulty },
         loan: get_loan(&ctx.client).await?,
         price: get_price(&ctx).await?,
@@ -116,7 +115,7 @@ async fn get_reward_distribution(
         .map(|b| b.height)
         .unwrap_or_default(); // Default to genesis block
 
-    let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
+    let subsidy = Decimal::from_u64(ctx.block_subsidy.get_block_subsidy(height))
         .context(DecimalConversionSnafu)?;
     let distribution = get_block_reward_distribution(subsidy);
 
@@ -152,7 +151,7 @@ async fn get_supply(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respon
         .map(|b| b.height)
         .unwrap_or_default(); // Default to genesis block
 
-    let total = Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height))
+    let total = Decimal::from_u64(ctx.block_subsidy.get_supply(height))
         .context(DecimalConversionSnafu)?
         / Decimal::from(COIN);
 

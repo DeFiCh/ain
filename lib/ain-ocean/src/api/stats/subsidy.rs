@@ -1,9 +1,15 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
+
+use crate::network::Network;
 
 lazy_static::lazy_static! {
     // TODO handle networks
     // Global service caching all block subsidy reductions
-    pub static ref BLOCK_SUBSIDY: BlockSubsidy = BlockSubsidy::new(TEST_NET_COINBASE_SUBSIDY_OPTIONS);
+    pub static ref BLOCK_SUBSIDY: HashMap<Network, BlockSubsidy> = HashMap::from([
+        (Network::Mainnet, BlockSubsidy::new(MAIN_NET_COINBASE_SUBSIDY_OPTIONS)),
+        (Network::Testnet, BlockSubsidy::new(TEST_NET_COINBASE_SUBSIDY_OPTIONS))]);
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -17,7 +23,6 @@ pub struct CoinbaseSubsidyOptions {
     emission_reduction_interval: u64,
 }
 
-#[allow(dead_code)]
 pub static MAIN_NET_COINBASE_SUBSIDY_OPTIONS: CoinbaseSubsidyOptions = CoinbaseSubsidyOptions {
     eunos_height: 894_000,
     genesis_block_subsidy: 59_100_003_000_000_000,
@@ -38,10 +43,17 @@ pub static TEST_NET_COINBASE_SUBSIDY_OPTIONS: CoinbaseSubsidyOptions = CoinbaseS
     emission_reduction_interval: 32690,
 };
 
+#[derive(Clone)]
 pub struct BlockSubsidy {
     reduction_block_subsidies: Vec<u64>,
     reduction_supply_milestones: Vec<u64>,
     options: CoinbaseSubsidyOptions,
+}
+
+impl Default for BlockSubsidy {
+    fn default() -> Self {
+        Self::new(MAIN_NET_COINBASE_SUBSIDY_OPTIONS)
+    }
 }
 
 impl BlockSubsidy {

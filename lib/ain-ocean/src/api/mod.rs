@@ -34,6 +34,7 @@ mod transactions;
 use defichain_rpc::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use stats::subsidy::{BlockSubsidy, BLOCK_SUBSIDY};
 
 use crate::{network::Network, Result, Services};
 
@@ -64,6 +65,7 @@ pub struct AppContext {
     services: Arc<Services>,
     client: Arc<Client>,
     network: Network,
+    pub block_subsidy: BlockSubsidy,
 }
 
 // NOTE(canonbrother): manually scratch cors since CorsLayer + Axum can only be supported in `tower-http 0.5`
@@ -93,10 +95,12 @@ pub async fn ocean_router(
     client: Arc<Client>,
     network: String,
 ) -> Result<Router> {
+    let network = Network::from_str(&network)?;
     let context = Arc::new(AppContext {
         client,
         services: services.clone(),
-        network: Network::from_str(&network)?,
+        block_subsidy: BLOCK_SUBSIDY.get(&network).cloned().unwrap_or_default(),
+        network,
     });
     let main_router = Router::new()
         .nest("/address/", address::router(Arc::clone(&context)))
