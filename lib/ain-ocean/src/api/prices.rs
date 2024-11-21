@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -22,7 +22,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, OtherSnafu},
+    error::{ApiError, Error, OtherSnafu},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
@@ -189,9 +189,22 @@ async fn get_feed(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
+    let next = query
+        .next
+        .map(|q| {
+            let median_time = &q[..16];
+            let height = &q[16..];
+
+            let median_time = median_time.parse::<i64>()?;
+            let height = height.parse::<u32>()?;
+            Ok::<(i64, u32), Error>((median_time, height))
+        })
+        .transpose()?
+        .unwrap_or((i64::MAX, u32::MAX));
+
 
     let repo = &ctx.services.oracle_price_aggregated;
-    let id = (token.to_string(), currency.to_string(), i64::MAX, u32::MAX);
+    let id = (token.clone(), currency.clone(), next.0, next.1);
     let oracle_aggregated = repo
         .by_id
         .list(Some(id), SortOrder::Descending)?
@@ -289,7 +302,16 @@ async fn get_feed_active(
 ) -> Result<ApiPagedResponse<OraclePriceActiveResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let id = (token.clone(), currency.clone(), u32::MAX);
+    let next = query
+        .next
+        .map(|q| {
+            let height = q.parse::<u32>()?;
+            Ok::<u32, Error>(height)
+        })
+        .transpose()?
+        .unwrap_or(u32::MAX);
+
+    let id = (token.clone(), currency.clone(), next);
     let price_active = ctx
         .services
         .oracle_price_active
@@ -355,11 +377,21 @@ async fn get_feed_with_interval(
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
+
+    let next = query
+        .next
+        .map(|q| {
+            let height = q.parse::<u32>()?;
+            Ok::<u32, Error>(height)
+        })
+        .transpose()?
+        .unwrap_or(u32::MAX);
+
     let id = (
         token.clone(),
         currency.clone(),
         interval_type.clone(),
-        u32::MAX,
+        next,
     );
 
     let items = ctx
@@ -434,10 +466,20 @@ async fn list_price_oracles(
 ) -> Result<ApiPagedResponse<PriceOracleResponse>> {
     let (token, currency) = parse_token_currency(&key)?;
 
+    let next = query
+        .next
+        .map(|q| {
+            let oracle_id = Txid::from_str(&q)?;
+            Ok::<Txid, Error>(oracle_id)
+        })
+        .transpose()?
+        .unwrap_or(Txid::from_byte_array([0xffu8; 32]));
+
+
     let id = (
         token.clone(),
         currency.clone(),
-        Txid::from_byte_array([0xffu8; 32]),
+        next,
     );
     let token_currencies = ctx
         .services
