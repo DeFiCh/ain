@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-pub type OraclePriceAggregatedIntervalId = (Token, Currency, OracleIntervalSeconds, u32); //token-currency-interval-height
+pub type OraclePriceAggregatedIntervalId = (Token, Currency, OracleIntervalSeconds, [u8; 4]); //token-currency-interval-height
 
 pub const FIFTEEN_MINUTES: isize = 15 * 60;
 pub const ONE_HOUR: isize = 60 * 60;

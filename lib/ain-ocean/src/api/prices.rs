@@ -195,12 +195,12 @@ async fn get_feed(
             let median_time = &q[..16];
             let height = &q[16..];
 
-            let median_time = median_time.parse::<i64>()?;
-            let height = height.parse::<u32>()?;
-            Ok::<(i64, u32), Error>((median_time, height))
+            let median_time = median_time.parse::<i64>()?.to_be_bytes();
+            let height = height.parse::<u32>()?.to_be_bytes();
+            Ok::<([u8; 8], [u8; 4]), Error>((median_time, height))
         })
         .transpose()?
-        .unwrap_or((i64::MAX, u32::MAX));
+        .unwrap_or(([0xffu8; 8], [0xffu8; 4]));
 
 
     let repo = &ctx.services.oracle_price_aggregated;
@@ -216,7 +216,7 @@ async fn get_feed(
         .map(|item| {
             let (k, v) = item?;
             let res = OraclePriceAggregatedResponse {
-                id: format!("{}-{}-{}", k.0, k.1, k.2),
+                id: format!("{}-{}-{}", k.0, k.1, i64::from_be_bytes(k.2)),
                 key: format!("{}-{}", k.0, k.1),
                 sort: format!(
                     "{}{}",
@@ -305,11 +305,11 @@ async fn get_feed_active(
     let next = query
         .next
         .map(|q| {
-            let height = q.parse::<u32>()?;
-            Ok::<u32, Error>(height)
+            let height = q.parse::<u32>()?.to_be_bytes();
+            Ok::<[u8; 4], Error>(height)
         })
         .transpose()?
-        .unwrap_or(u32::MAX);
+        .unwrap_or([0xffu8; 4]);
 
     let id = (token.clone(), currency.clone(), next);
     let price_active = ctx
@@ -381,11 +381,11 @@ async fn get_feed_with_interval(
     let next = query
         .next
         .map(|q| {
-            let height = q.parse::<u32>()?;
-            Ok::<u32, Error>(height)
+            let height = q.parse::<u32>()?.to_be_bytes();
+            Ok::<[u8; 4], Error>(height)
         })
         .transpose()?
-        .unwrap_or(u32::MAX);
+        .unwrap_or([0xffu8; 4]);
 
     let id = (
         token.clone(),
@@ -412,9 +412,10 @@ async fn get_feed_with_interval(
     let mut prices = Vec::new();
     for (id, item) in items {
         let start = item.block.median_time - (item.block.median_time % interval);
+        let height = u32::from_be_bytes(id.3);
 
         let price = OraclePriceAggregatedIntervalResponse {
-            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, id.3),
+            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, height),
             key: format!("{}-{}-{:?}", id.0, id.1, id.2),
             sort: format!(
                 "{}{}",
@@ -505,7 +506,7 @@ async fn list_price_oracles(
                     token.clone(),
                     currency.clone(),
                     oracle_id,
-                    u32::MAX,
+                    [0xffu8; 4],
                     Txid::from_byte_array([0xffu8; 32]),
                 )),
                 SortOrder::Descending,
@@ -529,7 +530,7 @@ async fn list_price_oracles(
                 let token = id.0;
                 let currency = id.1;
                 let oracle_id = id.2;
-                let height = id.3;
+                let height = u32::from_be_bytes(id.3);
                 let txid = id.4;
                 OraclePriceFeedResponse {
                     id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),

@@ -138,7 +138,11 @@ fn get_active_price(
         .services
         .oracle_price_active
         .by_id
-        .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+        .list(Some((token.clone(), currency.clone(), [0xffu8; 4])), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == token && k.1 == currency,
+            _ => true,
+        })
         .next()
         .map(|item| {
             let (_, v) = item?;
@@ -264,7 +268,7 @@ async fn list_loan_token(
                 .services
                 .oracle_price_active
                 .by_id
-                .list(Some((token, currency, u32::MAX)), SortOrder::Descending)?
+                .list(Some((token, currency, [0xffu8; 4])), SortOrder::Descending)?
                 .next()
                 .map(|item| {
                     let (_, v) = item?;
@@ -671,7 +675,7 @@ async fn map_liquidation_batches(
         let id = (
             Txid::from_str(vault_id)?,
             batch.index.to_be_bytes(),
-            [0xffu8, 0xffu8, 0xffu8, 0xffu8],
+            [0xffu8; 4],
             Txid::from_byte_array([0xffu8; 32]),
         );
         let bids = repo
@@ -733,7 +737,7 @@ async fn map_token_amounts(
             .oracle_price_active
             .by_id
             .list(
-                Some((token_info.symbol.clone(), "USD".to_string(), u32::MAX)),
+                Some((token_info.symbol.clone(), "USD".to_string(), [0xffu8; 4])),
                 SortOrder::Descending,
             )?
             .take_while(|item| match item {

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type OracleHistoryId = (Txid, u32); //oracleId-height
+pub type OracleHistoryId = (Txid, [u8; 4]); //oracleId-height
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

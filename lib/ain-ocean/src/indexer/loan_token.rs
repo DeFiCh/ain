@@ -25,7 +25,7 @@ impl Index for SetLoanToken {
         let ticker_id = (
             self.currency_pair.token.clone(),
             self.currency_pair.currency.clone(),
-            context.block.height,
+            context.block.height.to_be_bytes(),
         );
         services.oracle_price_active.by_id.delete(&ticker_id)?;
         Ok(())
@@ -147,7 +147,7 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
             services
                 .oracle_price_active
                 .by_id
-                .delete(&(token, currency, block.height))?;
+                .delete(&(token, currency, block.height.to_be_bytes()))?;
         }
     }
 
@@ -159,7 +159,7 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let id = (ticker_id.0.clone(), ticker_id.1.clone(), i64::MAX, u32::MAX);
+    let id = (ticker_id.0.clone(), ticker_id.1.clone(), [0xffu8; 8], [0xffu8; 4]);
 
     let prev = services
         .oracle_price_aggregated
@@ -172,7 +172,7 @@ pub fn perform_active_price_tick(
         return Ok(());
     };
 
-    let id = (ticker_id.0, ticker_id.1, u32::MAX);
+    let id = (ticker_id.0, ticker_id.1, [0xffu8; 4]);
     let repo = &services.oracle_price_active;
     let prev = repo
         .by_id
@@ -188,7 +188,7 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, aggregated_price, prev_price);
 
-    repo.by_id.put(&(id.0, id.1, block.height), &active_price)?;
+    repo.by_id.put(&(id.0, id.1, block.height.to_be_bytes()), &active_price)?;
 
     Ok(())
 }

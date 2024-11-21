@@ -111,7 +111,7 @@ async fn get_feed(
             OraclePriceFeedResponse {
                 id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
                 key: format!("{}-{}-{}", token, currency, oracle_id),
-                sort: hex::encode(height.to_string() + &txid.to_string()),
+                sort: hex::encode(u32::from_be_bytes(height).to_string() + &txid.to_string()),
                 token,
                 currency,
                 oracle_id,
