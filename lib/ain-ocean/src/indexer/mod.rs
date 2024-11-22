@@ -317,7 +317,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
-            .list(Some((aggregation.hid, u32::MAX)), SortOrder::Descending)?
+            .list(Some((aggregation.hid, [0xffu8; 4])), SortOrder::Descending)?
             .take(1)
             .take_while(|item| match item {
                 Ok(((hid, _), _)) => &aggregation.hid == hid,
@@ -342,7 +342,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
 
         repo.by_id
-            .put(&(aggregation.hid, ctx.block.height), &aggregation)?;
+            .put(&(aggregation.hid, ctx.block.height.to_be_bytes()), &aggregation)?;
 
         record.insert(aggregation.hid, aggregation);
     }
@@ -404,7 +404,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
         services
             .script_aggregation
             .by_id
-            .delete(&(hid, block.height))?
+            .delete(&(hid, block.height.to_be_bytes()))?
     }
 
     Ok(())

@@ -173,7 +173,7 @@ fn get_latest_aggregation(
         .services
         .script_aggregation
         .by_id
-        .list(Some((hid, u32::MAX)), SortOrder::Descending)?
+        .list(Some((hid, [0xffu8; 4])), SortOrder::Descending)?
         .take(1)
         .take_while(|item| match item {
             Ok(((v, _), _)) => v == &hid,
