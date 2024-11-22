@@ -460,16 +460,12 @@ async fn list_transaction_unspent(
             let txid = Txid::from_str(txid)?;
             let decoded_n = hex::decode(n)?;
             let n = decoded_n.try_into().map_err(|_| Error::Other {
-                msg: format!("Invalid txno: {}", n)
+                msg: format!("Invalid txno: {}", n),
             })?;
             Ok::<([u8; 4], Txid, [u8; 8]), Error>((height, txid, n))
         })
         .transpose()?
-        .unwrap_or((
-            [0u8; 4],
-            Txid::from_byte_array([0x00u8; 32]),
-            [0u8; 8],
-        ));
+        .unwrap_or(([0u8; 4], Txid::from_byte_array([0x00u8; 32]), [0u8; 8]));
 
     let res = ctx
         .services

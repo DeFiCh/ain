@@ -144,10 +144,11 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
             .collect::<Vec<_>>();
 
         for ((token, currency), _) in price_tickers.into_iter().rev() {
-            services
-                .oracle_price_active
-                .by_id
-                .delete(&(token, currency, block.height.to_be_bytes()))?;
+            services.oracle_price_active.by_id.delete(&(
+                token,
+                currency,
+                block.height.to_be_bytes(),
+            ))?;
         }
     }
 
@@ -159,7 +160,12 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let id = (ticker_id.0.clone(), ticker_id.1.clone(), [0xffu8; 8], [0xffu8; 4]);
+    let id = (
+        ticker_id.0.clone(),
+        ticker_id.1.clone(),
+        [0xffu8; 8],
+        [0xffu8; 4],
+    );
 
     let prev = services
         .oracle_price_aggregated
@@ -188,7 +194,8 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, aggregated_price, prev_price);
 
-    repo.by_id.put(&(id.0, id.1, block.height.to_be_bytes()), &active_price)?;
+    repo.by_id
+        .put(&(id.0, id.1, block.height.to_be_bytes()), &active_price)?;
 
     Ok(())
 }

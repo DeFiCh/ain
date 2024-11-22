@@ -550,7 +550,12 @@ pub fn index_interval_mapper(
     let previous = repo
         .by_id
         .list(
-            Some((token.clone(), currency.clone(), interval.clone(), [0xffu8; 4])),
+            Some((
+                token.clone(),
+                currency.clone(),
+                interval.clone(),
+                [0xffu8; 4],
+            )),
             SortOrder::Descending,
         )?
         .take_while(|item| match item {

@@ -202,7 +202,6 @@ async fn get_feed(
         .transpose()?
         .unwrap_or(([0xffu8; 8], [0xffu8; 4]));
 
-
     let repo = &ctx.services.oracle_price_aggregated;
     let id = (token.clone(), currency.clone(), next.0, next.1);
     let oracle_aggregated = repo
@@ -387,12 +386,7 @@ async fn get_feed_with_interval(
         .transpose()?
         .unwrap_or([0xffu8; 4]);
 
-    let id = (
-        token.clone(),
-        currency.clone(),
-        interval_type.clone(),
-        next,
-    );
+    let id = (token.clone(), currency.clone(), interval_type.clone(), next);
 
     let items = ctx
         .services
@@ -476,12 +470,7 @@ async fn list_price_oracles(
         .transpose()?
         .unwrap_or(Txid::from_byte_array([0xffu8; 32]));
 
-
-    let id = (
-        token.clone(),
-        currency.clone(),
-        next,
-    );
+    let id = (token.clone(), currency.clone(), next);
     let token_currencies = ctx
         .services
         .oracle_token_currency

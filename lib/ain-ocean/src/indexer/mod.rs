@@ -160,7 +160,11 @@ fn index_script_unspent_vin(
     vin: &VinStandard,
     ctx: &Context,
 ) -> Result<()> {
-    let key = (ctx.block.height.to_be_bytes(), vin.txid, vin.vout.to_be_bytes());
+    let key = (
+        ctx.block.height.to_be_bytes(),
+        vin.txid,
+        vin.vout.to_be_bytes(),
+    );
     let id = services.script_unspent.by_key.get(&key)?;
     if let Some(id) = id {
         services.script_unspent.by_id.delete(&id)?;
@@ -255,7 +259,12 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
         },
     };
 
-    let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n.to_be_bytes());
+    let id = (
+        hid,
+        block.height.to_be_bytes(),
+        tx.txid,
+        vout.n.to_be_bytes(),
+    );
     let key = (block.height.to_be_bytes(), tx.txid, vout.n.to_be_bytes());
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
@@ -341,8 +350,10 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
 
-        repo.by_id
-            .put(&(aggregation.hid, ctx.block.height.to_be_bytes()), &aggregation)?;
+        repo.by_id.put(
+            &(aggregation.hid, ctx.block.height.to_be_bytes()),
+            &aggregation,
+        )?;
 
         record.insert(aggregation.hid, aggregation);
     }
@@ -496,8 +507,17 @@ fn invalidate_script_unspent_vout(
     vout: &Vout,
 ) -> Result<()> {
     let hid = as_sha256(&vout.script_pub_key.hex);
-    let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n.to_be_bytes());
-    let key = (ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n.to_be_bytes());
+    let id = (
+        hid,
+        ctx.block.height.to_be_bytes(),
+        ctx.tx.txid,
+        vout.n.to_be_bytes(),
+    );
+    let key = (
+        ctx.block.height.to_be_bytes(),
+        ctx.tx.txid,
+        vout.n.to_be_bytes(),
+    );
     services.script_unspent.by_id.delete(&id)?;
     services.script_unspent.by_key.delete(&key)?;
 
