@@ -175,6 +175,28 @@ define_table! {
     pub struct OracleHistory {
         key_type = model::OracleHistoryId,
         value_type = model::Oracle,
+        custom_key = {
+            fn key(index: &Self::Index) -> DBResult<Vec<u8>> {
+                let (txid, height) = index; // txid, u32
+                let mut vec = txid.as_byte_array().to_vec();
+                vec.extend_from_slice(&height.to_be_bytes());
+                Ok(vec)
+            }
+
+            fn get_key(raw_key: Box<[u8]>) -> DBResult<Self::Index> {
+                if raw_key.len() != 36 {
+                    return Err(DBError::WrongKeyLength);
+                }
+                let mut txid_array = [0u8; 32];
+                txid_array.copy_from_slice(&raw_key[..32]);
+                let mut height_array = [0u8; 4];
+                height_array.copy_from_slice(&raw_key[32..]);
+
+                let txid = Txid::from_byte_array(txid_array);
+                let height = u32::from_be_bytes(height_array);
+                Ok((txid, height))
+            }
+        },
     }
 }
 

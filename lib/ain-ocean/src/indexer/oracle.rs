@@ -53,7 +53,7 @@ impl Index for AppointOracle {
         };
         services.oracle.by_id.put(&oracle_id, &oracle)?;
 
-        let oracle_history_id = (oracle_id, ctx.block.height.to_be_bytes());
+        let oracle_history_id = (oracle_id, ctx.block.height);
         services
             .oracle_history
             .by_id
@@ -88,7 +88,7 @@ impl Index for AppointOracle {
         services
             .oracle_history
             .by_id
-            .delete(&(oracle_id, context.block.height.to_be_bytes()))?;
+            .delete(&(oracle_id, context.block.height))?;
 
         for currency_pair in self.price_feeds.iter().rev() {
             let token_currency_id = (
@@ -184,7 +184,7 @@ impl Index for UpdateOracle {
         services
             .oracle_history
             .by_id
-            .put(&(oracle_id, ctx.block.height.to_be_bytes()), &oracle)?;
+            .put(&(oracle_id, ctx.block.height), &oracle)?;
 
         let (_, previous) =
             get_previous_oracle(services, oracle_id)?.context(NotFoundIndexSnafu {
@@ -220,7 +220,7 @@ impl Index for UpdateOracle {
         services
             .oracle_history
             .by_id
-            .delete(&(oracle_id, context.block.height.to_be_bytes()))?;
+            .delete(&(oracle_id, context.block.height))?;
 
         let price_feeds = self.price_feeds.as_ref();
         for pair in price_feeds.iter().rev() {
@@ -739,7 +739,7 @@ fn get_previous_oracle(
     let previous = services
         .oracle_history
         .by_id
-        .list(Some((oracle_id, [0xffu8; 4])), SortOrder::Descending)?
+        .list(Some((oracle_id, u32::MAX)), SortOrder::Descending)?
         .next()
         .transpose()?;
 
