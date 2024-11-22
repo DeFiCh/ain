@@ -94,6 +94,28 @@ define_table! {
     pub struct MasternodeByHeight {
         key_type = (u32, Txid),
         value_type = u8,
+        custom_key = {
+            fn key(index: &Self::Index) -> DBResult<Vec<u8>> {
+                let (height, txid) = index;
+                let mut vec = height.to_be_bytes().to_vec();
+                vec.extend_from_slice(txid.as_byte_array().to_vec().as_ref());
+                Ok(vec)
+            }
+
+            fn get_key(raw_key: Box<[u8]>) -> DBResult<Self::Index> {
+                if raw_key.len() != 36 {
+                    return Err(DBError::WrongKeyLength);
+                }
+                let mut height_array = [0u8; 4];
+                height_array.copy_from_slice(&raw_key[..4]);
+                let mut txid_array = [0u8; 32];
+                txid_array.copy_from_slice(&raw_key[4..]);
+
+                let height = u32::from_be_bytes(height_array);
+                let txid = Txid::from_byte_array(txid_array);
+                Ok((height, txid))
+            }
+        },
     }
 }
 
@@ -201,6 +223,40 @@ define_table! {
     pub struct PoolSwap {
         key_type = model::PoolSwapKey,
         value_type = model::PoolSwap,
+        custom_key = {
+            fn key(index: &Self::Index) -> DBResult<Vec<u8>> {
+                let (pool_id, height, txno) = index; // u32, u32, usize
+                let mut vec = Vec::with_capacity(16);
+                vec.extend_from_slice(&pool_id.to_be_bytes());
+                vec.extend_from_slice(&height.to_be_bytes());
+                vec.extend_from_slice(&txno.to_be_bytes());
+                Ok(vec)
+            }
+
+            fn get_key(raw_key: Box<[u8]>) -> DBResult<Self::Index> {
+                if raw_key.len() != 16 {
+                    return Err(DBError::WrongKeyLength);
+                }
+                let pool_id = u32::from_be_bytes(
+                    raw_key[0..4]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let height = u32::from_be_bytes(
+                    raw_key[4..8]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let txno = usize::from_be_bytes(
+                    raw_key[8..]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+
+                Ok((pool_id, height, txno))
+            }
+
+        },
     },
     InitialKeyProvider = |pk: u32| (pk, u32::MAX, usize::MAX)
 }
@@ -210,6 +266,37 @@ define_table! {
     pub struct PoolSwapAggregated {
         key_type = model::PoolSwapAggregatedId,
         value_type = model::PoolSwapAggregated,
+        custom_key = {
+            fn key(index: &Self::Index) -> DBResult<Vec<u8>> {
+                let (pool_id, interval, hash) = index; // u32, u32, hash
+                let mut vec = Vec::with_capacity(40);
+                vec.extend_from_slice(&pool_id.to_be_bytes());
+                vec.extend_from_slice(&interval.to_be_bytes());
+                vec.extend_from_slice(hash.as_byte_array().to_vec().as_ref());
+                Ok(vec)
+            }
+
+            fn get_key(raw_key: Box<[u8]>) -> DBResult<Self::Index> {
+                if raw_key.len() != 40 {
+                    return Err(DBError::WrongKeyLength);
+                }
+                let pool_id = u32::from_be_bytes(
+                    raw_key[0..4]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let interval = u32::from_be_bytes(
+                    raw_key[4..8]
+                        .try_into()
+                        .map_err(|_| DBError::WrongKeyLength)?,
+                );
+                let mut hash_array = [0u8; 32];
+                hash_array.copy_from_slice(&raw_key[..32]);
+                let hash = BlockHash::from_byte_array(hash_array);
+
+                Ok((pool_id, interval, hash))
+                }
+            },
     }
 }
 
