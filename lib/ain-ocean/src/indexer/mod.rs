@@ -160,7 +160,7 @@ fn index_script_unspent_vin(
     vin: &VinStandard,
     ctx: &Context,
 ) -> Result<()> {
-    let key = (ctx.block.height.to_be_bytes(), vin.txid, vin.vout);
+    let key = (ctx.block.height.to_be_bytes(), vin.txid, vin.vout.to_be_bytes());
     let id = services.script_unspent.by_key.get(&key)?;
     if let Some(id) = id {
         services.script_unspent.by_id.delete(&id)?;
@@ -255,8 +255,8 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
         },
     };
 
-    let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n);
-    let key = (block.height.to_be_bytes(), tx.txid, vout.n);
+    let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n.to_be_bytes());
+    let key = (block.height.to_be_bytes(), tx.txid, vout.n.to_be_bytes());
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
     Ok(())
@@ -458,12 +458,12 @@ fn invalidate_script_unspent_vin(
         hid,
         transaction.block.height.to_be_bytes(),
         transaction.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     let key = (
         transaction.block.height.to_be_bytes(),
         transaction.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
 
     services.script_unspent.by_key.put(&key, &id)?;
@@ -496,8 +496,8 @@ fn invalidate_script_unspent_vout(
     vout: &Vout,
 ) -> Result<()> {
     let hid = as_sha256(&vout.script_pub_key.hex);
-    let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
-    let key = (ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
+    let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n.to_be_bytes());
+    let key = (ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n.to_be_bytes());
     services.script_unspent.by_id.delete(&id)?;
     services.script_unspent.by_key.delete(&key)?;
 

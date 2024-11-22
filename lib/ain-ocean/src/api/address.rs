@@ -458,14 +458,17 @@ async fn list_transaction_unspent(
                 msg: format!("Invalid height: {}", height),
             })?;
             let txid = Txid::from_str(txid)?;
-            let n = n.parse::<usize>()?;
-            Ok::<([u8; 4], Txid, usize), Error>((height, txid, n))
+            let decoded_n = hex::decode(n)?;
+            let n = decoded_n.try_into().map_err(|_| Error::Other {
+                msg: format!("Invalid txno: {}", n)
+            })?;
+            Ok::<([u8; 4], Txid, [u8; 8]), Error>((height, txid, n))
         })
         .transpose()?
         .unwrap_or((
-            [0u8, 0u8, 0u8, 0u8],
+            [0u8; 4],
             Txid::from_byte_array([0x00u8; 32]),
-            usize::default(),
+            [0u8; 8],
         ));
 
     let res = ctx
