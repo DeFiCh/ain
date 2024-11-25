@@ -5,7 +5,7 @@ use axum::{routing::post, Extension, Json, Router};
 use defichain_rpc::RpcApi;
 use serde::{Deserialize, Serialize};
 
-use super::{response::Response, AppContext};
+use super::{response::ApiRpcResponse, AppContext};
 use crate::{
     error::{ApiError, Error},
     Result,
@@ -54,12 +54,12 @@ fn method_whitelist(method: &str) -> Result<()> {
 async fn rpc(
     Extension(ctx): Extension<Arc<AppContext>>,
     Json(body): Json<RpcDto>,
-) -> Result<Response<serde_json::Value>> {
+) -> Result<ApiRpcResponse<serde_json::Value>> {
     method_whitelist(&body.method)?;
 
     let res: serde_json::Value = ctx.client.call(&body.method, &body.params).await?;
 
-    Ok(Response::new(res))
+    Ok(ApiRpcResponse::new(res))
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
