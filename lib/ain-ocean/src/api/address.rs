@@ -342,8 +342,8 @@ async fn list_transactions(
                 _ => ScriptActivityTypeHex::Vout,
             };
             let txid = Txid::from_str(txid)?;
-            let n = n.parse::<usize>()?;
-            Ok::<([u8; 4], ScriptActivityTypeHex, Txid, usize), Error>((
+            let n = n.parse::<usize>()?.to_be_bytes();
+            Ok::<([u8; 4], ScriptActivityTypeHex, Txid, [u8; 8]), Error>((
                 height,
                 vin_vout_type,
                 txid,
@@ -352,10 +352,10 @@ async fn list_transactions(
         })
         .transpose()?
         .unwrap_or((
-            [u8::MAX, u8::MAX, u8::MAX, u8::MAX],
+            [0xffu8; 4],
             ScriptActivityTypeHex::Vout,
             Txid::from_byte_array([0xffu8; 32]),
-            usize::MAX,
+            [0xffu8; 8],
         ));
 
     let res = ctx

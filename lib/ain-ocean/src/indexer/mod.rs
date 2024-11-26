@@ -128,7 +128,7 @@ fn index_script_activity_vin(
         block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
-        vin.vout,
+        vin.vout.to_be_bytes(),
     );
     services.script_activity.by_id.put(&id, &script_activity)?;
 
@@ -206,7 +206,7 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
         block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         tx.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     services.script_activity.by_id.put(&id, &script_activity)?;
     Ok(())
@@ -494,7 +494,7 @@ fn invalidate_script_activity_vin(
         height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
-        vin.vout,
+        vin.vout.to_be_bytes(),
     );
     services.script_activity.by_id.delete(&id)?;
 
@@ -534,7 +534,7 @@ fn invalidate_script_activity_vout(
         ctx.block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         ctx.tx.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     services.script_activity.by_id.delete(&id)?;
     Ok(())
