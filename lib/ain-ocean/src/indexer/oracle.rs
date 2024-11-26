@@ -360,7 +360,6 @@ fn index_set_oracle_data(
     pairs: &HashSet<(Token, Currency)>,
 ) -> Result<()> {
     let oracle_repo = &services.oracle_price_aggregated;
-    let ticker_repo = &services.price_ticker;
 
     for pair in pairs {
         let price_aggregated = map_price_aggregated(services, context, pair)?;
@@ -380,15 +379,14 @@ fn index_set_oracle_data(
         );
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
-        let key = (
+        let id = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
             token,
             currency,
         );
-        ticker_repo.by_key.put(&key, pair)?;
-        ticker_repo.by_id.put(
-            &pair.clone(),
+        services.price_ticker.by_id.put(
+            &id,
             &PriceTicker {
                 price: price_aggregated,
             },

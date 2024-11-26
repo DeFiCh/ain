@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -8,11 +8,9 @@ use axum::{
     Extension, Router,
 };
 use bitcoin::{hashes::Hash, Txid};
-use indexmap::IndexSet;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-use snafu::OptionExt;
 
 use super::{
     common::parse_token_currency,
@@ -22,7 +20,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, OtherSnafu},
+    error::{ApiError, Error},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregatedIntervalAggregated, PriceTicker,
@@ -121,39 +119,28 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerResponse>> {
-    let sorted_ids = ctx
+    let mut set: HashSet<(Token, Currency)> = HashSet::new();
+
+    let prices = ctx
         .services
         .price_ticker
-        .by_key
+        .by_id
         .list(None, SortOrder::Descending)?
-        .map(|item| {
-            let (_, id) = item?;
-            Ok(id)
+        .flat_map(|item| {
+            let ((_, _, token, currency), v) = item?;
+            let has_key = set.contains(&(token.clone(), currency.clone()));
+            if !has_key {
+                set.insert((token.clone(), currency.clone()));
+                Ok::<Option<PriceTickerResponse>, Error>(Some(PriceTickerResponse::from((
+                    (token, currency),
+                    v,
+                ))))
+            } else {
+                Ok(None)
+            }
         })
-        .collect::<Result<Vec<_>>>()?;
-
-    // use IndexSet to rm dup without changing order
-    let mut sorted_ids_set = IndexSet::new();
-    for id in sorted_ids {
-        sorted_ids_set.insert(id);
-    }
-
-    let prices = sorted_ids_set
-        .into_iter()
-        .take(query.size)
-        .map(|id| {
-            let price_ticker = ctx
-                .services
-                .price_ticker
-                .by_id
-                .get(&id)?
-                .context(OtherSnafu {
-                    msg: "Missing price ticker index",
-                })?;
-
-            Ok(PriceTickerResponse::from((id, price_ticker)))
-        })
-        .collect::<Result<Vec<_>>>()?;
+        .flatten()
+        .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(prices, query.size, |price| {
         price.sort.to_string()
@@ -167,13 +154,16 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let price_ticker = ctx
-        .services
-        .price_ticker
-        .by_id
-        .get(&(token.clone(), currency.clone()))?;
+    let price_ticker = ctx.services.price_ticker.by_id.list(Some((
+        [0xffu8; 4],
+        [0xffu8; 4],
+        token.clone(),
+        currency.clone(),
+    )), SortOrder::Descending)?
+    .next()
+    .transpose()?;
 
-    let Some(price_ticker) = price_ticker else {
+    let Some((_, price_ticker)) = price_ticker else {
         return Ok(Response::new(None));
     };
 

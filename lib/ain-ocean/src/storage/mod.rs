@@ -374,15 +374,6 @@ define_table! {
 
 define_table! {
     #[derive(Debug)]
-    pub struct PriceTickerKey {
-        key_type = model::PriceTickerKey,
-        value_type = model::PriceTickerId,
-    },
-    SecondaryIndex = PriceTicker
-}
-
-define_table! {
-    #[derive(Debug)]
     pub struct RawBlock {
         key_type = BlockHash,
         value_type = String,
@@ -517,7 +508,7 @@ define_table! {
     }
 }
 
-pub const COLUMN_NAMES: [&str; 28] = [
+pub const COLUMN_NAMES: [&str; 27] = [
     Block::NAME,
     BlockByHeight::NAME,
     MasternodeStats::NAME,
@@ -534,7 +525,6 @@ pub const COLUMN_NAMES: [&str; 28] = [
     PoolSwapAggregatedKey::NAME,
     PoolSwap::NAME,
     PriceTicker::NAME,
-    PriceTickerKey::NAME,
     RawBlock::NAME,
     ScriptActivity::NAME,
     ScriptAggregation::NAME,

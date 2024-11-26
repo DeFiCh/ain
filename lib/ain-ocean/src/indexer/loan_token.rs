@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{loans::SetLoanToken, Currency, Token};
 use log::trace;
@@ -6,6 +6,7 @@ use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
 use crate::{
+    error::Error,
     indexer::{Context, Index, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
@@ -86,15 +87,21 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let price_tickers = services
+        let mut set: HashSet<(Token, Currency)> = HashSet::new();
+        let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flatten()
-            .collect::<Vec<_>>();
+            .flat_map(|item| {
+                let ((_, _, token, currency), _) = item?;
+                set.insert((token, currency));
+                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            })
+            .next()
+            .unwrap_or(set);
 
-        for (ticker_id, _) in price_tickers {
-            perform_active_price_tick(services, ticker_id, block)?;
+        for (token, currency) in pairs {
+            perform_active_price_tick(services, (token, currency), block)?;
         }
     }
     Ok(())
@@ -136,14 +143,26 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let price_tickers = services
+        let mut set: HashSet<(Token, Currency)> = HashSet::new();
+        let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flatten()
-            .collect::<Vec<_>>();
+            .flat_map(|item| {
+                let ((_, _, token, currency), _) = item?;
+                set.insert((token, currency));
+                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            })
+            .next()
+            .unwrap_or(set);
 
-        for ((token, currency), _) in price_tickers.into_iter().rev() {
+        // convert to vector to reverse the hashset is required
+        let mut vec = Vec::new();
+        for pair in pairs {
+            vec.insert(0, pair);
+        }
+
+        for (token, currency) in vec {
             services.oracle_price_active.by_id.delete(&(
                 token,
                 currency,

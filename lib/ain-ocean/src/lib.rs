@@ -93,7 +93,6 @@ pub struct OracleHistoryService {
 
 pub struct PriceTickerService {
     by_id: PriceTicker,
-    by_key: PriceTickerKey,
 }
 
 pub struct ScriptActivityService {
@@ -196,7 +195,6 @@ impl Services {
             },
             price_ticker: PriceTickerService {
                 by_id: PriceTicker::new(Arc::clone(&store)),
-                by_key: PriceTickerKey::new(Arc::clone(&store)),
             },
             script_activity: ScriptActivityService {
                 by_id: ScriptActivity::new(Arc::clone(&store)),
