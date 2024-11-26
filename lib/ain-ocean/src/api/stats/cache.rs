@@ -105,19 +105,15 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
         .get_latest()?
         .map_or(0, |mn| mn.stats.count);
 
-    let mut set: HashSet<(Token, Currency)> = HashSet::new();
     let prices = ctx
         .services
         .price_ticker
         .by_id
         .list(None, SortOrder::Descending)?
-        .flat_map(|item| {
-            let ((_, _, token, currency), _) = item?;
-            set.insert((token, currency));
-            Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+        .filter_map(|item| {
+            item.ok().map(|((_, _, token, currency), _)| (token, currency))
         })
-        .next()
-        .unwrap_or(set);
+        .collect::<HashSet<(Token, Currency)>>();
 
     Ok(Count {
         blocks: 0,
