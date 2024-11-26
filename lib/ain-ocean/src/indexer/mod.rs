@@ -17,8 +17,10 @@ use std::{
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction, Vin, VinStandard, Vout};
 use helper::check_if_evm_tx;
+use loan_token::{index_active_price, invalidate_active_price};
 use log::trace;
 pub use poolswap::PoolSwapAggregatedInterval;
+use poolswap::{index_pool_swap_aggregated, invalidate_pool_swap_aggregated};
 
 use crate::{
     error::{Error, IndexAction},
@@ -39,18 +41,6 @@ pub trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
-}
-
-pub trait IndexBlockStart: Index {
-    fn index_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-
-    fn invalidate_block_start(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-}
-
-pub trait IndexBlockEnd: Index {
-    fn index_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
-
-    fn invalidate_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()>;
 }
 
 #[derive(Debug)]
@@ -138,7 +128,7 @@ fn index_script_activity_vin(
         block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
-        vin.vout,
+        vin.vout.to_be_bytes(),
     );
     services.script_activity.by_id.put(&id, &script_activity)?;
 
@@ -170,7 +160,11 @@ fn index_script_unspent_vin(
     vin: &VinStandard,
     ctx: &Context,
 ) -> Result<()> {
-    let key = (ctx.block.height.to_be_bytes(), vin.txid, vin.vout);
+    let key = (
+        ctx.block.height.to_be_bytes(),
+        vin.txid,
+        vin.vout.to_be_bytes(),
+    );
     let id = services.script_unspent.by_key.get(&key)?;
     if let Some(id) = id {
         services.script_unspent.by_id.delete(&id)?;
@@ -212,7 +206,7 @@ fn index_script_activity_vout(services: &Arc<Services>, vout: &Vout, ctx: &Conte
         block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         tx.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     services.script_activity.by_id.put(&id, &script_activity)?;
     Ok(())
@@ -265,8 +259,13 @@ fn index_script_unspent_vout(services: &Arc<Services>, vout: &Vout, ctx: &Contex
         },
     };
 
-    let id = (hid, block.height.to_be_bytes(), tx.txid, vout.n);
-    let key = (block.height.to_be_bytes(), tx.txid, vout.n);
+    let id = (
+        hid,
+        block.height.to_be_bytes(),
+        tx.txid,
+        vout.n.to_be_bytes(),
+    );
+    let key = (block.height.to_be_bytes(), tx.txid, vout.n.to_be_bytes());
     services.script_unspent.by_key.put(&key, &id)?;
     services.script_unspent.by_id.put(&id, &script_unspent)?;
     Ok(())
@@ -327,7 +326,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
-            .list(Some((aggregation.hid, u32::MAX)), SortOrder::Descending)?
+            .list(Some((aggregation.hid, [0xffu8; 4])), SortOrder::Descending)?
             .take(1)
             .take_while(|item| match item {
                 Ok(((hid, _), _)) => &aggregation.hid == hid,
@@ -351,8 +350,10 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
             aggregation.statistic.tx_in_count + aggregation.statistic.tx_out_count;
         aggregation.amount.unspent = aggregation.amount.tx_in - aggregation.amount.tx_out;
 
-        repo.by_id
-            .put(&(aggregation.hid, ctx.block.height), &aggregation)?;
+        repo.by_id.put(
+            &(aggregation.hid, ctx.block.height.to_be_bytes()),
+            &aggregation,
+        )?;
 
         record.insert(aggregation.hid, aggregation);
     }
@@ -414,7 +415,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
         services
             .script_aggregation
             .by_id
-            .delete(&(hid, block.height))?
+            .delete(&(hid, block.height.to_be_bytes()))?
     }
 
     Ok(())
@@ -468,12 +469,12 @@ fn invalidate_script_unspent_vin(
         hid,
         transaction.block.height.to_be_bytes(),
         transaction.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     let key = (
         transaction.block.height.to_be_bytes(),
         transaction.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
 
     services.script_unspent.by_key.put(&key, &id)?;
@@ -493,7 +494,7 @@ fn invalidate_script_activity_vin(
         height.to_be_bytes(),
         ScriptActivityTypeHex::Vin,
         vin.txid,
-        vin.vout,
+        vin.vout.to_be_bytes(),
     );
     services.script_activity.by_id.delete(&id)?;
 
@@ -506,8 +507,17 @@ fn invalidate_script_unspent_vout(
     vout: &Vout,
 ) -> Result<()> {
     let hid = as_sha256(&vout.script_pub_key.hex);
-    let id = (hid, ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
-    let key = (ctx.block.height.to_be_bytes(), ctx.tx.txid, vout.n);
+    let id = (
+        hid,
+        ctx.block.height.to_be_bytes(),
+        ctx.tx.txid,
+        vout.n.to_be_bytes(),
+    );
+    let key = (
+        ctx.block.height.to_be_bytes(),
+        ctx.tx.txid,
+        vout.n.to_be_bytes(),
+    );
     services.script_unspent.by_id.delete(&id)?;
     services.script_unspent.by_key.delete(&key)?;
 
@@ -524,7 +534,7 @@ fn invalidate_script_activity_vout(
         ctx.block.height.to_be_bytes(),
         ScriptActivityTypeHex::Vout,
         ctx.tx.txid,
-        vout.n,
+        vout.n.to_be_bytes(),
     );
     services.script_activity.by_id.delete(&id)?;
     Ok(())
@@ -536,6 +546,22 @@ pub fn get_block_height(services: &Arc<Services>) -> Result<u32> {
         .by_height
         .get_highest()?
         .map_or(0, |block| block.height))
+}
+
+pub fn index_block_start(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    index_pool_swap_aggregated(services, block)
+}
+
+pub fn invalidate_block_start(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    invalidate_pool_swap_aggregated(services, block)
+}
+
+pub fn index_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    index_active_price(services, block)
+}
+
+pub fn invalidate_block_end(services: &Arc<Services>, block: &BlockContext) -> Result<()> {
+    invalidate_active_price(services, block)
 }
 
 pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
@@ -586,12 +612,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         }
     }
 
-    // index_block_start
-    for (dftx, _) in &dftxs {
-        if let DfTx::PoolSwap(data) = dftx.clone() {
-            data.index_block_start(services, &block_ctx)?
-        }
-    }
+    index_block_start(services, &block_ctx)?;
 
     // index_dftx
     for (dftx, ctx) in &dftxs {
@@ -615,12 +636,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         log_elapsed(start, "Indexed dftx");
     }
 
-    // index_block_end
-    for (dftx, _) in dftxs {
-        if let DfTx::SetLoanToken(data) = dftx {
-            data.index_block_end(services, &block_ctx)?
-        }
-    }
+    index_block_end(services, &block_ctx)?;
 
     let block_mapper = BlockMapper {
         hash: block_hash,
@@ -699,12 +715,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         }
     }
 
-    // invalidate_block_end
-    for (dftx, _) in &dftxs {
-        if let DfTx::SetLoanToken(data) = dftx.clone() {
-            data.invalidate_block_end(services, &block_ctx)?
-        }
-    }
+    invalidate_block_end(services, &block_ctx)?;
 
     // invalidate_dftx
     for (dftx, ctx) in &dftxs {
@@ -727,12 +738,7 @@ pub fn invalidate_block(services: &Arc<Services>, block: Block<Transaction>) -> 
         log_elapsed(start, "Invalidate dftx");
     }
 
-    // invalidate_block_start
-    for (dftx, _) in &dftxs {
-        if let DfTx::PoolSwap(data) = dftx.clone() {
-            data.invalidate_block_start(services, &block_ctx)?
-        }
-    }
+    invalidate_block_start(services, &block_ctx)?;
 
     // invalidate_block
     services.block.by_height.delete(&block.height)?;

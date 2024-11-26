@@ -103,15 +103,15 @@ async fn get_feed(
         .list(None, SortOrder::Descending)?
         .paginate(&query)
         .flatten()
-        .filter(|((token, currency, oracle_id, _), _)| {
+        .filter(|((token, currency, oracle_id, _, _), _)| {
             key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id)
         })
-        .map(|((token, currency, oracle_id, txid), feed)| {
+        .map(|((token, currency, oracle_id, height, txid), feed)| {
             let amount = Decimal::from(feed.amount) / Decimal::from(COIN);
             OraclePriceFeedResponse {
                 id: format!("{}-{}-{}-{}", token, currency, oracle_id, txid),
                 key: format!("{}-{}-{}", token, currency, oracle_id),
-                sort: hex::encode(feed.block.height.to_string() + &txid.to_string()),
+                sort: hex::encode(u32::from_be_bytes(height).to_string() + &txid.to_string()),
                 token,
                 currency,
                 oracle_id,

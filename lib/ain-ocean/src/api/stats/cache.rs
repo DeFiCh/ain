@@ -1,5 +1,10 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+};
 
+use ain_dftx::{Currency, Token};
 use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::token::TokenPagination, json::account::AccountAmount, AccountRPC, Client,
@@ -22,7 +27,7 @@ use crate::{
         stats::get_block_reward_distribution,
         AppContext,
     },
-    error::{DecimalConversionSnafu, OtherSnafu},
+    error::{DecimalConversionSnafu, Error, OtherSnafu},
     model::MasternodeStatsData,
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -105,7 +110,10 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
         .price_ticker
         .by_id
         .list(None, SortOrder::Descending)?
-        .collect::<Vec<_>>();
+        .filter_map(|item| {
+            item.ok().map(|((_, _, token, currency), _)| (token, currency))
+        })
+        .collect::<HashSet<(Token, Currency)>>();
 
     Ok(Count {
         blocks: 0,

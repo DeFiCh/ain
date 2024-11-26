@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type ScriptAggregationId = ([u8; 32], u32); // (hid, block.height)
+pub type ScriptAggregationId = ([u8; 32], [u8; 4]); // (hid, block.height)
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptAggregation {

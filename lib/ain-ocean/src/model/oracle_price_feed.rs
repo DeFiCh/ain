@@ -2,7 +2,7 @@ use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-pub type OraclePriceFeedId = (String, String, Txid, Txid); // token-currency-oracle_id-txid
+pub type OraclePriceFeedId = (String, String, Txid, [u8; 4], Txid); // token-currency-oracle_id-height-txid
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{loans::SetLoanToken, Currency, Token};
 use log::trace;
@@ -6,7 +6,8 @@ use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
 use crate::{
-    indexer::{Context, Index, IndexBlockEnd, Result},
+    error::Error,
+    indexer::{Context, Index, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
     storage::{RepositoryOps, SortOrder},
@@ -25,20 +26,10 @@ impl Index for SetLoanToken {
         let ticker_id = (
             self.currency_pair.token.clone(),
             self.currency_pair.currency.clone(),
-            context.block.height,
+            context.block.height.to_be_bytes(),
         );
         services.oracle_price_active.by_id.delete(&ticker_id)?;
         Ok(())
-    }
-}
-
-impl IndexBlockEnd for SetLoanToken {
-    fn index_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        index_active_price(services, block)
-    }
-
-    fn invalidate_block_end(self, services: &Arc<Services>, block: &BlockContext) -> Result<()> {
-        invalidate_active_price(services, block)
     }
 }
 
@@ -96,15 +87,21 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let price_tickers = services
+        let mut set: HashSet<(Token, Currency)> = HashSet::new();
+        let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flatten()
-            .collect::<Vec<_>>();
+            .flat_map(|item| {
+                let ((_, _, token, currency), _) = item?;
+                set.insert((token, currency));
+                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            })
+            .next()
+            .unwrap_or(set);
 
-        for (ticker_id, _) in price_tickers {
-            perform_active_price_tick(services, ticker_id, block)?;
+        for (token, currency) in pairs {
+            perform_active_price_tick(services, (token, currency), block)?;
         }
     }
     Ok(())
@@ -146,18 +143,31 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let price_tickers = services
+        let mut set: HashSet<(Token, Currency)> = HashSet::new();
+        let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flatten()
-            .collect::<Vec<_>>();
+            .flat_map(|item| {
+                let ((_, _, token, currency), _) = item?;
+                set.insert((token, currency));
+                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            })
+            .next()
+            .unwrap_or(set);
 
-        for ((token, currency), _) in price_tickers.into_iter().rev() {
-            services
-                .oracle_price_active
-                .by_id
-                .delete(&(token, currency, block.height))?;
+        // convert to vector to reverse the hashset is required
+        let mut vec = Vec::new();
+        for pair in pairs {
+            vec.insert(0, pair);
+        }
+
+        for (token, currency) in vec {
+            services.oracle_price_active.by_id.delete(&(
+                token,
+                currency,
+                block.height.to_be_bytes(),
+            ))?;
         }
     }
 
@@ -169,7 +179,12 @@ pub fn perform_active_price_tick(
     ticker_id: (Token, Currency),
     block: &BlockContext,
 ) -> Result<()> {
-    let id = (ticker_id.0, ticker_id.1, u32::MAX);
+    let id = (
+        ticker_id.0.clone(),
+        ticker_id.1.clone(),
+        [0xffu8; 8],
+        [0xffu8; 4],
+    );
 
     let prev = services
         .oracle_price_aggregated
@@ -182,6 +197,7 @@ pub fn perform_active_price_tick(
         return Ok(());
     };
 
+    let id = (ticker_id.0, ticker_id.1, [0xffu8; 4]);
     let repo = &services.oracle_price_active;
     let prev = repo
         .by_id
@@ -197,7 +213,8 @@ pub fn perform_active_price_tick(
 
     let active_price = map_active_price(block, aggregated_price, prev_price);
 
-    repo.by_id.put(&(id.0, id.1, block.height), &active_price)?;
+    repo.by_id
+        .put(&(id.0, id.1, block.height.to_be_bytes()), &active_price)?;
 
     Ok(())
 }

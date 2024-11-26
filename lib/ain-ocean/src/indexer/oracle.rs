@@ -301,7 +301,10 @@ fn map_price_aggregated(
         let feed = services
             .oracle_price_feed
             .by_id
-            .list(Some((id.0, id.1, id.2, base_id)), SortOrder::Descending)?
+            .list(
+                Some((id.0, id.1, id.2, [0xffu8; 4], base_id)),
+                SortOrder::Descending,
+            )?
             .next()
             .transpose()?;
 
@@ -357,7 +360,6 @@ fn index_set_oracle_data(
     pairs: &HashSet<(Token, Currency)>,
 ) -> Result<()> {
     let oracle_repo = &services.oracle_price_aggregated;
-    let ticker_repo = &services.price_ticker;
 
     for pair in pairs {
         let price_aggregated = map_price_aggregated(services, context, pair)?;
@@ -372,19 +374,19 @@ fn index_set_oracle_data(
         let id = (
             token.clone(),
             currency.clone(),
-            price_aggregated.block.height,
+            price_aggregated.block.median_time.to_be_bytes(),
+            price_aggregated.block.height.to_be_bytes(),
         );
         oracle_repo.by_id.put(&id, &price_aggregated)?;
 
-        let key = (
-            price_aggregated.aggregated.oracles.total,
-            price_aggregated.block.height,
+        let id = (
+            price_aggregated.aggregated.oracles.total.to_be_bytes(),
+            price_aggregated.block.height.to_be_bytes(),
             token,
             currency,
         );
-        ticker_repo.by_key.put(&key, pair)?;
-        ticker_repo.by_id.put(
-            &pair.clone(),
+        services.price_ticker.by_id.put(
+            &id,
             &PriceTicker {
                 price: price_aggregated,
             },
@@ -402,7 +404,8 @@ fn index_set_oracle_data_interval(
         let aggregated = services.oracle_price_aggregated.by_id.get(&(
             token.clone(),
             currency.clone(),
-            context.block.height,
+            context.block.median_time.to_be_bytes(),
+            context.block.height.to_be_bytes(),
         ))?;
 
         let Some(aggregated) = aggregated else {
@@ -447,8 +450,13 @@ impl Index for SetOracleData {
 
         let feeds = map_price_feeds(self, context);
 
-        for ((token, currency, _, _), _) in feeds.iter().rev() {
-            let id = (token.clone(), currency.clone(), context.block.height);
+        for ((token, currency, _, _, _), _) in feeds.iter().rev() {
+            let id = (
+                token.clone(),
+                currency.clone(),
+                context.block.median_time.to_be_bytes(),
+                context.block.height.to_be_bytes(),
+            );
 
             let aggregated = oracle_repo.by_id.get(&id)?;
 
@@ -485,6 +493,7 @@ fn map_price_feeds(
                 token_price.token.clone(),
                 token_amount.currency.clone(),
                 data.oracle_id,
+                ctx.block.height.to_be_bytes(),
                 ctx.tx.txid,
             );
 
@@ -507,7 +516,7 @@ fn start_new_bucket(
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
 ) -> Result<()> {
-    let id = (token, currency, interval, block.height);
+    let id = (token, currency, interval, block.height.to_be_bytes());
     services.oracle_price_aggregated_interval.by_id.put(
         &id,
         &OraclePriceAggregatedInterval {
@@ -539,7 +548,12 @@ pub fn index_interval_mapper(
     let previous = repo
         .by_id
         .list(
-            Some((token.clone(), currency.clone(), interval.clone(), u32::MAX)),
+            Some((
+                token.clone(),
+                currency.clone(),
+                interval.clone(),
+                [0xffu8; 4],
+            )),
             SortOrder::Descending,
         )?
         .take_while(|item| match item {
@@ -580,7 +594,7 @@ pub fn invalidate_oracle_interval(
                 token.to_string(),
                 currency.to_string(),
                 interval.clone(),
-                u32::MAX,
+                [0xffu8; 4],
             )),
             SortOrder::Descending,
         )?

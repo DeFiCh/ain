@@ -173,7 +173,7 @@ fn get_latest_aggregation(
         .services
         .script_aggregation
         .by_id
-        .list(Some((hid, u32::MAX)), SortOrder::Descending)?
+        .list(Some((hid, [0xffu8; 4])), SortOrder::Descending)?
         .take(1)
         .take_while(|item| match item {
             Ok(((v, _), _)) => v == &hid,
@@ -342,8 +342,8 @@ async fn list_transactions(
                 _ => ScriptActivityTypeHex::Vout,
             };
             let txid = Txid::from_str(txid)?;
-            let n = n.parse::<usize>()?;
-            Ok::<([u8; 4], ScriptActivityTypeHex, Txid, usize), Error>((
+            let n = n.parse::<usize>()?.to_be_bytes();
+            Ok::<([u8; 4], ScriptActivityTypeHex, Txid, [u8; 8]), Error>((
                 height,
                 vin_vout_type,
                 txid,
@@ -352,10 +352,10 @@ async fn list_transactions(
         })
         .transpose()?
         .unwrap_or((
-            [u8::MAX, u8::MAX, u8::MAX, u8::MAX],
+            [0xffu8; 4],
             ScriptActivityTypeHex::Vout,
             Txid::from_byte_array([0xffu8; 32]),
-            usize::MAX,
+            [0xffu8; 8],
         ));
 
     let res = ctx
@@ -458,15 +458,14 @@ async fn list_transaction_unspent(
                 msg: format!("Invalid height: {}", height),
             })?;
             let txid = Txid::from_str(txid)?;
-            let n = n.parse::<usize>()?;
-            Ok::<([u8; 4], Txid, usize), Error>((height, txid, n))
+            let decoded_n = hex::decode(n)?;
+            let n = decoded_n.try_into().map_err(|_| Error::Other {
+                msg: format!("Invalid txno: {}", n),
+            })?;
+            Ok::<([u8; 4], Txid, [u8; 8]), Error>((height, txid, n))
         })
         .transpose()?
-        .unwrap_or((
-            [0u8, 0u8, 0u8, 0u8],
-            Txid::from_byte_array([0x00u8; 32]),
-            usize::default(),
-        ));
+        .unwrap_or(([0u8; 4], Txid::from_byte_array([0x00u8; 32]), [0u8; 8]));
 
     let res = ctx
         .services

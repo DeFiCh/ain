@@ -12,6 +12,20 @@ impl<T> Response<T> {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct ApiRpcResponse<T> {
+    result: T,
+    // TODO: map error and id from rpc
+    // error: T,
+    // id: T,
+}
+
+impl<T> ApiRpcResponse<T> {
+    pub fn new(result: T) -> Self {
+        Self { result }
+    }
+}
+
 /// ApiPagedResponse indicates that this response of data array slice is part of a sorted list of items.
 /// Items are part of a larger sorted list and the slice indicates a window within the large sorted list.
 /// Each ApiPagedResponse holds the data array and the "token" for next part of the slice.

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type OraclePriceActiveId = (String, String, u32); //token-currency-height
+pub type OraclePriceActiveId = (String, String, [u8; 4]); //token-currency-height
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
