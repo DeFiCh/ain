@@ -11,9 +11,10 @@ use super::query::PaginationQuery;
 use crate::{
     error::{
         Error::ToArrayError, InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu,
-        InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu,
+        InvalidPriceTickerSortKeySnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu,
     },
     hex_encoder::as_sha256,
+    model::PriceTickerId,
     network::Network,
     Result,
 };
@@ -126,6 +127,30 @@ pub fn parse_query_height_txid(item: &str) -> Result<(u32, Txid)> {
     let txid = txid.parse::<Txid>()?;
 
     Ok((height, txid))
+}
+
+pub fn parse_price_ticker_sort(item: &str) -> Result<PriceTickerId> {
+    let mut parts = item.split('-');
+    let count_height_token = parts.next().context(InvalidPriceTickerSortKeySnafu { item })?;
+    let encoded_count = &count_height_token[..8];
+    let encoded_height = &count_height_token[8..16];
+    let token = &count_height_token[16..];
+    let token = token.to_string();
+
+    let count: [u8; 4] = hex::decode(encoded_count)?
+        .try_into()
+        .map_err(|_| ToArrayError)?;
+
+    let height: [u8; 4] = hex::decode(encoded_height)?
+        .try_into()
+        .map_err(|_| ToArrayError)?;
+
+    let currency = parts
+        .next()
+        .context(InvalidTokenCurrencySnafu { item })?
+        .to_string();
+
+    Ok((count, height, token, currency))
 }
 
 #[must_use]

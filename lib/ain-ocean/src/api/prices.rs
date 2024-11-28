@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use super::{
-    common::parse_token_currency,
+    common::{parse_token_currency, parse_price_ticker_sort},
     oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
@@ -119,28 +119,26 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerResponse>> {
-    let mut set: HashSet<(Token, Currency)> = HashSet::new();
+    let next = query
+        .next
+        .map(|item| {
+            let id = parse_price_ticker_sort(&item)?;
+            Ok::<([u8; 4], [u8; 4], Token, Currency), Error>(id)
+        })
+        .transpose()?;
 
     let prices = ctx
         .services
         .price_ticker
         .by_id
-        .list(None, SortOrder::Descending)?
-        .flat_map(|item| {
+        .list(next.clone(), SortOrder::Descending)?
+        .take(query.size + usize::from(next.clone().is_some()))
+        .skip(usize::from(next.is_some()))
+        .map(|item| {
             let ((_, _, token, currency), v) = item?;
-            let has_key = set.contains(&(token.clone(), currency.clone()));
-            if !has_key {
-                set.insert((token.clone(), currency.clone()));
-                Ok::<Option<PriceTickerResponse>, Error>(Some(PriceTickerResponse::from((
-                    (token, currency),
-                    v,
-                ))))
-            } else {
-                Ok(None)
-            }
+            Ok(PriceTickerResponse::from(((token, currency), v)))
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(prices, query.size, |price| {
         price.sort.to_string()
