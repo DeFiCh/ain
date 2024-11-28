@@ -87,18 +87,14 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let mut set: HashSet<(Token, Currency)> = HashSet::new();
         let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flat_map(|item| {
-                let ((_, _, token, currency), _) = item?;
-                set.insert((token, currency));
-                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            .filter_map(|item| {
+                item.ok().map(|((_, _, token, currency), _)| (token, currency))
             })
-            .next()
-            .unwrap_or(set);
+            .collect::<HashSet<(Token, Currency)>>();
 
         for (token, currency) in pairs {
             perform_active_price_tick(services, (token, currency), block)?;
@@ -143,26 +139,22 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
         _ => 120,
     };
     if block.height % block_interval == 0 {
-        let mut set: HashSet<(Token, Currency)> = HashSet::new();
         let pairs = services
             .price_ticker
             .by_id
             .list(None, SortOrder::Descending)?
-            .flat_map(|item| {
-                let ((_, _, token, currency), _) = item?;
-                set.insert((token, currency));
-                Ok::<HashSet<(Token, Currency)>, Error>(set.clone())
+            .filter_map(|item| {
+                item.ok().map(|((_, _, token, currency), _)| (token, currency))
             })
-            .next()
-            .unwrap_or(set);
+            .collect::<HashSet<(Token, Currency)>>();
 
         // convert to vector to reverse the hashset is required
-        let mut vec = Vec::new();
+        let mut rev_pairs = Vec::new();
         for pair in pairs {
-            vec.insert(0, pair);
+            rev_pairs.insert(0, pair);
         }
 
-        for (token, currency) in vec {
+        for (token, currency) in rev_pairs {
             services.oracle_price_active.by_id.delete(&(
                 token,
                 currency,
