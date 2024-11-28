@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use super::{
-    common::{parse_token_currency, parse_price_ticker_sort},
+    common::{parse_price_ticker_sort, parse_token_currency},
     oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},

@@ -11,7 +11,7 @@ use super::query::PaginationQuery;
 use crate::{
     error::{
         Error::ToArrayError, InvalidAmountSnafu, InvalidFixedIntervalPriceSnafu,
-        InvalidPriceTickerSortKeySnafu, InvalidPoolPairSymbolSnafu, InvalidTokenCurrencySnafu,
+        InvalidPoolPairSymbolSnafu, InvalidPriceTickerSortKeySnafu, InvalidTokenCurrencySnafu,
     },
     hex_encoder::as_sha256,
     model::PriceTickerId,
@@ -131,7 +131,9 @@ pub fn parse_query_height_txid(item: &str) -> Result<(u32, Txid)> {
 
 pub fn parse_price_ticker_sort(item: &str) -> Result<PriceTickerId> {
     let mut parts = item.split('-');
-    let count_height_token = parts.next().context(InvalidPriceTickerSortKeySnafu { item })?;
+    let count_height_token = parts
+        .next()
+        .context(InvalidPriceTickerSortKeySnafu { item })?;
     let encoded_count = &count_height_token[..8];
     let encoded_height = &count_height_token[8..16];
     let token = &count_height_token[16..];

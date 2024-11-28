@@ -374,7 +374,10 @@ fn index_set_oracle_data(
             price_aggregated.block.median_time.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
         );
-        services.oracle_price_aggregated.by_id.put(&id, &price_aggregated)?;
+        services
+            .oracle_price_aggregated
+            .by_id
+            .put(&id, &price_aggregated)?;
         let price_repo = &services.price_ticker;
         let id = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
@@ -387,7 +390,7 @@ fn index_set_oracle_data(
             .list(Some(id.clone()), SortOrder::Descending)?
             .find(|item| match item {
                 Ok(((_, _, t, c), _)) => t == &token && c == &currency,
-                _ => true
+                _ => true,
             })
             .transpose()?;
         if let Some((k, _)) = prev_price {

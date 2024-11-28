@@ -6,7 +6,6 @@ use rust_decimal::{prelude::Zero, Decimal};
 use rust_decimal_macros::dec;
 
 use crate::{
-    error::Error,
     indexer::{Context, Index, Result},
     model::{BlockContext, OraclePriceActive, OraclePriceActiveNext, OraclePriceAggregated},
     network::Network,
@@ -92,7 +91,8 @@ pub fn index_active_price(services: &Arc<Services>, block: &BlockContext) -> Res
             .by_id
             .list(None, SortOrder::Descending)?
             .filter_map(|item| {
-                item.ok().map(|((_, _, token, currency), _)| (token, currency))
+                item.ok()
+                    .map(|((_, _, token, currency), _)| (token, currency))
             })
             .collect::<HashSet<(Token, Currency)>>();
 
@@ -144,7 +144,8 @@ pub fn invalidate_active_price(services: &Arc<Services>, block: &BlockContext) -
             .by_id
             .list(None, SortOrder::Descending)?
             .filter_map(|item| {
-                item.ok().map(|((_, _, token, currency), _)| (token, currency))
+                item.ok()
+                    .map(|((_, _, token, currency), _)| (token, currency))
             })
             .collect::<HashSet<(Token, Currency)>>();
 
