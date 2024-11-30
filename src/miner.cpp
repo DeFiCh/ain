@@ -565,7 +565,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
+    CAmount blockReward = GetBlockSubsidy(mnview, nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
     if (nHeight >= consensus.DF8EunosHeight) {
@@ -1240,6 +1240,7 @@ namespace pos {
         uint32_t mintedBlocks{};
         int64_t blockTime{};
         int64_t subNodeBlockTime{};
+        unsigned int nBits{};
         bool ascendingEnabled{};
 
         {
@@ -1258,13 +1259,13 @@ namespace pos {
             }
             subNodeBlockTime =
                 pcustomcsview->GetBlockTimes(operatorId, blockHeight, creationHeight, *timeLock)[subNode];
+            nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
             const auto attributes = pcustomcsview->GetAttributes();
             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AscendingBlockTime};
             ascendingEnabled =
                 attributes->GetValue(enabledKey, false) || gArgs.GetBoolArg("-ascendingstaketime", false);
         }
 
-        auto nBits = pos::GetNextWorkRequired(tip, blockTime, chainparams.GetConsensus());
         auto stakeModifier = pos::ComputeStakeModifier(tip->stakeModifier, args.minterKey.GetPubKey().GetID());
 
         // Set search time if null or last block has changed
