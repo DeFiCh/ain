@@ -378,29 +378,14 @@ fn index_set_oracle_data(
             .oracle_price_aggregated
             .by_id
             .put(&id, &price_aggregated)?;
-        let price_repo = &services.price_ticker;
+
         let id = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
             token.clone(),
             currency.clone(),
         );
-        // NOTE(canonbrother): rocksdb sort by key by default
-        // temp solution: clean up extra data to allow limit by `token-currency` but sort by `count-height-token-currency`
-        {
-            let prev_price = price_repo
-                .by_id
-                .list(Some(id.clone()), SortOrder::Descending)?
-                .find(|item| match item {
-                    Ok(((_, _, t, c), _)) => t == &token && c == &currency,
-                    _ => true,
-                })
-                .transpose()?;
-            if let Some((k, _)) = prev_price {
-                price_repo.by_id.delete(&k)?
-            }
-        }
-        price_repo.by_id.put(
+        services.price_ticker.by_id.put(
             &id,
             &PriceTicker {
                 price: price_aggregated,

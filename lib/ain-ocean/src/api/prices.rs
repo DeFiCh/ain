@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -127,6 +127,7 @@ async fn list_prices(
         })
         .transpose()?;
 
+    let mut seen = HashSet::new();
     let prices = ctx
         .services
         .price_ticker
@@ -134,9 +135,13 @@ async fn list_prices(
         .list(next.clone(), SortOrder::Descending)?
         .take(query.size + usize::from(next.clone().is_some()))
         .skip(usize::from(next.is_some()))
-        .map(|item| {
-            let ((_, _, token, currency), v) = item?;
-            Ok(PriceTickerResponse::from(((token, currency), v)))
+        .filter_map(|item| {
+            let ((_, _, token, currency), v) = item.ok()?;
+            if seen.contains(&(token.clone(), currency.clone())) {
+                return None;
+            }
+            seen.insert((token.clone(), currency.clone()));
+            Some(Ok(PriceTickerResponse::from(((token, currency), v))))
         })
         .collect::<Result<Vec<_>>>()?;
 
