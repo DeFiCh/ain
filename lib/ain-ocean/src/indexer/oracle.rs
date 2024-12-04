@@ -382,8 +382,8 @@ fn index_set_oracle_data(
         let id = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
-            token.clone(),
-            currency.clone(),
+            token,
+            currency,
         );
         services.price_ticker.by_id.put(
             &id,
