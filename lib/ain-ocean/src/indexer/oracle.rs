@@ -397,10 +397,7 @@ fn index_set_oracle_data(
                 price: price_aggregated,
             },
         )?;
-        price_repo.by_key.put(
-            &(token, currency),
-            &new_sort_key
-        )?;
+        price_repo.by_key.put(&(token, currency), &new_sort_key)?;
     }
     Ok(())
 }
