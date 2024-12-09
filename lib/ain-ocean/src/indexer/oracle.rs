@@ -379,33 +379,27 @@ fn index_set_oracle_data(
             .by_id
             .put(&id, &price_aggregated)?;
 
-        let price_repo = &services.price_ticker.by_id;
-        let prev = price_repo
-            .list(
-                Some(([0xffu8; 4], [0xffu8; 4], token.clone(), currency.clone())),
-                SortOrder::Descending,
-            )?
-            .find(|item| match item {
-                Ok((k, _)) => k.2 == token.clone() && k.3 == currency.clone(),
-                _ => true,
-            })
-            .transpose()?;
-
-        if let Some((k, _)) = prev {
-            price_repo.delete(&k)?;
+        let price_repo = &services.price_ticker;
+        let sort_key = price_repo.by_key.get(&(token.clone(), currency.clone()))?;
+        if let Some(sort_key) = sort_key {
+            price_repo.by_id.delete(&sort_key)?;
         }
 
-        let id = (
+        let new_sort_key = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
-            token,
-            currency,
+            token.clone(),
+            currency.clone(),
         );
-        price_repo.put(
-            &id,
+        price_repo.by_id.put(
+            &new_sort_key,
             &PriceTicker {
                 price: price_aggregated,
             },
+        )?;
+        price_repo.by_key.put(
+            &(token, currency),
+            &new_sort_key
         )?;
     }
     Ok(())
