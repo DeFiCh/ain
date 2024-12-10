@@ -270,9 +270,9 @@ fn map_price_aggregated(
     pair: &(Token, Currency),
 ) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
-    let oracle_repo = &services.oracle_token_currency;
 
-    let oracles = oracle_repo
+    let oracles = services
+        .oracle_token_currency
         .by_id
         .list(
             Some((
@@ -359,11 +359,8 @@ fn index_set_oracle_data(
     context: &Context,
     pairs: &HashSet<(Token, Currency)>,
 ) -> Result<()> {
-    let oracle_repo = &services.oracle_price_aggregated;
-
     for pair in pairs {
         let price_aggregated = map_price_aggregated(services, context, pair)?;
-
         let Some(price_aggregated) = price_aggregated else {
             continue;
         };
@@ -377,20 +374,30 @@ fn index_set_oracle_data(
             price_aggregated.block.median_time.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
         );
-        oracle_repo.by_id.put(&id, &price_aggregated)?;
+        services
+            .oracle_price_aggregated
+            .by_id
+            .put(&id, &price_aggregated)?;
 
-        let id = (
+        let price_repo = &services.price_ticker;
+        let sort_key = price_repo.by_key.get(&(token.clone(), currency.clone()))?;
+        if let Some(sort_key) = sort_key {
+            price_repo.by_id.delete(&sort_key)?;
+        }
+
+        let new_sort_key = (
             price_aggregated.aggregated.oracles.total.to_be_bytes(),
             price_aggregated.block.height.to_be_bytes(),
-            token,
-            currency,
+            token.clone(),
+            currency.clone(),
         );
-        services.price_ticker.by_id.put(
-            &id,
+        price_repo.by_id.put(
+            &new_sort_key,
             &PriceTicker {
                 price: price_aggregated,
             },
         )?;
+        price_repo.by_key.put(&(token, currency), &new_sort_key)?;
     }
     Ok(())
 }
