@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use super::{
-    common::parse_token_currency,
+    common::{parse_price_ticker_sort, parse_token_currency},
     oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
@@ -119,28 +119,24 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerResponse>> {
-    let mut set: HashSet<(Token, Currency)> = HashSet::new();
+    let next = query
+        .next
+        .map(|item| {
+            let id = parse_price_ticker_sort(&item)?;
+            Ok::<([u8; 4], [u8; 4], Token, Currency), Error>(id)
+        })
+        .transpose()?;
 
     let prices = ctx
         .services
         .price_ticker
         .by_id
-        .list(None, SortOrder::Descending)?
-        .flat_map(|item| {
+        .list(next, SortOrder::Descending)?
+        .map(|item| {
             let ((_, _, token, currency), v) = item?;
-            let has_key = set.contains(&(token.clone(), currency.clone()));
-            if !has_key {
-                set.insert((token.clone(), currency.clone()));
-                Ok::<Option<PriceTickerResponse>, Error>(Some(PriceTickerResponse::from((
-                    (token, currency),
-                    v,
-                ))))
-            } else {
-                Ok(None)
-            }
+            Ok(PriceTickerResponse::from(((token, currency), v)))
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(prices, query.size, |price| {
         price.sort.to_string()
@@ -362,12 +358,13 @@ async fn get_feed_with_interval(
     let (token, currency) = parse_token_currency(&key)?;
     let interval = interval.parse::<i64>()?;
 
-    let interval_type = match interval {
+    let interval = match interval {
         900 => OracleIntervalSeconds::FifteenMinutes,
         3600 => OracleIntervalSeconds::OneHour,
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
+    let interval = interval as u32;
 
     let next = query
         .next
@@ -378,7 +375,7 @@ async fn get_feed_with_interval(
         .transpose()?
         .unwrap_or([0xffu8; 4]);
 
-    let id = (token.clone(), currency.clone(), interval_type.clone(), next);
+    let id = (token.clone(), currency.clone(), interval.to_string(), next);
 
     let items = ctx
         .services
@@ -388,13 +385,14 @@ async fn get_feed_with_interval(
         .take(query.size)
         .take_while(|item| match item {
             Ok(((t, c, i, _), _)) => {
-                t == &token.clone() && c == &currency.clone() && i == &interval_type.clone()
+                t == &token.clone() && c == &currency.clone() && i == &interval.to_string()
             }
             _ => true,
         })
         .flatten()
         .collect::<Vec<_>>();
 
+    let interval = interval as i64;
     let mut prices = Vec::new();
     for (id, item) in items {
         let start = item.block.median_time - (item.block.median_time % interval);

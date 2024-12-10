@@ -27,7 +27,7 @@ use crate::{
         stats::get_block_reward_distribution,
         AppContext,
     },
-    error::{DecimalConversionSnafu, Error, OtherSnafu},
+    error::{DecimalConversionSnafu, OtherSnafu},
     model::MasternodeStatsData,
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -111,7 +111,8 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
         .by_id
         .list(None, SortOrder::Descending)?
         .filter_map(|item| {
-            item.ok().map(|((_, _, token, currency), _)| (token, currency))
+            item.ok()
+                .map(|((_, _, token, currency), _)| (token, currency))
         })
         .collect::<HashSet<(Token, Currency)>>();
 
