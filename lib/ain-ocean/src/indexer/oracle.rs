@@ -302,9 +302,13 @@ fn map_price_aggregated(
             .oracle_price_feed
             .by_id
             .list(
-                Some((id.0, id.1, id.2, [0xffu8; 4], base_id)),
+                Some((id.0.clone(), id.1.clone(), id.2, [0xffu8; 4], base_id)),
                 SortOrder::Descending,
             )?
+            .take_while(|item| match item {
+                Ok((k, _)) => k.0 == id.0 && k.1 == id.1 && k.2 == id.2,
+                _ => true,
+            })
             .next()
             .transpose()?;
 
@@ -610,6 +614,10 @@ pub fn invalidate_oracle_interval(
             )),
             SortOrder::Descending,
         )?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == token && k.1 == currency && k.2 == interval.to_string(),
+            _ => true,
+        })
         .next()
         .transpose()?;
 
@@ -755,6 +763,10 @@ fn get_previous_oracle(
         .oracle_history
         .by_id
         .list(Some((oracle_id, u32::MAX)), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == oracle_id,
+            _ => true,
+        })
         .next()
         .transpose()?;
 

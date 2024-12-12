@@ -183,6 +183,10 @@ pub fn perform_active_price_tick(
         .oracle_price_aggregated
         .by_id
         .list(Some(id.clone()), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == id.0 && k.1 == id.1,
+            _ => true,
+        })
         .next()
         .transpose()?;
 
@@ -195,6 +199,10 @@ pub fn perform_active_price_tick(
     let prev = repo
         .by_id
         .list(Some(id.clone()), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == id.0 && k.1 == id.1,
+            _ => true,
+        })
         .next()
         .transpose()?;
 
