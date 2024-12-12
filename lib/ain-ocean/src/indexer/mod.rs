@@ -327,18 +327,18 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         let latest = repo
             .by_id
             .list(Some((aggregation.hid, [0xffu8; 4])), SortOrder::Descending)?
-            .take(1)
             .take_while(|item| match item {
                 Ok(((hid, _), _)) => &aggregation.hid == hid,
                 _ => true,
             })
+            .next()
+            .transpose()?
             .map(|item| {
-                let (_, v) = item?;
-                Ok(v)
-            })
-            .collect::<Result<Vec<_>>>()?;
+                let (_, v) = item;
+                v
+            });
 
-        if let Some(latest) = latest.first().cloned() {
+        if let Some(latest) = latest {
             aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
             aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 

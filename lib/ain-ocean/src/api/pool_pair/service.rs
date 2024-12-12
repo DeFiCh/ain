@@ -594,22 +594,22 @@ fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
         .transaction
         .vout_by_id
         .list(Some((txid, 0)), SortOrder::Ascending)?
-        .take(1)
         .take_while(|item| match item {
             Ok((_, vout)) => vout.txid == txid,
             _ => true,
         })
+        .next()
+        .transpose()?
         .map(|item| {
-            let (_, v) = item?;
-            Ok(v)
-        })
-        .collect::<Result<Vec<_>>>()?;
+            let (_, v) = item;
+            v
+        });
 
-    if vout.is_empty() {
+    let Some(vout) = vout else {
         return Ok(None);
-    }
+    };
 
-    let bytes = &vout[0].script.hex;
+    let bytes = &vout.script.hex;
     if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
         let offset = 1 + match bytes[1] {
             0x4c => 2,
