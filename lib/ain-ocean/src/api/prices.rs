@@ -399,8 +399,8 @@ async fn get_feed_with_interval(
         let height = u32::from_be_bytes(id.3);
 
         let price = OraclePriceAggregatedIntervalResponse {
-            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, height),
-            key: format!("{}-{}-{:?}", id.0, id.1, id.2),
+            id: format!("{}-{}-{}-{}", id.0, id.1, id.2, height),
+            key: format!("{}-{}-{}", id.0, id.1, id.2),
             sort: format!(
                 "{}{}",
                 hex::encode(item.block.median_time.to_be_bytes()),
