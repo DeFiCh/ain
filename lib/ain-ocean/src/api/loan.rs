@@ -271,7 +271,10 @@ async fn list_loan_token(
                 .services
                 .oracle_price_active
                 .by_id
-                .list(Some((token.clone(), currency.clone(), [0xffu8; 4])), SortOrder::Descending)?
+                .list(
+                    Some((token.clone(), currency.clone(), [0xffu8; 4])),
+                    SortOrder::Descending,
+                )?
                 .take_while(|item| match item {
                     Ok((k, _)) => k.0 == token && k.1 == currency,
                     _ => true,
