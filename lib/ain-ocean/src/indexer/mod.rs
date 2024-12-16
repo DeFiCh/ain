@@ -354,8 +354,6 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
             &(aggregation.hid, ctx.block.height.to_be_bytes()),
             &aggregation,
         )?;
-
-        record.insert(aggregation.hid, aggregation);
     }
 
     log_elapsed(start, format!("Indexed script {:x}", ctx.tx.txid));
