@@ -581,11 +581,14 @@ pub fn index_interval_mapper(
         .next()
         .transpose()?;
 
-    if previous.is_none() || block.median_time - aggregated.block.median_time > interval as i64 {
+    if previous.is_none() {
         return start_new_bucket(services, block, token, currency, aggregated, interval);
     };
 
     if let Some(previous) = previous {
+        if block.median_time - previous.1.block.median_time > interval as i64 {
+            return start_new_bucket(services, block, token, currency, aggregated, interval);
+        };
         forward_aggregate(services, previous, aggregated)?;
     };
 
