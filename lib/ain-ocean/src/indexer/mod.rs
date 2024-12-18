@@ -292,7 +292,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
 
         let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(());
+                continue;
             };
 
             return Err(Error::NotFoundIndex {
@@ -312,7 +312,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         index_script_unspent_vout(services, vout, ctx)?;
 
         if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-            return Ok(());
+            continue;
         }
 
         index_script_activity_vout(services, vout, ctx)?;
@@ -322,7 +322,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
     }
 
     // index_script_aggregation
-    for (_, mut aggregation) in record.clone() {
+    for (_, mut aggregation) in record {
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
