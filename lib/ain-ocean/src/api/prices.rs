@@ -332,7 +332,6 @@ pub struct OraclePriceAggregatedIntervalResponse {
     pub currency: Currency,
     pub aggregated: OraclePriceAggregatedIntervalAggregatedResponse,
     pub block: BlockContext,
-
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -381,7 +380,9 @@ async fn get_feed_with_interval(
     let next = query
         .next
         .map(|q| {
-            let height = q.parse::<u32>()?.to_be_bytes();
+            let height = hex::decode(q)?
+                .try_into()
+                .map_err(|_| Error::ToArrayError)?;
             Ok::<[u8; 4], Error>(height)
         })
         .transpose()?
