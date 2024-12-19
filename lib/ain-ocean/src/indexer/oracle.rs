@@ -270,6 +270,7 @@ fn map_price_aggregated(
     pair: &(Token, Currency),
 ) -> Result<Option<OraclePriceAggregated>> {
     let (token, currency) = pair;
+    let max_txid = Txid::from_byte_array([0xffu8; 32]);
 
     let oracles = services
         .oracle_token_currency
@@ -278,7 +279,7 @@ fn map_price_aggregated(
             Some((
                 token.clone(),
                 currency.clone(),
-                Txid::from_byte_array([0xffu8; 32]),
+                max_txid,
             )),
             SortOrder::Descending,
         )?
@@ -290,7 +291,6 @@ fn map_price_aggregated(
     let mut aggregated_count = Decimal::zero();
     let mut aggregated_weightage = Decimal::zero();
 
-    let base_id = Txid::from_byte_array([0xffu8; 32]);
     let oracles_len = oracles.len();
     for (id, oracle) in oracles {
         if oracle.weightage == 0 {
@@ -302,7 +302,7 @@ fn map_price_aggregated(
             .oracle_price_feed
             .by_id
             .list(
-                Some((id.0.clone(), id.1.clone(), id.2, [0xffu8; 4], base_id)),
+                Some((id.0.clone(), id.1.clone(), id.2, [0xffu8; 4], max_txid)),
                 SortOrder::Descending,
             )?
             .take_while(|item| match item {
