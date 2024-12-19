@@ -381,7 +381,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
         let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(());
+                continue;
             };
 
             return Err(Error::NotFoundIndex {
