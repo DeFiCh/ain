@@ -213,7 +213,7 @@ async fn get_feed(
                 token: token.clone(),
                 currency: currency.clone(),
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount: format!("{:.8}", v.aggregated.amount),
+                    amount: format!("{:.8}", v.aggregated.amount / Decimal::from(COIN)),
                     weightage: v.aggregated.weightage.to_i32().unwrap_or_default(),
                     oracles: OraclePriceActiveNextOraclesResponse {
                         active: v.aggregated.oracles.active.to_i32().unwrap_or_default(),
