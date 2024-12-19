@@ -276,11 +276,7 @@ fn map_price_aggregated(
         .oracle_token_currency
         .by_id
         .list(
-            Some((
-                token.clone(),
-                currency.clone(),
-                max_txid,
-            )),
+            Some((token.clone(), currency.clone(), max_txid)),
             SortOrder::Descending,
         )?
         .take_while(|item| matches!(item, Ok((k, _)) if &k.0 == token && &k.1 == currency))
