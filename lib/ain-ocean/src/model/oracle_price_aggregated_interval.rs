@@ -3,17 +3,42 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-pub type OraclePriceAggregatedIntervalId = (Token, Currency, OracleIntervalSeconds, [u8; 4]); //token-currency-interval-height
+pub type OraclePriceAggregatedIntervalId = (Token, Currency, String, [u8; 4]); //token-currency-interval-height
 
-pub const FIFTEEN_MINUTES: isize = 15 * 60;
-pub const ONE_HOUR: isize = 60 * 60;
-pub const ONE_DAY: isize = 24 * 60 * 60;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OracleIntervalSeconds {
-    FifteenMinutes = FIFTEEN_MINUTES,
-    OneHour = ONE_HOUR,
-    OneDay = ONE_DAY,
+    FifteenMinutes = 900,
+    OneHour = 3600,
+    OneDay = 86400,
+}
+
+impl Serialize for OracleIntervalSeconds {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::FifteenMinutes => serializer.serialize_str("900"),
+            Self::OneHour => serializer.serialize_str("3600"),
+            Self::OneDay => serializer.serialize_str("86400"),
+        }
+    }
+}
+
+impl<'a> Deserialize<'a> for OracleIntervalSeconds {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'a>,
+    {
+        let s = String::deserialize(deserializer).unwrap();
+        if s == *"900" {
+            Ok(Self::FifteenMinutes)
+        } else if s == *"3600" {
+            Ok(Self::OneHour)
+        } else {
+            Ok(Self::OneDay)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

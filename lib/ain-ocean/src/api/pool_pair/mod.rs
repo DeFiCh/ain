@@ -79,7 +79,7 @@ impl PoolSwapVerboseResponse {
         Self {
             id: format!("{}-{}", v.pool_id, v.txid),
             sort: format!(
-                "{}{}",
+                "{}-{}",
                 hex::encode(v.block.height.to_be_bytes()),
                 hex::encode(v.txno.to_be_bytes()),
             ),
