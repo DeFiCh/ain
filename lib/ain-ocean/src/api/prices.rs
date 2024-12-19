@@ -157,7 +157,7 @@ async fn get_price(
     };
     let price_ticker = price_repo.by_id.get(&sort_key)?;
 
-    let Some((_, price_ticker)) = price_ticker else {
+    let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));
     };
 
