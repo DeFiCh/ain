@@ -150,16 +150,15 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
+    let sort_key = price_repo.by_key.get(&(token.clone(), currency.clone()))?;
+    let Some(sort_key) = sort_key else {
+        return Ok(Response::new(None));
+    };
     let price_ticker = ctx
         .services
         .price_ticker
         .by_id
-        .list(
-            Some(([0xffu8; 4], [0xffu8; 4], token.clone(), currency.clone())),
-            SortOrder::Descending,
-        )?
-        .next()
-        .transpose()?;
+        .get(&sort_key)?;
 
     let Some((_, price_ticker)) = price_ticker else {
         return Ok(Response::new(None));
