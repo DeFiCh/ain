@@ -23,7 +23,7 @@ use crate::{
     error::{ApiError, Error},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceAggregatedIntervalAggregated, PriceTicker,
+        OraclePriceAggregatedIntervalAggregatedOracles, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -330,8 +330,20 @@ pub struct OraclePriceAggregatedIntervalResponse {
     pub sort: String, // medianTime-height
     pub token: Token,
     pub currency: Currency,
-    pub aggregated: OraclePriceAggregatedIntervalAggregated,
+    pub aggregated: OraclePriceAggregatedIntervalAggregatedResponse,
     pub block: BlockContext,
+
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedIntervalAggregatedResponse {
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub weightage: Decimal,
+    pub count: i32,
+    pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
     /**
      * Aggregated interval time range in seconds.
      * - Interval that aggregated in seconds
@@ -408,18 +420,18 @@ async fn get_feed_with_interval(
             ),
             token: token.clone(),
             currency: currency.clone(),
-            aggregated: OraclePriceAggregatedIntervalAggregated {
+            aggregated: OraclePriceAggregatedIntervalAggregatedResponse {
                 amount: item.aggregated.amount,
                 weightage: item.aggregated.weightage,
                 oracles: item.aggregated.oracles,
                 count: item.aggregated.count,
+                time: OraclePriceAggregatedIntervalTime {
+                    interval,
+                    start,
+                    end: start + interval,
+                },
             },
             block: item.block,
-            time: OraclePriceAggregatedIntervalTime {
-                interval,
-                start,
-                end: start + interval,
-            },
         };
         prices.push(price);
     }
