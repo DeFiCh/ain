@@ -414,9 +414,7 @@ async fn get_feed_with_interval(
             id: format!("{}-{}-{}-{}", id.0, id.1, id.2, height),
             key: format!("{}-{}-{}", id.0, id.1, id.2),
             sort: format!(
-                "{}{}",
-                hex::encode(item.block.median_time.to_be_bytes()),
-                hex::encode(item.block.height.to_be_bytes()),
+                "{}", hex::encode(item.block.height.to_be_bytes().to_string()),
             ),
             token: token.clone(),
             currency: currency.clone(),
