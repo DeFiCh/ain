@@ -413,9 +413,7 @@ async fn get_feed_with_interval(
         let price = OraclePriceAggregatedIntervalResponse {
             id: format!("{}-{}-{}-{}", id.0, id.1, id.2, height),
             key: format!("{}-{}-{}", id.0, id.1, id.2),
-            sort: format!(
-                "{}", hex::encode(item.block.height.to_be_bytes().to_string()),
-            ),
+            sort: hex::encode(item.block.height.to_be_bytes()).to_string(),
             token: token.clone(),
             currency: currency.clone(),
             aggregated: OraclePriceAggregatedIntervalAggregatedResponse {
