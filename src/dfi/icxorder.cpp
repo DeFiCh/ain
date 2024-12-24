@@ -1,6 +1,8 @@
 #include <core_io.h>  /// ValueFromAmount
 #include <dfi/errors.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/icxorder.h>
+#include <dfi/masternodes.h>
 #include <rpc/util.h>  /// AmountFromValue
 
 const uint32_t CICXOrder::DEFAULT_EXPIRY = 2880;
@@ -83,8 +85,14 @@ Res CICXOrderView::ICXCreateOrder(const CICXOrderImpl &order) {
     if (order.orderPrice == 0) {
         return DeFiErrors::ICXOrderOrderPriceZero();
     }
-    if (order.expiry < CICXOrder::DEFAULT_EXPIRY) {
-        return DeFiErrors::ICXOrderExiryTooSmall(CICXOrder::DEFAULT_EXPIRY - 1);
+
+    const auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 expiryKey{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OrderDefaultExpiry};
+    const auto defaultExpiry = attributes->GetValue(expiryKey, CICXOrder::DEFAULT_EXPIRY);
+
+    if (order.expiry < defaultExpiry) {
+        return DeFiErrors::ICXOrderExiryTooSmall(defaultExpiry - 1);
     }
 
     OrderKey key(order.idToken, order.creationTx);
@@ -243,12 +251,16 @@ Res CICXOrderView::ICXSubmitDFCHTLC(const CICXSubmitDFCHTLCImpl &submitdfchtlc) 
         return DeFiErrors::ICXSubmitTimeout();
     }
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferRefundTimeout};
+    const auto timeout = attributes->GetValue(key, CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT);
+
     WriteBy<ICXSubmitDFCHTLCCreationTx>(submitdfchtlc.creationTx, submitdfchtlc);
     WriteBy<ICXSubmitDFCHTLCOpenKey>(TxidPairKey(submitdfchtlc.offerTx, submitdfchtlc.creationTx),
                                      CICXSubmitDFCHTLC::STATUS_OPEN);
-    WriteBy<ICXSubmitDFCHTLCStatus>(
-        StatusKey(submitdfchtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitdfchtlc.creationTx),
-        CICXSubmitDFCHTLC::STATUS_EXPIRED);
+    WriteBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + timeout, submitdfchtlc.creationTx),
+                                    CICXSubmitDFCHTLC::STATUS_EXPIRED);
     WriteBy<ICXSubmitDFCHTLCStatus>(
         StatusKey(submitdfchtlc.creationHeight + submitdfchtlc.timeout, submitdfchtlc.creationTx),
         CICXSubmitDFCHTLC::STATUS_REFUNDED);
@@ -261,8 +273,12 @@ Res CICXOrderView::ICXCloseDFCHTLC(const CICXSubmitDFCHTLCImpl &submitdfchtlc, c
     EraseBy<ICXSubmitDFCHTLCOpenKey>(TxidPairKey(submitdfchtlc.offerTx, submitdfchtlc.creationTx));
     WriteBy<ICXSubmitDFCHTLCCloseKey>(TxidPairKey(submitdfchtlc.offerTx, submitdfchtlc.creationTx), status);
 
-    EraseBy<ICXSubmitDFCHTLCStatus>(StatusKey(
-        submitdfchtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitdfchtlc.creationTx));
+    const auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferRefundTimeout};
+    const auto timeout = attributes->GetValue(key, CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT);
+
+    EraseBy<ICXSubmitDFCHTLCStatus>(StatusKey(submitdfchtlc.creationHeight + timeout, submitdfchtlc.creationTx));
     EraseBy<ICXSubmitDFCHTLCStatus>(
         StatusKey(submitdfchtlc.creationHeight + submitdfchtlc.timeout, submitdfchtlc.creationTx));
 
@@ -339,21 +355,29 @@ Res CICXOrderView::ICXSubmitEXTHTLC(const CICXSubmitEXTHTLCImpl &submitexthtlc) 
         return DeFiErrors::ICXSubmitTimeout();
     }
 
+    const auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferRefundTimeout};
+    const auto timeout = attributes->GetValue(key, CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT);
+
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
     WriteBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx),
                                      CICXSubmitEXTHTLC::STATUS_OPEN);
-    WriteBy<ICXSubmitEXTHTLCStatus>(
-        StatusKey(submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx),
-        CICXSubmitEXTHTLC::STATUS_EXPIRED);
+    WriteBy<ICXSubmitEXTHTLCStatus>(StatusKey(submitexthtlc.creationHeight + timeout, submitexthtlc.creationTx),
+                                    CICXSubmitEXTHTLC::STATUS_EXPIRED);
     return Res::Ok();
 }
 
 Res CICXOrderView::ICXCloseEXTHTLC(const CICXSubmitEXTHTLCImpl &submitexthtlc, const uint8_t status) {
+    const auto view = static_cast<const CCustomCSView *>(this);
+    const auto attributes = view->GetAttributes();
+    const CDataStructureV0 key{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferRefundTimeout};
+    const auto timeout = attributes->GetValue(key, CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT);
+
     WriteBy<ICXSubmitEXTHTLCCreationTx>(submitexthtlc.creationTx, submitexthtlc);
     EraseBy<ICXSubmitEXTHTLCOpenKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx));
     WriteBy<ICXSubmitEXTHTLCCloseKey>(TxidPairKey(submitexthtlc.offerTx, submitexthtlc.creationTx), status);
-    EraseBy<ICXSubmitEXTHTLCStatus>(StatusKey(
-        submitexthtlc.creationHeight + CICXMakeOffer::MAKER_DEPOSIT_REFUND_TIMEOUT, submitexthtlc.creationTx));
+    EraseBy<ICXSubmitEXTHTLCStatus>(StatusKey(submitexthtlc.creationHeight + timeout, submitexthtlc.creationTx));
 
     return Res::Ok();
 }
