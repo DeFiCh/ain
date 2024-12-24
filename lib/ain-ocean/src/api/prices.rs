@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{Currency, Token, Weightage, COIN};
 use ain_macros::ocean_endpoint;
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use super::{
-    common::parse_token_currency,
+    common::{parse_price_ticker_sort, parse_token_currency},
     oracle::OraclePriceFeedResponse,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
@@ -23,7 +23,7 @@ use crate::{
     error::{ApiError, Error},
     model::{
         BlockContext, OracleIntervalSeconds, OraclePriceActive,
-        OraclePriceAggregatedIntervalAggregated, PriceTicker,
+        OraclePriceAggregatedIntervalAggregatedOracles, PriceTicker,
     },
     storage::{RepositoryOps, SortOrder},
     Result,
@@ -119,28 +119,24 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerResponse>> {
-    let mut set: HashSet<(Token, Currency)> = HashSet::new();
+    let next = query
+        .next
+        .map(|item| {
+            let id = parse_price_ticker_sort(&item)?;
+            Ok::<([u8; 4], [u8; 4], Token, Currency), Error>(id)
+        })
+        .transpose()?;
 
     let prices = ctx
         .services
         .price_ticker
         .by_id
-        .list(None, SortOrder::Descending)?
-        .flat_map(|item| {
+        .list(next, SortOrder::Descending)?
+        .map(|item| {
             let ((_, _, token, currency), v) = item?;
-            let has_key = set.contains(&(token.clone(), currency.clone()));
-            if !has_key {
-                set.insert((token.clone(), currency.clone()));
-                Ok::<Option<PriceTickerResponse>, Error>(Some(PriceTickerResponse::from((
-                    (token, currency),
-                    v,
-                ))))
-            } else {
-                Ok(None)
-            }
+            Ok(PriceTickerResponse::from(((token, currency), v)))
         })
-        .flatten()
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(prices, query.size, |price| {
         price.sort.to_string()
@@ -154,18 +150,14 @@ async fn get_price(
 ) -> Result<Response<Option<PriceTickerResponse>>> {
     let (token, currency) = parse_token_currency(&key)?;
 
-    let price_ticker = ctx
-        .services
-        .price_ticker
-        .by_id
-        .list(
-            Some(([0xffu8; 4], [0xffu8; 4], token.clone(), currency.clone())),
-            SortOrder::Descending,
-        )?
-        .next()
-        .transpose()?;
+    let price_repo = &ctx.services.price_ticker;
+    let sort_key = price_repo.by_key.get(&(token.clone(), currency.clone()))?;
+    let Some(sort_key) = sort_key else {
+        return Ok(Response::new(None));
+    };
+    let price_ticker = price_repo.by_id.get(&sort_key)?;
 
-    let Some((_, price_ticker)) = price_ticker else {
+    let Some(price_ticker) = price_ticker else {
         return Ok(Response::new(None));
     };
 
@@ -217,7 +209,7 @@ async fn get_feed(
                 token: token.clone(),
                 currency: currency.clone(),
                 aggregated: OraclePriceAggregatedAggregatedResponse {
-                    amount: format!("{:.8}", v.aggregated.amount),
+                    amount: format!("{:.8}", v.aggregated.amount / Decimal::from(COIN)),
                     weightage: v.aggregated.weightage.to_i32().unwrap_or_default(),
                     oracles: OraclePriceActiveNextOraclesResponse {
                         active: v.aggregated.oracles.active.to_i32().unwrap_or_default(),
@@ -334,8 +326,19 @@ pub struct OraclePriceAggregatedIntervalResponse {
     pub sort: String, // medianTime-height
     pub token: Token,
     pub currency: Currency,
-    pub aggregated: OraclePriceAggregatedIntervalAggregated,
+    pub aggregated: OraclePriceAggregatedIntervalAggregatedResponse,
     pub block: BlockContext,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedIntervalAggregatedResponse {
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub weightage: Decimal,
+    pub count: i32,
+    pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
     /**
      * Aggregated interval time range in seconds.
      * - Interval that aggregated in seconds
@@ -362,23 +365,26 @@ async fn get_feed_with_interval(
     let (token, currency) = parse_token_currency(&key)?;
     let interval = interval.parse::<i64>()?;
 
-    let interval_type = match interval {
+    let interval = match interval {
         900 => OracleIntervalSeconds::FifteenMinutes,
         3600 => OracleIntervalSeconds::OneHour,
         86400 => OracleIntervalSeconds::OneDay,
         _ => return Err(From::from("Invalid oracle interval")),
     };
+    let interval = interval as u32;
 
     let next = query
         .next
         .map(|q| {
-            let height = q.parse::<u32>()?.to_be_bytes();
+            let height = hex::decode(q)?
+                .try_into()
+                .map_err(|_| Error::ToArrayError)?;
             Ok::<[u8; 4], Error>(height)
         })
         .transpose()?
         .unwrap_or([0xffu8; 4]);
 
-    let id = (token.clone(), currency.clone(), interval_type.clone(), next);
+    let id = (token.clone(), currency.clone(), interval.to_string(), next);
 
     let items = ctx
         .services
@@ -388,40 +394,37 @@ async fn get_feed_with_interval(
         .take(query.size)
         .take_while(|item| match item {
             Ok(((t, c, i, _), _)) => {
-                t == &token.clone() && c == &currency.clone() && i == &interval_type.clone()
+                t == &token.clone() && c == &currency.clone() && i == &interval.to_string()
             }
             _ => true,
         })
         .flatten()
         .collect::<Vec<_>>();
 
+    let interval = interval as i64;
     let mut prices = Vec::new();
     for (id, item) in items {
         let start = item.block.median_time - (item.block.median_time % interval);
         let height = u32::from_be_bytes(id.3);
 
         let price = OraclePriceAggregatedIntervalResponse {
-            id: format!("{}-{}-{:?}-{}", id.0, id.1, id.2, height),
-            key: format!("{}-{}-{:?}", id.0, id.1, id.2),
-            sort: format!(
-                "{}{}",
-                hex::encode(item.block.median_time.to_be_bytes()),
-                hex::encode(item.block.height.to_be_bytes()),
-            ),
+            id: format!("{}-{}-{}-{}", id.0, id.1, id.2, height),
+            key: format!("{}-{}-{}", id.0, id.1, id.2),
+            sort: hex::encode(item.block.height.to_be_bytes()).to_string(),
             token: token.clone(),
             currency: currency.clone(),
-            aggregated: OraclePriceAggregatedIntervalAggregated {
+            aggregated: OraclePriceAggregatedIntervalAggregatedResponse {
                 amount: item.aggregated.amount,
                 weightage: item.aggregated.weightage,
                 oracles: item.aggregated.oracles,
                 count: item.aggregated.count,
+                time: OraclePriceAggregatedIntervalTime {
+                    interval,
+                    start,
+                    end: start + interval,
+                },
             },
             block: item.block,
-            time: OraclePriceAggregatedIntervalTime {
-                interval,
-                start,
-                end: start + interval,
-            },
         };
         prices.push(price);
     }

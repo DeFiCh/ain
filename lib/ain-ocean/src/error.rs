@@ -212,6 +212,12 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("Invalid price ticker sort key: {}", item))]
+    InvalidPriceTickerSortKey {
+        item: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
     #[snafu(display("Invalid amount format: {}", item))]
     InvalidAmount {
         item: String,

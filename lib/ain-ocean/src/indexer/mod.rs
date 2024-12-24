@@ -292,7 +292,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
 
         let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(());
+                continue;
             };
 
             return Err(Error::NotFoundIndex {
@@ -312,7 +312,7 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
         index_script_unspent_vout(services, vout, ctx)?;
 
         if vout.script_pub_key.hex.starts_with(&[0x6a]) {
-            return Ok(());
+            continue;
         }
 
         index_script_activity_vout(services, vout, ctx)?;
@@ -322,23 +322,23 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
     }
 
     // index_script_aggregation
-    for (_, mut aggregation) in record.clone() {
+    for (_, mut aggregation) in record {
         let repo = &services.script_aggregation;
         let latest = repo
             .by_id
             .list(Some((aggregation.hid, [0xffu8; 4])), SortOrder::Descending)?
-            .take(1)
             .take_while(|item| match item {
                 Ok(((hid, _), _)) => &aggregation.hid == hid,
                 _ => true,
             })
+            .next()
+            .transpose()?
             .map(|item| {
-                let (_, v) = item?;
-                Ok(v)
-            })
-            .collect::<Result<Vec<_>>>()?;
+                let (_, v) = item;
+                v
+            });
 
-        if let Some(latest) = latest.first().cloned() {
+        if let Some(latest) = latest {
             aggregation.statistic.tx_in_count += latest.statistic.tx_in_count;
             aggregation.statistic.tx_out_count += latest.statistic.tx_out_count;
 
@@ -354,8 +354,6 @@ fn index_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction]) ->
             &(aggregation.hid, ctx.block.height.to_be_bytes()),
             &aggregation,
         )?;
-
-        record.insert(aggregation.hid, aggregation);
     }
 
     log_elapsed(start, format!("Indexed script {:x}", ctx.tx.txid));
@@ -383,7 +381,7 @@ fn invalidate_script(services: &Arc<Services>, ctx: &Context, txs: &[Transaction
 
         let Some(vout) = find_tx_vout(services, &vin, txs)? else {
             if is_skipped_tx(&vin.txid) {
-                return Ok(());
+                continue;
             };
 
             return Err(Error::NotFoundIndex {
