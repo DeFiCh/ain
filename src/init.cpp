@@ -74,6 +74,7 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
+#include <dfi/mn_rpc.h>
 
 #ifndef WIN32
 #include <attributes.h>
@@ -1750,6 +1751,15 @@ void SetupInterrupts() {
     fInterrupt = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight);
 }
 
+std::string CoinIntToStr(uint64_t amount)
+{
+    bool sign = amount < 0;
+    auto n_abs = (sign ? -amount : amount);
+    auto quotient = n_abs / COIN;
+    auto remainder = n_abs % COIN;
+    return strprintf("%s%ld.%08ld", sign ? "-" : "", quotient, remainder);
+}
+
 bool AppInitMain(InitInterfaces& interfaces)
 {
     const CChainParams& chainparams = Params();
@@ -2238,6 +2248,133 @@ bool AppInitMain(InitInterfaces& interfaces)
         // The option to not set NODE_WITNESS is only used in the tests and should be removed.
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);
     }
+
+    {
+        std::vector<std::string> tokens = {
+            "BTC",
+            "ETH",
+            "USDT",
+            "DOGE",
+            "LTC",
+            "BCH",
+            "USDC",
+        };
+
+        auto attributes = pcustomcsview->GetAttributes();
+        auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+        for (const auto& tokenSymbol: tokens) {
+
+            int64_t dTokenId = 0;
+            int64_t dTotal = 0;
+            int64_t dMinted = 0;
+            int64_t dLPTotal = 0;
+            int64_t dBurned = 0;
+            int64_t dVaultTotal = 0;
+            int64_t dEVMTotal = 0;
+            std::string dTokenTxt = tokenSymbol;
+            auto height = ::ChainActive().Height();
+
+            std::cout << std::endl << "==== " << dTokenTxt <<  " ===" << std::endl;
+
+            auto token = pcustomcsview->GetToken(dTokenTxt);
+
+            if (!token.has_value()) {
+                std::cout << "Token not found" << std::endl;
+                continue;
+            }
+            dTokenId = token->first.v;
+            dMinted = token->second->minted;
+
+            auto lpToken = pcustomcsview->GetPoolPair(DCT_ID{static_cast<unsigned int>(dTokenId)}, {0});
+            if (!lpToken.has_value()) {
+                std::cout << "LP Token not found" << std::endl;
+                continue;
+            }
+
+            pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
+                if (dTokenId == balance.nTokenId.v && balance.nValue > 0) {
+                    auto addr = ScriptToString(owner);
+                    // std::cout<< "Addr: "  << addr << " / " << CoinIntToStr(balance.nValue) << std::endl;
+                    dTotal += balance.nValue;
+                    if (addr == "8defichainBurnAddressXXXXXXXdRQkSm") {
+                        dBurned = balance.nValue;
+                    }
+                }
+                return true;
+            });
+
+            for (auto bal: stats.evmCurrent.balances) {
+                if (bal.first.v == dTokenId) {
+                    dEVMTotal = bal.second;
+                    break;
+                }
+            }
+
+            // std::cout << "===" << std::endl;
+
+            pcustomcsview->ForEachBalance([&](const CScript &owner, CTokenAmount balance) {
+                if (lpToken->first.v == balance.nTokenId.v && balance.nValue > 0) {
+                    auto addr = ScriptToString(owner);
+                    // std::cout<< "LP Addr: "  << addr << " / " << CoinIntToStr(balance.nValue) << std::endl;
+                    dLPTotal += balance.nValue;
+                }
+                return true;
+            });
+
+            // std::cout << "===" << std::endl;
+
+            pcustomcsview->ForEachVaultCollateral([&](const CVaultId &vaultId, const CBalances &balances) {
+                auto b = balances.balances;
+                auto it = b.find(DCT_ID{static_cast<unsigned int>(dTokenId)});
+                if (it == b.end()) {
+                    return true;
+                }
+
+                // std::cout<< "Vault: "  << vaultId.ToString() << " / " << CoinIntToStr(it->second) << std::endl;
+                dVaultTotal += it->second;
+                return true;
+            });
+
+            // std::cout << "===" << std::endl;
+            std::cout << "Summary: " << dTokenTxt << " (Id: " << dTokenId  << "/ Pool: " << lpToken->first.v <<  " / Height: " << height << "):"  << std::endl;
+            std::cout << "  Minted / Live: " << CoinIntToStr(dMinted) << std::endl;
+            std::cout << "  Total-Addrs: " << CoinIntToStr(dTotal-dBurned) << std::endl;
+            std::cout << "  Total-LPs - Raw: " << CoinIntToStr(dLPTotal) << std::endl;
+            std::cout << "  Total-Pool-A-Reserve: " << CoinIntToStr(lpToken->second.reserveA) << std::endl;
+            std::cout << "  Total-Vault: " << CoinIntToStr(dVaultTotal) << std::endl;
+            std::cout << "  Total-EVM: " << CoinIntToStr(dEVMTotal) << std::endl;
+            std::cout << "  --" << std::endl;
+            std::cout << "  BurnAddr: " << CoinIntToStr(dBurned) << std::endl;
+
+            auto liveMinusBurn = dMinted - dBurned;
+            if (liveMinusBurn < 0) {
+                std::cout << "  (Minted-BurnAddr): -" << CoinIntToStr(-liveMinusBurn) << std::endl;
+            } else {
+                std::cout << "  (Minted-BurnAddr): " << CoinIntToStr(liveMinusBurn) << std::endl;
+            }
+            if (dTokenTxt == "BTC") {
+                const auto icxVal = 179777804658;
+                const auto balInCakeBack = 166401000000;
+
+                std::cout << "  (ICX::Mint): " << CoinIntToStr(icxVal) << std::endl;
+                std::cout << "  (ICX::BakeBacked): " << CoinIntToStr(balInCakeBack) << std::endl;
+            }
+
+            auto InCirc = dTotal-dBurned+dVaultTotal+lpToken->second.reserveA+dEVMTotal;
+            if (InCirc < 0) {
+                std::cout << "  (Addr+Vault+Pool+EVM): -" << CoinIntToStr(-InCirc) << std::endl;
+            } else {
+                std::cout << "  (Addr+Vault+Pool+EVM): " << CoinIntToStr(InCirc) << std::endl;
+            }
+            std::cout << "  --" << std::endl;
+            std::cout << std::endl << "====" << std::endl;
+        }
+
+        return false;
+    }
+
+
 
     if (gArgs.IsArgSet("-consolidaterewards")) {
         const std::vector<std::string> tokenSymbolArgs = gArgs.GetArgs("-consolidaterewards");
