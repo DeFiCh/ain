@@ -2,7 +2,6 @@ use std::{str::FromStr, sync::Arc};
 
 use ain_cpp_imports::PoolPairCreationHeight;
 use ain_dftx::{pool::*, COIN};
-use bitcoin::Txid;
 use log::trace;
 use parking_lot::RwLock;
 use rust_decimal::Decimal;
@@ -37,33 +36,24 @@ fn index_swap_aggregated(
     pool_id: u32,
     from_token_id: u64,
     from_amount: i64,
-    txid: Txid,
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS {
         let repo = &services.pool_swap_aggregated;
-        let prevs = repo
+        let prev = repo
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-            .take(1)
             .take_while(|item| match item {
                 Ok((k, _)) => k.0 == pool_id && k.1 == interval,
                 _ => true,
             })
-            .flatten()
-            .collect::<Vec<_>>();
+            .next()
+            .transpose()?;
 
-        if prevs.is_empty() {
-            log::error!(
-                "index swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
-            );
-            continue;
-        }
-
-        let Some((_, id)) = prevs.first() else {
+        let Some((_, id)) = prev else {
             continue;
         };
 
-        let aggregated = repo.by_id.get(id)?;
+        let aggregated = repo.by_id.get(&id)?;
 
         let Some(mut aggregated) = aggregated else {
             continue;
@@ -86,7 +76,7 @@ fn index_swap_aggregated(
             .amounts
             .insert(from_token_id, format!("{aggregated_amount:.8}"));
 
-        repo.by_id.put(id, &aggregated)?;
+        repo.by_id.put(&id, &aggregated)?;
     }
 
     Ok(())
@@ -97,33 +87,24 @@ fn invalidate_swap_aggregated(
     pool_id: u32,
     from_token_id: u64,
     from_amount: i64,
-    txid: Txid,
 ) -> Result<()> {
     for interval in AGGREGATED_INTERVALS.into_iter().rev() {
         let repo = &services.pool_swap_aggregated;
-        let prevs = repo
+        let prev = repo
             .by_key
             .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
-            .take(1)
             .take_while(|item| match item {
                 Ok((k, _)) => k.0 == pool_id && k.1 == interval,
                 _ => true,
             })
-            .flatten()
-            .collect::<Vec<_>>();
+            .next()
+            .transpose()?;
 
-        if prevs.is_empty() {
-            log::error!(
-                "invalidate swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
-            );
-            continue;
-        }
-
-        let Some((_, id)) = prevs.first() else {
+        let Some((_, id)) = prev else {
             continue;
         };
 
-        let aggregated = repo.by_id.get(id)?;
+        let aggregated = repo.by_id.get(&id)?;
 
         let Some(mut aggregated) = aggregated else {
             continue;
@@ -146,7 +127,7 @@ fn invalidate_swap_aggregated(
             .amounts
             .insert(from_token_id, format!("{aggregated_amount:.8}"));
 
-        repo.by_id.put(id, &aggregated)?;
+        repo.by_id.put(&id, &aggregated)?;
     }
 
     Ok(())
@@ -300,7 +281,7 @@ impl Index for PoolSwap {
             .by_id
             .put(&(pool_id, ctx.block.height, idx), &swap)?;
 
-        index_swap_aggregated(services, pool_id, from_token_id, from_amount, txid)?;
+        index_swap_aggregated(services, pool_id, from_token_id, from_amount)?;
 
         Ok(())
     }
@@ -323,7 +304,7 @@ impl Index for PoolSwap {
             .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
         tx_result::invalidate(services, &txid)?;
 
-        invalidate_swap_aggregated(services, pool_id, from_token_id, from_amount, txid)?;
+        invalidate_swap_aggregated(services, pool_id, from_token_id, from_amount)?;
 
         Ok(())
     }
@@ -390,7 +371,7 @@ impl Index for CompositeSwap {
                 .by_id
                 .put(&(pool_id, ctx.block.height, ctx.tx_idx), &swap)?;
 
-            index_swap_aggregated(services, pool_id, from_token_id, from_amount, txid)?;
+            index_swap_aggregated(services, pool_id, from_token_id, from_amount)?;
         }
 
         Ok(())
@@ -400,7 +381,6 @@ impl Index for CompositeSwap {
         trace!("[ComposoteSwap] Invalidating...");
         let from_token_id = self.pool_swap.from_token_id.0;
         let from_amount = self.pool_swap.from_amount;
-        let txid = ctx.tx.txid;
         for pool in self.pools.iter().rev() {
             let pool_id = pool.id.0 as u32;
             services
@@ -408,7 +388,7 @@ impl Index for CompositeSwap {
                 .by_id
                 .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
 
-            invalidate_swap_aggregated(services, pool_id, from_token_id, from_amount, txid)?;
+            invalidate_swap_aggregated(services, pool_id, from_token_id, from_amount)?;
         }
         tx_result::invalidate(services, &ctx.tx.txid)
     }

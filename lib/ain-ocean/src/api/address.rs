@@ -174,19 +174,18 @@ fn get_latest_aggregation(
         .script_aggregation
         .by_id
         .list(Some((hid, [0xffu8; 4])), SortOrder::Descending)?
-        .take(1)
         .take_while(|item| match item {
             Ok(((v, _), _)) => v == &hid,
             _ => true,
         })
+        .next()
+        .transpose()?
         .map(|item| {
-            let (_, v) = item?;
-            let res = v.into();
-            Ok(res)
-        })
-        .collect::<Result<Vec<_>>>()?;
+            let (_, v) = item;
+            v.into()
+        });
 
-    Ok(latest.first().cloned())
+    Ok(latest)
 }
 
 #[ocean_endpoint]
