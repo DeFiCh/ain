@@ -23,7 +23,7 @@ env:
 jobs:
   generic:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       BUILD_VERSION: latest # Computed
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
