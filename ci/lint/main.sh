@@ -7,7 +7,9 @@ main() {
     _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR/../../"
-    
+
+    ./make.sh pkg-install-deps
+    ./make.sh pkg-install-llvm
     ./make.sh check-lints
     ./make.sh check_sh
     ./make.sh check_py
