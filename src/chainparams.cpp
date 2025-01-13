@@ -587,8 +587,8 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
-        vSeeds.emplace_back("testnet-seed.defichain.io");
-        vSeeds.emplace_back("35.195.186.78");
+        vSeeds.emplace_back("testnet-seed.mydefichain.com");
+        vSeeds.emplace_back("seeder-testnet3.defichain-status.com");
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
@@ -1424,7 +1424,7 @@ void CChangiParams::UpdateActivationParametersFromArgs() {
     if (SetMocknet(*this, consensus)) { return; }
     if (gArgs.IsArgSet("-changi-bootstrap")) {
         nDefaultPort = 18555;
-        vSeeds.emplace_back("changi-seed.defichain.io");
+        vSeeds.emplace_back("changi-seed.mydefichain.com");
         pchMessageStartPostAMK[0] = 0x0b;
         pchMessageStartPostAMK[1] = 0x11;
         pchMessageStartPostAMK[2] = 0x09;
@@ -1436,7 +1436,7 @@ void CDevNetParams::UpdateActivationParametersFromArgs() {
     if (SetMocknet(*this, consensus)) { return; }
     if (gArgs.IsArgSet("-devnet-bootstrap")) {
         nDefaultPort = 18555;
-        vSeeds.emplace_back("testnet-seed.defichain.io");
+        vSeeds.emplace_back("testnet-seed.mydefichain.com");
         pchMessageStartPostAMK[0] = 0x0b;
         pchMessageStartPostAMK[1] = 0x11;
         pchMessageStartPostAMK[2] = 0x09;
