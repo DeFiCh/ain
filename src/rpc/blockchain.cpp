@@ -192,13 +192,13 @@ struct RewardInfo {
     CAmount BlockReward{};
     TokenRewardItems TokenRewards{};
 
-    static std::optional<RewardInfo> TryFrom(const CBlock& block, const CBlockIndex* blockindex, const Consensus::Params& consensus) {
+    static std::optional<RewardInfo> TryFrom(const CCustomCSView &mnview, const CBlock& block, const CBlockIndex* blockindex, const Consensus::Params& consensus) {
         if (blockindex->nHeight < consensus.DF1AMKHeight)
             return {};
 
         RewardInfo result{};
         auto& tokenRewards = result.TokenRewards;
-        CAmount blockReward = GetBlockSubsidy(blockindex->nHeight, consensus);
+        CAmount blockReward = GetBlockSubsidy(mnview, blockindex->nHeight, consensus);
         result.BlockReward = blockReward;
 
         if (blockindex->nHeight < consensus.DF8EunosHeight) {
@@ -390,7 +390,7 @@ UniValue blockToJSON(CCustomCSView &view, const CBlock& block, const CBlockIndex
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
 
     if (!v3plus) {
-        auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
+        auto rewardInfo = RewardInfo::TryFrom(view, block, blockindex, consensus);
         if (rewardInfo) { rewardInfo->ToUniValueLegacy(result); }
         result.pushKV("tx", txsToUniValue(block, txDetails, version));
     }
@@ -409,7 +409,7 @@ UniValue blockToJSON(CCustomCSView &view, const CBlock& block, const CBlockIndex
     if (v3plus) {
         auto minterInfo = MinterInfo::From(block, blockindex, view);
         result.pushKV("minter", minterInfo.ToUniValue());
-        auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
+        auto rewardInfo = RewardInfo::TryFrom(view, block, blockindex, consensus);
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
         }
@@ -1868,22 +1868,25 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
             }.Check(request);
 
     const CBlockIndex* pindex;
-    int blockcount = 30 * 24 * 60 * 60 / Params().GetConsensus().pos.nTargetSpacing; // By default: 1 month
+    int blockcount{};
 
-    if (request.params[1].isNull()) {
+    {
         LOCK(cs_main);
-        pindex = ::ChainActive().Tip();
-    } else {
-        uint256 hash(ParseHashV(request.params[1], "blockhash"));
-        LOCK(cs_main);
-        pindex = LookupBlockIndex(hash);
-        if (!pindex) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
-        }
-        if (!::ChainActive().Contains(pindex)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in main chain");
+        blockcount = 30 * 24 * 60 * 60 / GetTargetSpacing(*pcustomcsview); // By default: 1 month
+        if (request.params[1].isNull()) {
+            pindex = ::ChainActive().Tip();
+        } else {
+            uint256 hash(ParseHashV(request.params[1], "blockhash"));
+            pindex = LookupBlockIndex(hash);
+            if (!pindex) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+            }
+            if (!::ChainActive().Contains(pindex)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in main chain");
+            }
         }
     }
+
 
     assert(pindex != nullptr);
 
@@ -2209,7 +2212,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
     ret_all.pushKV("minfeerate", (minfeerate == MAX_MONEY) ? 0 : minfeerate);
     ret_all.pushKV("mintxsize", mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize);
     ret_all.pushKV("outs", outputs);
-    ret_all.pushKV("subsidy", GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
+    ret_all.pushKV("subsidy", GetBlockSubsidy(*pcustomcsview, pindex->nHeight, Params().GetConsensus()));
     ret_all.pushKV("swtotal_size", swtotal_size);
     ret_all.pushKV("swtotal_weight", swtotal_weight);
     ret_all.pushKV("swtxs", swtxs);

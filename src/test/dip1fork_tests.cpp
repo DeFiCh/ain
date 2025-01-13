@@ -20,7 +20,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = SCRIPT_PUB;
-    coinbaseTx.vout[0].nValue = GetBlockSubsidy(height, consensus);
+    coinbaseTx.vout[0].nValue = GetBlockSubsidy(*pcustomcsview, height, consensus);
     coinbaseTx.vin[0].scriptSig = CScript() << height << OP_0;
 
     {   // check on pre-AMK height:
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        tx.vout[1].nValue = GetBlockSubsidy(height, consensus) * consensus.foundationShareDFIP1 / COIN -1;
+        tx.vout[1].nValue = GetBlockSubsidy(*pcustomcsview, height, consensus) * consensus.foundationShareDFIP1 / COIN -1;
         tx.vout[0].nValue -= tx.vout[1].nValue;
 
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        tx.vout[1].nValue = GetBlockSubsidy(height, consensus) * consensus.foundationShareDFIP1 / COIN;
+        tx.vout[1].nValue = GetBlockSubsidy(*pcustomcsview, height, consensus) * consensus.foundationShareDFIP1 / COIN;
         tx.vout[0].nValue -= tx.vout[1].nValue;
 
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         CMutableTransaction tx(coinbaseTx);
         tx.vout.resize(2);
         tx.vout[1].scriptPubKey = consensus.foundationShareScript;
-        CAmount const baseSubsidy = GetBlockSubsidy(height, consensus);
+        CAmount const baseSubsidy = GetBlockSubsidy(*pcustomcsview, height, consensus);
         tx.vout[1].nValue = baseSubsidy * consensus.foundationShareDFIP1 / COIN;
         tx.vout[0].nValue -= tx.vout[1].nValue;
         tx.vout[0].nValue -= baseSubsidy * consensus.blockTokenRewardsLegacy.at(CommunityAccountType::IncentiveFunding) / COIN;
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     consensus.DF8EunosHeight = 10000000;
     consensus.DF20GrandCentralHeight = 10000001;
     auto height = consensus.DF8EunosHeight;
-    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    CAmount blockReward = GetBlockSubsidy(*pcustomcsview, height, consensus);
 
     CMutableTransaction coinbaseTx{};
 
@@ -94,7 +94,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = SCRIPT_PUB;
-    coinbaseTx.vout[0].nValue = GetBlockSubsidy(height, consensus);
+    coinbaseTx.vout[0].nValue = GetBlockSubsidy(*pcustomcsview, height, consensus);
     coinbaseTx.vin[0].scriptSig = CScript() << height << OP_0;
 
     {   // do not pay foundation reward at all
@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 0
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(0), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(0), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 40504000000);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 13499983200);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 1988746400);
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 1
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(1), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(1), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 39832443680);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 13276153478);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 1955772984);
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 100
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(100), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(100), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 7610296073);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 2536511681);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 373665537);
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 1000
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(1000), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(1000), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 2250);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 749);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 110);
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 1251
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(1251), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(1251), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 60);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 19);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 2);
@@ -221,7 +221,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 
     // Test coinbase rewards reduction 1252
     {
-        auto blockSubsidy = GetBlockSubsidy(GetReductionsHeight(1252), consensus);
+        auto blockSubsidy = GetBlockSubsidy(*pcustomcsview, GetReductionsHeight(1252), consensus);
         BOOST_CHECK_EQUAL(blockSubsidy, 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.masternode), 0);
         BOOST_CHECK_EQUAL(CalculateCoinbaseReward(blockSubsidy, consensus.dist.community), 0);

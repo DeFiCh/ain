@@ -30,6 +30,7 @@ class GovsetTest(DefiTestFramework):
         self.extra_args = [
             [
                 "-txnotokens=0",
+                "-subsidytest=1",
                 "-amkheight=50",
                 "-bayfrontheight=50",
                 "-eunosheight=200",
@@ -39,11 +40,12 @@ class GovsetTest(DefiTestFramework):
                 "-fortcanningcrunchheight=1200",
                 "-fortcanningspringheight=1250",
                 "-grandcentralheight=1300",
+                "-metachainheight=1350",
                 "-df24height=1350",
-                "-subsidytest=1",
             ],
             [
                 "-txnotokens=0",
+                "-subsidytest=1",
                 "-amkheight=50",
                 "-bayfrontheight=50",
                 "-eunosheight=200",
@@ -53,8 +55,8 @@ class GovsetTest(DefiTestFramework):
                 "-fortcanningcrunchheight=1200",
                 "-fortcanningspringheight=1250",
                 "-grandcentralheight=1300",
+                "-metachainheight=1350",
                 "-df24height=1350",
-                "-subsidytest=1",
             ],
         ]
 
@@ -2211,6 +2213,18 @@ class GovsetTest(DefiTestFramework):
         self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/gov-unset": "true"}})
         self.nodes[0].generate(1)
 
+        # Try and unset a key that does not exist
+        assert_raises_rpc_error(
+            -32600,
+            "Attribute {76} not exists",
+            self.nodes[0].unsetgov,
+            {
+                "ATTRIBUTES": [
+                    "v0/locks/token/1000000",
+                ]
+            },
+        )
+
         # Unset Gov variables
         self.nodes[0].unsetgov(
             {
@@ -2260,6 +2274,201 @@ class GovsetTest(DefiTestFramework):
             {"ATTRIBUTES": {"v0/params/feature/ascending_block_time": "true"}},
         )
 
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "65380"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/target_spacing": "15"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/target_timespan": "2016"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/anchors/frequency": "30"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/anchors/team_change": "240"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/masternodes/activation_delay": "2016"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/masternodes/resign_delay": "4032"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/order_default_expiry": "5760"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/offer_default_expiry": "40"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/offer_refund_timeout": "200"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_timeout": "2880"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_2nd_timeout": "960"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/btc_blocks_in_dfi": "40"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "65380"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/target_spacing": "15"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/target_timespan": "2016"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/anchors/frequency": "30"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/anchors/team_change": "240"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/masternodes/activation_delay": "2016"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/masternodes/resign_delay": "4032"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/order_default_expiry": "5760"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/offer_default_expiry": "40"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/offer_refund_timeout": "200"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_timeout": "2880"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_2nd_timeout": "960"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF24Height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/btc_blocks_in_dfi": "40"}},
+            1360,
+        )
+
         # Move to fork
         self.nodes[0].generate(1350 - self.nodes[0].getblockcount())
 
@@ -2277,6 +2486,411 @@ class GovsetTest(DefiTestFramework):
         block_count = self.nodes[0].getblockcount()
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].getblockcount(), block_count + 1)
+
+        # Try setting time related param without others
+        error_message = "Param Time vars must be changed together. BlockTime: EmissionReduction, TargetSpacing, TargetTimespan. Anchors: Frequency, TeamChange. Masternodes: ActivationDelay, ResignDelay. ICX: OrderDefaultExpiry, OfferDefaultExpiry, OfferRefundTimeout, SubmitMinTimeout, SubmitMin2ndTimeout, SubmitBTCBlocksInDFI"
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "65380"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/target_spacing": "15"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/block_time/target_timespan": "2016"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/anchors/frequency": "30"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/anchors/team_change": "240"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/masternodes/activation_delay": "2016"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/masternodes/resign_delay": "4032"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/order_default_expiry": "5760"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/offer_default_expiry": "40"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/offer_refund_timeout": "200"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_timeout": "2880"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_2nd_timeout": "960"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/icx/btc_blocks_in_dfi": "40"}},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/emission_reduction": "65380"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/target_spacing": "15"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/block_time/target_timespan": "2016"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/anchors/frequency": "30"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/anchors/team_change": "240"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/masternodes/activation_delay": "2016"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/masternodes/resign_delay": "4032"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/order_default_expiry": "5760"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/offer_default_expiry": "40"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/offer_refund_timeout": "200"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_timeout": "2880"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/submit_min_2nd_timeout": "960"}},
+            1360,
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {"v0/params/icx/btc_blocks_in_dfi": "40"}},
+            1360,
+        )
+
+        # Set all time related vars
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/block_time/emission_reduction": "65380",
+                    "v0/params/block_time/target_spacing": "15",
+                    "v0/params/block_time/target_timespan": "2016",
+                    "v0/params/anchors/frequency": "30",
+                    "v0/params/anchors/team_change": "240",
+                    "v0/params/masternodes/activation_delay": "2016",
+                    "v0/params/masternodes/resign_delay": "4032",
+                    "v0/params/icx/order_default_expiry": "5760",
+                    "v0/params/icx/offer_default_expiry": "40",
+                    "v0/params/icx/offer_refund_timeout": "200",
+                    "v0/params/icx/submit_min_timeout": "2880",
+                    "v0/params/icx/submit_min_2nd_timeout": "960",
+                    "v0/params/icx/btc_blocks_in_dfi": "40",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check time related vars set
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/params/block_time/emission_reduction"], "65380")
+        assert_equal(result["v0/params/block_time/target_spacing"], "15")
+        assert_equal(result["v0/params/block_time/target_timespan"], "2016")
+        assert_equal(result["v0/params/anchors/frequency"], "30")
+        assert_equal(result["v0/params/anchors/team_change"], "240")
+        assert_equal(result["v0/params/masternodes/activation_delay"], "2016")
+        assert_equal(result["v0/params/masternodes/resign_delay"], "4032")
+        assert_equal(result["v0/params/icx/order_default_expiry"], "5760")
+        assert_equal(result["v0/params/icx/offer_default_expiry"], "40")
+        assert_equal(result["v0/params/icx/offer_refund_timeout"], "200")
+        assert_equal(result["v0/params/icx/submit_min_timeout"], "2880")
+        assert_equal(result["v0/params/icx/submit_min_2nd_timeout"], "960")
+        assert_equal(result["v0/params/icx/btc_blocks_in_dfi"], "40")
+
+        # Change by height
+        self.nodes[0].setgovheight(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/block_time/emission_reduction": "32690",
+                    "v0/params/block_time/target_spacing": "30",
+                    "v0/params/block_time/target_timespan": "1008",
+                    "v0/params/anchors/frequency": "15",
+                    "v0/params/anchors/team_change": "120",
+                    "v0/params/masternodes/activation_delay": "1008",
+                    "v0/params/masternodes/resign_delay": "2016",
+                    "v0/params/icx/order_default_expiry": "2880",
+                    "v0/params/icx/offer_default_expiry": "20",
+                    "v0/params/icx/offer_refund_timeout": "100",
+                    "v0/params/icx/submit_min_timeout": "1440",
+                    "v0/params/icx/submit_min_2nd_timeout": "480",
+                    "v0/params/icx/btc_blocks_in_dfi": "20",
+                }
+            },
+            1360,
+        )
+        self.nodes[0].generate(1360 - self.nodes[0].getblockcount())
+
+        # Check time related vars set
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/params/block_time/emission_reduction"], "32690")
+        assert_equal(result["v0/params/block_time/target_spacing"], "30")
+        assert_equal(result["v0/params/block_time/target_timespan"], "1008")
+        assert_equal(result["v0/params/anchors/frequency"], "15")
+        assert_equal(result["v0/params/anchors/team_change"], "120")
+        assert_equal(result["v0/params/masternodes/activation_delay"], "1008")
+        assert_equal(result["v0/params/masternodes/resign_delay"], "2016")
+        assert_equal(result["v0/params/icx/order_default_expiry"], "2880")
+        assert_equal(result["v0/params/icx/offer_default_expiry"], "20")
+        assert_equal(result["v0/params/icx/offer_refund_timeout"], "100")
+        assert_equal(result["v0/params/icx/submit_min_timeout"], "1440")
+        assert_equal(result["v0/params/icx/submit_min_2nd_timeout"], "480")
+        assert_equal(result["v0/params/icx/btc_blocks_in_dfi"], "20")
+
+        # Check unset error messages
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/block_time/emission_reduction"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/block_time/target_spacing"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/block_time/target_timespan"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/anchors/frequency"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/anchors/team_change"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/masternodes/activation_delay"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/masternodes/resign_delay"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/order_default_expiry"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/offer_default_expiry"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/offer_refund_timeout"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/submit_min_timeout"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/submit_min_2nd_timeout"]},
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            error_message,
+            self.nodes[0].unsetgov,
+            {"ATTRIBUTES": ["v0/params/icx/btc_blocks_in_dfi"]},
+        )
+
+        # Unset time related vars
+        self.nodes[0].unsetgov(
+            {
+                "ATTRIBUTES": [
+                    "v0/params/block_time/emission_reduction",
+                    "v0/params/block_time/target_spacing",
+                    "v0/params/block_time/target_timespan",
+                    "v0/params/anchors/frequency",
+                    "v0/params/anchors/team_change",
+                    "v0/params/masternodes/activation_delay",
+                    "v0/params/masternodes/resign_delay",
+                    "v0/params/icx/order_default_expiry",
+                    "v0/params/icx/offer_default_expiry",
+                    "v0/params/icx/offer_refund_timeout",
+                    "v0/params/icx/submit_min_timeout",
+                    "v0/params/icx/submit_min_2nd_timeout",
+                    "v0/params/icx/btc_blocks_in_dfi",
+                ]
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check time related vars unset
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert "v0/params/block_time/emission_reduction" not in result
+        assert "v0/params/block_time/target_spacing" not in result
+        assert "v0/params/block_time/target_timespan" not in result
+        assert "v0/params/anchors/frequency" not in result
+        assert "v0/params/anchors/team_change" not in result
+        assert "v0/params/masternodes/activation_delay" not in result
+        assert "v0/params/masternodes/resign_delay" not in result
+        assert "v0/params/icx/order_default_expiry" not in result
+        assert "v0/params/icx/offer_default_expiry" not in result
+        assert "v0/params/icx/offer_refund_timeout" not in result
+        assert "v0/params/icx/submit_min_timeout" not in result
+        assert "v0/params/icx/submit_min_2nd_timeout" not in result
+        assert "v0/params/icx/btc_blocks_in_dfi" not in result
 
 
 if __name__ == "__main__":

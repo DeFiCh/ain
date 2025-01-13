@@ -1395,15 +1395,14 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t> &block,
     return ReadRawBlockFromDisk(block, block_pos, message_start);
 }
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params &consensusParams) {
+CAmount GetBlockSubsidy(const CCustomCSView &mnview, int nHeight, const Consensus::Params &consensusParams) {
     CAmount nSubsidy = consensusParams.baseBlockSubsidy;
 
     if (Params().NetworkIDString() != CBaseChainParams::REGTEST ||
         (Params().NetworkIDString() == CBaseChainParams::REGTEST && gArgs.GetBoolArg("-subsidytest", false))) {
         if (nHeight >= consensusParams.DF8EunosHeight) {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            const size_t reductions =
-                (nHeight - consensusParams.DF8EunosHeight) / consensusParams.emissionReductionPeriod;
+            const size_t reductions = (nHeight - consensusParams.DF8EunosHeight) / GetEmissionReduction(mnview);
 
             // See if we already have this reduction calculated and return if found.
             if (subsidyReductions.find(reductions) != subsidyReductions.end()) {
@@ -2342,7 +2341,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
                            CAmount nFees,
                            const Consensus::Params &consensus) {
     const TAmounts cbValues = tx.GetValuesOut();
-    CAmount blockReward = GetBlockSubsidy(height, consensus);
+    CAmount blockReward = GetBlockSubsidy(mnview, height, consensus);
     if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0}) {
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
     }
@@ -2504,7 +2503,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
 }
 
 void ReverseGeneralCoinbaseTx(CCustomCSView &mnview, int height, const Consensus::Params &consensus) {
-    CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
+    CAmount blockReward = GetBlockSubsidy(mnview, height, Params().GetConsensus());
 
     if (height >= Params().GetConsensus().DF1AMKHeight) {
         if (height >= Params().GetConsensus().DF8EunosHeight) {
@@ -4012,7 +4011,7 @@ bool CChainState::ConnectTip(CValidationState &state,
 
     // Update teams every anchoringTeamChange number of blocks
     if (pindexNew->nHeight >= Params().GetConsensus().DF6DakotaHeight &&
-        pindexNew->nHeight % Params().GetConsensus().mn.anchoringTeamChange == 0) {
+        pindexNew->nHeight % pcustomcsview->GetTeamChange() == 0) {
         pcustomcsview->CalcAnchoringTeams(blockConnecting.stakeModifier, pindexNew);
 
         // Delete old and now invalid anchor confirms
@@ -5401,8 +5400,8 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader> &headers,
             LogPrintf("Synchronizing blockheaders, height: %d (~%.2f%%)\n",
                       (*ppindex)->nHeight,
                       100.0 /
-                          ((*ppindex)->nHeight + (GetAdjustedTime() - (*ppindex)->GetBlockTime()) /
-                                                     Params().GetConsensus().pos.nTargetSpacing) *
+                          ((*ppindex)->nHeight +
+                           (GetAdjustedTime() - (*ppindex)->GetBlockTime()) / GetTargetSpacing(*pcustomcsview)) *
                           (*ppindex)->nHeight);
         }
     }
@@ -5561,7 +5560,7 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
     team = *teamDakota;
 
     // Calc how far back team changes, do not generate auths below that height.
-    teamChange = teamChange % Params().GetConsensus().mn.anchoringTeamChange;
+    teamChange = teamChange % pcustomcsview->GetTeamChange();
 
     int topAnchorHeight = topAnchor ? static_cast<uint64_t>(topAnchor->anchor.height) : 0;
     // we have no need to ask for auths at all if we have topAnchor higher than current chain
@@ -5569,10 +5568,10 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
         return;
     }
 
+    const auto frequency = pcustomcsview->GetAnchorFrequency();
+
     const CBlockIndex *pindexFork = ::ChainActive().FindFork(oldTip);
-    auto forkHeight = pindexFork && pindexFork->nHeight >= consensus.mn.anchoringFrequency
-                          ? pindexFork->nHeight - consensus.mn.anchoringFrequency
-                          : 0;
+    int forkHeight = pindexFork && pindexFork->nHeight >= frequency ? pindexFork->nHeight - frequency : 0;
     // limit fork height - trim it by the top anchor, if any
     forkHeight = std::max(forkHeight, topAnchorHeight);
     pindexFork = ::ChainActive()[forkHeight];
@@ -5595,12 +5594,12 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
     for (const CBlockIndex *pindex = tip; pindex && pindex != pindexFork && teamChange >= 0;
          pindex = pindex->pprev, --teamChange) {
         // Only anchor by specified frequency
-        if (pindex->nHeight % consensus.mn.anchoringFrequency != 0) {
+        if (pindex->nHeight % frequency != 0) {
             continue;
         }
 
         // Get start anchor height
-        int anchorHeight = static_cast<int>(pindex->nHeight) - consensus.mn.anchoringFrequency;
+        int anchorHeight = static_cast<int>(pindex->nHeight) - frequency;
 
         // Get anchor block from specified time depth
         int64_t timeDepth = consensus.mn.anchoringTimeDepth;
@@ -5617,7 +5616,7 @@ void ProcessAuthsIfTipChanged(const CBlockIndex *oldTip, const CBlockIndex *tip,
         }
 
         // Rollback to height consistent with anchoringFrequency
-        while (anchorHeight > 0 && anchorHeight % consensus.mn.anchoringFrequency != 0) {
+        while (anchorHeight > 0 && anchorHeight % frequency != 0) {
             --anchorHeight;
         }
 
@@ -5743,7 +5742,9 @@ bool ProcessNewBlock(const CChainParams &chainparams,
     if (!::ChainstateActive().IsInitialBlockDownload() && tip && firstRunAfterIBD &&
         spv::pspv)  // spv::pspv not necessary here, but for disabling in old tests
     {
-        int sinceHeight = std::max(::ChainActive().Height() - chainparams.GetConsensus().mn.anchoringFrequency * 5, 0);
+        const auto frequency = pcustomcsview->GetAnchorFrequency();
+
+        const auto sinceHeight = std::max(::ChainActive().Height() - frequency * 5, int64_t{});
         LogPrint(BCLog::ANCHORING, "Trying to request some auths after IBD, since %i...\n", sinceHeight);
         RelayGetAnchorAuths(::ChainActive()[sinceHeight]->GetBlockHash(), tip->GetBlockHash(), *g_connman);
         firstRunAfterIBD = false;

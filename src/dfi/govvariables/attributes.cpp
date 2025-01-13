@@ -108,6 +108,10 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
         {"foundation",     ParamIDs::Foundation     },
         {"governance",     ParamIDs::GovernanceParam},
         {"dtoken_restart", ParamIDs::dTokenRestart  },
+        {"block_time",     ParamIDs::BlockTime      },
+        {"anchors",        ParamIDs::Anchors        },
+        {"masternodes",    ParamIDs::Masternodes    },
+        {"icx",            ParamIDs::ICX            },
     };
     return params;
 }
@@ -123,6 +127,10 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::Foundation,      "foundation"    },
         {ParamIDs::GovernanceParam, "governance"    },
         {ParamIDs::dTokenRestart,   "dtoken_restart"},
+        {ParamIDs::BlockTime,       "block_time"    },
+        {ParamIDs::Anchors,         "anchors"       },
+        {ParamIDs::Masternodes,     "masternodes"   },
+        {ParamIDs::ICX,             "icx"           },
     };
     return params;
 }
@@ -290,6 +298,19 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"governance", DFIPKeys::CommunityGovernance},
              {"ascending_block_time", DFIPKeys::AscendingBlockTime},
              {"govheight_min_blocks", DFIPKeys::GovHeightMinBlocks},
+             {"emission_reduction", DFIPKeys::EmissionReduction},
+             {"target_spacing", DFIPKeys::TargetSpacing},
+             {"target_timespan", DFIPKeys::TargetTimespan},
+             {"frequency", DFIPKeys::Frequency},
+             {"team_change", DFIPKeys::TeamChange},
+             {"activation_delay", DFIPKeys::ActivationDelay},
+             {"resign_delay", DFIPKeys::ResignDelay},
+             {"order_default_expiry", DFIPKeys::OrderDefaultExpiry},
+             {"offer_default_expiry", DFIPKeys::OfferDefaultExpiry},
+             {"offer_refund_timeout", DFIPKeys::OfferRefundTimeout},
+             {"submit_min_timeout", DFIPKeys::SubmitMinTimeout},
+             {"submit_min_2nd_timeout", DFIPKeys::SubmitMin2ndTimeout},
+             {"btc_blocks_in_dfi", DFIPKeys::SubmitBTCBlocksInDFI},
          }},
         {AttributeTypes::EVMType,
          {
@@ -398,6 +419,19 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::CommunityGovernance, "governance"},
              {DFIPKeys::AscendingBlockTime, "ascending_block_time"},
              {DFIPKeys::GovHeightMinBlocks, "govheight_min_blocks"},
+             {DFIPKeys::EmissionReduction, "emission_reduction"},
+             {DFIPKeys::TargetSpacing, "target_spacing"},
+             {DFIPKeys::TargetTimespan, "target_timespan"},
+             {DFIPKeys::Frequency, "frequency"},
+             {DFIPKeys::TeamChange, "team_change"},
+             {DFIPKeys::ActivationDelay, "activation_delay"},
+             {DFIPKeys::ResignDelay, "resign_delay"},
+             {DFIPKeys::OrderDefaultExpiry, "order_default_expiry"},
+             {DFIPKeys::OfferDefaultExpiry, "offer_default_expiry"},
+             {DFIPKeys::OfferRefundTimeout, "offer_refund_timeout"},
+             {DFIPKeys::SubmitMinTimeout, "submit_min_timeout"},
+             {DFIPKeys::SubmitMin2ndTimeout, "submit_min_2nd_timeout"},
+             {DFIPKeys::SubmitBTCBlocksInDFI, "btc_blocks_in_dfi"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -501,6 +535,18 @@ static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
         return DeFiErrors::GovVarVerifyInt();
     }
     return {x, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyMoreThenZeroUInt32(const std::string &str) {
+    auto resVal = VerifyUInt32(str);
+    if (!resVal) {
+        return resVal;
+    }
+    const auto value = std::get<uint32_t>(*resVal.val);
+    if (value == 0) {
+        return DeFiErrors::GovVarVerifyFactor();
+    }
+    return resVal;
 }
 
 static ResVal<CAttributeValue> VerifyMoreThenZeroUInt64(const std::string &str) {
@@ -832,6 +878,19 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::CommunityGovernance, VerifyBool},
                  {DFIPKeys::AscendingBlockTime, VerifyBool},
                  {DFIPKeys::GovHeightMinBlocks, VerifyMoreThenZeroUInt64},
+                 {DFIPKeys::EmissionReduction, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::TargetSpacing, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::TargetTimespan, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::Frequency, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::TeamChange, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::ActivationDelay, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::ResignDelay, VerifyMoreThenZeroInt64},
+                 {DFIPKeys::OrderDefaultExpiry, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::OfferDefaultExpiry, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::OfferRefundTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitMinTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitMin2ndTimeout, VerifyMoreThenZeroUInt32},
+                 {DFIPKeys::SubmitBTCBlocksInDFI, VerifyMoreThenZeroUInt32},
              }},
             {AttributeTypes::Locks,
              {
@@ -1017,6 +1076,25 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         } else if (typeId == ParamIDs::Foundation || typeId == ParamIDs::GovernanceParam) {
             if (typeKey != DFIPKeys::Members && typeKey != DFIPKeys::GovHeightMinBlocks) {
                 return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
+            }
+        } else if (typeId == ParamIDs::BlockTime) {
+            if (typeKey != DFIPKeys::EmissionReduction && typeKey != DFIPKeys::TargetSpacing &&
+                typeKey != DFIPKeys::TargetTimespan) {
+                return DeFiErrors::GovVarVariableUnsupportedBlockTimeType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Anchors) {
+            if (typeKey != DFIPKeys::Frequency && typeKey != DFIPKeys::TeamChange) {
+                return DeFiErrors::GovVarVariableUnsupportedAnchorType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Masternodes) {
+            if (typeKey != DFIPKeys::ActivationDelay && typeKey != DFIPKeys::ResignDelay) {
+                return DeFiErrors::GovVarVariableUnsupportedMasternodeType(typeKey);
+            }
+        } else if (typeId == ParamIDs::ICX) {
+            if (typeKey != DFIPKeys::OrderDefaultExpiry && typeKey != DFIPKeys::OfferDefaultExpiry &&
+                typeKey != DFIPKeys::OfferRefundTimeout && typeKey != DFIPKeys::SubmitMinTimeout &&
+                typeKey != DFIPKeys::SubmitMin2ndTimeout && typeKey != DFIPKeys::SubmitBTCBlocksInDFI) {
+                return DeFiErrors::GovVarVariableUnsupportedICXType(typeKey);
             }
         } else if (typeId != ParamIDs::dTokenRestart) {
             return DeFiErrors::GovVarVariableUnsupportedParamType();
@@ -1722,9 +1800,14 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == ParamIDs::DFIP2203 || attrV0->typeId == ParamIDs::DFIP2206F ||
-                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart) &&
+                     attrV0->typeId == ParamIDs::DFIP2211F || attrV0->typeId == ParamIDs::dTokenRestart ||
+                     attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::Anchors ||
+                     attrV0->typeId == ParamIDs::Masternodes) &&
                     (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
-                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod || attrV0->key == DFIPKeys::TargetSpacing ||
+                     attrV0->key == DFIPKeys::TargetTimespan || attrV0->key == DFIPKeys::Frequency ||
+                     attrV0->key == DFIPKeys::TeamChange || attrV0->key == DFIPKeys::ActivationDelay ||
+                     attrV0->key == DFIPKeys::ResignDelay)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
@@ -2103,7 +2186,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     } else if (attrV0->key == DFIPKeys::CommunityGovernance ||
                                attrV0->key == DFIPKeys::AscendingBlockTime) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
-                            return Res::Err("Cannot be set before DF24Height");
+                            return DeFiErrors::GovVarValidateDF24Height();
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
@@ -2139,9 +2222,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return DeFiErrors::GovVarValidateBlockPeriod();
                         }
                     }
-                } else if (attrV0->typeId == ParamIDs::GovernanceParam) {
+                } else if (attrV0->typeId == ParamIDs::BlockTime || attrV0->typeId == ParamIDs::GovernanceParam ||
+                           attrV0->typeId == ParamIDs::Anchors || attrV0->typeId == ParamIDs::Masternodes ||
+                           attrV0->typeId == ParamIDs::ICX) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
-                        return Res::Err("Cannot be set before DF24Height");
+                        return DeFiErrors::GovVarValidateDF24Height();
                     }
                 } else if (attrV0->typeId == ParamIDs::dTokenRestart) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF24Height) {
@@ -2496,7 +2581,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     return DeFiErrors::GovVarApplyAutoNoToken(split);
                 }
 
-                const auto startHeight = attrV0->key - Params().GetConsensus().blocksPerDay() / 2;
+                const auto startHeight = attrV0->key - BlocksPerDay(mnview) / 2;
                 if (height < startHeight) {
                     auto var = GovVariable::Create("ATTRIBUTES");
                     if (!var) {
@@ -2584,6 +2669,43 @@ Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::st
     }
 
     return Res::Ok();
+}
+
+int64_t GetTargetSpacing(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetSpacing};
+    return attributes->GetValue(key, Params().GetConsensus().pos.nTargetSpacing);
+}
+
+int64_t GetTargetTimespan(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetTimespan};
+    return attributes->GetValue(key, Params().GetConsensus().pos.nTargetTimespanV2);
+}
+
+int64_t DifficultyAdjustment(const CCustomCSView &view) {
+    return GetTargetTimespan(view) / GetTargetSpacing(view);
+}
+
+int32_t GetEmissionReduction(const CCustomCSView &view) {
+    const auto attributes = view.GetAttributes();
+    CDataStructureV0 key{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::EmissionReduction};
+    return attributes->GetValue(key, Params().GetConsensus().emissionReductionPeriod);
+}
+
+uint32_t BlocksPerDay(const CCustomCSView &view) {
+    uint32_t blocks = 60 * 60 * 24 / GetTargetSpacing(view);
+    return blocks;
+}
+
+uint32_t BlocksCollateralizationRatioCalculation(const CCustomCSView &view) {
+    uint32_t blocks = 15 * 60 / GetTargetSpacing(view);
+    return blocks;
+}
+
+uint32_t BlocksCollateralAuction(const CCustomCSView &view) {
+    uint32_t blocks = 6 * 60 * 60 / GetTargetSpacing(view);
+    return blocks;
 }
 
 Res GovernanceMemberRemoval(ATTRIBUTES &newVar,

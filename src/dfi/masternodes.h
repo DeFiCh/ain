@@ -34,15 +34,16 @@
 
 class CAccountHistoryStorage;
 class CBlockIndex;
+class CCustomCSView;
 class CMasternodesView;
 class CTransaction;
 class CVaultHistoryStorage;
 
 // Works instead of constants cause 'regtest' differs (don't want to overcharge chainparams)
-int GetMnActivationDelay(int height);
-int GetMnResignDelay(int height);
+int GetMnActivationDelay(const CCustomCSView &view, const int height);
+int GetMnResignDelay(const CCustomCSView &view, const int height);
 CAmount GetTokenCollateralAmount();
-CAmount GetMnCreationFee(int height);
+CAmount GetMnCreationFee();
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
 CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
@@ -375,6 +376,7 @@ public:
     CTeam GetCurrentTeam() const;
     std::optional<CTeam> GetAuthTeam(int height) const;
     std::optional<CTeam> GetConfirmTeam(int height) const;
+    int64_t GetTeamChange() const;
 
     struct AuthTeam {
         static constexpr uint8_t prefix() { return 'v'; }
@@ -397,6 +399,7 @@ public:
     void AddRewardForAnchor(const AnchorTxHash &btcTxHash, const RewardTxHash &rewardTxHash);
     void RemoveRewardForAnchor(const AnchorTxHash &btcTxHash);
     void ForEachAnchorReward(std::function<bool(const AnchorTxHash &, CLazySerialize<RewardTxHash>)> callback);
+    int64_t GetAnchorFrequency() const;
 
     struct BtcTx {
         static constexpr uint8_t prefix() { return 'r'; }

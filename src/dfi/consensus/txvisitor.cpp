@@ -199,6 +199,82 @@ Res AuthManager::CanSetGov(const ATTRIBUTES &var) {
     return Res::Ok();
 }
 
+static Res CheckTimeRelatedVarsInternal(const std::set<CDataStructureV0> &pendingKeys) {
+    std::set<CDataStructureV0> checkingKeys;
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::EmissionReduction});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetSpacing});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::BlockTime, DFIPKeys::TargetTimespan});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::Frequency});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::Anchors, DFIPKeys::TeamChange});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::Masternodes, DFIPKeys::ActivationDelay});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::Masternodes, DFIPKeys::ResignDelay});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OrderDefaultExpiry});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferDefaultExpiry});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::OfferRefundTimeout});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMinTimeout});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitMin2ndTimeout});
+    checkingKeys.insert(CDataStructureV0{AttributeTypes::Param, ParamIDs::ICX, DFIPKeys::SubmitBTCBlocksInDFI});
+
+    std::set<CDataStructureV0> intersection;
+    for (const auto &key : checkingKeys) {
+        if (pendingKeys.find(key) != pendingKeys.end()) {
+            intersection.insert(key);
+        }
+    }
+
+    if (intersection.empty() || intersection == checkingKeys) {
+        return Res::Ok();
+    }
+
+    return Res::Err(
+        "Param Time vars must be changed together. BlockTime: EmissionReduction, TargetSpacing, TargetTimespan. "
+        "Anchors: Frequency, TeamChange. Masternodes: ActivationDelay, ResignDelay. ICX: OrderDefaultExpiry, "
+        "OfferDefaultExpiry, OfferRefundTimeout, SubmitMinTimeout, SubmitMin2ndTimeout, SubmitBTCBlocksInDFI");
+}
+
+Res CheckTimeRelatedVars(const ATTRIBUTES &var) {
+    std::set<CDataStructureV0> pendingKeys;
+    var.ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+            if (attr.type != AttributeTypes::Param) {
+                return false;
+            }
+            pendingKeys.insert(attr);
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Param});
+
+    if (const auto res = CheckTimeRelatedVarsInternal(pendingKeys); !res) {
+        return res;
+    }
+    return Res::Ok();
+}
+
+Res CheckTimeRelatedVars(const std::vector<std::string> &keys) {
+    if (keys.empty()) {
+        return Res::Err("No keys to check");
+    }
+    std::set<CDataStructureV0> pendingKeys;
+    for (const auto &key : keys) {
+        const auto res = ATTRIBUTES::ProcessVariable(key, std::nullopt, [&](const auto &attribute, const auto &) {
+            const auto attr = std::get_if<CDataStructureV0>(&attribute);
+            if (!attr) {
+                return Res::Err("Attribute type check failed");
+            }
+            pendingKeys.insert(*attr);
+            return Res::Ok();
+        });
+        if (!res) {
+            return res;
+        }
+    }
+
+    if (const auto res = CheckTimeRelatedVarsInternal(pendingKeys); !res) {
+        return res;
+    }
+    return Res::Ok();
+}
+
 Res AuthManager::HasGovOrFoundationAuth() {
     if (HasFoundationAuth() || HasGovernanceAuth()) {
         return Res::Ok();

@@ -4,6 +4,7 @@
 
 #include <dfi/oracles.h>
 
+#include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 
 #include <algorithm>
@@ -223,5 +224,5 @@ uint32_t COracleView::GetIntervalBlock() const {
     }
 
     // Default
-    return 60 * 60 / Params().GetConsensus().pos.nTargetSpacing;
+    return 60 * 60 / GetTargetSpacing(*static_cast<const CCustomCSView *>(this));
 }
