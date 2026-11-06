@@ -4,7 +4,10 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test that account transfers cannot create DFI out of thin air.
 
-Regression test for an integer overflow in the transfer sum.
+Regression test for an integer overflow in the transfer sum: when the sum of
+the transfer amounts exceeds INT64_MAX, the overflow error was swallowed, the
+source account was debited with a truncated sum and the destinations were
+credited with the full amounts - creating DFI that never existed.
 
 SumAllTransfers() ignored the return value of AddBalances(). When the sum
 of the transfer amounts exceeded INT64_MAX, SafeAdd() reported "overflow"
