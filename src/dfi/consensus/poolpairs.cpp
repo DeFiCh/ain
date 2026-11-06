@@ -187,7 +187,11 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
 }
 
 Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
-    CBalances sumTx = SumAllTransfers(obj.from);
+    auto sumTxRes = SumAllTransfers(obj.from);
+    if (!sumTxRes) {
+        return sumTxRes;
+    }
+    CBalances sumTx = *sumTxRes.val;
     if (sumTx.balances.size() != 2) {
         return Res::Err("the pool pair requires two tokens");
     }
