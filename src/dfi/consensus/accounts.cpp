@@ -31,9 +31,12 @@ Res CAccountsConsensus::operator()(const CUtxosToAccountMessage &obj) const {
     }
 
     const auto mustBeBurnt = SumAllTransfers(obj.to);
-    if (*burnt.val != mustBeBurnt) {
+    if (!mustBeBurnt) {
+        return mustBeBurnt;
+    }
+    if (*burnt.val != *mustBeBurnt.val) {
         return Res::Err(
-            "transfer tokens mismatch burnt tokens: (%s) != (%s)", mustBeBurnt.ToString(), burnt.val->ToString());
+            "transfer tokens mismatch burnt tokens: (%s) != (%s)", mustBeBurnt.val->ToString(), burnt.val->ToString());
     }
 
     // transfer
@@ -77,7 +80,11 @@ Res CAccountsConsensus::operator()(const CAccountToAccountMessage &obj) const {
     }
 
     // transfer
-    if (auto res = SubBalanceDelShares(obj.from, SumAllTransfers(obj.to)); !res) {
+    auto mustTransfer = SumAllTransfers(obj.to);
+    if (!mustTransfer) {
+        return mustTransfer;
+    }
+    if (auto res = SubBalanceDelShares(obj.from, *mustTransfer.val); !res) {
         return res;
     }
 
@@ -94,9 +101,15 @@ Res CAccountsConsensus::operator()(const CAnyAccountsToAccountsMessage &obj) con
 
     // compare
     const auto sumFrom = SumAllTransfers(obj.from);
+    if (!sumFrom) {
+        return sumFrom;
+    }
     const auto sumTo = SumAllTransfers(obj.to);
+    if (!sumTo) {
+        return sumTo;
+    }
 
-    if (sumFrom != sumTo) {
+    if (*sumFrom.val != *sumTo.val) {
         return Res::Err("sum of inputs (from) != sum of outputs (to)");
     }
 
