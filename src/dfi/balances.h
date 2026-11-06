@@ -262,12 +262,21 @@ struct CStatsTokenBalances {
     }
 };
 
-inline CBalances SumAllTransfers(const CAccounts &to) {
+// Sums up the amounts of all destination accounts.
+//
+// NOTE: the return value of AddBalances must be checked! On overflow
+// SafeAdd reports "overflow" and Add aborts before mutating the balances,
+// so the sum would silently stay at the first amount. Without this check
+// the source account is debited with too little while the destination
+// accounts are credited with the full amounts.
+inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {
-        sum.AddBalances(kv.second.balances);
+        if (auto res = sum.AddBalances(kv.second.balances); !res) {
+            return res;
+        }
     }
-    return sum;
+    return {sum, Res::Ok()};
 }
 
 struct BalanceKey {
