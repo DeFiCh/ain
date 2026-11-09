@@ -128,6 +128,7 @@ pub mod ffi {
         fn getDF23Height() -> u64;
         fn getDF24Height() -> u64;
         fn getBalanceOverflowHeight() -> u64;
+        fn getMNVersionGateHeight() -> u64;
         fn migrateTokensFromEVM(
             mnview_ptr: usize,
             old_amount: TokenAmount,

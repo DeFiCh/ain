@@ -113,6 +113,13 @@ struct Params {
      * This is a consensus constant: it must be identical on every node.
      */
     int nBalanceOverflowHeight;
+    /**
+     * Masternode Version Gate: Height from which on blocks must signal the
+     * overflow-fix capability in block.nVersion (VERSION_BIT_BALANCE_OVERFLOW).
+     * Blocks without this signal are rejected with bad-version.
+     */
+    int nMNVersionGateHeight;
+    static constexpr int32_t VERSION_BIT_BALANCE_OVERFLOW = (1 << 24);
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;

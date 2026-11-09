@@ -230,6 +230,9 @@ mod ffi {
     pub fn getBalanceOverflowHeight() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getMNVersionGateHeight() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn migrateTokensFromEVM(
         _mnview_ptr: usize,
         _old_amount: TokenAmount,
@@ -483,6 +486,11 @@ pub fn get_df24_height() -> u64 {
 /// rejected. Below that height the historical behaviour is kept.
 pub fn get_balance_overflow_height() -> u64 {
     ffi::getBalanceOverflowHeight()
+}
+
+/// Gets the height from which on blocks must signal the overflow fix in nVersion.
+pub fn get_mn_version_gate_height() -> u64 {
+    ffi::getMNVersionGateHeight()
 }
 
 /// Send tokens to DVM to split

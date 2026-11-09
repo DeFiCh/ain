@@ -609,6 +609,11 @@ uint64_t getBalanceOverflowHeight() {
     return height < 0 ? 0 : static_cast<uint64_t>(height);
 }
 
+uint64_t getMNVersionGateHeight() {
+    const auto height = Params().GetConsensus().nMNVersionGateHeight;
+    return height < 0 ? 0 : static_cast<uint64_t>(height);
+}
+
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

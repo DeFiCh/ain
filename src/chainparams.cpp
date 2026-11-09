@@ -154,6 +154,7 @@ public:
         //
         // This is a consensus constant: it must be identical on every node.
         consensus.nBalanceOverflowHeight = 6564035;
+        consensus.nMNVersionGateHeight = 6564035;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -449,6 +450,7 @@ public:
         // TODO(testnet): set to a height above the current testnet tip
         // before the v4.2.6 release.
         consensus.nBalanceOverflowHeight = std::numeric_limits<int>::max();
+        consensus.nMNVersionGateHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -676,6 +678,7 @@ public:
         // TODO(changi): set to a height above the current changi tip
         // before the v4.2.6 release.
         consensus.nBalanceOverflowHeight = std::numeric_limits<int>::max();
+        consensus.nMNVersionGateHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -895,6 +898,7 @@ public:
         consensus.DF23Height = std::numeric_limits<int>::max();
         consensus.DF24Height = std::numeric_limits<int>::max();
         consensus.nBalanceOverflowHeight = std::numeric_limits<int>::max();
+        consensus.nMNVersionGateHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1122,6 +1126,7 @@ public:
         // fixed behaviour. Use -balanceoverflowheight to test the legacy
         // path (activation height above the transaction height).
         consensus.nBalanceOverflowHeight = 1;
+        consensus.nMNVersionGateHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1398,6 +1403,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     // override is only evaluated on regtest and mocknet (both call
     // SetupCommonArgActivationParams).
     UpdateHeightValidation("Balance Overflow Height", "-balanceoverflowheight", consensus.nBalanceOverflowHeight);
+    UpdateHeightValidation("Masternode Version Gate Height", "-mnversiongateheight", consensus.nMNVersionGateHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
