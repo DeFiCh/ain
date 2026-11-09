@@ -187,7 +187,7 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
 }
 
 Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
-    auto sumTxRes = SumAllTransfers(obj.from);
+    auto sumTxRes = SumTransfers(obj.from);
     if (!sumTxRes) {
         return sumTxRes;
     }

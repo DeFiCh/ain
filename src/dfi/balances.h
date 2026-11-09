@@ -279,6 +279,25 @@ inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
     return {sum, Res::Ok()};
 }
 
+// Sums up the amounts of all destination accounts the way it was done
+// before the overflow fix: the return value of AddBalances is ignored.
+//
+// This reproduces the historical behaviour bit-exactly and is needed for
+// blocks below nBalanceOverflowHeight: those blocks were mined with this
+// behaviour and must stay valid.
+//
+// The loop deliberately continues after an overflow. CBalances::Add aborts
+// before mutating the balances, so an account with several tokens keeps
+// the tokens before the overflowing one. Breaking out of the loop here
+// would change the resulting sum and invalidate already mined blocks.
+inline CBalances SumAllTransfersLegacy(const CAccounts &to) {
+    CBalances sum;
+    for (const auto &kv : to) {
+        sum.AddBalances(kv.second.balances);
+    }
+    return sum;
+}
+
 struct BalanceKey {
     CScript owner;
     DCT_ID tokenID;

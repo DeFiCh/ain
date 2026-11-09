@@ -89,6 +89,11 @@ def get_default_config_path():
         current_file_path + "/../../test/config.ini",
         current_file_path + "/../../config.ini",
     ]
+    # Allow overriding the config location (e.g. when the build tree is
+    # not writable and the checked-in config points at a container path).
+    env_config = os.environ.get("DEFI_TEST_CONFIG")
+    if env_config:
+        default_config_paths.insert(0, env_config)
     for p in default_config_paths:
         if os.path.exists(p):
             return os.path.abspath(p)

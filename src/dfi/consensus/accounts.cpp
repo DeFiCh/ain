@@ -30,7 +30,7 @@ Res CAccountsConsensus::operator()(const CUtxosToAccountMessage &obj) const {
         return burnt;
     }
 
-    const auto mustBeBurnt = SumAllTransfers(obj.to);
+    const auto mustBeBurnt = SumTransfers(obj.to);
     if (!mustBeBurnt) {
         return mustBeBurnt;
     }
@@ -80,7 +80,7 @@ Res CAccountsConsensus::operator()(const CAccountToAccountMessage &obj) const {
     }
 
     // transfer
-    auto mustTransfer = SumAllTransfers(obj.to);
+    auto mustTransfer = SumTransfers(obj.to);
     if (!mustTransfer) {
         return mustTransfer;
     }
@@ -100,11 +100,11 @@ Res CAccountsConsensus::operator()(const CAnyAccountsToAccountsMessage &obj) con
     }
 
     // compare
-    const auto sumFrom = SumAllTransfers(obj.from);
+    const auto sumFrom = SumTransfers(obj.from);
     if (!sumFrom) {
         return sumFrom;
     }
-    const auto sumTo = SumAllTransfers(obj.to);
+    const auto sumTo = SumTransfers(obj.to);
     if (!sumTo) {
         return sumTo;
     }

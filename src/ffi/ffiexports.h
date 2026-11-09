@@ -164,6 +164,7 @@ bool isEthDebugTraceRPCEnabled();
 rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash);
 uint64_t getDF23Height();
 uint64_t getDF24Height();
+uint64_t getBalanceOverflowHeight();
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
 bool isSkippedTx(std::array<uint8_t, 32> txHash);
 

@@ -104,6 +104,15 @@ struct Params {
     int DF22MetachainHeight;
     int DF23Height;
     int DF24Height;
+    /**
+     * Height from which on an overflowing sum of transfer amounts is
+     * rejected. Below this height the previous behaviour is kept, so that
+     * already mined blocks stay valid.
+     *
+     * The strict rule applies from this height on (height >= nBalanceOverflowHeight).
+     * This is a consensus constant: it must be identical on every node.
+     */
+    int nBalanceOverflowHeight;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;

@@ -342,6 +342,7 @@ BASE_SCRIPTS = [
     "feature_config_args.py",
     "feature_account_mining.py",
     "feature_account_overflow.py",
+    "feature_balance_overflow_height.py",
     "feature_accounts_validation.py",
     "feature_listaccounts_pagination.py",
     "feature_on_chain_government.py",

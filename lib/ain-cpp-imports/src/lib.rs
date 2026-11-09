@@ -227,6 +227,9 @@ mod ffi {
     pub fn getDF24Height() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getBalanceOverflowHeight() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn migrateTokensFromEVM(
         _mnview_ptr: usize,
         _old_amount: TokenAmount,
@@ -474,6 +477,12 @@ pub fn get_df23_height() -> u64 {
 /// Gets the DF23 height
 pub fn get_df24_height() -> u64 {
     ffi::getDF24Height()
+}
+
+/// Gets the height from which on an overflowing sum of transfer amounts is
+/// rejected. Below that height the historical behaviour is kept.
+pub fn get_balance_overflow_height() -> u64 {
+    ffi::getBalanceOverflowHeight()
 }
 
 /// Send tokens to DVM to split
