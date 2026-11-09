@@ -230,6 +230,18 @@ Res CCustomTxVisitor::CheckCustomTx() const {
     return Res::Ok();
 }
 
+ResVal<CBalances> CCustomTxVisitor::SumTransfers(const CAccounts &to) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    // Below the activation height the historical behaviour is kept so that
+    // already mined blocks stay valid. From that height on an overflowing
+    // sum is a consensus error.
+    if (height < static_cast<uint32_t>(consensus.nBalanceOverflowHeight)) {
+        return {SumAllTransfersLegacy(to), Res::Ok()};
+    }
+    return SumAllTransfers(to);
+}
+
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const {
     assert(!from.empty() || !to.empty());
 

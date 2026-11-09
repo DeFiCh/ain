@@ -600,6 +600,20 @@ uint64_t getDF24Height() {
     return Params().GetConsensus().DF24Height;
 }
 
+uint64_t getBalanceOverflowHeight() {
+    // nBalanceOverflowHeight is an int and may be INT_MAX (disabled).
+    // A negative value must not be wrapped around to a huge uint64_t,
+    // so it is clamped to 0 (meaning: the strict rule is active from the
+    // genesis block - the same semantics as a height of 0).
+    const auto height = Params().GetConsensus().nBalanceOverflowHeight;
+    return height < 0 ? 0 : static_cast<uint64_t>(height);
+}
+
+uint64_t getMNVersionGateHeight() {
+    const auto height = Params().GetConsensus().nMNVersionGateHeight;
+    return height < 0 ? 0 : static_cast<uint64_t>(height);
+}
+
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
     return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

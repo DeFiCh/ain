@@ -378,6 +378,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     auto consensus = chainparams.GetConsensus();
     pblock->nVersion = ComputeBlockVersion(pindexPrev, consensus);
+    if (nHeight >= consensus.nMNVersionGateHeight) {
+        pblock->nVersion |= Consensus::Params::VERSION_BIT_BALANCE_OVERFLOW;
+    }
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
     if (chainparams.MineBlocksOnDemand()) {

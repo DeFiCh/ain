@@ -5145,6 +5145,16 @@ static bool ContextualCheckBlockHeader(const CBlockHeader &block,
                              strprintf("rejected nVersion=0x%08x block", block.nVersion));
     }
 
+    // Masternode Version Gate: reject blocks that do not signal the overflow fix
+    if (nHeight >= consensusParams.nMNVersionGateHeight) {
+        if ((block.nVersion & Consensus::Params::VERSION_BIT_BALANCE_OVERFLOW) == 0) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
+                                 false,
+                                 strprintf("bad-version(0x%08x)", block.nVersion),
+                                 strprintf("rejected outdated nVersion=0x%08x block at height %d (missing overflow fix signal)", block.nVersion, nHeight));
+        }
+    }
+
     return true;
 }
 

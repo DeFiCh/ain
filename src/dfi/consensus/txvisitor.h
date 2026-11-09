@@ -64,6 +64,13 @@ protected:
     Res HasFoundationAuth() const;
 
     Res CheckCustomTx() const;
+    /// Sums up the amounts of all destination accounts, honouring the
+    /// balance overflow activation height.
+    ///
+    /// Below consensus.nBalanceOverflowHeight the historical behaviour is
+    /// used (the overflow error is ignored), from that height on an
+    /// overflowing sum is a consensus error.
+    ResVal<CBalances> SumTransfers(const CAccounts &to) const;
     Res TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const;
     ResVal<CBalances> MintedTokens(uint32_t mintingOutputsStart) const;
     Res SetShares(const CScript &owner, const TAmounts &balances) const;

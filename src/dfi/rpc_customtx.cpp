@@ -193,7 +193,12 @@ public:
     }
 
     void operator()(const CLiquidityMessage &obj) const {
-        CBalances sumTx = SumAllTransfers(obj.from);
+        auto sumTxRes = SumAllTransfers(obj.from);
+        if (!sumTxRes) {
+            rpcInfo.pushKV("error", sumTxRes.msg);
+            return;
+        }
+        const CBalances sumTx = *sumTxRes.val;
         if (sumTx.balances.size() == 2) {
             auto amountA = *sumTx.balances.begin();
             auto amountB = *(std::next(sumTx.balances.begin(), 1));

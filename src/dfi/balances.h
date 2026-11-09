@@ -262,7 +262,35 @@ struct CStatsTokenBalances {
     }
 };
 
-inline CBalances SumAllTransfers(const CAccounts &to) {
+// Sums up the amounts of all destination accounts.
+//
+// NOTE: the return value of AddBalances must be checked! On overflow
+// SafeAdd reports "overflow" and Add aborts before mutating the balances,
+// so the sum would silently stay at the first amount. Without this check
+// the source account is debited with too little while the destination
+// accounts are credited with the full amounts.
+inline ResVal<CBalances> SumAllTransfers(const CAccounts &to) {
+    CBalances sum;
+    for (const auto &kv : to) {
+        if (auto res = sum.AddBalances(kv.second.balances); !res) {
+            return res;
+        }
+    }
+    return {sum, Res::Ok()};
+}
+
+// Sums up the amounts of all destination accounts the way it was done
+// before the overflow fix: the return value of AddBalances is ignored.
+//
+// This reproduces the historical behaviour bit-exactly and is needed for
+// blocks below nBalanceOverflowHeight: those blocks were mined with this
+// behaviour and must stay valid.
+//
+// The loop deliberately continues after an overflow. CBalances::Add aborts
+// before mutating the balances, so an account with several tokens keeps
+// the tokens before the overflowing one. Breaking out of the loop here
+// would change the resulting sum and invalidate already mined blocks.
+inline CBalances SumAllTransfersLegacy(const CAccounts &to) {
     CBalances sum;
     for (const auto &kv : to) {
         sum.AddBalances(kv.second.balances);

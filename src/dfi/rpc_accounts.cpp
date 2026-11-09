@@ -812,7 +812,11 @@ UniValue utxostoaccount(const JSONRPCRequest &request) {
     scriptBurn << OP_RETURN;
 
     // burn
-    const auto toBurn = SumAllTransfers(msg.to);
+    auto toBurnRes = SumAllTransfers(msg.to);
+    if (!toBurnRes) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, toBurnRes.msg);
+    }
+    const auto toBurn = *toBurnRes.val;
     if (toBurn.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
@@ -986,7 +990,11 @@ UniValue accounttoaccount(const JSONRPCRequest &request) {
     auto ownershipCheck = gArgs.GetBoolArg("-dvmownerskipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
-    if (SumAllTransfers(msg.to).balances.empty()) {
+    auto sumToRes = SumAllTransfers(msg.to);
+    if (!sumToRes) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, sumToRes.msg);
+    }
+    if (sumToRes.val->balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
 
@@ -1099,7 +1107,11 @@ UniValue accounttoutxos(const JSONRPCRequest &request) {
     msg.from = DecodeScript(request.params[0].get_str());
     RejectErc55Address(msg.from);
     const auto to = DecodeRecipients(pwallet->chain(), request.params[1]);
-    msg.balances = SumAllTransfers(to);
+    auto sumToRes = SumAllTransfers(to);
+    if (!sumToRes) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, sumToRes.msg);
+    }
+    msg.balances = *sumToRes.val;
     if (msg.balances.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts");
     }
@@ -2126,7 +2138,11 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
     auto ownershipCheck = gArgs.GetBoolArg("-dvmownerskipcheck", DEFAULT_DVM_OWNERSHIP_CHECK);
     msg.to = DecodeRecipientsDefaultInternal(pwallet, request.params[1].get_obj(), ownershipCheck);
 
-    const CBalances sumTransfersTo = SumAllTransfers(msg.to);
+    auto sumTransfersToRes = SumAllTransfers(msg.to);
+    if (!sumTransfersToRes) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, sumTransfersToRes.msg);
+    }
+    const CBalances sumTransfersTo = *sumTransfersToRes.val;
     if (sumTransfersTo.balances.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "zero amounts in \"to\" param");
     }
